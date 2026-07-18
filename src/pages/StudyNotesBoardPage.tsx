@@ -111,9 +111,26 @@ export function StudyNotesBoardPage() {
         useCORS: true,
         logging: false
       });
+      const dataUrl = canvas.toDataURL("image/png");
+      const defaultFilename = `FlowTrack-StickyNotes-${new Date().toISOString().split("T")[0]}.png`;
+
+      // Check if running inside Electron wrapper shell environment
+      if (typeof window !== "undefined" && (window as any).require) {
+        try {
+          const electron = (window as any).require("electron");
+          await electron.ipcRenderer.invoke("save-image-dialog", {
+            base64Data: dataUrl,
+            defaultFilename: defaultFilename
+          });
+          return;
+        } catch (ipcErr) {
+          console.warn("Electron native save failed, falling back to browser download", ipcErr);
+        }
+      }
+
       const link = document.createElement("a");
-      link.download = `FlowTrack-StickyNotes-${new Date().toISOString().split("T")[0]}.png`;
-      link.href = canvas.toDataURL("image/png");
+      link.download = defaultFilename;
+      link.href = dataUrl;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

@@ -40,6 +40,30 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
+// IPC Handler to save base64 image streams natively in Electron desktop shell
+ipcMain.handle("save-image-dialog", async (event, { base64Data, defaultFilename }) => {
+  try {
+    const { dialog } = require("electron");
+    const fs = require("fs");
+    
+    const { filePath } = await dialog.showSaveDialog(mainWindow, {
+      title: "Save Sticky Notes Board",
+      defaultPath: defaultFilename,
+      filters: [{ name: "Images", extensions: ["png"] }]
+    });
+
+    if (filePath) {
+      const base64Image = base64Data.split(";base64,").pop();
+      fs.writeFileSync(filePath, base64Image, { encoding: "base64" });
+      return { success: true, path: filePath };
+    }
+    return { success: false, reason: "cancelled" };
+  } catch (err) {
+    console.error("Save image dialog helper error:", err);
+    return { success: false, error: err.message };
+  }
+});
+
 // IPC communication endpoints for active window tracking
 ipcMain.handle("get-active-window", async () => {
   try {
