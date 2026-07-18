@@ -299,6 +299,9 @@ The-Ultimate-Master-Study-Tracker/
 │   ├── manifest.json       # PWA transformation settings
 │   ├── sw.js               # Service Worker core logic (Caching & Offline)
 │   └── icons/              # Multi-resolution branding assets
+├── public/                 # Static assets directory
+│   └── analytics.worker.js # Computational background Web Worker
+├── electron.js             # Electron main desktop process wrapper config
 ├── src/                    # The Engine Room
 │   ├── components/         # Modular UI Components
 │   │   ├── charts/         # Analytics layer (Recharts implementation)
@@ -307,10 +310,13 @@ The-Ultimate-Master-Study-Tracker/
 │   │   ├── common/         # Foundation components
 │   │   │   ├── Button.tsx
 │   │   │   ├── Panel.tsx   # The "Glass" container base
-│   │   │   └── Modal.tsx
+│   │   │   ├── Modal.tsx
+│   │   │   └── PDFStudyReader.tsx # PDF side-by-side Companion
 │   │   ├── layout/         # High-level architecture
 │   │   │   ├── Navbar.tsx
 │   │   │   └── TabNavigation.tsx
+│   │   ├── goals/          # Focus challenges
+│   │   │   └── GamifiedFocusQuest.tsx # Daily Quest Boss Fight
 │   │   ├── session/        # Business logic for session management
 │   │   │   └── SessionForm.tsx
 │   │   └── timer/          # Core timer functionality
@@ -330,8 +336,8 @@ The-Ultimate-Master-Study-Tracker/
 │   ├── types/              # TypeScript Contract layer
 │   │   └── models.ts       # Global interfaces (StudySession, Subject, etc.)
 │   └── utils/              # Pure utility functions
-│       ├── time.ts         # Formatting & Math
-│       └── xp.ts           # Leveling logic
+│   │   ├── time.ts         # Formatting & Math
+│   │   └── xp.ts           # Leveling logic
 ├── artifacts/              # Development history & Roadmap
 ├── package.json            # Dependency manifest
 ├── vite.config.ts          # Build system configuration
@@ -367,8 +373,10 @@ Using **Dexie.js**, we implement a "Transactional Sync":
 | Category | Technology (2026) | Link |
 |----------|-----------|------|
 | ⚛️ Core | React 19 | [react.dev](https://react.dev/) |
-| ⚡ Build | Vite 6 | [vitejs.dev](https://vitejs.dev/) |
-| 🔒 Types | TypeScript 5.7+ | [typescriptlang.org](https://www.typescriptlang.org/) |
+| ⚡ Build | Vite 7 | [vitejs.dev](https://vitejs.dev/) |
+| 🖥️ Wrapper | Electron 43 | [electronjs.org](https://www.electronjs.org/) |
+| 🧵 Multithreading | HTML5 Web Workers | [developer.mozilla.org](https://developer.mozilla.org/) |
+| 🗣️ Voice Synthesizer | Web Speech API | [developer.mozilla.org](https://developer.mozilla.org/) |
 | 💾 Database | IndexedDB via Dexie | [dexie.org](https://dexie.org/) |
 | 🗃️ State | Zustand | [zustand-demo.pmnd.rs](https://zustand-demo.pmnd.rs/) |
 | 🎨 Styling | Tailwind CSS v4 | [tailwindcss.com](https://tailwindcss.com/) |
@@ -377,7 +385,7 @@ Using **Dexie.js**, we implement a "Transactional Sync":
 | 📊 Graphs | Recharts | [recharts.org](https://recharts.org/) |
 | 🤖 Local AI | Ollama / WebLLM | [ollama.com](https://ollama.com/) |
 | 📱 App Shell | PWA + Service Worker | [web.dev/pwa](https://web.dev/explore/progressive-web-apps) |
-| ☁️ Hosting | Vercel | [Live App →](https://study-tracker-app-pied.vercel.app/) |
+| ☁️ Hosting | Vercel | [Live App →](https://the-ultimate-master-study-tracker.vercel.app/) |
 
 ---
 
