@@ -69,27 +69,9 @@ export function AppTrackingPage() {
         setAppUsage(parsed.apps || []);
         setBrowserTabs(parsed.tabs || []);
       } else {
-        // Generate realistic wellbeing dummy data for the student
-        const dummyApps: AppUsageRecord[] = [
-          { id: "1", appName: "VS Code", duration: 10800, date: selectedDate, hour: 10, isActive: false, category: "study" },
-          { id: "2", appName: "Google Chrome", duration: 7200, date: selectedDate, hour: 11, isActive: true, category: "browser" },
-          { id: "3", appName: "Discord", duration: 3600, date: selectedDate, hour: 15, isActive: false, category: "social" },
-          { id: "4", appName: "Spotify", duration: 2400, date: selectedDate, hour: 14, isActive: false, category: "entertainment" },
-          { id: "5", appName: "FlowTrack Suite", duration: 1800, date: selectedDate, hour: 9, isActive: false, category: "productivity" }
-        ];
-
-        const dummyTabs: BrowserTabRecord[] = [
-          { id: "t1", tabTitle: "MDN Web Docs", url: "https://developer.mozilla.org", domain: "developer.mozilla.org", duration: 3200, date: selectedDate, hour: 10, visitCount: 8 },
-          { id: "t2", tabTitle: "YouTube - Lo-Fi Beats", url: "https://youtube.com", domain: "youtube.com", duration: 2400, date: selectedDate, hour: 14, visitCount: 3 },
-          { id: "t3", tabTitle: "GitHub Dashboard", url: "https://github.com", domain: "github.com", duration: 1200, date: selectedDate, hour: 11, visitCount: 15 },
-          { id: "t4", tabTitle: "Stack Overflow", url: "https://stackoverflow.com", domain: "stackoverflow.com", duration: 400, date: selectedDate, hour: 11, visitCount: 4 }
-        ];
-
-        setAppUsage(dummyApps);
-        setBrowserTabs(dummyTabs);
-
-        // Save generated so it remains consistent
-        localStorage.setItem(localKey, JSON.stringify({ apps: dummyApps, tabs: dummyTabs }));
+        // Strict: Show empty state if there is no user data
+        setAppUsage([]);
+        setBrowserTabs([]);
       }
     } catch (err) {
       setErrorMsg("Unable to query app usage. Please ensure Python backend is running.");
