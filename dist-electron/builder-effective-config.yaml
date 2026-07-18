@@ -1,0 +1,14 @@
+directories:
+  output: dist-electron
+  buildResources: build
+appId: com.flowtrack.studytracker
+productName: FlowTrackPro
+win:
+  target: nsis
+  icon: public/favicon.png
+files:
+  - filter:
+      - dist/**/*
+      - electron.js
+      - package.json
+electronVersion: 43.1.1
