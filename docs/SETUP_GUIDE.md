@@ -25,7 +25,20 @@ setup_windows.bat
 start_local.bat
 ```
 
-**Option 2: Manual Setup**
+**Option 2: Standalone Windows App Build (.exe)**
+```bash
+# 1. Install Node modules
+npm install
+
+# 2. Build production assets
+npm run build
+
+# 3. Create Windows Setup Installer
+npm run electron:build
+```
+*Note: Compiled executables are written to the `dist-electron/` folder.*
+
+**Option 3: Manual Command Line Setup**
 ```bash
 # Create virtual environment
 python -m venv venv
