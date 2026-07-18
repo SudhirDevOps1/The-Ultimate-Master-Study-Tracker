@@ -103,7 +103,7 @@ export function AppShell() {
                 <span className="hidden md:inline">GitHub</span>
               </a>
               <a 
-                href="https://study-tracker-app-pied.vercel.app/" 
+                href="https://the-ultimate-master-study-tracker.vercel.app/" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-white/10 hover:text-white transition-all duration-200 active:scale-95 shadow-md"
