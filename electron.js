@@ -43,17 +43,42 @@ app.on("window-all-closed", () => {
 // IPC communication endpoints for active window tracking
 ipcMain.handle("get-active-window", async () => {
   try {
-    const activeWin = require("active-win");
-    const win = activeWin.sync();
-    if (win) {
-      return { 
-        title: win.title || "Desktop / Idle", 
-        process: win.owner.name || "unknown" 
-      };
-    }
-    return { title: "Desktop / Idle", process: "unknown" };
+    const { execSync } = require("child_process");
+    // PowerShell script to find current foreground window title and process name
+    const psCommand = `
+      Add-Type -TypeDefinition "
+        using System;
+        using System.Runtime.InteropServices;
+        public class Win32 {
+          [DllImport(\\"user32.dll\\")]
+          public static extern IntPtr GetForegroundWindow();
+          [DllImport(\\"user32.dll\\")]
+          public static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder text, int count);
+          [DllImport(\\"user32.dll\\")]
+          public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+        }
+      "
+      $hwnd = [Win32]::GetForegroundWindow()
+      $titleBuilder = New-Object System.Text.StringBuilder(256)
+      [Win32]::GetWindowText($hwnd, $titleBuilder, 256) | Out-Null
+      $processId = 0
+      [Win32]::GetWindowThreadProcessId($hwnd, [ref]$processId) | Out-Null
+      $proc = Get-Process -Id $processId -ErrorAction SilentlyContinue
+      $result = @{
+        title = $titleBuilder.ToString()
+        process = if ($proc) { $proc.Name } else { "unknown" }
+      }
+      $result | ConvertTo-Json
+    `;
+    
+    const output = execSync(`powershell -NoProfile -Command "${psCommand.replace(/\n/g, " ").replace(/"/g, '\\"')}"`, { encoding: "utf8" });
+    const data = JSON.parse(output.trim());
+    return {
+      title: data.title || "Desktop / Idle",
+      process: data.process || "unknown"
+    };
   } catch (err) {
-    // Graceful fallback for non-supported OS environments
+    // Graceful fallback for non-Windows platforms or permission restrictions
     return { title: "Desktop / Idle", process: "unknown" };
   }
 });

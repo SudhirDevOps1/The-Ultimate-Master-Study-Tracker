@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Panel } from "@/components/common/Panel";
-import { BookOpen, FileText, Maximize2, Minimize2, Play, Pause, VolumeX, Eye, Image as ImageIcon, Download, Trash, Palette } from "lucide-react";
+import { BookOpen, FileText, Maximize2, Minimize2, Play, Pause, VolumeX, Eye, Image as ImageIcon, Download, Trash, Palette, Edit3, Bold, Highlighter } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 import { createWorker } from "tesseract.js";
 import html2canvas from "html2canvas";
@@ -16,6 +16,8 @@ interface StickyNote {
   date: string;
   time: string;
   subject: string;
+  isBold?: boolean;
+  isHighlighted?: boolean;
 }
 
 const NOTE_BACKGROUNDS = [
@@ -38,11 +40,15 @@ const NOTE_TEXT_COLORS = [
   { name: "Cool Gray", class: "text-slate-300" }
 ];
 
+// Rich Google Fonts for English and Hindi support
 const NOTE_FONTS = [
   { name: "System Sans", class: "font-sans" },
   { name: "Classic Serif", class: "font-serif" },
   { name: "Developer Mono", class: "font-mono" },
-  { name: "Header Bold", class: "font-bold tracking-wide" }
+  { name: "Rozha One (Hindi Stylised)", class: "font-[RozhaOne,serif]" },
+  { name: "Poppins (Hindi Modern)", class: "font-[Poppins,sans-serif]" },
+  { name: "Kurale (Hindi Classic)", class: "font-[Kurale,serif]" },
+  { name: "Yatra One (Hindi Retro)", class: "font-[YatraOne,cursive]" }
 ];
 
 export function PDFStudyReader() {
@@ -71,11 +77,28 @@ export function PDFStudyReader() {
   const [newNoteTextColor, setNewNoteTextColor] = useState(NOTE_TEXT_COLORS[5].class); // Default: White text
   const [newNoteFont, setNewNoteFont] = useState(NOTE_FONTS[0].class);
   const [noteSubject, setNoteSubject] = useState("");
+  const [noteIsBold, setNoteIsBold] = useState(false);
+  const [noteIsHighlighted, setNoteIsHighlighted] = useState(false);
+
+  // Edit State
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const synthRef = useRef<SpeechSynthesis | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const notesContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // Inject Google Fonts dynamic styles for Hindi Fonts rendering support
+  useEffect(() => {
+    const link = document.createElement("link");
+    link.href = "https://fonts.googleapis.com/css2?family=Kurale&family=Poppins:wght@400;700&family=Rozha+One&family=Yatra+One&display=swap";
+    link.rel = "stylesheet";
+    document.head.appendChild(link);
+    return () => {
+      document.head.removeChild(link);
+    };
+  }, []);
 
   useEffect(() => {
     localStorage.setItem("workspace_sticky_notes", JSON.stringify(stickyNotes));
@@ -160,7 +183,7 @@ export function PDFStudyReader() {
         return;
       }
 
-      // Render page to canvas and run OCR if no text layer exists
+      // Fallback to Canvas Render OCR
       const viewport = page.getViewport({ scale: 2.0 });
       const canvas = canvasRef.current || document.createElement("canvas");
       canvas.height = viewport.height;
@@ -242,10 +265,19 @@ export function PDFStudyReader() {
       font: newNoteFont,
       date: now.toLocaleDateString(),
       time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      subject: noteSubject.trim() || "General Study"
+      subject: noteSubject.trim() || "General Study",
+      isBold: noteIsBold,
+      isHighlighted: noteIsHighlighted
     };
     setStickyNotes([newNote, ...stickyNotes]);
     setNoteSubject("");
+    setNoteIsBold(false);
+    setNoteIsHighlighted(false);
+  };
+
+  const handleSaveEditNote = (id: string) => {
+    setStickyNotes(stickyNotes.map(n => n.id === id ? { ...n, text: editText } : n));
+    setEditingNoteId(null);
   };
 
   const handleDeleteNote = (id: string) => {
@@ -315,7 +347,7 @@ export function PDFStudyReader() {
       ) : (
         <div className={`grid gap-4 transition-all ${splitScreen ? "lg:grid-cols-2" : "grid-cols-1"}`}>
           {/* File Preview Frame */}
-          <div className="relative rounded-2xl border border-white/10 bg-slate-950 overflow-hidden h-[450px] flex flex-col justify-between">
+          <div className="relative rounded-2xl border border-white/10 bg-slate-950 overflow-hidden h-[540px] flex flex-col justify-between">
             {fileType === "pdf" ? (
               <iframe
                 src={fileUrl}
@@ -324,7 +356,7 @@ export function PDFStudyReader() {
               />
             ) : (
               <div className="flex-1 flex items-center justify-center bg-slate-900 overflow-hidden">
-                <img src={fileUrl} alt="Imported Source" className="max-h-[380px] max-w-full object-contain" />
+                <img src={fileUrl} alt="Imported Source" className="max-h-[460px] max-w-full object-contain" />
               </div>
             )}
             
@@ -377,7 +409,7 @@ export function PDFStudyReader() {
 
           {/* TTS & Sticky Notes Workspace */}
           {splitScreen && (
-            <div className="rounded-2xl border border-cyan-500/10 bg-gradient-to-br from-slate-900 to-cyan-950/10 p-4 space-y-4 flex flex-col justify-between relative">
+            <div className="rounded-2xl border border-cyan-500/10 bg-gradient-to-br from-slate-900 to-cyan-950/10 p-4 space-y-4 flex flex-col justify-between relative h-[540px] overflow-y-auto pretty-scrollbar">
               {extractingText && (
                 <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-30 rounded-2xl flex flex-col items-center justify-center text-center p-6">
                   <div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mb-3" />
@@ -396,7 +428,7 @@ export function PDFStudyReader() {
                   value={speechText}
                   onChange={(e) => setSpeechText(e.target.value)}
                   placeholder="Paste study notes or extract text layers from textbooks above..."
-                  className="w-full h-32 mt-3 rounded-xl border border-white/10 bg-slate-950/70 p-3 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-400 resize-none font-sans leading-relaxed"
+                  className="w-full h-24 mt-3 rounded-xl border border-white/10 bg-slate-950/70 p-3 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-400 resize-none font-sans leading-relaxed"
                 />
 
                 <div className="mt-3 p-3 rounded-xl bg-slate-950/60 border border-white/5 space-y-3">
@@ -457,7 +489,6 @@ export function PDFStudyReader() {
 
                 {/* Sticky Note Designer Panel */}
                 <div className="mt-3 p-3 rounded-xl bg-slate-950/60 border border-white/5 space-y-3">
-                  {/* Colors and Fonts Row */}
                   <div className="grid gap-3 sm:grid-cols-3">
                     <div className="flex flex-col gap-1.5">
                       <span className="text-[9px] font-bold text-slate-400 uppercase">Background:</span>
@@ -476,7 +507,7 @@ export function PDFStudyReader() {
                     </div>
 
                     <div className="flex flex-col gap-1.5">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase">Text Font Color:</span>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase">Text Color:</span>
                       <select
                         value={newNoteTextColor}
                         onChange={(e) => setNewNoteTextColor(e.target.value)}
@@ -489,7 +520,7 @@ export function PDFStudyReader() {
                     </div>
 
                     <div className="flex flex-col gap-1.5">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase">Font Style:</span>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase">Font Model:</span>
                       <select
                         value={newNoteFont}
                         onChange={(e) => setNewNoteFont(e.target.value)}
@@ -502,7 +533,29 @@ export function PDFStudyReader() {
                     </div>
                   </div>
 
-                  {/* Subject and Submit */}
+                  {/* Format Toolbar (Bold & Highlight toggles) */}
+                  <div className="flex items-center gap-3 border-t border-white/5 pt-2">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">Text Options:</span>
+                    <button
+                      onClick={() => setNoteIsBold(!noteIsBold)}
+                      className={`p-1 rounded text-xs flex items-center gap-1 border ${
+                        noteIsBold ? "bg-cyan-500/25 border-cyan-400/40 text-cyan-300" : "bg-white/5 border-white/10 text-slate-400"
+                      }`}
+                    >
+                      <Bold className="w-3.5 h-3.5" />
+                      <span>Bold</span>
+                    </button>
+                    <button
+                      onClick={() => setNoteIsHighlighted(!noteIsHighlighted)}
+                      className={`p-1 rounded text-xs flex items-center gap-1 border ${
+                        noteIsHighlighted ? "bg-yellow-500/25 border-yellow-400/40 text-yellow-300" : "bg-white/5 border-white/10 text-slate-400"
+                      }`}
+                    >
+                      <Highlighter className="w-3.5 h-3.5" />
+                      <span>Highlight</span>
+                    </button>
+                  </div>
+
                   <div className="flex gap-2">
                     <input
                       type="text"
@@ -526,7 +579,7 @@ export function PDFStudyReader() {
         </div>
       )}
 
-      {/* Sticky Notes Display Board with PNG download triggers */}
+      {/* Sticky Notes Display Board with PNG download & Editing triggers */}
       {stickyNotes.length > 0 && (
         <div className="border-t border-white/10 pt-4 space-y-3">
           <div className="flex items-center justify-between">
@@ -552,21 +605,65 @@ export function PDFStudyReader() {
                 key={note.id} 
                 className={`relative rounded-xl border p-4 space-y-3 flex flex-col justify-between shadow-lg transition-transform hover:-translate-y-0.5 ${note.color}`}
               >
-                <div className="flex items-center justify-between border-b border-white/5 pb-1">
-                  <span className="text-[10px] uppercase tracking-wider font-extrabold text-cyan-400/90">{note.subject}</span>
+                <div>
+                  <div className="flex items-center justify-between border-b border-white/5 pb-1 mb-2">
+                    <span className="text-[10px] uppercase tracking-wider font-extrabold text-cyan-400/90">{note.subject}</span>
+                  </div>
+                  
+                  {editingNoteId === note.id ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        className="w-full h-24 bg-slate-900 border border-white/10 text-xs rounded p-2 text-white outline-none focus:border-cyan-400"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleSaveEditNote(note.id)}
+                          className="px-2 py-1 rounded bg-emerald-500 text-slate-950 text-[10px] font-bold"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setEditingNoteId(null)}
+                          className="px-2 py-1 rounded bg-white/5 text-slate-300 text-[10px]"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className={`text-xs leading-relaxed whitespace-pre-wrap break-words py-1 ${note.textColor} ${note.font} ${
+                      note.isBold ? "font-bold" : ""
+                    } ${
+                      note.isHighlighted ? "bg-yellow-500/20 px-1 py-0.5 rounded border border-yellow-500/25" : ""
+                    }`}>
+                      {note.text}
+                    </div>
+                  )}
                 </div>
-                <div className={`text-xs leading-relaxed whitespace-pre-wrap break-words py-1 ${note.textColor} ${note.font}`}>
-                  {note.text}
-                </div>
+
                 <div className="border-t border-white/5 pt-2 flex items-center justify-between text-[10px] text-slate-400 font-mono">
                   <span>{note.date} • {note.time}</span>
-                  <button 
-                    onClick={() => handleDeleteNote(note.id)}
-                    className="text-rose-400/70 hover:text-rose-400 p-1"
-                    title="Delete Note"
-                  >
-                    <Trash className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button 
+                      onClick={() => {
+                        setEditingNoteId(note.id);
+                        setEditText(note.text);
+                      }}
+                      className="text-slate-400 hover:text-cyan-400 p-1"
+                      title="Edit Note"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteNote(note.id)}
+                      className="text-rose-400/70 hover:text-rose-400 p-1"
+                      title="Delete Note"
+                    >
+                      <Trash className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
