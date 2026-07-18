@@ -1,6 +1,0 @@
-psutil>=5.9.0
-# Platform-specific optional dependencies:
-# Windows: pip install pywin32
-# macOS:   pip install pyobjc (or use native osascript)
-# Linux:   apt-get install xdotool xprintidle (or use systemctl)
-
