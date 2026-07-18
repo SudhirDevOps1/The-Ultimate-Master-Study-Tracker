@@ -409,7 +409,7 @@ export function PDFStudyReader() {
 
           {/* TTS & Sticky Notes Workspace */}
           {splitScreen && (
-            <div className="rounded-2xl border border-cyan-500/10 bg-gradient-to-br from-slate-900 to-cyan-950/10 p-4 space-y-4 flex flex-col justify-between relative h-[540px] overflow-y-auto pretty-scrollbar">
+            <div className="rounded-2xl border border-cyan-500/10 bg-gradient-to-br from-slate-900 to-cyan-950/10 p-4 space-y-4 flex flex-col justify-start relative h-[540px] overflow-y-auto pretty-scrollbar">
               {extractingText && (
                 <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-30 rounded-2xl flex flex-col items-center justify-center text-center p-6">
                   <div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mb-3" />
@@ -420,7 +420,7 @@ export function PDFStudyReader() {
                 </div>
               )}
 
-              <div>
+              <div className="space-y-3">
                 <h4 className="text-sm font-bold text-white flex items-center gap-1.5 mb-1">
                   <span className="text-cyan-400">📝</span> Study Text Reader (Hindi & English)
                 </h4>
@@ -428,27 +428,27 @@ export function PDFStudyReader() {
                   value={speechText}
                   onChange={(e) => setSpeechText(e.target.value)}
                   placeholder="Paste study notes or extract text layers from textbooks above..."
-                  className="w-full h-24 mt-3 rounded-xl border border-white/10 bg-slate-950/70 p-3 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-400 resize-none font-sans leading-relaxed"
+                  className="w-full h-24 rounded-xl border border-white/10 bg-slate-950/70 p-3 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-400 resize-none font-sans leading-relaxed"
                 />
 
-                <div className="mt-3 p-3 rounded-xl bg-slate-950/60 border border-white/5 space-y-3">
-                  <div className="flex flex-col gap-2">
+                <div className="p-3 rounded-xl bg-slate-950/60 border border-white/5 space-y-3">
+                  <div className="flex flex-col gap-1.5">
                     <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Select Voice Model</label>
                     <select
                       value={selectedVoiceName}
                       onChange={(e) => setSelectedVoiceName(e.target.value)}
-                      className="w-full rounded-lg border border-white/10 bg-slate-900 px-2 py-1.5 text-xs text-white"
+                      className="w-full rounded-lg border border-white/10 bg-slate-900 px-2 py-1.5 text-xs text-white outline-none"
                     >
                       {voices.map(v => (
                         <option key={v.name} value={v.name}>
-                          {v.name} ({v.lang})
+                          {v.name.length > 30 ? v.name.substring(0, 30) + "..." : v.name} ({v.lang})
                         </option>
                       ))}
                       {voices.length === 0 && <option>Default System Voice</option>}
                     </select>
                   </div>
 
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                     <div className="flex-1">
                       <div className="flex justify-between text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">
                         <span>Speed rate</span>
@@ -465,21 +465,23 @@ export function PDFStudyReader() {
                       />
                     </div>
 
-                    <div className="flex items-center gap-2 pt-2">
+                    <div className="flex items-center justify-end gap-2 pt-1 sm:pt-0">
                       <button
                         onClick={handlePlayTTS}
                         disabled={!speechText || extractingText}
-                        className={`flex h-9 w-9 items-center justify-center rounded-xl font-bold transition-transform active:scale-95 ${
+                        className={`flex h-8 px-3 items-center justify-center gap-1.5 rounded-lg text-xs font-bold transition-transform active:scale-95 ${
                           isPlaying 
                             ? "bg-amber-400 text-slate-950 hover:bg-amber-300" 
                             : "bg-cyan-500 text-slate-950 hover:bg-cyan-400"
                         }`}
                       >
-                        {isPlaying ? <Pause className="w-4.5 h-4.5" /> : <Play className="w-4.5 h-4.5" />}
+                        {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                        <span>{isPlaying ? "Pause" : "Speak"}</span>
                       </button>
                       <button
                         onClick={handleStopTTS}
-                        className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10"
+                        title="Mute"
                       >
                         <VolumeX className="w-4.5 h-4.5" />
                       </button>
@@ -488,11 +490,11 @@ export function PDFStudyReader() {
                 </div>
 
                 {/* Sticky Note Designer Panel */}
-                <div className="mt-3 p-3 rounded-xl bg-slate-950/60 border border-white/5 space-y-3">
-                  <div className="grid gap-3 sm:grid-cols-3">
+                <div className="p-3 rounded-xl bg-slate-950/60 border border-white/5 space-y-3">
+                  <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
                     <div className="flex flex-col gap-1.5">
                       <span className="text-[9px] font-bold text-slate-400 uppercase">Background:</span>
-                      <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-wrap gap-1.5">
                         {NOTE_BACKGROUNDS.map(bg => (
                           <button
                             key={bg.name}
@@ -511,7 +513,7 @@ export function PDFStudyReader() {
                       <select
                         value={newNoteTextColor}
                         onChange={(e) => setNewNoteTextColor(e.target.value)}
-                        className="bg-slate-900 border border-white/10 rounded px-2 py-1 text-[10px] text-white"
+                        className="w-full bg-slate-900 border border-white/10 rounded px-2 py-1 text-[10px] text-white outline-none"
                       >
                         {NOTE_TEXT_COLORS.map(tc => (
                           <option key={tc.class} value={tc.class}>{tc.name}</option>
@@ -524,7 +526,7 @@ export function PDFStudyReader() {
                       <select
                         value={newNoteFont}
                         onChange={(e) => setNewNoteFont(e.target.value)}
-                        className="bg-slate-900 border border-white/10 rounded px-2 py-1 text-[10px] text-white"
+                        className="w-full bg-slate-900 border border-white/10 rounded px-2 py-1 text-[10px] text-white outline-none"
                       >
                         {NOTE_FONTS.map(f => (
                           <option key={f.class} value={f.class}>{f.name}</option>
@@ -534,42 +536,42 @@ export function PDFStudyReader() {
                   </div>
 
                   {/* Format Toolbar (Bold & Highlight toggles) */}
-                  <div className="flex items-center gap-3 border-t border-white/5 pt-2">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase">Text Options:</span>
+                  <div className="flex items-center gap-2 border-t border-white/5 pt-2">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase mr-1">Text Options:</span>
                     <button
                       onClick={() => setNoteIsBold(!noteIsBold)}
-                      className={`p-1 rounded text-xs flex items-center gap-1 border ${
+                      className={`px-2 py-1 rounded text-[10px] flex items-center gap-1 border ${
                         noteIsBold ? "bg-cyan-500/25 border-cyan-400/40 text-cyan-300" : "bg-white/5 border-white/10 text-slate-400"
                       }`}
                     >
-                      <Bold className="w-3.5 h-3.5" />
+                      <Bold className="w-3 h-3" />
                       <span>Bold</span>
                     </button>
                     <button
                       onClick={() => setNoteIsHighlighted(!noteIsHighlighted)}
-                      className={`p-1 rounded text-xs flex items-center gap-1 border ${
+                      className={`px-2 py-1 rounded text-[10px] flex items-center gap-1 border ${
                         noteIsHighlighted ? "bg-yellow-500/25 border-yellow-400/40 text-yellow-300" : "bg-white/5 border-white/10 text-slate-400"
                       }`}
                     >
-                      <Highlighter className="w-3.5 h-3.5" />
+                      <Highlighter className="w-3 h-3" />
                       <span>Highlight</span>
                     </button>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2 pt-1">
                     <input
                       type="text"
-                      placeholder="Subject Name (e.g. Physics)"
+                      placeholder="Subject (e.g. Physics)"
                       value={noteSubject}
                       onChange={(e) => setNoteSubject(e.target.value)}
-                      className="flex-1 bg-slate-950 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400"
+                      className="flex-1 bg-slate-950 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400"
                     />
                     <button
                       onClick={handleAddStickyNote}
                       disabled={!speechText.trim()}
-                      className="px-3.5 py-1 rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 text-xs font-bold disabled:opacity-40 active:scale-95 transition-transform"
+                      className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 text-xs font-bold disabled:opacity-40 active:scale-95 transition-transform whitespace-nowrap"
                     >
-                      📌 Create Sticky Note
+                      📌 Create Note
                     </button>
                   </div>
                 </div>
