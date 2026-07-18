@@ -45,6 +45,9 @@
 - **Daily Stats:** Total focus time, sessions, subjects studied
 - **Weekly Summary:** Your study trends over the week
 - **App & Tab Usage:** Which apps and websites you use most (requires backend)
+- **PDF Companion Workspace:** Side-by-side textbook reader pane with workspace notes.
+- **Multilingual Speech Reader (TTS):** Natural audio profile speech synthesizer for reading textbook pages aloud in Hindi & English (male/female selectable options).
+- **Gamified Focus Quests:** Daily boss fights powered by your study XP statistics rewards.
 - **Achievements:** Badges you've unlocked
 - **Level & Rank:** Your current level and rank in the gamification system
 
