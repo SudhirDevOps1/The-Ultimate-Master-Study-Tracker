@@ -2,26 +2,41 @@ import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { cn } from "@/utils/cn";
 import { useAppStore, type AppState } from "@/store/useAppStore";
+import { 
+  Home, 
+  ClipboardList, 
+  Timer, 
+  Monitor, 
+  Brain, 
+  Calendar as CalendarIcon, 
+  BarChart2, 
+  Award, 
+  History as HistoryIcon, 
+  BookOpen, 
+  Book, 
+  Settings as SettingsIcon 
+} from "lucide-react";
 
 const links = [
-  { to: "/dashboard", label: "🏠 Dashboard", icon: "🏠" },
-  { to: "/today", label: "📋 Today", icon: "📋" },
-  { to: "/timer", label: "⏱️ Timer", icon: "⏱️" },
-  { to: "/app-tracking", label: "📱 App Tracking", icon: "📱" },
-  { to: "/ai", label: "🤖 AI Assistant", icon: "🤖" },
-  { to: "/calendar", label: "📅 Calendar", icon: "📅" },
-  { to: "/analytics", label: "📊 Analytics", icon: "📊" },
-  { to: "/achievements", label: "🏆 Achievements", icon: "🏆" },
-  { to: "/history", label: "📜 History", icon: "📜" },
-  { to: "/guide", label: "📖 Guide", icon: "📖" },
-  { to: "/subjects", label: "📚 Subjects", icon: "📚" },
-  { to: "/settings", label: "⚙️ Settings", icon: "⚙️" },
+  { to: "/dashboard", label: "Dashboard", Icon: Home },
+  { to: "/today", label: "Today", Icon: ClipboardList },
+  { to: "/timer", label: "Timer", Icon: Timer },
+  { to: "/app-tracking", label: "App Tracking", Icon: Monitor },
+  { to: "/ai", label: "AI Assistant", Icon: Brain },
+  { to: "/calendar", label: "Calendar", Icon: CalendarIcon },
+  { to: "/analytics", label: "Analytics", Icon: BarChart2 },
+  { to: "/achievements", label: "Achievements", Icon: Award },
+  { to: "/history", label: "History", Icon: HistoryIcon },
+  { to: "/guide", label: "Guide", Icon: BookOpen },
+  { to: "/subjects", label: "Subjects", Icon: Book },
+  { to: "/settings", label: "Settings", Icon: SettingsIcon },
 ];
 
 export function AppShell() {
   const location = useLocation();
   const theme = useAppStore((state: AppState) => state.theme);
-  const current = links.find((link) => link.to === location.pathname)?.label ?? "🏠 Dashboard";
+  const currentLink = links.find((link) => link.to === location.pathname);
+  const current = currentLink ? currentLink.label : "Dashboard";
 
   const getGradientClass = () => {
     switch (theme) {
@@ -84,22 +99,26 @@ export function AppShell() {
         </div>
 
         <nav className="glass pretty-scrollbar flex gap-2 overflow-x-auto rounded-2xl p-2">
-          {links.map((link) => (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              className={({ isActive }) =>
-                cn(
-                  "whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
-                  isActive
-                    ? `bg-gradient-to-r ${getGradientClass()} text-white shadow-lg`
-                    : "text-slate-200 hover:bg-white/8 hover:text-white"
-                )
-              }
-            >
-              {link.label}
-            </NavLink>
-          ))}
+          {links.map((link) => {
+            const LinkIcon = link.Icon;
+            return (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
+                    isActive
+                      ? `bg-gradient-to-r ${getGradientClass()} text-white shadow-lg`
+                      : "text-slate-200 hover:bg-white/8 hover:text-white"
+                  )
+                }
+              >
+                <LinkIcon className="w-4 h-4" />
+                <span>{link.label}</span>
+              </NavLink>
+            );
+          })}
         </nav>
       </motion.header>
       <main className="mx-auto w-full max-w-7xl pb-10">
