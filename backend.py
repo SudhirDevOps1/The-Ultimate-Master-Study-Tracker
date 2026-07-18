@@ -1120,15 +1120,30 @@ class TrackerHandler(BaseHTTPRequestHandler):
                 payload.get("browser_url"))
             return self._send_json({"ok": True})
 
-        if path == "/tab-activity":
+        if path == "/api/ai/proxy":
             payload = self._read_json()
             if payload is None: return self._error("Invalid JSON", 400)
-            self.analytics.record_tab_activity(
-                payload.get("browser", "unknown"),
-                payload.get("url", ""),
-                payload.get("title", ""),
-                float(payload.get("time_spent_sec", 0)))
-            return self._send_json({"ok": True})
+            target_url = payload.get("url")
+            headers = payload.get("headers", {})
+            body = payload.get("body")
+            
+            # Simple python urllib request proxy
+            import urllib.request
+            import urllib.error
+            try:
+                req = urllib.request.Request(
+                    target_url,
+                    data=json.dumps(body).encode("utf-8") if body else None,
+                    headers={**headers, "Content-Type": "application/json"},
+                    method="POST"
+                )
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    res_data = response.read().decode("utf-8")
+                    return self._send_json(json.loads(res_data))
+            except urllib.error.HTTPError as he:
+                return self._error(f"Proxy HTTP Error: {he.reason}", he.code)
+            except Exception as ex:
+                return self._error(f"Proxy internal error: {str(ex)}", 500)
 
         self._error(f"Unknown endpoint: {path}", 404)
 

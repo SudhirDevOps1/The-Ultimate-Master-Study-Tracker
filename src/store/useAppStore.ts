@@ -161,6 +161,16 @@ function calculateGamificationStats(sessions: StudySession[]) {
   else if (level > 20) rank = "Architect";
   else if (level > 10) rank = "Scholar";
 
+  // Fire Web Worker analytics trace in background asynchronously
+  if (typeof window !== "undefined" && window.Worker) {
+    const worker = new Worker("./analytics.worker.js");
+    worker.postMessage({ action: "calculate", sessions });
+    worker.onmessage = (e) => {
+      // Background analysis computed. Results can be utilized to populate state summaries
+      console.log("[Worker] Asynchronous analytics computation complete:", e.data);
+    };
+  }
+
   return { totalXP, level, rank, xpToNextLevel, xpProgress };
 }
 
