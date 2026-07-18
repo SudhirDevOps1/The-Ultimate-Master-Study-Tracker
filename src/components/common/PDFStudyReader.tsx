@@ -10,25 +10,39 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs
 interface StickyNote {
   id: string;
   text: string;
-  color: string;
-  font: string;
+  color: string;      // Background Color Class
+  textColor: string;  // Custom Text Color Class
+  font: string;       // Custom Font Class
   date: string;
   time: string;
+  subject: string;
 }
 
-const NOTE_COLORS = [
-  "bg-amber-400/25 border-amber-400/50 text-amber-200",
-  "bg-emerald-400/25 border-emerald-400/50 text-emerald-200",
-  "bg-cyan-400/25 border-cyan-400/50 text-cyan-200",
-  "bg-purple-400/25 border-purple-400/50 text-purple-200",
-  "bg-pink-400/25 border-pink-400/50 text-pink-200"
+const NOTE_BACKGROUNDS = [
+  { name: "Yellow", class: "bg-yellow-500/15 border-yellow-400/35" },
+  { name: "Emerald", class: "bg-emerald-500/15 border-emerald-400/35" },
+  { name: "Cyan", class: "bg-cyan-500/15 border-cyan-400/35" },
+  { name: "Purple", class: "bg-purple-500/15 border-purple-400/35" },
+  { name: "Pink", class: "bg-pink-500/15 border-pink-400/35" },
+  { name: "Rose", class: "bg-rose-500/15 border-rose-400/35" },
+  { name: "Dark Slate", class: "bg-slate-900/60 border-slate-700/60" }
+];
+
+const NOTE_TEXT_COLORS = [
+  { name: "Amber/Gold", class: "text-amber-200" },
+  { name: "Mint Green", class: "text-emerald-200" },
+  { name: "Aqua Cyan", class: "text-cyan-200" },
+  { name: "Lavender", class: "text-purple-200" },
+  { name: "Hot Pink", class: "text-pink-200" },
+  { name: "Pure White", class: "text-white" },
+  { name: "Cool Gray", class: "text-slate-300" }
 ];
 
 const NOTE_FONTS = [
-  "font-sans",
-  "font-serif",
-  "font-mono",
-  "font-bold"
+  { name: "System Sans", class: "font-sans" },
+  { name: "Classic Serif", class: "font-serif" },
+  { name: "Developer Mono", class: "font-mono" },
+  { name: "Header Bold", class: "font-bold tracking-wide" }
 ];
 
 export function PDFStudyReader() {
@@ -53,8 +67,10 @@ export function PDFStudyReader() {
     const saved = localStorage.getItem("workspace_sticky_notes");
     return saved ? JSON.parse(saved) : [];
   });
-  const [newNoteColor, setNewNoteColor] = useState(NOTE_COLORS[0]);
-  const [newNoteFont, setNewNoteFont] = useState(NOTE_FONTS[0]);
+  const [newNoteBg, setNewNoteBg] = useState(NOTE_BACKGROUNDS[0].class);
+  const [newNoteTextColor, setNewNoteTextColor] = useState(NOTE_TEXT_COLORS[5].class); // Default: White text
+  const [newNoteFont, setNewNoteFont] = useState(NOTE_FONTS[0].class);
+  const [noteSubject, setNoteSubject] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const synthRef = useRef<SpeechSynthesis | null>(null);
@@ -138,22 +154,26 @@ export function PDFStudyReader() {
       const textContent = await page.getTextContent();
       const textItems = textContent.items.map((item: any) => item.str).join(" ").trim();
       
-      if (textItems.length > 10) {
+      if (textItems.length > 20) {
         setSpeechText(textItems);
         setExtractingText(false);
         return;
       }
 
-      // Fallback to Canvas Render OCR if scanned
-      const viewport = page.getViewport({ scale: 1.5 });
+      // Render page to canvas and run OCR if no text layer exists
+      const viewport = page.getViewport({ scale: 2.0 });
       const canvas = canvasRef.current || document.createElement("canvas");
       canvas.height = viewport.height;
       canvas.width = viewport.width;
       const context = canvas.getContext("2d");
       
       if (context) {
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        
         await page.render({ canvasContext: context, viewport }).promise;
         const imgDataUrl = canvas.toDataURL("image/png");
+        
         const worker = await createWorker("eng+hin");
         const ret = await worker.recognize(imgDataUrl);
         setSpeechText(ret.data.text || "[No text detected on scanned page]");
@@ -217,12 +237,15 @@ export function PDFStudyReader() {
     const newNote: StickyNote = {
       id: crypto.randomUUID(),
       text: speechText,
-      color: newNoteColor,
+      color: newNoteBg,
+      textColor: newNoteTextColor,
       font: newNoteFont,
       date: now.toLocaleDateString(),
-      time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      subject: noteSubject.trim() || "General Study"
     };
     setStickyNotes([newNote, ...stickyNotes]);
+    setNoteSubject("");
   };
 
   const handleDeleteNote = (id: string) => {
@@ -233,8 +256,9 @@ export function PDFStudyReader() {
     if (!notesContainerRef.current) return;
     try {
       const canvas = await html2canvas(notesContainerRef.current, {
-        backgroundColor: "#020617",
-        scale: 2
+        backgroundColor: "#0b0f19",
+        scale: 2,
+        useCORS: true
       });
       const link = document.createElement("a");
       link.download = `FlowTrack-StickyNotes-${new Date().toISOString().split("T")[0]}.png`;
@@ -432,40 +456,69 @@ export function PDFStudyReader() {
                 </div>
 
                 {/* Sticky Note Designer Panel */}
-                <div className="mt-3 p-3 rounded-xl bg-slate-950/60 border border-white/5 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Style:</span>
-                    <div className="flex gap-1">
-                      {NOTE_COLORS.map(c => (
-                        <button
-                          key={c}
-                          onClick={() => setNewNoteColor(c)}
-                          className={`w-4 h-4 rounded-full border ${c.split(" ")[1]} ${
-                            newNoteColor === c ? "ring-2 ring-white scale-110" : ""
-                          }`}
-                        />
-                      ))}
+                <div className="mt-3 p-3 rounded-xl bg-slate-950/60 border border-white/5 space-y-3">
+                  {/* Colors and Fonts Row */}
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase">Background:</span>
+                      <div className="flex flex-wrap gap-1">
+                        {NOTE_BACKGROUNDS.map(bg => (
+                          <button
+                            key={bg.name}
+                            title={bg.name}
+                            onClick={() => setNewNoteBg(bg.class)}
+                            className={`w-4 h-4 rounded border ${bg.class.split(" ")[1]} ${
+                              newNoteBg === bg.class ? "ring-2 ring-white scale-110" : ""
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase">Text Font Color:</span>
+                      <select
+                        value={newNoteTextColor}
+                        onChange={(e) => setNewNoteTextColor(e.target.value)}
+                        className="bg-slate-900 border border-white/10 rounded px-2 py-1 text-[10px] text-white"
+                      >
+                        {NOTE_TEXT_COLORS.map(tc => (
+                          <option key={tc.class} value={tc.class}>{tc.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase">Font Style:</span>
+                      <select
+                        value={newNoteFont}
+                        onChange={(e) => setNewNoteFont(e.target.value)}
+                        className="bg-slate-900 border border-white/10 rounded px-2 py-1 text-[10px] text-white"
+                      >
+                        {NOTE_FONTS.map(f => (
+                          <option key={f.class} value={f.class}>{f.name}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
-                  <select
-                    value={newNoteFont}
-                    onChange={(e) => setNewNoteFont(e.target.value)}
-                    className="bg-slate-900 border border-white/10 rounded px-2 py-1 text-[10px] text-white"
-                  >
-                    <option value="font-sans">Sans</option>
-                    <option value="font-serif">Serif</option>
-                    <option value="font-mono">Mono</option>
-                    <option value="font-bold">Bold</option>
-                  </select>
-
-                  <button
-                    onClick={handleAddStickyNote}
-                    disabled={!speechText.trim()}
-                    className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 text-xs font-bold disabled:opacity-40"
-                  >
-                    📌 Create Sticky Note
-                  </button>
+                  {/* Subject and Submit */}
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Subject Name (e.g. Physics)"
+                      value={noteSubject}
+                      onChange={(e) => setNoteSubject(e.target.value)}
+                      className="flex-1 bg-slate-950 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400"
+                    />
+                    <button
+                      onClick={handleAddStickyNote}
+                      disabled={!speechText.trim()}
+                      className="px-3.5 py-1 rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 text-xs font-bold disabled:opacity-40 active:scale-95 transition-transform"
+                    >
+                      📌 Create Sticky Note
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -483,7 +536,7 @@ export function PDFStudyReader() {
             </h4>
             <button
               onClick={handleDownloadNotesAsPNG}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-300 hover:bg-white/10"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-300 hover:bg-white/10 active:scale-95 transition-transform"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Export Board as PNG</span>
@@ -499,10 +552,13 @@ export function PDFStudyReader() {
                 key={note.id} 
                 className={`relative rounded-xl border p-4 space-y-3 flex flex-col justify-between shadow-lg transition-transform hover:-translate-y-0.5 ${note.color}`}
               >
-                <div className={`text-sm leading-relaxed whitespace-pre-wrap break-words ${note.font}`}>
+                <div className="flex items-center justify-between border-b border-white/5 pb-1">
+                  <span className="text-[10px] uppercase tracking-wider font-extrabold text-cyan-400/90">{note.subject}</span>
+                </div>
+                <div className={`text-xs leading-relaxed whitespace-pre-wrap break-words py-1 ${note.textColor} ${note.font}`}>
                   {note.text}
                 </div>
-                <div className="border-t border-white/10 pt-2 flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                <div className="border-t border-white/5 pt-2 flex items-center justify-between text-[10px] text-slate-400 font-mono">
                   <span>{note.date} • {note.time}</span>
                   <button 
                     onClick={() => handleDeleteNote(note.id)}
