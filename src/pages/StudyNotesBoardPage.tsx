@@ -108,12 +108,15 @@ export function StudyNotesBoardPage() {
       const canvas = await html2canvas(notesContainerRef.current, {
         backgroundColor: "#0b0f19",
         scale: 2,
-        useCORS: true
+        useCORS: true,
+        logging: false
       });
       const link = document.createElement("a");
       link.download = `FlowTrack-StickyNotes-${new Date().toISOString().split("T")[0]}.png`;
       link.href = canvas.toDataURL("image/png");
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
     } catch (err) {
       console.error("Failed to render notes", err);
     }
