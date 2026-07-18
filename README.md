@@ -389,119 +389,65 @@ Using **Dexie.js**, we implement a "Transactional Sync":
 
 ---
 
-## 🚀 Deployment & Setup
+## 🚀 Desktop App Compile & Developer Setup
 
-### 💻 Automatic Desktop Launcher (Windows - Recommended)
-If you want to run FlowTrack with local activity tracking (foreground window / tab usage tracking):
-1. Simply double-click `start_local.bat`.
-2. This batch script will automatically:
-   - Verify Python is installed and create a `.venv` virtual environment if it doesn't exist.
-   - Install required dependencies (`pywin32`, `psutil`).
-   - Run the background activity tracker on `http://localhost:5001`.
-   - Install Node package dependencies (`npm install`).
-   - Start the Vite server and open FlowTrack in your browser.
-
-### 🌐 Manual Developer Setup
+### 💻 Developer Local Environment
+To run the FlowTrack master suite locally in development mode:
 ```bash
-# 1. Clone the repository
-git clone https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git
-cd The-Ultimate-Master-Study-Tracker
-
-# 2. Install dependencies
+# 1. Install project dependencies
 npm install
 
-# 3. Start the dev server
-npm run dev
-
-# 4. (Optional) Start the Python activity tracker
-python activity_tracker.py
+# 2. Start Vite server and launch Electron wrapper in parallel
+npm run electron:dev
 ```
 
----
-
-## 🐍 Python Activity Tracker (`activity_tracker.py`) — OPTIONAL
-
-> **⚠️ Important**: The Python backend is **100% OPTIONAL**. FlowTrack works perfectly fine without it. All core features (timer, analytics, subjects, AI assistant, PiP, gamification, export/import) are fully browser-based and do not depend on Python at all. This is exactly why the [live Vercel deployment](https://study-tracker-app-pied.vercel.app/) works flawlessly with no server.
-
-### What does it do?
-
-The `activity_tracker.py` is a tiny local HTTP server that runs on `http://localhost:5001`. It provides **one single feature**: detecting which application window is currently in the foreground on your desktop.
-
-### Why is it useful?
-
-When the Python tracker is running, FlowTrack shows a **"Active: Chrome - YouTube"** or **"Active: VS Code"** badge on your dashboard.
-
-| Feature | Without Python | With Python |
-|:--------|:--------------:|:-----------:|
-| Timer & Tracking | ✅ Full | ✅ Full |
-| Analytics & Charts | ✅ Full | ✅ Full |
-| AI Assistant | ✅ Full | ✅ Full |
-| PiP Floating Timer | ✅ Full | ✅ Full |
-| Gamification & XP | ✅ Full | ✅ Full |
-| Export/Import | ✅ Full | ✅ Full |
-| **Active Window Detection** | ❌ Not available | ✅ Shows current app |
-
-### How does it work?
-
-```
-[Browser / FlowTrack PWA]
-        |
-        | HTTP GET /active-window (every 5 seconds)
-        ▼
-[Python Server @ localhost:5001]
-        |
-        | Uses win32gui + psutil to read foreground window
-        ▼
-    Returns: { "title": "VS Code - main.tsx", "process": "Code.exe" }
-```
-
-- It uses Windows APIs (`win32gui`, `win32process`) to read the title of the currently focused window.
-- It polls every 5 seconds from the browser side.
-- If the Python server is not running, FlowTrack silently ignores it — no errors, no warnings.
-
-### API Endpoints
-
-| Endpoint | Method | Description |
-|:---------|:------:|:------------|
-| `/active-window` | `GET` | Returns current foreground window title and process name |
-| `/health` | `GET` | Returns `{"status": "ok"}` for diagnostics |
-
-### Requirements (only if you want to use it)
-
-- **Python 3.8+**
-- **Windows only** (uses `win32gui` which is Windows-specific)
-- Packages: `pywin32`, `psutil` (auto-installed by `start_local.bat`)
-
-### Running it manually
-
+### 📦 Compile Desktop Installer (.exe)
+To package the final standalone desktop application installer (`FlowTrackPro Setup 1.0.0.exe`):
 ```bash
-# Default port 5001
-python activity_tracker.py
-
-# Custom port
-python activity_tracker.py 5002
+npm run electron:build
 ```
+The compiled installer will be generated inside the **`dist-electron/`** directory.
 
 ---
 
-## 🌐 Cloud Deployment (Vercel / Cloudflare Pages)
+## 🖥️ Electron Active Window Process Tracking (No Python required)
+FlowTrack's desktop version tracks active windows natively using native JS execution commands without requiring compiled C++ node-gyp binaries or external Python daemons:
 
-FlowTrack is designed to be fully static-hostable! You can deploy it to **Vercel** or **Cloudflare Pages** in less than 2 minutes. This exact project is already **live on Vercel** at:
+```
+[FlowTrack Desktop App Shell]
+        |
+        | IPC Invoke get-active-window
+        ▼
+[Electron Main Process (electron.js)]
+        |
+        | Query Active Window Title via lightweight Windows PowerShell
+        ▼
+   Returns: { "title": "VS Code - main.tsx", "process": "Code" }
+```
 
-> 👉 **[study-tracker-app-pied.vercel.app](https://study-tracker-app-pied.vercel.app/)**
+### Key Native App Features:
+- **Zero Server Setup**: No batch script, python dependencies, or venv setup needed.
+- **Background Active Window Tracking**: Even if browser tabs are hidden, window titles are captured every 10 seconds.
+- **Offline Local database sync**: All logs are saved locally in the IndexedDB database.
+
+---
+
+## 🌐 Web & Cloud Deployment
+FlowTrack is static-hostable! You can deploy it to **Vercel** or **Cloudflare Pages** in less than 2 minutes. The project is live on Vercel at:
+
+> 👉 **[the-ultimate-master-study-tracker.vercel.app](https://the-ultimate-master-study-tracker.vercel.app/)**
 
 ### ⚡ Deployment with Vercel / Cloudflare:
-1. **Push to GitHub**: Push your codebase to a private or public GitHub repository.
+1. **Push to GitHub**: Push your codebase to your GitHub repository.
 2. **Import Project**: Select the repository in the Vercel/Cloudflare Pages dashboard.
 3. **Build settings**:
    - **Build Command**: `npm run build`
    - **Output Directory**: `dist`
-4. **Deploy**: Click deploy. Your app is now live on a global CDN!
+4. **Deploy**: Click deploy.
 
-### 🤔 What happens if I deploy online & don't use the `.py` backend?
-- The app works **100% perfectly**! All data is saved inside your local browser database (IndexedDB).
-- You can access FlowTrack on your phone, tablet, and laptop.
-- The **only** difference is that online browser environments cannot track desktop window titles (e.g. VS Code, Chrome tabs) because of sandbox restrictions. The Python desktop daemon (`activity_tracker.py`) is only needed if you want automatic active window tracking on Windows desktop. If you don't run it, the system simply runs offline/local browser mode with zero errors.
+### 🤔 What happens if I deploy online?
+- The app works **100% perfectly** using your local browser database (IndexedDB).
+- The only difference is that sandboxed browsers cannot track desktop window titles. The native Electron application version is recommended if you need automatic active window tracking.
 
 ---
 
