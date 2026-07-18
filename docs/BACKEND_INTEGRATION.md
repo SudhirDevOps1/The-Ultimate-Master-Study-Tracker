@@ -324,6 +324,17 @@ npm install
 
 ---
 
+### 4. 🧠 Secure AI Proxy Redirection
+To protect API keys from exposure in the client browser sandbox, all local/custom LLM configurations route request bodies to `/api/ai/proxy` through the Python backend. The backend securely relays payload headers, masking the API credentials server-to-server.
+
+### 5. 📉 Background Web Worker Threading
+Database statistics summaries and gamification streak scoring computations are offloaded to `public/analytics.worker.js`. The main thread delegates tasks asynchronously, keeping the React UI frame rate locked at 60 FPS under large datasets.
+
+### 6. 🎙️ Multilingual Text-To-Speech (TTS) & PDF
+A split-screen `PDFStudyReader` container loads documents side-by-side. SpeechSynthesis handles natural pitch (+1.05 filter) voice generation for Hindi/English with speed triggers.
+
+---
+
 ## What's Next?
 
 ### Future Improvements
