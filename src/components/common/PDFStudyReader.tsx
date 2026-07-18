@@ -1,18 +1,21 @@
 import { useState, useRef, useEffect } from "react";
 import { Panel } from "@/components/common/Panel";
-import { BookOpen, FileText, Maximize2, Minimize2, Play, Pause, VolumeX, Eye } from "lucide-react";
+import { BookOpen, FileText, Maximize2, Minimize2, Play, Pause, VolumeX, Eye, Image as ImageIcon } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
+import { createWorker } from "tesseract.js";
 
 // Initialize PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 export function PDFStudyReader() {
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [fileName, setFileName] = useState("");
+  const [fileType, setFileType] = useState<"pdf" | "image" | null>(null);
   const [pdfDocument, setPdfDocument] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [extractingText, setExtractingText] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState(0);
   const [splitScreen, setSplitScreen] = useState(false);
 
   // Text-To-Speech (TTS) states
@@ -24,13 +27,13 @@ export function PDFStudyReader() {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const synthRef = useRef<SpeechSynthesis | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.speechSynthesis) {
       synthRef.current = window.speechSynthesis;
       const loadVoices = () => {
         const availableVoices = window.speechSynthesis.getVoices();
-        // Filter English and Hindi voices
         const filtered = availableVoices.filter(v => v.lang.startsWith("en") || v.lang.startsWith("hi"));
         setVoices(filtered);
         if (filtered.length > 0 && !selectedVoiceName) {
@@ -47,40 +50,88 @@ export function PDFStudyReader() {
     if (file) {
       setFileName(file.name);
       const url = URL.createObjectURL(file);
-      setPdfUrl(url);
+      setFileUrl(url);
       setSplitScreen(true);
+      setSpeechText("");
 
-      // Load PDF via PDF.js to extract text layers
-      try {
-        const fileReader = new FileReader();
-        fileReader.onload = async (ev) => {
-          const typedarray = new Uint8Array(ev.target?.result as ArrayBuffer);
-          const loadingTask = pdfjsLib.getDocument({ data: typedarray });
-          const pdf = await loadingTask.promise;
-          setPdfDocument(pdf);
-          setTotalPages(pdf.numPages);
-          setCurrentPage(1);
-          void extractPageText(pdf, 1);
-        };
-        fileReader.readAsArrayBuffer(file);
-      } catch (err) {
-        console.error("Error loading PDF document parser", err);
+      if (file.type === "application/pdf") {
+        setFileType("pdf");
+        try {
+          const fileReader = new FileReader();
+          fileReader.onload = async (ev) => {
+            const typedarray = new Uint8Array(ev.target?.result as ArrayBuffer);
+            const loadingTask = pdfjsLib.getDocument({ data: typedarray });
+            const pdf = await loadingTask.promise;
+            setPdfDocument(pdf);
+            setTotalPages(pdf.numPages);
+            setCurrentPage(1);
+            void extractPdfPageText(pdf, 1);
+          };
+          fileReader.readAsArrayBuffer(file);
+        } catch (err) {
+          console.error("Error loading PDF", err);
+        }
+      } else {
+        setFileType("image");
+        setTotalPages(1);
+        setCurrentPage(1);
+        void extractImageText(url);
       }
     }
   };
 
-  const extractPageText = async (pdf: any, pageNum: number) => {
+  // Perform true OCR on Images using Tesseract
+  const extractImageText = async (imgUrl: string) => {
+    setExtractingText(true);
+    setOcrProgress(0);
+    try {
+      const worker = await createWorker("eng+hin");
+      const ret = await worker.recognize(imgUrl);
+      setSpeechText(ret.data.text || "[No text detected in image]");
+      await worker.terminate();
+    } catch (err) {
+      console.error("OCR Image parse failed", err);
+      setSpeechText("[Failed to extract text from image]");
+    }
+    setExtractingText(false);
+  };
+
+  // Extract PDF text layers (fallback to canvas-level OCR if page is scanned/image-only)
+  const extractPdfPageText = async (pdf: any, pageNum: number) => {
     if (!pdf) return;
     setExtractingText(true);
+    setOcrProgress(0);
     try {
       const page = await pdf.getPage(pageNum);
+      
+      // Try text-layer extraction first
       const textContent = await page.getTextContent();
-      const textItems = textContent.items.map((item: any) => item.str);
-      const text = textItems.join(" ");
-      setSpeechText(text || `[No readable text found on Page ${pageNum}]`);
+      const textItems = textContent.items.map((item: any) => item.str).join(" ").trim();
+      
+      if (textItems.length > 10) {
+        setSpeechText(textItems);
+        setExtractingText(false);
+        return;
+      }
+
+      // If page is scanned (image-only), render to canvas and perform Tesseract OCR
+      const viewport = page.getViewport({ scale: 1.5 });
+      const canvas = canvasRef.current || document.createElement("canvas");
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+      const context = canvas.getContext("2d");
+      
+      if (context) {
+        await page.render({ canvasContext: context, viewport }).promise;
+        const imgDataUrl = canvas.toDataURL("image/png");
+        const worker = await createWorker("eng+hin");
+        const ret = await worker.recognize(imgDataUrl);
+        setSpeechText(ret.data.text || "[No text detected on scanned page]");
+        await worker.terminate();
+      }
     } catch (err) {
-      console.error("Failed to parse page text layers", err);
-      setSpeechText(`[Failed to parse text layers on Page ${pageNum}]`);
+      console.error("Scanned page OCR parser failed", err);
+      setSpeechText(`[Failed to parse page ${pageNum}]`);
     }
     setExtractingText(false);
   };
@@ -88,7 +139,7 @@ export function PDFStudyReader() {
   const handlePageChange = (nextPage: number) => {
     if (nextPage < 1 || nextPage > totalPages || !pdfDocument) return;
     setCurrentPage(nextPage);
-    void extractPageText(pdfDocument, nextPage);
+    void extractPdfPageText(pdfDocument, nextPage);
   };
 
   const handlePlayTTS = () => {
@@ -109,7 +160,7 @@ export function PDFStudyReader() {
     }
     
     utterance.rate = rate;
-    utterance.pitch = 1.05; // Slightly pitched up to remove robotic flatness
+    utterance.pitch = 1.05;
 
     utterance.onend = () => {
       setIsPlaying(false);
@@ -134,10 +185,10 @@ export function PDFStudyReader() {
       <div className="flex items-center justify-between border-b border-white/10 pb-3">
         <div className="flex items-center gap-2">
           <BookOpen className="w-5 h-5 text-cyan-400" />
-          <h3 className="text-lg font-bold text-white font-sans">Subject PDF Companion & TTS</h3>
+          <h3 className="text-lg font-bold text-white">Subject Document OCR & TTS</h3>
         </div>
         <div className="flex items-center gap-2">
-          {pdfUrl && (
+          {fileUrl && (
             <button
               onClick={() => setSplitScreen(!splitScreen)}
               className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 text-xs flex items-center gap-1"
@@ -150,83 +201,116 @@ export function PDFStudyReader() {
             onClick={() => fileInputRef.current?.click()}
             className="rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 px-3.5 py-1.5 text-xs font-bold text-white shadow hover:scale-105 transition-transform"
           >
-            Import PDF
+            Import Document (PDF/Image)
           </button>
           <input
             ref={fileInputRef}
             type="file"
-            accept="application/pdf"
+            accept="application/pdf,image/*"
             className="hidden"
             onChange={handleFileChange}
           />
         </div>
       </div>
 
-      {!pdfUrl ? (
+      <canvas ref={canvasRef} className="hidden" />
+
+      {!fileUrl ? (
         <div className="flex flex-col items-center justify-center p-8 rounded-2xl bg-white/[0.01] border border-white/5 border-dashed text-center">
           <FileText className="w-10 h-10 text-slate-500 mb-2" />
           <p className="text-sm font-semibold text-slate-300">No Document Loaded</p>
           <p className="text-xs text-slate-500 mt-1 max-w-sm">
-            Import a PDF file to extract the text layers of any selected page and listen to it in English/Hindi.
+            Import a PDF textbook or Image. Tesseract OCR will read scanned pages in English or Hindi.
           </p>
         </div>
       ) : (
         <div className={`grid gap-4 transition-all ${splitScreen ? "lg:grid-cols-2" : "grid-cols-1"}`}>
-          {/* PDF Viewer Frame */}
+          {/* File Preview Frame */}
           <div className="relative rounded-2xl border border-white/10 bg-slate-950 overflow-hidden h-[450px] flex flex-col justify-between">
-            <iframe
-              src={pdfUrl}
-              title="PDF Companion View"
-              className="w-full flex-1 border-none"
-            />
-            {/* Real-time PDF Navigation & Text Extraction Trigger */}
+            {fileType === "pdf" ? (
+              <iframe
+                src={fileUrl}
+                title="PDF View"
+                className="w-full flex-1 border-none"
+              />
+            ) : (
+              <div className="flex-1 flex items-center justify-center bg-slate-900 overflow-hidden">
+                <img src={fileUrl} alt="Imported Source" className="max-h-[380px] max-w-full object-contain" />
+              </div>
+            )}
+            
+            {/* Real-time Navigation & Tesseract OCR triggers */}
             <div className="bg-slate-900 border-t border-white/10 p-3 flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">
-                <button
-                  disabled={currentPage <= 1 || extractingText}
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  className="px-2 py-1 rounded bg-white/5 border border-white/10 text-xs text-slate-300 hover:bg-white/10 disabled:opacity-40"
-                >
-                  Prev
-                </button>
-                <span className="text-xs text-white font-mono">
-                  Page {currentPage} / {totalPages}
-                </span>
-                <button
-                  disabled={currentPage >= totalPages || extractingText}
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  className="px-2 py-1 rounded bg-white/5 border border-white/10 text-xs text-slate-300 hover:bg-white/10 disabled:opacity-40"
-                >
-                  Next
-                </button>
+                {fileType === "pdf" && (
+                  <>
+                    <button
+                      disabled={currentPage <= 1 || extractingText}
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      className="px-2 py-1 rounded bg-white/5 border border-white/10 text-xs text-slate-300 hover:bg-white/10 disabled:opacity-40"
+                    >
+                      Prev
+                    </button>
+                    <span className="text-xs text-white font-mono">
+                      Page {currentPage} / {totalPages}
+                    </span>
+                    <button
+                      disabled={currentPage >= totalPages || extractingText}
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      className="px-2 py-1 rounded bg-white/5 border border-white/10 text-xs text-slate-300 hover:bg-white/10 disabled:opacity-40"
+                    >
+                      Next
+                    </button>
+                  </>
+                )}
+                {fileType === "image" && (
+                  <span className="text-xs text-slate-400 flex items-center gap-1">
+                    <ImageIcon className="w-3.5 h-3.5" /> Single Image File
+                  </span>
+                )}
               </div>
               <button
                 disabled={extractingText}
-                onClick={() => void extractPageText(pdfDocument, currentPage)}
+                onClick={() => {
+                  if (fileType === "pdf") {
+                    void extractPdfPageText(pdfDocument, currentPage);
+                  } else {
+                    void extractImageText(fileUrl);
+                  }
+                }}
                 className="flex items-center gap-1.5 rounded-lg bg-cyan-500 text-slate-950 px-3 py-1.5 text-xs font-bold hover:bg-cyan-400 disabled:opacity-50"
               >
                 <Eye className="w-3.5 h-3.5" />
-                <span>{extractingText ? "Extracting..." : "Extract Text Layer"}</span>
+                <span>{extractingText ? "Performing OCR..." : "Extract Text Layer"}</span>
               </button>
             </div>
           </div>
 
-          {/* TTS Workspace (Side-by-side) */}
+          {/* TTS Workspace */}
           {splitScreen && (
-            <div className="rounded-2xl border border-cyan-500/10 bg-gradient-to-br from-slate-900 to-cyan-950/10 p-4 space-y-4 flex flex-col justify-between">
+            <div className="rounded-2xl border border-cyan-500/10 bg-gradient-to-br from-slate-900 to-cyan-950/10 p-4 space-y-4 flex flex-col justify-between relative">
+              {/* Extracting Text Overlay */}
+              {extractingText && (
+                <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-30 rounded-2xl flex flex-col items-center justify-center text-center p-6">
+                  <div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mb-3" />
+                  <p className="text-sm font-bold text-white">Extracting Scanned Text...</p>
+                  <p className="text-xs text-slate-400 mt-1 max-w-xs">
+                    Please wait. FlowTrack is running local Tesseract OCR to read text layers from this page.
+                  </p>
+                </div>
+              )}
+
               <div>
                 <h4 className="text-sm font-bold text-white flex items-center gap-1.5 mb-1">
                   <span className="text-cyan-400">📝</span> Study Text Reader (Hindi & English)
                 </h4>
-                <p className="text-[11px] text-slate-400 font-mono truncate">{fileName}</p>
                 <textarea
                   value={speechText}
                   onChange={(e) => setSpeechText(e.target.value)}
-                  placeholder="Paste study text or navigate pages in PDF companion to extract text layer..."
+                  placeholder="Paste study notes or extract text layers from textbooks above..."
                   className="w-full h-40 mt-3 rounded-xl border border-white/10 bg-slate-950/70 p-3 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-400 resize-none font-sans leading-relaxed"
                 />
 
-                {/* TTS Controls Panel */}
                 <div className="mt-3 p-3 rounded-xl bg-slate-950/60 border border-white/5 space-y-3">
                   <div className="flex flex-col gap-2">
                     <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Select Voice Model</label>
@@ -237,7 +321,7 @@ export function PDFStudyReader() {
                     >
                       {voices.map(v => (
                         <option key={v.name} value={v.name}>
-                          {v.name} ({v.lang}) {v.name.includes("Google") ? "🌟 High Quality" : ""}
+                          {v.name} ({v.lang})
                         </option>
                       ))}
                       {voices.length === 0 && <option>Default System Voice</option>}
@@ -270,14 +354,12 @@ export function PDFStudyReader() {
                             ? "bg-amber-400 text-slate-950 hover:bg-amber-300" 
                             : "bg-cyan-500 text-slate-950 hover:bg-cyan-400"
                         }`}
-                        title={isPlaying ? "Pause Speech" : "Play Speech"}
                       >
                         {isPlaying ? <Pause className="w-4.5 h-4.5" /> : <Play className="w-4.5 h-4.5" />}
                       </button>
                       <button
                         onClick={handleStopTTS}
                         className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10"
-                        title="Stop Speech"
                       >
                         <VolumeX className="w-4.5 h-4.5" />
                       </button>
