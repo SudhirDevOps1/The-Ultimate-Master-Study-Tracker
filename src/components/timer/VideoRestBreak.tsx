@@ -136,10 +136,10 @@ export function VideoRestBreak() {
   return (
     <>
       {/* Floating Rest mini settings toggle */}
-      <div className="fixed bottom-4 right-4 z-40">
+      <div className="fixed bottom-4 right-18 z-40">
         <button
           onClick={() => setShowSettings(!showSettings)}
-          className="p-3 rounded-full bg-slate-900 border border-white/10 hover:border-cyan-400 text-cyan-400 shadow-xl transition-all"
+          className="p-3 rounded-full bg-slate-900 border border-white/10 hover:border-cyan-400 text-cyan-400 shadow-xl transition-all hover:scale-105 active:scale-95"
           title="Video Rest Settings"
         >
           🎬
