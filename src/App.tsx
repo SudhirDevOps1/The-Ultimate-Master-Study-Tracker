@@ -18,6 +18,7 @@ import { AIAssistantPage } from "@/pages/AIAssistantPage";
 import { TodayTasksPage } from "@/pages/TodayTasksPage";
 import { AppTrackingPage } from "@/pages/AppTrackingPage";
 import { StudyNotesPage } from "@/pages/StudyNotesPage";
+import { StudyNotesBoardPage } from "@/pages/StudyNotesBoardPage";
 import { useTimer } from "@/hooks/useTimer";
 
 import { VideoRestBreak } from "@/components/timer/VideoRestBreak";
@@ -145,6 +146,20 @@ function AnimatedRoutes() {
                 className="w-full"
               >
                 <StudyNotesPage />
+              </motion.div>
+            }
+          />
+          <Route
+            path="/notes-board"
+            element={
+              <motion.div
+                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
+                transition={{ duration: 0.3, ease: "circOut" }}
+                className="w-full"
+              >
+                <StudyNotesBoardPage />
               </motion.div>
             }
           />

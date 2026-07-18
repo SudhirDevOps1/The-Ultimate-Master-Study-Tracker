@@ -665,10 +665,9 @@ export function DashboardPage() {
         </Panel>
       </div>
 
-      {/* Gamified Focus Quest & PDF Reader workspace */}
-      <div className="grid gap-5 lg:grid-cols-2">
+      {/* Gamified Focus Quest */}
+      <div className="grid gap-5 grid-cols-1">
         <GamifiedFocusQuest />
-        <PDFStudyReader />
       </div>
 
       {/* Heatmap Section */}
