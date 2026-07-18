@@ -45,7 +45,7 @@
 &nbsp;
 [![PWA](https://img.shields.io/badge/PWA-Installable-5A0FC8?style=flat-square&logo=pwa&logoColor=white)](#-deployment--setup)
 &nbsp;
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](docs/LICENSE)
 &nbsp;
 [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen?style=flat-square)](#-how-to-contribute)
 
@@ -173,7 +173,7 @@ Double-click  →  START.bat
 chmod +x setup.sh && ./setup.sh
 ```
 
-**→ See [QUICK_START.md](QUICK_START.md) for details**
+**→ See [QUICK_START.md](docs/QUICK_START.md) for details**
 
 ---
 
