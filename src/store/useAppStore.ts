@@ -235,6 +235,15 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
             isBackendConnected: true 
           });
 
+          // PREVENT SELF TRACKING: Ignore logging if the focused window is FlowTrack itself
+          const isSelf = processName.toLowerCase().includes("flowtrack") || 
+                         processName.toLowerCase().includes("electron") ||
+                         title.toLowerCase().includes("flowtrack");
+
+          if (isSelf) {
+            return;
+          }
+
           // Log active window locally in IndexedDB as a wellbeing/activity log entry
           const today = new Date().toISOString().split("T")[0];
           const logEntry = {
