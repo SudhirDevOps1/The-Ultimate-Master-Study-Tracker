@@ -1,11 +1,35 @@
 import { useState, useRef, useEffect } from "react";
 import { Panel } from "@/components/common/Panel";
-import { BookOpen, FileText, Maximize2, Minimize2, Play, Pause, VolumeX, Eye, Image as ImageIcon } from "lucide-react";
+import { BookOpen, FileText, Maximize2, Minimize2, Play, Pause, VolumeX, Eye, Image as ImageIcon, Download, Trash, Palette } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 import { createWorker } from "tesseract.js";
+import html2canvas from "html2canvas";
 
-// Initialize PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+interface StickyNote {
+  id: string;
+  text: string;
+  color: string;
+  font: string;
+  date: string;
+  time: string;
+}
+
+const NOTE_COLORS = [
+  "bg-amber-400/25 border-amber-400/50 text-amber-200",
+  "bg-emerald-400/25 border-emerald-400/50 text-emerald-200",
+  "bg-cyan-400/25 border-cyan-400/50 text-cyan-200",
+  "bg-purple-400/25 border-purple-400/50 text-purple-200",
+  "bg-pink-400/25 border-pink-400/50 text-pink-200"
+];
+
+const NOTE_FONTS = [
+  "font-sans",
+  "font-serif",
+  "font-mono",
+  "font-bold"
+];
 
 export function PDFStudyReader() {
   const [fileUrl, setFileUrl] = useState<string | null>(null);
@@ -15,7 +39,6 @@ export function PDFStudyReader() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [extractingText, setExtractingText] = useState(false);
-  const [ocrProgress, setOcrProgress] = useState(0);
   const [splitScreen, setSplitScreen] = useState(false);
 
   // Text-To-Speech (TTS) states
@@ -24,10 +47,23 @@ export function PDFStudyReader() {
   const [rate, setRate] = useState(1);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoiceName, setSelectedVoiceName] = useState("");
-  
+
+  // Sticky Notes States
+  const [stickyNotes, setStickyNotes] = useState<StickyNote[]>(() => {
+    const saved = localStorage.getItem("workspace_sticky_notes");
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [newNoteColor, setNewNoteColor] = useState(NOTE_COLORS[0]);
+  const [newNoteFont, setNewNoteFont] = useState(NOTE_FONTS[0]);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const synthRef = useRef<SpeechSynthesis | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const notesContainerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    localStorage.setItem("workspace_sticky_notes", JSON.stringify(stickyNotes));
+  }, [stickyNotes]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.speechSynthesis) {
@@ -80,10 +116,8 @@ export function PDFStudyReader() {
     }
   };
 
-  // Perform true OCR on Images using Tesseract
   const extractImageText = async (imgUrl: string) => {
     setExtractingText(true);
-    setOcrProgress(0);
     try {
       const worker = await createWorker("eng+hin");
       const ret = await worker.recognize(imgUrl);
@@ -96,15 +130,11 @@ export function PDFStudyReader() {
     setExtractingText(false);
   };
 
-  // Extract PDF text layers (fallback to canvas-level OCR if page is scanned/image-only)
   const extractPdfPageText = async (pdf: any, pageNum: number) => {
     if (!pdf) return;
     setExtractingText(true);
-    setOcrProgress(0);
     try {
       const page = await pdf.getPage(pageNum);
-      
-      // Try text-layer extraction first
       const textContent = await page.getTextContent();
       const textItems = textContent.items.map((item: any) => item.str).join(" ").trim();
       
@@ -114,7 +144,7 @@ export function PDFStudyReader() {
         return;
       }
 
-      // If page is scanned (image-only), render to canvas and perform Tesseract OCR
+      // Fallback to Canvas Render OCR if scanned
       const viewport = page.getViewport({ scale: 1.5 });
       const canvas = canvasRef.current || document.createElement("canvas");
       canvas.height = viewport.height;
@@ -177,6 +207,41 @@ export function PDFStudyReader() {
     if (synthRef.current) {
       synthRef.current.cancel();
       setIsPlaying(false);
+    }
+  };
+
+  // Sticky Notes Methods
+  const handleAddStickyNote = () => {
+    if (!speechText.trim()) return;
+    const now = new Date();
+    const newNote: StickyNote = {
+      id: crypto.randomUUID(),
+      text: speechText,
+      color: newNoteColor,
+      font: newNoteFont,
+      date: now.toLocaleDateString(),
+      time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    setStickyNotes([newNote, ...stickyNotes]);
+  };
+
+  const handleDeleteNote = (id: string) => {
+    setStickyNotes(stickyNotes.filter(n => n.id !== id));
+  };
+
+  const handleDownloadNotesAsPNG = async () => {
+    if (!notesContainerRef.current) return;
+    try {
+      const canvas = await html2canvas(notesContainerRef.current, {
+        backgroundColor: "#020617",
+        scale: 2
+      });
+      const link = document.createElement("a");
+      link.download = `FlowTrack-StickyNotes-${new Date().toISOString().split("T")[0]}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    } catch (err) {
+      console.error("Failed to render notes to PNG", err);
     }
   };
 
@@ -286,10 +351,9 @@ export function PDFStudyReader() {
             </div>
           </div>
 
-          {/* TTS Workspace */}
+          {/* TTS & Sticky Notes Workspace */}
           {splitScreen && (
             <div className="rounded-2xl border border-cyan-500/10 bg-gradient-to-br from-slate-900 to-cyan-950/10 p-4 space-y-4 flex flex-col justify-between relative">
-              {/* Extracting Text Overlay */}
               {extractingText && (
                 <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-30 rounded-2xl flex flex-col items-center justify-center text-center p-6">
                   <div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mb-3" />
@@ -308,7 +372,7 @@ export function PDFStudyReader() {
                   value={speechText}
                   onChange={(e) => setSpeechText(e.target.value)}
                   placeholder="Paste study notes or extract text layers from textbooks above..."
-                  className="w-full h-40 mt-3 rounded-xl border border-white/10 bg-slate-950/70 p-3 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-400 resize-none font-sans leading-relaxed"
+                  className="w-full h-32 mt-3 rounded-xl border border-white/10 bg-slate-950/70 p-3 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-400 resize-none font-sans leading-relaxed"
                 />
 
                 <div className="mt-3 p-3 rounded-xl bg-slate-950/60 border border-white/5 space-y-3">
@@ -366,13 +430,91 @@ export function PDFStudyReader() {
                     </div>
                   </div>
                 </div>
-              </div>
-              <div className="flex items-center justify-between text-xs text-slate-500 border-t border-white/5 pt-2">
-                <span>Natural Human Tone Filter applied</span>
-                <span className="text-[10px] bg-cyan-400/10 text-cyan-400 px-2 py-0.5 rounded-full font-bold uppercase">TTS Ready</span>
+
+                {/* Sticky Note Designer Panel */}
+                <div className="mt-3 p-3 rounded-xl bg-slate-950/60 border border-white/5 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Style:</span>
+                    <div className="flex gap-1">
+                      {NOTE_COLORS.map(c => (
+                        <button
+                          key={c}
+                          onClick={() => setNewNoteColor(c)}
+                          className={`w-4 h-4 rounded-full border ${c.split(" ")[1]} ${
+                            newNoteColor === c ? "ring-2 ring-white scale-110" : ""
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <select
+                    value={newNoteFont}
+                    onChange={(e) => setNewNoteFont(e.target.value)}
+                    className="bg-slate-900 border border-white/10 rounded px-2 py-1 text-[10px] text-white"
+                  >
+                    <option value="font-sans">Sans</option>
+                    <option value="font-serif">Serif</option>
+                    <option value="font-mono">Mono</option>
+                    <option value="font-bold">Bold</option>
+                  </select>
+
+                  <button
+                    onClick={handleAddStickyNote}
+                    disabled={!speechText.trim()}
+                    className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 text-xs font-bold disabled:opacity-40"
+                  >
+                    📌 Create Sticky Note
+                  </button>
+                </div>
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Sticky Notes Display Board with PNG download triggers */}
+      {stickyNotes.length > 0 && (
+        <div className="border-t border-white/10 pt-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
+              <Palette className="w-4 h-4 text-cyan-400 animate-pulse" />
+              <span>Study Sticky Notes Board</span>
+            </h4>
+            <button
+              onClick={handleDownloadNotesAsPNG}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-300 hover:bg-white/10"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export Board as PNG</span>
+            </button>
+          </div>
+
+          <div 
+            ref={notesContainerRef} 
+            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 p-4 rounded-2xl bg-slate-950 border border-white/5"
+          >
+            {stickyNotes.map(note => (
+              <div 
+                key={note.id} 
+                className={`relative rounded-xl border p-4 space-y-3 flex flex-col justify-between shadow-lg transition-transform hover:-translate-y-0.5 ${note.color}`}
+              >
+                <div className={`text-sm leading-relaxed whitespace-pre-wrap break-words ${note.font}`}>
+                  {note.text}
+                </div>
+                <div className="border-t border-white/10 pt-2 flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                  <span>{note.date} • {note.time}</span>
+                  <button 
+                    onClick={() => handleDeleteNote(note.id)}
+                    className="text-rose-400/70 hover:text-rose-400 p-1"
+                    title="Delete Note"
+                  >
+                    <Trash className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </Panel>
