@@ -99,7 +99,9 @@ export function BackendActivityPanel() {
     return categoryData.reduce((acc, curr) => acc + curr.value, 0);
   }, [categoryData]);
 
-  if (!isBackendConnected) {
+  const isElectron = typeof window !== "undefined" && (window as any).require;
+
+  if (!isBackendConnected && !isElectron) {
     return (
       <div className="grid gap-5 grid-cols-1">
         <Panel className="border border-amber-900/20 bg-amber-950/20">
@@ -110,81 +112,13 @@ export function BackendActivityPanel() {
               </div>
               <div className="flex-1">
                 <h4 className="text-sm font-semibold text-amber-200">Foreground App & Tab Usage</h4>
-                <p className="text-[10px] text-amber-300/60">OFFLINE</p>
+                <p className="text-[10px] text-slate-400">Not Available on Web Client</p>
               </div>
             </div>
 
-            <p className="text-xs text-amber-100/70 leading-relaxed">
-              Realtime foreground process tracking logs pulled directly from FlowTrack sqlite database.
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Realtime desktop foreground tracking is fully supported and enabled inside the **FlowTrack Desktop Installer App (.exe)**. Please run the desktop application version to log application and browser tab usage data locally.
             </p>
-
-            {/* Category Stats - Placeholder */}
-            <div className="grid grid-cols-4 gap-3">
-              <div className="rounded-lg bg-emerald-950/30 border border-emerald-900/30 p-2.5 text-center">
-                <p className="text-[10px] uppercase tracking-wider text-emerald-400 font-semibold">PRODUCTIVE</p>
-                <p className="mt-1 text-lg font-bold text-white">0m</p>
-                <p className="text-[8px] text-slate-400 mt-0.5">0.0% of active time</p>
-              </div>
-              <div className="rounded-lg bg-red-950/30 border border-red-900/30 p-2.5 text-center">
-                <p className="text-[10px] uppercase tracking-wider text-red-400 font-semibold">DISTRACTING</p>
-                <p className="mt-1 text-lg font-bold text-white">0m</p>
-                <p className="text-[8px] text-slate-400 mt-0.5">0.0% of active time</p>
-              </div>
-              <div className="rounded-lg bg-cyan-950/30 border border-cyan-900/30 p-2.5 text-center">
-                <p className="text-[10px] uppercase tracking-wider text-cyan-400 font-semibold">NEUTRAL</p>
-                <p className="mt-1 text-lg font-bold text-white">0m</p>
-                <p className="text-[8px] text-slate-400 mt-0.5">0.0% of active time</p>
-              </div>
-              <div className="rounded-lg bg-amber-950/30 border border-amber-900/30 p-2.5 text-center">
-                <p className="text-[10px] uppercase tracking-wider text-amber-400 font-semibold">IDLE/AFK</p>
-                <p className="mt-1 text-lg font-bold text-white">0m</p>
-                <p className="text-[8px] text-slate-400 mt-0.5">0.0% of active time</p>
-              </div>
-            </div>
-
-            {/* Search Bar & Filters */}
-            <div className="space-y-2">
-              <div className="flex gap-2">
-                <div className="flex-1 flex items-center gap-2 rounded-xl bg-white/5 border border-white/10 px-3 py-2">
-                  <span className="text-cyan-400">🔍</span>
-                  <input
-                    type="text"
-                    placeholder="Search processes or ta..."
-                    disabled
-                    className="flex-1 bg-transparent text-xs text-slate-300 placeholder-slate-500 outline-none disabled:opacity-50"
-                  />
-                </div>
-                <button disabled className="rounded-lg bg-cyan-500/20 text-cyan-300 px-3 py-2 text-xs font-semibold border border-cyan-400/30 disabled:opacity-50">
-                  ALL
-                </button>
-                <button disabled className="rounded-lg bg-slate-700/30 text-slate-400 px-3 py-2 text-xs font-semibold border border-white/10 disabled:opacity-50">
-                  PRO
-                </button>
-              </div>
-            </div>
-
-            {/* Table Headers */}
-            <div className="text-[10px] uppercase tracking-wider text-slate-500 grid grid-cols-3 gap-2 border-t border-white/5 pt-3">
-              <div>PROCESS / APP WINDOW/TAB TITLE</div>
-              <div>TIME LOGGED</div>
-              <div>TAG</div>
-            </div>
-
-            {/* Offline Message */}
-            <div className="rounded-lg bg-slate-950/50 p-3 text-center">
-              <p className="text-xs text-slate-400">
-                Backend server is <span className="font-semibold text-red-400">OFFLINE</span>. Start backend to view PC application usage details.
-              </p>
-            </div>
-
-            {/* Instructions */}
-            <div className="rounded-lg bg-blue-950/20 border border-blue-900/20 p-3 space-y-2">
-              <p className="text-xs font-semibold text-blue-300">How to Start Backend:</p>
-              <div className="space-y-1">
-                <p className="text-[10px] text-blue-200"><strong>Windows:</strong> Double-click <code className="bg-slate-900 px-1.5 py-0.5 rounded text-[9px]">start_local.bat</code></p>
-                <p className="text-[10px] text-blue-200"><strong>macOS/Linux:</strong> Run <code className="bg-slate-900 px-1.5 py-0.5 rounded text-[9px]">bash start_local.sh</code></p>
-              </div>
-            </div>
           </div>
         </Panel>
       </div>
