@@ -96,6 +96,23 @@
 
 ---
 
+## 📂 Project Documentation & Guides
+
+All documentation has been organized inside the `docs/` directory for clean folder architecture. You can click on any guide below to understand features, setup, and technical specifications:
+
+| Guide | Purpose | Link |
+|:---|:---|:---|
+| 🧭 **Documentation Index** | High-level summary of all documentation | [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md) |
+| ⚡ **Quick Start Guide** | Fast setup instructions for all operating systems | [docs/QUICK_START.md](docs/QUICK_START.md) |
+| 📋 **Complete User Guide** | How to use each feature, tips, tricks, and FAQ | [docs/USER_GUIDE.md](docs/USER_GUIDE.md) |
+| 📝 **Cheat Sheet Reference** | Goal recommendations, keyboard shortcuts, checklists | [docs/CHEAT_SHEET.md](docs/CHEAT_SHEET.md) |
+| ⚙️ **Detailed Setup Guide** | Dependency management, backend configuration details | [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md) |
+| 🧠 **Technical Architecture** | API documentation, database schema, algorithms | [docs/BACKEND_INTEGRATION.md](docs/BACKEND_INTEGRATION.md) |
+| 🔧 **Applied Fixes Log** | Details of resolved memory leaks and fixes | [docs/FIXES_APPLIED.md](docs/FIXES_APPLIED.md) |
+| 🔒 **System Rules** | Strict mode guidelines and app blocking details | [docs/SYSTEM_RULES.md](docs/SYSTEM_RULES.md) |
+
+---
+
 ## 📚 Table of Contents
 
 <details>
