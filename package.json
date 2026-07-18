@@ -34,6 +34,7 @@
     "firebase": "^12.15.0",
     "framer-motion": "^12.35.0",
     "lucide-react": "^0.474.0",
+    "pdfjs-dist": "^6.1.200",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-router-dom": "^7.13.1",
