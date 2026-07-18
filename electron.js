@@ -43,8 +43,7 @@ app.on("window-all-closed", () => {
 // IPC communication endpoints for active window tracking
 ipcMain.handle("get-active-window", async () => {
   try {
-    const { execSync } = require("child_process");
-    // PowerShell script to find current foreground window title and process name
+    const { exec } = require("child_process");
     const psCommand = `
       Add-Type -TypeDefinition "
         using System;
@@ -71,14 +70,24 @@ ipcMain.handle("get-active-window", async () => {
       $result | ConvertTo-Json
     `;
     
-    const output = execSync(`powershell -NoProfile -Command "${psCommand.replace(/\n/g, " ").replace(/"/g, '\\"')}"`, { encoding: "utf8" });
-    const data = JSON.parse(output.trim());
-    return {
-      title: data.title || "Desktop / Idle",
-      process: data.process || "unknown"
-    };
+    return new Promise((resolve) => {
+      exec(`powershell -NoProfile -Command "${psCommand.replace(/\n/g, " ").replace(/"/g, '\\"')}"`, (error, stdout) => {
+        if (error || !stdout) {
+          resolve({ title: "Desktop / Idle", process: "unknown" });
+          return;
+        }
+        try {
+          const data = JSON.parse(stdout.trim());
+          resolve({
+            title: data.title || "Desktop / Idle",
+            process: data.process || "unknown"
+          });
+        } catch {
+          resolve({ title: "Desktop / Idle", process: "unknown" });
+        }
+      });
+    });
   } catch (err) {
-    // Graceful fallback for non-Windows platforms or permission restrictions
     return { title: "Desktop / Idle", process: "unknown" };
   }
 });
