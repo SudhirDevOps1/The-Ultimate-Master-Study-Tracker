@@ -375,6 +375,21 @@ export function SettingsPage() {
                 } catch (e) {
                   console.warn("Backend offline or unreachable, exporting without backend activities", e);
                 }
+
+                // Pack all Local Wellbeing & System App usage lists from localStorage
+                const localWellbeingData: Record<string, any> = {};
+                try {
+                  for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && (key.startsWith("wellbeing_usage_") || key.startsWith("app_activity_") || key === "app_block_rules")) {
+                      const val = localStorage.getItem(key);
+                      if (val) localWellbeingData[key] = JSON.parse(val);
+                    }
+                  }
+                } catch (err) {
+                  console.error("Error reading wellbeing data for backup", err);
+                }
+
                 exportData({
                   app: "FlowTrack",
                   exportedAt: new Date().toISOString(),
@@ -382,6 +397,7 @@ export function SettingsPage() {
                   sessions,
                   settings: settingsList,
                   activities: backendActivities,
+                  wellbeingData: localWellbeingData
                 } as any);
                 showMessage("Backup exported successfully.");
               }}
@@ -397,8 +413,18 @@ export function SettingsPage() {
               onChange={(event) => {
                 const file = event.target.files?.[0];
                 if (!file) return;
-                void importBackup(file).then((payload) => {
+                void importBackup(file).then((payload: any) => {
                   void importAll(payload.subjects, payload.sessions, payload.settings, (payload as any).activities).then(() => {
+                    // Restore Local Wellbeing, App Activity logs and App Blocking Rules
+                    if (payload.wellbeingData) {
+                      try {
+                        Object.entries(payload.wellbeingData).forEach(([key, value]) => {
+                          localStorage.setItem(key, JSON.stringify(value));
+                        });
+                      } catch (err) {
+                        console.error("Error importing wellbeing data", err);
+                      }
+                    }
                     showMessage("Backup imported successfully.");
                     if (fileRef.current) fileRef.current.value = "";
                   });
