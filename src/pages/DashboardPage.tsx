@@ -10,6 +10,8 @@ import { useAppStore, type AppState } from "@/store/useAppStore";
 import type { StudySession } from "@/types/models";
 import { useStreak } from "@/hooks/useStreak";
 import { toDurationLabel, formatTime12Hour } from "@/utils/time";
+import { PDFStudyReader } from "@/components/common/PDFStudyReader";
+import { GamifiedFocusQuest } from "@/components/goals/GamifiedFocusQuest";
 
 // Progress Ring Component
 function ProgressRing({ progress, size = 180, strokeWidth = 12, color = "cyan", children }: { progress: number; size?: number; strokeWidth?: number; color?: string; children?: React.ReactNode }) {
@@ -661,6 +663,12 @@ export function DashboardPage() {
             })}
           </div>
         </Panel>
+      </div>
+
+      {/* Gamified Focus Quest & PDF Reader workspace */}
+      <div className="grid gap-5 lg:grid-cols-2">
+        <GamifiedFocusQuest />
+        <PDFStudyReader />
       </div>
 
       {/* Heatmap Section */}
