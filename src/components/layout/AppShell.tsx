@@ -23,6 +23,7 @@ const links = [
   { to: "/dashboard", label: "Dashboard", Icon: Home },
   { to: "/today", label: "Today", Icon: ClipboardList },
   { to: "/timer", label: "Timer", Icon: Timer },
+  { to: "/study-workspace", label: "Study Workspace", Icon: BookOpen },
   { to: "/app-tracking", label: "App Tracking", Icon: Monitor },
   { to: "/ai", label: "AI Assistant", Icon: Brain },
   { to: "/calendar", label: "Calendar", Icon: CalendarIcon },
