@@ -14,7 +14,9 @@ import {
   History as HistoryIcon, 
   BookOpen, 
   Book, 
-  Settings as SettingsIcon 
+  Settings as SettingsIcon,
+  Github,
+  Globe
 } from "lucide-react";
 
 const links = [
@@ -89,10 +91,32 @@ export function AppShell() {
                 Plan sessions, track actual study time accurately, and review progress with beautiful analytics.
               </p>
             </div>
-            <div className={`soft-card rounded-2xl bg-gradient-to-r ${getGradientClass()} p-[2px]`}>
-              <div className="rounded-2xl bg-slate-900/95 px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Current page</p>
-                <p className="mt-1 text-lg font-medium text-white">{current}</p>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <a 
+                href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-white/10 hover:text-white transition-all duration-200 active:scale-95 shadow-md"
+                title="View GitHub Repository"
+              >
+                <Github className="w-4 h-4" />
+                <span className="hidden md:inline">GitHub</span>
+              </a>
+              <a 
+                href="https://study-tracker-app-pied.vercel.app/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-white/10 hover:text-white transition-all duration-200 active:scale-95 shadow-md"
+                title="View Live Web App"
+              >
+                <Globe className="w-4 h-4" />
+                <span className="hidden md:inline">Live Web</span>
+              </a>
+              <div className={`soft-card rounded-2xl bg-gradient-to-r ${getGradientClass()} p-[2px]`}>
+                <div className="rounded-2xl bg-slate-900/95 px-4 py-3">
+                  <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Current page</p>
+                  <p className="mt-1 text-lg font-medium text-white">{current}</p>
+                </div>
               </div>
             </div>
           </div>
