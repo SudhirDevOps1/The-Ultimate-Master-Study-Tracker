@@ -1,0 +1,101 @@
+{
+  "poll_interval": 2.0,
+  "idle_threshold": 300.0,
+  "categories": {
+    "productive": {
+      "processes": [
+        "code.exe",
+        "code - insiders.exe",
+        "devenv.exe",
+        "idea64.exe",
+        "pycharm64.exe",
+        "webstorm64.exe",
+        "notepad++.exe",
+        "sublime_text.exe",
+        "windowsterminal.exe",
+        "powershell.exe",
+        "pwsh.exe",
+        "cmd.exe",
+        "chrome.exe",
+        "msedge.exe",
+        "firefox.exe",
+        "brave.exe",
+        "opera.exe",
+        "outlook.exe",
+        "excel.exe",
+        "winword.exe",
+        "powerpnt.exe",
+        "onenote.exe",
+        "slack.exe",
+        "teams.exe",
+        "obsidian.exe",
+        "notion.exe",
+        "anki.exe",
+        "zoom.exe",
+        "ms-teams.exe",
+        "acrobat.exe",
+        "foxitreader.exe"
+      ],
+      "keywords": [
+        "visual studio code",
+        "vscode",
+        "intellij",
+        "pycharm",
+        "webstorm",
+        "notepad++",
+        "sublime",
+        "terminal",
+        "github",
+        "gitlab",
+        "stackoverflow",
+        "w3schools",
+        "mdn web docs",
+        "notion",
+        "obsidian",
+        "anki",
+        "coursera",
+        "udemy",
+        "khan academy",
+        "edx",
+        "brilliant",
+        "leetcode",
+        "hackerrank",
+        "geeksforgeeks",
+        "pdf",
+        "lecture",
+        "notes",
+        "study",
+        "documentation",
+        "localhost",
+        "127.0.0.1",
+        "jupyter",
+        "colab",
+        "replit",
+        "overleaf"
+      ]
+    },
+    "distracting": {
+      "processes": [],
+      "keywords": [
+        "facebook",
+        "instagram",
+        "tiktok",
+        "twitter",
+        "youtube"
+      ]
+    },
+    "neutral": {
+      "processes": [],
+      "keywords": [
+        "gmail",
+        "google calendar",
+        "google drive",
+        "onedrive",
+        "dropbox",
+        "spotify",
+        "music",
+        "weather"
+      ]
+    }
+  }
+}

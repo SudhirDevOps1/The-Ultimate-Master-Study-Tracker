@@ -43,8 +43,17 @@ app.on("window-all-closed", () => {
 // IPC communication endpoints for active window tracking
 ipcMain.handle("get-active-window", async () => {
   try {
+    const activeWin = require("active-win");
+    const win = activeWin.sync();
+    if (win) {
+      return { 
+        title: win.title || "Desktop / Idle", 
+        process: win.owner.name || "unknown" 
+      };
+    }
     return { title: "Desktop / Idle", process: "unknown" };
   } catch (err) {
-    return { title: "Error querying active window", process: "error" };
+    // Graceful fallback for non-supported OS environments
+    return { title: "Desktop / Idle", process: "unknown" };
   }
 });

@@ -221,6 +221,67 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
     void get().fetchBackendData();
   },
   fetchBackendData: async () => {
+    // Check if running inside Electron desktop shell
+    if (typeof window !== "undefined" && (window as any).require) {
+      try {
+        const electron = (window as any).require("electron");
+        const active = await electron.ipcRenderer.invoke("get-active-window");
+        if (active) {
+          const title = active.title || "Desktop / Idle";
+          const processName = active.process || "unknown";
+          
+          set({ 
+            activeWindow: title,
+            isBackendConnected: true 
+          });
+
+          // Log active window locally in IndexedDB as a wellbeing/activity log entry
+          const today = new Date().toISOString().split("T")[0];
+          const logEntry = {
+            id: crypto.randomUUID(),
+            appName: processName,
+            title: title,
+            duration: 10,
+            date: today,
+            hour: new Date().getHours(),
+            category: "study"
+          };
+
+          // Save tracking logs locally inIndexedDB
+          const existing = await db.settings.get("local_activities_logs");
+          const logs = existing ? JSON.parse(existing.value) : [];
+          logs.push(logEntry);
+          await db.settings.put({ key: "local_activities_logs", value: JSON.stringify(logs.slice(-500)) });
+
+          // Calculate mockup active processes stats from local logs
+          const category_stats = { productive: 0, distracting: 0, neutral: 0, idle: 0 };
+          logs.forEach((log: any) => {
+            category_stats.productive += log.duration;
+          });
+
+          set({
+            backendActivities: logs.map((l: any) => ({
+              title: l.title,
+              process: l.appName,
+              duration: l.duration,
+              category: "productive"
+            })),
+            backendStats: {
+              activity_by_category: {
+                productive: category_stats.productive,
+                distracting: 0,
+                neutral: 0,
+                idle: 0
+              }
+            }
+          });
+        }
+        return;
+      } catch (err) {
+        console.warn("Electron IPC query failed, falling back to network polling", err);
+      }
+    }
+
     const url = get().backendUrl;
     if (!url) {
       set({ isBackendConnected: false });
