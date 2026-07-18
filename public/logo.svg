@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#1e1b4b" />
+    </linearGradient>
+    <linearGradient id="primary-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818cf8" />
+      <stop offset="50%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#4f46e5" />
+    </linearGradient>
+    <linearGradient id="accent-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22d3ee" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+    
+    <!-- Glow Filters -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="16" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    
+    <filter id="subtle-glow" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="512" height="512" rx="128" fill="url(#bg-grad)" />
+  
+  <!-- Subtle inner border -->
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="none" stroke="rgba(255, 255, 255, 0.08)" stroke-width="8" />
+
+  <!-- Glowing background elements -->
+  <circle cx="160" cy="160" r="120" fill="#4f46e5" opacity="0.15" filter="url(#glow)" />
+  <circle cx="352" cy="352" r="120" fill="#06b6d4" opacity="0.15" filter="url(#glow)" />
+
+  <!-- Outer Speed Ring (Timer Concept) -->
+  <circle cx="256" cy="256" r="160" fill="none" stroke="url(#primary-grad)" stroke-width="20" stroke-linecap="round" stroke-dasharray="750 250" transform="rotate(-90 256 256)" filter="url(#subtle-glow)" />
+  
+  <!-- Inner Segmented Track -->
+  <circle cx="256" cy="256" r="120" fill="none" stroke="url(#accent-grad)" stroke-width="8" stroke-linecap="round" stroke-dasharray="10 40 180 50 120 50" transform="rotate(45 256 256)" />
+
+  <!-- Core Flow/Focus Symbol (Rocket / Arrow combo) -->
+  <g transform="translate(256, 256) scale(1.15)" filter="url(#subtle-glow)">
+    <!-- Main Rocket / Arrow body -->
+    <path d="M 0,-80 C 15,-50 35,-20 40,10 C 45,35 30,55 0,55 C -30,55 -45,35 -40,10 C -35,-20 -15,-50 0,-80 Z" fill="url(#accent-grad)" />
+    <!-- Wing left -->
+    <path d="M -22,18 C -45,20 -65,35 -65,55 C -65,55 -40,55 -32,38 Z" fill="url(#primary-grad)" opacity="0.9" />
+    <!-- Wing right -->
+    <path d="M 22,18 C 45,20 65,35 65,55 C 65,55 40,55 32,38 Z" fill="url(#primary-grad)" opacity="0.9" />
+    <!-- Center window / core -->
+    <circle cx="0" cy="-10" r="12" fill="#ffffff" />
+    <circle cx="0" cy="20" r="6" fill="#ffffff" opacity="0.7" />
+    
+    <!-- Fire thrust trail -->
+    <path d="M -15,58 L 0,85 L 15,58 Z" fill="#ff7e5f" opacity="0.85" />
+    <path d="M -8,58 L 0,72 L 8,58 Z" fill="#feb47b" />
+  </g>
+</svg>
