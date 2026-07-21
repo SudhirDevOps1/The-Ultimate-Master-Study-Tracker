@@ -1,11 +1,16 @@
 const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog } = require("electron");
 const path = require("path");
 const fs   = require("fs");
-const { exec } = require("child_process");
+const { execFile, exec } = require("child_process");
 
 let mainWindow;
 let tray;
 let isQuitting = false;
+
+// Path to native win-tracker.exe binary (compiled C# Win32 API helper)
+const trackerExePath = app.isPackaged
+  ? path.join(process.resourcesPath, "win-tracker.exe")
+  : path.join(__dirname, "win-tracker.exe");
 
 // ─── Persistent Activity Storage ─────────────────────────────────────────────
 let dataDir  = null;
@@ -51,16 +56,14 @@ function saveLogToFile() {
   }
 }
 
-// ── Ultra-Fast & Reliable Windows Foreground Window Fetcher ───────────────────
+// ── Direct Native Win32 Active Window Fetcher (0ms Latency) ───────────────────
 function getForegroundWindow() {
   return new Promise((resolve) => {
-    // Compact single-line PowerShell command using Add-Type
-    const script = `$code = 'using System; using System.Runtime.InteropServices; public class W { [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")] public static extern int GetWindowText(IntPtr h, System.Text.StringBuilder t, int c); [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid); }'; Add-Type -TypeDefinition $code -ErrorAction SilentlyContinue; $h = [W]::GetForegroundWindow(); $sb = New-Object System.Text.StringBuilder(256); [W]::GetWindowText($h, $sb, 256) | Out-Null; $p = 0; [W]::GetWindowThreadProcessId($h, [ref]$p) | Out-Null; $pr = Get-Process -Id $p -ErrorAction SilentlyContinue; @{ title = $sb.ToString(); process = if($pr){$pr.Name}else{"unknown"} } | ConvertTo-Json -Compress`;
-    
-    exec(`powershell -NoProfile -NonInteractive -Command "${script}"`, { timeout: 2000 }, (err, stdout) => {
-      if (err || !stdout) {
-        return resolve(null);
-      }
+    if (!fs.existsSync(trackerExePath)) {
+      return resolve({ title: "Desktop / Idle", process: "unknown" });
+    }
+    execFile(trackerExePath, { timeout: 1000 }, (err, stdout) => {
+      if (err || !stdout) return resolve(null);
       try {
         const parsed = JSON.parse(stdout.trim());
         resolve({
@@ -74,19 +77,19 @@ function getForegroundWindow() {
   });
 }
 
-// ── Reliable System Idle Time ────────────────────────────────────────────────
+// ── Native System Idle Time ──────────────────────────────────────────────────
 function getSystemIdleMs() {
   return new Promise((resolve) => {
     const script = `$code = 'using System; using System.Runtime.InteropServices; public class I { [StructLayout(LayoutKind.Sequential)] public struct L { public uint c; public uint t; } [DllImport("user32.dll")] public static extern bool GetLastInputInfo(ref L p); public static uint Get() { var l = new L(); l.c = (uint)Marshal.SizeOf(l); GetLastInputInfo(ref l); return (uint)Environment.TickCount - l.t; } }'; Add-Type -TypeDefinition $code -ErrorAction SilentlyContinue; [I]::Get()`;
     
-    exec(`powershell -NoProfile -NonInteractive -Command "${script}"`, { timeout: 2000 }, (err, stdout) => {
+    exec(`powershell -NoProfile -NonInteractive -Command "${script}"`, { timeout: 1500 }, (err, stdout) => {
       if (err || !stdout) return resolve(0);
       resolve(parseInt(stdout.trim()) || 0);
     });
   });
 }
 
-// ── Background Activity Tracker Loop (Every 3 seconds) ────────────────────────
+// ── Background Activity Tracker Loop (Every 2 seconds) ────────────────────────
 function startActivityTracker() {
   setInterval(async () => {
     const info = await getForegroundWindow();
@@ -137,7 +140,7 @@ function startActivityTracker() {
         }
       }
     }
-  }, 3000);
+  }, 2000);
 
   setInterval(saveLogToFile, 30_000);
 }
