@@ -5,7 +5,11 @@ import { useAppStore, type AppState } from "@/store/useAppStore";
 
 const links = [
   { to: "/dashboard", label: "🏠 Dashboard", icon: "🏠" },
+  { to: "/today", label: "📅 Today's Tasks", icon: "📅" },
   { to: "/timer", label: "⏱️ Timer", icon: "⏱️" },
+  { to: "/study-workspace", label: "📖 Study Workspace", icon: "📖" },
+  { to: "/notes-board", label: "📝 Notes Board", icon: "📝" },
+  { to: "/app-tracking", label: "🖥️ App Tracking", icon: "🖥️" },
   { to: "/ai", label: "🤖 AI Assistant", icon: "🤖" },
   { to: "/calendar", label: "📅 Calendar", icon: "📅" },
   { to: "/analytics", label: "📊 Analytics", icon: "📊" },

@@ -14,12 +14,15 @@
     "dexie": "^4.3.0",
     "firebase": "^12.15.0",
     "framer-motion": "^12.35.0",
+    "html2canvas": "^1.4.1",
     "lucide-react": "^0.474.0",
+    "pdfjs-dist": "^6.1.200",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-router-dom": "^7.13.1",
     "recharts": "^3.8.0",
     "tailwind-merge": "3.4.0",
+    "tesseract.js": "^7.0.0",
     "zustand": "^5.0.11"
   },
   "devDependencies": {

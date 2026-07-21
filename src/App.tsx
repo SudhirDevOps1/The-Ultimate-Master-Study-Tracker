@@ -15,6 +15,10 @@ import { CalendarPage } from "@/pages/CalendarPage";
 import { AchievementsPage } from "@/pages/AchievementsPage";
 import { GuidePage } from "@/pages/GuidePage";
 import { AIAssistantPage } from "@/pages/AIAssistantPage";
+import { TodayTasksPage } from "@/pages/TodayTasksPage";
+import { StudyNotesPage } from "@/pages/StudyNotesPage";
+import { StudyNotesBoardPage } from "@/pages/StudyNotesBoardPage";
+import { AppTrackingPage } from "@/pages/AppTrackingPage";
 import { useTimer } from "@/hooks/useTimer";
 
 export function App() {
@@ -101,6 +105,20 @@ function AnimatedRoutes() {
             }
           />
           <Route
+            path="/today"
+            element={
+              <motion.div
+                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
+                transition={{ duration: 0.3, ease: "circOut" }}
+                className="w-full"
+              >
+                <TodayTasksPage />
+              </motion.div>
+            }
+          />
+          <Route
             path="/timer"
             element={
               <motion.div
@@ -111,6 +129,48 @@ function AnimatedRoutes() {
                 className="w-full"
               >
                 <TimerPage />
+              </motion.div>
+            }
+          />
+          <Route
+            path="/study-workspace"
+            element={
+              <motion.div
+                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
+                transition={{ duration: 0.3, ease: "circOut" }}
+                className="w-full"
+              >
+                <StudyNotesPage />
+              </motion.div>
+            }
+          />
+          <Route
+            path="/notes-board"
+            element={
+              <motion.div
+                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
+                transition={{ duration: 0.3, ease: "circOut" }}
+                className="w-full"
+              >
+                <StudyNotesBoardPage />
+              </motion.div>
+            }
+          />
+          <Route
+            path="/app-tracking"
+            element={
+              <motion.div
+                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
+                transition={{ duration: 0.3, ease: "circOut" }}
+                className="w-full"
+              >
+                <AppTrackingPage />
               </motion.div>
             }
           />
