@@ -2,132 +2,127 @@ import { useEffect, useRef, useCallback } from "react";
 import { useAppStore } from "@/store/useAppStore";
 
 const INACTIVITY_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
-const ELECTRON_POLL_MS        = 15_000;          // check every 15s via Windows API
-const BROWSER_CHECK_MS        = 30_000;          // check every 30s via DOM events
+const SYSTEM_POLL_MS          = 5_000;          // Check Win32 API every 5s for fast response
 
 /**
- * Detects user inactivity and auto-pauses the study session.
+ * 💥 HYBRID SMART INACTIVITY DETECTOR (DUAL-LAYER ENGINE)
  *
- * ┌─────────────────────────────────────────────────────────────────────────┐
- * │  In Electron (Desktop App)                                              │
- * │  Uses Windows  GetLastInputInfo  API via IPC — returns the REAL system  │
- * │  idle time including keyboard, mouse, touchpad — even when the window   │
- * │  is MINIMIZED or the app is in the background. Like ActivityWatch.      │
- * ├─────────────────────────────────────────────────────────────────────────┤
- * │  In Browser (fallback)                                                  │
- * │  Tracks DOM events (mousemove, keydown, touchstart, wheel …).           │
- * └─────────────────────────────────────────────────────────────────────────┘
- *
- * After 10 minutes of NO input → session is auto-paused + notification shown.
- * When user moves mouse / types again → session resumes automatically.
+ * ┌──────────────────────────────────────────────────────────────────────────┐
+ * │ LAYER 1: Win32 API (Hardware-Level System Idle Tracker)                  │
+ * │  - Polls Windows GetLastInputInfo via Electron IPC                       │
+ * │  - Tracks hardware Mouse, Keyboard, Touchpad, Stylus, Gamepad            │
+ * │  - Works globally even when FlowTrack is minimized or in System Tray!     │
+ * ├──────────────────────────────────────────────────────────────────────────┤
+ * │ LAYER 2: In-App DOM Event Watcher (Instant Reaction Engine)               │
+ * │  - Captures instant mousemove, keydown, scroll, touchstart, wheel events  │
+ * │  - Instantly resets idle timer & resumes session without waiting for IPC │
+ * └──────────────────────────────────────────────────────────────────────────┘
  */
 export function useInactivityDetector() {
-  const timer               = useAppStore((s) => s.timer);
-  const strictFocusMode     = useAppStore((s) => s.strictFocusMode);
-  const notificationsEnabled= useAppStore((s) => s.notificationsEnabled);
-  const pauseSession        = useAppStore((s) => s.pauseSession);
-  const resumeSession       = useAppStore((s) => s.resumeSession);
-  const markTimerInteraction= useAppStore((s) => s.markTimerInteraction);
+  const timer                = useAppStore((s) => s.timer);
+  const strictFocusMode      = useAppStore((s) => s.strictFocusMode);
+  const notificationsEnabled = useAppStore((s) => s.notificationsEnabled);
+  const markTimerInteraction = useAppStore((s) => s.markTimerInteraction);
 
-  const hasAutoPausedRef    = useRef(false);
-  const lastDOMActivityRef  = useRef(Date.now());
+  const hasAutoPausedRef     = useRef(false);
+  const lastInteractionMsRef = useRef<number>(Date.now());
 
-  // Detect if running inside Electron
   const isElectron = typeof window !== "undefined" && !!(window as any).require;
 
-  // ── Electron path: poll Windows GetLastInputInfo ──────────────────────────
-  useEffect(() => {
-    // Only run in Electron; only when a session is active; only in strict mode
-    if (!isElectron || !strictFocusMode || !timer.activeSessionId) return;
+  // ── LAYER 2: Instant In-App DOM Activity Watcher ─────────────────────────
+  const recordDOMActivity = useCallback(() => {
+    const now = Date.now();
+    lastInteractionMsRef.current = now;
 
-    let ipcRenderer: any;
-    try {
-      ipcRenderer = (window as any).require("electron").ipcRenderer;
-    } catch {
-      return; // not inside Electron
+    const state = useAppStore.getState();
+    void state.markTimerInteraction(now);
+
+    // If auto-paused, instant DOM interaction in-app immediately resumes!
+    if (hasAutoPausedRef.current && state.timer.activeSessionId && state.timer.isPaused) {
+      hasAutoPausedRef.current = false;
+      console.log("[HybridInactivity] Instant In-App DOM activity detected -> Auto Resuming session!");
+      void state.resumeSession();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!strictFocusMode || !timer.activeSessionId) return;
+
+    const events = [
+      "mousemove", "mousedown", "mouseup", "keydown", "keypress",
+      "scroll", "touchstart", "touchmove", "wheel", "pointerdown", "focus"
+    ] as const;
+
+    events.forEach((e) => document.addEventListener(e, recordDOMActivity, { passive: true, capture: true }));
+
+    return () => {
+      events.forEach((e) => document.removeEventListener(e, recordDOMActivity, { capture: true }));
+    };
+  }, [strictFocusMode, timer.activeSessionId, recordDOMActivity]);
+
+  // ── LAYER 1: Win32 API Hardware Polling + Hybrid Decision Engine ──────────
+  useEffect(() => {
+    if (!strictFocusMode || !timer.activeSessionId) return;
+
+    let ipcRenderer: any = null;
+    if (isElectron) {
+      try {
+        ipcRenderer = (window as any).require("electron").ipcRenderer;
+      } catch {
+        ipcRenderer = null;
+      }
     }
 
-    const check = async () => {
+    const checkHybridInactivity = async () => {
       const state = useAppStore.getState();
-      // Re-read live state (avoids stale closure)
       if (!state.timer.activeSessionId) return;
 
-      let idleMs = 0;
-      try {
-        idleMs = await ipcRenderer.invoke("get-idle-time-ms") as number;
-      } catch {
-        return;
+      let effectiveIdleMs = Date.now() - lastInteractionMsRef.current;
+
+      // Query Win32 API if in Electron
+      if (ipcRenderer) {
+        try {
+          const hardwareIdleMs = await ipcRenderer.invoke("get-idle-time-ms") as number;
+          // Hybrid logic: Take the minimum of hardware idle and DOM idle
+          effectiveIdleMs = Math.min(hardwareIdleMs, effectiveIdleMs);
+        } catch {
+          /* Fallback to DOM idle */
+        }
       }
 
-      if (idleMs >= INACTIVITY_THRESHOLD_MS) {
+      // Check Inactivity threshold (10 Mins)
+      if (effectiveIdleMs >= INACTIVITY_THRESHOLD_MS) {
         if (!hasAutoPausedRef.current && !state.timer.isPaused) {
           hasAutoPausedRef.current = true;
-          console.log(`[InactivityDetector] ${Math.round(idleMs / 60000)}min idle → auto-pausing`);
+          const mins = Math.round(effectiveIdleMs / 60000);
+          console.log(`[HybridInactivity] ${mins}min hardware/software idle -> Auto-pausing session`);
 
           void state.pauseSession();
 
           if (notificationsEnabled && typeof Notification !== "undefined" && Notification.permission === "granted") {
             new Notification("FlowTrack – Session Auto-Paused", {
-              body: `No keyboard/mouse activity for ${Math.round(idleMs / 60000)} minutes.\nSession paused — move to resume.`,
+              body: `No activity detected for ${mins} minutes.\nSession paused — move mouse or type to resume.`,
               icon: "/icon-192.png",
               tag:  "flowtrack-autopause",
             });
           }
         }
       } else {
-        // User is active again
-        if (hasAutoPausedRef.current) {
+        // Active again
+        if (hasAutoPausedRef.current && state.timer.isPaused) {
           hasAutoPausedRef.current = false;
-          // Auto-resume the session
+          console.log("[HybridInactivity] Activity resumed -> Auto Resuming session!");
           void state.resumeSession();
         }
-        // Update last interaction timestamp so timer knows user is active
-        void state.markTimerInteraction(Date.now() - idleMs);
+        void state.markTimerInteraction(Date.now() - effectiveIdleMs);
       }
     };
 
-    const interval = setInterval(() => void check(), ELECTRON_POLL_MS);
-    void check();
+    const interval = setInterval(() => void checkHybridInactivity(), SYSTEM_POLL_MS);
+    void checkHybridInactivity();
+
     return () => clearInterval(interval);
   }, [isElectron, strictFocusMode, timer.activeSessionId, notificationsEnabled]);
 
-  // ── Browser / non-Electron fallback: DOM event tracking ──────────────────
-  const recordDOMActivity = useCallback(() => {
-    lastDOMActivityRef.current = Date.now();
-    hasAutoPausedRef.current   = false;
-    void markTimerInteraction();
-  }, [markTimerInteraction]);
-
-  useEffect(() => {
-    if (isElectron) return;              // Electron uses the IPC path above
-    if (!strictFocusMode || !timer.activeSessionId || timer.isPaused) return;
-
-    const events = ["mousemove","mousedown","keydown","keypress","scroll","touchstart","touchmove","wheel"] as const;
-    events.forEach(e => document.addEventListener(e, recordDOMActivity, { passive: true, capture: true }));
-
-    const interval = setInterval(() => {
-      const idleMs = Date.now() - lastDOMActivityRef.current;
-      const state  = useAppStore.getState();
-      if (!state.timer.activeSessionId || state.timer.isPaused) return;
-
-      if (idleMs >= INACTIVITY_THRESHOLD_MS && !hasAutoPausedRef.current) {
-        hasAutoPausedRef.current = true;
-        void state.pauseSession();
-        if (notificationsEnabled && Notification.permission === "granted") {
-          new Notification("FlowTrack – Auto Pause", {
-            body: `No activity for ${Math.round(idleMs / 60000)} minutes. Session paused.`,
-            icon: "/icon-192.png",
-            tag:  "flowtrack-autopause",
-          });
-        }
-      }
-    }, BROWSER_CHECK_MS);
-
-    return () => {
-      events.forEach(e => document.removeEventListener(e, recordDOMActivity, { capture: true }));
-      clearInterval(interval);
-    };
-  }, [isElectron, strictFocusMode, timer.activeSessionId, timer.isPaused, notificationsEnabled, recordDOMActivity]);
-
-  return { lastActivityTime: lastDOMActivityRef.current };
+  return { lastActivityTime: lastInteractionMsRef.current };
 }
