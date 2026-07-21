@@ -6,10 +6,25 @@ All notable changes, version updates, feature additions, architectural improveme
 
 ## 🏷️ Version History Summary
 
+- [v3.1.0 (2026-07-21)](#v310---2026-07-21) — 🖥️ Ultra-Smart Desktop Enhancements (Global OS Hotkeys, Always-On-Top Mini HUD & Windows Toast IPC)
 - [v3.0.0 (2026-07-21)](#v300---2026-07-21) — 🚀 Master 3-Category Architecture & Full 14-Page Ecosystem Release
 - [v2.1.0 (2026-07-20)](#v210---2026-07-20) — 🐍 Python REST Backend & SQLite WAL Database Integration
 - [v2.0.0 (2026-07-19)](#v200---2026-07-19) — 🖥️ Standalone Electron Desktop App & Win32 C# Tracker Release
 - [v1.0.0 (2026-07-15)](#v100---2026-07-15) — 🌐 Initial Serverless Web App Release
+
+---
+
+## [v3.1.0] — 2026-07-21
+
+### 🖥️ Ultra-Smart Desktop Enhancements
+- **⚡ Global System-Wide Hotkeys**:
+  - Registered `CommandOrControl+Alt+P` OS hotkey to pause/resume study timer from any application across Windows.
+- **🪟 Always-On-Top Floating HUD Mode**:
+  - Added `toggle-always-on-top` IPC handler to float compact study timer over VS Code, Zoom, or PDF readers.
+- **🚀 Windows Auto-Launch Startup Integration**:
+  - Integrated `set-open-at-login` IPC for automatic background launch when Windows starts up.
+- **🔔 Windows OS Toast Notifications**:
+  - Added native Windows notification balloons for study session alerts and Pomodoro breaks.
 
 ---
 

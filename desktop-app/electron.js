@@ -243,6 +243,25 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
     else { mainWindow.show(); mainWindow.focus(); }
   });
+
+  // Global System-Wide Shortcuts
+  try {
+    const { globalShortcut } = require("electron");
+    globalShortcut.register("CommandOrControl+Alt+P", () => {
+      if (mainWindow) {
+        mainWindow.webContents.send("global-shortcut-toggle-timer");
+      }
+    });
+  } catch (err) {
+    console.error("[Shortcut Error]", err);
+  }
+});
+
+app.on("will-quit", () => {
+  try {
+    const { globalShortcut } = require("electron");
+    globalShortcut.unregisterAll();
+  } catch { /* ignore */ }
 });
 
 app.on("before-quit", () => {
@@ -259,6 +278,36 @@ ipcMain.handle("get-active-window", async () => {
   const info = await getForegroundWindow();
   if (!info) return { title: "Desktop / Idle", process: "unknown", isSelf: false };
   return { title: info.title || "Desktop / Idle", process: info.process || "unknown", isSelf: isSelf(info.process, info.title) };
+});
+
+ipcMain.handle("toggle-always-on-top", async (_e, { flag }) => {
+  if (mainWindow) {
+    mainWindow.setAlwaysOnTop(Boolean(flag), "screen-saver");
+    return { success: true, isAlwaysOnTop: mainWindow.isAlwaysOnTop() };
+  }
+  return { success: false };
+});
+
+ipcMain.handle("set-open-at-login", async (_e, { openAtLogin }) => {
+  app.setLoginItemSettings({ openAtLogin: Boolean(openAtLogin) });
+  return { success: true, openAtLogin: app.getLoginItemSettings().openAtLogin };
+});
+
+ipcMain.handle("send-windows-toast", async (_e, { title, message }) => {
+  if (process.platform === "win32" && tray) {
+    try {
+      tray.displayBalloon({
+        iconType: "info",
+        title: title || "FlowTrack Pro Alert",
+        content: message || "Focus session update",
+        noSound: false,
+      });
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+  return { success: false };
 });
 
 ipcMain.handle("get-activity-log", async (_e, { date } = {}) => {

@@ -62,6 +62,7 @@ Engineered into **3 distinct operational categories**: Serverless Web App, Web A
 | 🎙️ **Web App** | **Hands-Free Voice-Controlled Timer**: Integrated Web Speech Recognition hook (`useVoiceTimer.ts`) for voice timer commands | ✅ Shipped |
 | 🛡️ **Web App** | **Focus Shield Distraction Blocker**: Integrated Web site blocking panel connected to Python backend config (`http://localhost:5001/config`) | ✅ Shipped |
 | 🎨 **Web & Desktop** | **Lucide Vector Icons Engine**: Upgraded all navigation links and header cards from string emojis to clean, high-precision SVG Lucide Vector Icons | ✅ Shipped |
+| ⚡ **Desktop App** | **Ultra-Smart Features (v3.1.0)**: Global OS Hotkeys (`Ctrl+Alt+P`), Always-On-Top Mini HUD Mode, Auto Launch on Windows Startup & Native Windows Toast Notifications | ✅ Shipped |
 
 FlowTrack Pro can be used in **3 distinct modes**:
 
