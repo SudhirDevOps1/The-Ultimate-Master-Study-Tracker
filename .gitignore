@@ -13,6 +13,7 @@ dist-ssr/
 build/
 dist-electron/
 *.local
+features.md
 
 # ---- Python Environments ----
 venv/
