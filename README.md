@@ -1,693 +1,272 @@
-<!-- ╔══════════════════════════════════════════════════════════════════╗ -->
-<!-- ║           FlowTrack Pro — Master README.md                      ║ -->
-<!-- ║     github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker  ║ -->
-<!-- ╚══════════════════════════════════════════════════════════════════╝ -->
+# FlowTrack – Smart Study Tracker
 
-<div align="center">
-
-<img src="public/images/flowtrack-banner.png" alt="FlowTrack Pro Banner" width="100%" />
-
-<br/>
-
-# 🚀 FlowTrack Pro
-
-### The Ultimate Master Study Tracker
-
-**The professional-grade, AI-powered, strict productivity ecosystem built for relentless learners — reimagined for 2026.**
-
-<br/>
-
-[![Live Demo](https://img.shields.io/badge/🔴%20LIVE%20DEMO-study--tracker--app-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://study-tracker-app-pied.vercel.app/)
-&nbsp;&nbsp;
-[![GitHub Repo](https://img.shields.io/badge/📦%20Source%20Code-GitHub-181717?style=for-the-badge&logo=github)](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker)
-
-<br/>
-
-[![Stars](https://img.shields.io/github/stars/SudhirDevOps1/The-Ultimate-Master-Study-Tracker?style=flat-square&logo=github&color=FFD700&label=⭐%20Stars)](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/stargazers)
-&nbsp;
-[![Forks](https://img.shields.io/github/forks/SudhirDevOps1/The-Ultimate-Master-Study-Tracker?style=flat-square&logo=git&color=00C2FF&label=🍴%20Forks)](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/network/members)
-&nbsp;
-[![Contributors](https://img.shields.io/github/contributors/SudhirDevOps1/The-Ultimate-Master-Study-Tracker?style=flat-square&logo=opensourceinitiative&color=32CD32&label=🤝%20Contributors)](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/graphs/contributors)
-&nbsp;
-[![Issues](https://img.shields.io/github/issues/SudhirDevOps1/The-Ultimate-Master-Study-Tracker?style=flat-square&logo=github&color=FF6B6B&label=🐛%20Issues)](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/issues)
-&nbsp;
-[![Last Commit](https://img.shields.io/github/last-commit/SudhirDevOps1/The-Ultimate-Master-Study-Tracker?style=flat-square&logo=git&color=8A2BE2&label=📅%20Last%20Commit)](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commits)
-
-[![Version](https://img.shields.io/badge/Version-v3.0.0%20(2026%20Edition)-blueviolet?style=flat-square&logo=semver)](#-version-credits--info)
-&nbsp;
-[![React](https://img.shields.io/badge/React%2019-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
-&nbsp;
-[![TypeScript](https://img.shields.io/badge/TypeScript%205.7-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-&nbsp;
-[![Vite](https://img.shields.io/badge/Vite%206-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev/)
-&nbsp;
-[![Tailwind](https://img.shields.io/badge/Tailwind%20v4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
-&nbsp;
-[![PWA](https://img.shields.io/badge/PWA-Installable-5A0FC8?style=flat-square&logo=pwa&logoColor=white)](#-deployment--setup)
-&nbsp;
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](docs/LICENSE)
-&nbsp;
-[![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen?style=flat-square)](#-how-to-contribute)
-
-<br/>
-
-> ⭐ **If FlowTrack Pro helps you focus better, star this repo — it genuinely motivates continued development!**
-
-</div>
+> **Desktop-only Electron app** — All data stored locally, nothing uploaded to the cloud.
 
 ---
 
-## 📸 App Preview
+## 📦 Install karo (Bas itna karo)
 
-<div align="center">
+```
+dist-electron\FlowTrackPro Setup 1.0.0.exe
+```
 
-<img src="public/images/flowtrack-screenshot.png" alt="FlowTrack Pro Screenshot" width="85%" />
-
-<br/><br/>
-
-**👆 This is what focused studying looks like.**
-
-[**🔴 Try it Live →**](https://study-tracker-app-pied.vercel.app/) &nbsp;|&nbsp; No install. No signup. No backend. Just open & study.
-
-</div>
+Double-click karo → install → done. 🎉
 
 ---
 
-## 🆕 What's New in 2026 (v3.0.0)
+## 🗂️ Project Structure
 
-> The **2026 Edition** is a ground-up modernization focused on AI-native studying, smarter analytics, and next-gen web performance.
-
-| 🚀 New in 2026 | Description |
-|:---------------|:------------|
-| 🤖 **AI Study Coach** | On-device AI (Ollama / WebLLM) that reviews your sessions and suggests what to study next — 100% private. |
-| 🧭 **Adaptive Scheduling** | The app learns your peak focus hours and auto-recommends ideal study windows. |
-| 📈 **Predictive Focus Score** | New 2026 scoring engine forecasts your weekly performance trend before the week even ends. |
-| ⚛️ **React 19 + Tailwind v4** | Rebuilt on the latest stack for faster loads, smaller bundles, and smoother motion. |
-| 🎨 **Fluid Glass UI 2.0** | Refined glassmorphism with adaptive contrast for OLED & light-mode accessibility. |
-| 🔔 **Smarter Notifications** | Context-aware nudges powered by the Notification Triggers + Web Push standards. |
-| 📱 **Enhanced PWA** | Installable app with offline-first caching, badging API, and file-handling support. |
-| ☁️ **Optional Cloud Sync 2.0** | End-to-end friendly sync layer (Supabase/Firebase) — still fully optional, still local-first. |
-
-<div align="center">
-
-📜 See the full [**2026 Roadmap →**](#-2026-roadmap)
-
-</div>
+```
+FlowTrack/
+├── electron.js              ← Electron main process (window, tray, IPC, activity tracker)
+├── src/
+│   ├── main.tsx             ← React app entry point
+│   ├── App.tsx              ← Router + page layout
+│   ├── store/
+│   │   └── useAppStore.ts   ← Global state (Zustand) — timer, sessions, settings
+│   ├── hooks/
+│   │   ├── useTimer.ts      ← Timer tick loop, visibility handling
+│   │   ├── usePomodoro.ts   ← Pomodoro cycle (timestamp-based, freeze-proof)
+│   │   └── useInactivityDetector.ts  ← Windows API idle detection
+│   ├── pages/
+│   │   ├── TimerPage.tsx         ← Main study timer
+│   │   ├── DashboardPage.tsx     ← Overview & stats
+│   │   ├── AnalyticsPage.tsx     ← Charts & analytics
+│   │   ├── AppTrackingPage.tsx   ← ActivityWatch-style app tracker ← NEW
+│   │   ├── HistoryPage.tsx       ← Session history
+│   │   ├── SubjectsPage.tsx      ← Subject management
+│   │   ├── SettingsPage.tsx      ← App settings
+│   │   └── ...other pages
+│   └── components/
+│       └── timer/
+│           ├── FloatingTimer.tsx     ← PiP floating timer
+│           └── AmbiencePlayer.tsx    ← Background sounds
+├── public/
+│   ├── favicon.png           ← App icon (also used for tray)
+│   ├── icon-192.png          ← Notification icon
+│   └── logo.svg              ← Logo
+├── dist/                     ← Vite build output (auto-generated)
+├── dist-electron/            ← Electron build output (.exe here)
+├── package.json
+└── vite.config.ts
+```
 
 ---
 
-## 📂 Project Documentation & Guides
+## ✅ Features
 
-All documentation has been organized inside the `docs/` directory for clean folder architecture. You can click on any guide below to understand features, setup, and technical specifications:
+### ⏱️ Study Timer
+- **Start / Pause / Stop** session with subject selection
+- Timer runs in background — window minimize karo, timer chalta rehta hai
+- **Auto-pause on minimize** setting (Settings mein on/off)
+- Planned session time — timer complete hone pe notification + auto-stop
+- Real-time title bar countdown: `[24:15] Physics - FlowTrack`
 
-| Guide | Purpose | Link |
-|:---|:---|:---|
-| 🧭 **Documentation Index** | High-level summary of all documentation | [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md) |
-| ⚡ **Quick Start Guide** | Fast setup instructions for all operating systems | [docs/QUICK_START.md](docs/QUICK_START.md) |
-| 📋 **Complete User Guide** | How to use each feature, tips, tricks, and FAQ | [docs/USER_GUIDE.md](docs/USER_GUIDE.md) |
-| 📝 **Cheat Sheet Reference** | Goal recommendations, keyboard shortcuts, checklists | [docs/CHEAT_SHEET.md](docs/CHEAT_SHEET.md) |
-| ⚙️ **Detailed Setup Guide** | Dependency management, backend configuration details | [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md) |
-| 🧠 **Technical Architecture** | API documentation, database schema, algorithms | [docs/BACKEND_INTEGRATION.md](docs/BACKEND_INTEGRATION.md) |
-| 🔧 **Applied Fixes Log** | Details of resolved memory leaks and fixes | [docs/FIXES_APPLIED.md](docs/FIXES_APPLIED.md) |
-| 🔒 **System Rules** | Strict mode guidelines and app blocking details | [docs/SYSTEM_RULES.md](docs/SYSTEM_RULES.md) |
+### 🍅 Pomodoro Mode
+- Work / Short Break / Long Break cycles
+- **Timestamp-based countdown** — minimize/hide pe freeze nahi hoga
+- Auto-start breaks and work sessions (configurable)
+- Desktop notifications on phase change
+- Cycle counter aur history
+
+### 🖥️ App Activity Tracker (ActivityWatch-style)
+- **Automatic** — kuch set nahi karna, sirf app kholo
+- Har **5 seconds** mein Windows foreground window detect karta hai
+- **FlowTrack khud track nahi hota** (self-excluded)
+- Duration per app accumulate hoti hai
+- **24-hour Gantt Timeline** — kab kaunsa app kitni der chala
+- **Category classification** — Study / Browser / Social / Entertainment / System
+- **3 Tabs**: Overview · Timeline · Windows Log
+- **Date history** — purane din ka data dekho (breadcrumb navigation)
+- **CSV Export** — kisi bhi din ka data export karo
+- **Data survive karta hai restart ke baad** — AppData mein save hota hai
+
+### 🛌 Inactivity Detection (Windows API)
+- **`GetLastInputInfo` Windows API** use karta hai
+- Keyboard, mouse, touchpad — **sab detect hota hai**
+- **Window minimize pe bhi kaam karta hai** (DOM events se better!)
+- 10 minute idle → session auto-pause + desktop notification
+- User wapas aaye → session auto-resume
+- Inactivity timer progress bar (App Tracking page pe)
+
+### 🪟 System Tray
+- App minimize karo ya X dabao → **tray mein chali jaati hai**
+- Timer background mein chalta rehta hai
+- Right-click → Open / Quit
+- Double-click → app ko front pe laao
+- Windows balloon notification pehli baar minimize hone pe
+
+### 📺 PiP (Picture-in-Picture)
+- Timer ko floating mini-window mein dekho
+- Document PiP (native browser) → Video PiP (canvas stream) → fallback overlay
+- **30fps canvas stream** — smooth updates
+- **10-second heartbeat** — session auto-pause se protect karta hai PiP mein
+- PiP khule hone pe minimize se auto-pause nahi hoga
+
+### 🎵 Ambience / Focus Music
+- Built-in tracks: Rain, Cafe, Forest, White Noise, etc.
+- YouTube playlist support
+- Local audio file upload
+- Volume control
+- Error display agar audio load na ho
+
+### 📊 Analytics & History
+- Daily / Weekly / Monthly study charts
+- Subject-wise breakdown
+- Streak tracking
+- XP / Level / Rank gamification system
+- Session history with edit support
+
+### 🏆 Achievements
+- Automatically unlocked based on study milestones
+- XP rewards
+- Progress tracking
+
+### 📅 Calendar
+- Monthly study heatmap
+- Day-wise session details
+
+### 🤖 AI Assistant
+- Built-in AI study assistant
+
+### 📝 Study Notes / Whiteboard
+- Rich text notes
+- Sticky notes board
+- Export board as PNG (native save dialog)
+
+### 📋 Today Tasks
+- Daily task list integrated with subjects
+- Priority and completion tracking
 
 ---
 
-## 📚 Table of Contents
+## ⚙️ Settings
 
-<details>
-<summary><b>Click to expand full navigation</b></summary>
-
-&nbsp;
-
-| Section | Description |
+| Setting | Description |
 |---------|-------------|
-| [📸 App Preview](#-app-preview) | See the app in action |
-| [🆕 What's New in 2026](#-whats-new-in-2026-v300) | Latest v3.0.0 features |
-| [🌍 Live Demo](#-live-demo) | Try it right now |
-| [⚡ Quick Start](#-quick-start--one-click) | One-click setup |
-| [🌟 Executive Summary](#-executive-summary) | What is FlowTrack Pro? |
-| [💎 Design Philosophy](#-premium-design-philosophy) | UI/UX principles |
-| [🔥 Features](#-master-feature-breakdown) | Complete feature list |
-| [🏗️ Architecture](#%EF%B8%8F-technical-architecture--developer-map) | Directory & tech map |
-| [🧠 Deep Logic](#-deep-logic-implementations) | Timer algorithm, DB sync |
-| [🛠️ Tech Stack](#%EF%B8%8F-technology-specification) | React, Vite, TS, etc. |
-| [🚀 Setup & Deploy](#-deployment--setup) | Local + cloud deployment |
-| [🐍 Python Tracker](#-python-activity-tracker-activity_trackerpy--optional) | Optional desktop daemon |
-| [🌐 Cloud Deploy](#-cloud-deployment-vercel--cloudflare-pages) | Vercel / Cloudflare |
-| [🧠 Ollama AI](#-local-ai--ollama-integration) | Local AI assistant |
-| [📝 Guidelines](#-usage--strict-design-guidelines) | Strict design rules |
-| [🌟 Community](#-community--support) | Get involved |
-| [🍴 Forkers](#-our-amazing-forkers) | Fork wall of fame |
-| [🤝 Contributors](#-our-amazing-contributors) | Contributor avatars |
-| [⭐ Stargazers](#-stargazers-wall-of-fame) | Stargazer avatars |
-| [🗺️ 2026 Roadmap](#-2026-roadmap) | Upcoming milestones |
-| [🙌 How to Contribute](#-how-to-contribute) | Step-by-step guide |
-| [❓ FAQ](#-frequently-asked-questions) | Common questions |
-| [📜 Credits](#-version-credits--info) | Version & author |
-
-</details>
+| Auto-pause on hide | Window minimize/hide pe timer pause karo |
+| Strict Focus Mode | 10 min inactivity pe auto-pause (Windows API) |
+| Notifications | Desktop notifications on/off |
+| Daily Goal | Hours per day target |
+| Weekly Target | Hours per week target |
+| Pomodoro Settings | Work/break duration, auto-start |
+| Theme | Dark theme (default) |
+| Keyboard Shortcuts | Global shortcuts on/off |
 
 ---
 
-## 🌍 Live Demo
+## 🔧 Development
 
-> **Try FlowTrack Pro right now — no install, no signup, no backend required.**
+### Prerequisites
+- Node.js 18+
+- Windows 10/11 (for Windows API features)
 
-<div align="center">
-
-### [**🔴 https://study-tracker-app-pied.vercel.app**](https://study-tracker-app-pied.vercel.app/)
-
-</div>
-
-| Detail | Info |
-|:-------|:-----|
-| 🌐 **Live App** | [`study-tracker-app-pied.vercel.app`](https://study-tracker-app-pied.vercel.app/) |
-| 📦 **Source Code** | [`github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker`](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker) |
-| ☁️ **Hosting** | Vercel — Global CDN, static-hosted |
-| 🔐 **Data** | 100% local — stored in your browser's IndexedDB |
-| 💸 **Cost** | Completely free & open source |
-
-> The hosted version runs **fully in-browser**. Every core feature — precision timer, analytics, gamification, PiP floating timer, AI assistant, and export/import — works without any server. The optional Python desktop daemon is only needed for native active-window detection on Windows.
-
----
-
-## ⚡ Quick Start — One Click!
-
-### 🪟 Windows
-```
-Double-click  →  START.bat
-```
-**That's it!** START.bat automatically:
-- ✅ Checks Node.js & Python
-- ✅ Creates Python virtual environment
-- ✅ Installs all dependencies (first time)
-- ✅ Starts the backend server (`backend.py`)
-- ✅ Starts the frontend + opens browser
-
-### 🍎 macOS / Linux
+### Dev mode chalao
 ```bash
-chmod +x setup.sh && ./setup.sh
-```
-
-**→ See [QUICK_START.md](docs/QUICK_START.md) for details**
-
----
-
-## 🌟 Executive Summary
-
-**FlowTrack Pro** is not just a timer; it is a full-scale study ecosystem. Built to solve the problems of digital distraction, it combines high-precision engineering with gamified psychology. It is designed for students, developers, and researchers who need a tool that is as serious about their time as they are.
-
-### ✅ Latest Features (2026)
-| Feature | Status |
-|---------|--------|
-| **AI Study Coach** — On-device AI reviews sessions & suggests next steps | ✅ Shipped |
-| **Adaptive Scheduling** — Learns your peak focus hours automatically | ✅ Shipped |
-| **Predictive Focus Score** — Forecasts your weekly performance trend | ✅ Shipped |
-| **React 19 + Tailwind v4** — Rebuilt on the latest 2026 stack | ✅ Shipped |
-| **Cross-Platform Ready** — Windows, macOS, Linux | ✅ Shipped |
-| **Vercel-Deployed** — Works without backend → [See it live](https://study-tracker-app-pied.vercel.app/) | ✅ Shipped |
-| **App Usage Analytics** — Track which apps you use and how long | ✅ Shipped |
-| **Browser Activity** — See your browsing patterns | ✅ Shipped |
-| **Auto-Setup** — One-click setup scripts for all platforms | ✅ Shipped |
-| **Zero Configuration** — Works out of the box | ✅ Shipped |
-
----
-
-## 💎 Premium Design Philosophy
-
-FlowTrack and its "Pro" iterations are built on three core pillars of modern software design:
-
-### 1. Minimalist Immersive UI
-- **Glassmorphism**: Subtle translucency and blurred background elements create a sense of depth without distraction.
-- **Dynamic Theming**: Six curated professional themes (Ocean, Forest, Sunset, Galaxy, Neon, Cyber) to match your mood and focus level.
-- **Framer Motion Integration**: Every transition is mathematically smoothed to ensure the UI feels "alive" and premium.
-
-### 2. The "Strict Focus" Engine
-Most trackers fail because they rely on simple browser timers. FlowTrack Pro uses a **Delta-Sync Logic**:
-- It tracks the exact millisecond you started.
-- It calculates elapsed time against the system hardware clock.
-- It is resilient to browser crashes, tab sleeps, and OS-level battery saving.
-
-### 3. Privacy-First Sovereignty
-In an era of data harvesting, FlowTrack Pro is a fortress.
-- **No Cloud Required**: 100% of your data stays in your browser's IndexedDB.
-- **Zero Tracking**: No telemetry, no ads, no external cookies.
-- **Local Ownership**: You own your database. Export it, back it up, or clear it whenever you want.
-
----
-
-## 🔥 Master Feature Breakdown
-
-### ⏲️ Ultra-Precision Timer System
-*The heart of the application.*
-- **System-Level Accuracy**: Derived from `Date.now()` timestamps, not JS intervals.
-- **Auto-Pause Awareness**: Detects visibility changes and pauses instantly when the tab is hidden to prevent "cheating".
-- **Resilient Recovery**: Automatically picks up exactly where it left off after a refresh or crash.
-
-### 📺 Advanced Picture-in-Picture (Floating Timer)
-*Study over any app.*
-- **Always-on-Top**: Using the Document PiP API, it floats above VS Code, PDF Readers, and YouTube.
-- **Mini-Controller**: Control music, skip tracks, and monitor progress without leaving your study app.
-- **Real-Time Heartbeat**: Keeps the browser process active even when minimized.
-- **Interaction passthrough**: Mouse movements over the mini-timer reset the idle countdown.
-
-### 🎮 Gamification & The XP Economy
-*Turning focus into progress.*
-- **XP Calculation**: Fixed rate of 1 XP/Minute, ensuring fair progress tracking.
-- **Leveling Curve**: A custom logarithmic formula (`Math.floor(Math.sqrt(totalXP / 10))`) that makes early levels fast and late levels prestigious.
-- **The "Rank" System**: Progress through titles:
-
-| Rank | Level Range | Badge |
-|------|-------------|-------|
-| 🌱 Novice Seeker | Level 1–5 | Just getting started |
-| 📖 Focused Scholar | Level 6–15 | Building consistency |
-| 🧠 Master Learner | Level 16–30 | Deep focus achieved |
-| 👑 Flow Sovereign | Level 31+ | Elite tier |
-
-- **Streak Heatmap**: A 90-day GitHub-style contribution map to visualize your consistency.
-- **Daily Focus Score**: ML-inspired formula calculating a 0–100 score based on targeted hours, completion %, and distraction deductions.
-
-### 📊 Professional Analytics Suite
-- **Granular Filtering**: Filter sessions by subject, completion status, or date ranges.
-- **Visual Trends**: Multi-axis Recharts displaying Daily, Weekly, Monthly, and Yearly performance.
-- **Subject Mastery**: Pie charts and bar graphs showing which subjects you are dominating.
-- **Planned vs. Performance**: Automatic calculation of "Goal Attachment" (did you study as much as you planned?).
-
-### 🎧 Immersive Ambience & Soundscapes
-- **Focus LO-FI**: Built-in streaming focus music.
-- **Floating YouTube Ambience**: Add custom YouTube URLs to a personal playlist that floats natively across the app via a Picture-in-Picture window.
-- **Curated Environmental Audio**: Heavy Rain, Paris Cafe, Ancient Forest, White Noise.
-- **Layered Controls**: Independent volume sliders.
-
-### 📳 OS-Native Push Notifications & Background Service
-- The tracker runs a dedicated Service Worker allowing it to send Native OS Web Push Alerts (macOS/Windows/Android) even when the browser is minimized or sleeping.
-
-### 🌐 Dual-Mode Database (Guest vs Cloud)
-- **Guest Mode**: 100% Offline IndexedDB data storage. No login required.
-- **Cloud Sync Mode**: Authenticate to seamlessly synchronize local data to Firebase/Supabase, ensuring zero data loss across devices.
-
----
-
-## 🏗️ Technical Architecture & Developer Map
-
-### 📁 Detailed Directory Map
-```text
-The-Ultimate-Master-Study-Tracker/
-├── .gemini/                # Configuration for advanced AI assistance
-├── public/                 # Static Assets
-│   ├── manifest.json       # PWA transformation settings
-│   ├── sw.js               # Service Worker core logic (Caching & Offline)
-│   └── icons/              # Multi-resolution branding assets
-├── public/                 # Static assets directory
-│   └── analytics.worker.js # Computational background Web Worker
-├── electron.js             # Electron main desktop process wrapper config
-├── src/                    # The Engine Room
-│   ├── components/         # Modular UI Components
-│   │   ├── charts/         # Analytics layer (Recharts implementation)
-│   │   │   ├── ActivityHeatmap.tsx
-│   │   │   └── SubjectChart.tsx
-│   │   ├── common/         # Foundation components
-│   │   │   ├── Button.tsx
-│   │   │   ├── Panel.tsx   # The "Glass" container base
-│   │   │   ├── Modal.tsx
-│   │   │   └── PDFStudyReader.tsx # PDF side-by-side Companion
-│   │   ├── layout/         # High-level architecture
-│   │   │   ├── Navbar.tsx
-│   │   │   └── TabNavigation.tsx
-│   │   ├── goals/          # Focus challenges
-│   │   │   └── GamifiedFocusQuest.tsx # Daily Quest Boss Fight
-│   │   ├── session/        # Business logic for session management
-│   │   │   └── SessionForm.tsx
-│   │   └── timer/          # Core timer functionality
-│   │       ├── FloatingTimer.tsx # PiP Implementation
-│   │       ├── TimerDisplay.tsx
-│   │       └── AmbiencePlayer.tsx
-│   ├── hooks/              # Custom Logic Containers
-│   │   └── useTimer.ts     # The "Brain" of the time tracking system
-│   ├── lib/                # Third-party integrations
-│   │   └── db.ts           # Dexie/IndexedDB configuration
-│   ├── pages/              # View layer
-│   │   ├── TimerPage.tsx
-│   │   ├── AnalyticsPage.tsx
-│   │   └── HistoryPage.tsx
-│   ├── store/              # Global State Management
-│   │   └── useAppStore.ts  # Master State (Zustand)
-│   ├── types/              # TypeScript Contract layer
-│   │   └── models.ts       # Global interfaces (StudySession, Subject, etc.)
-│   └── utils/              # Pure utility functions
-│   │   ├── time.ts         # Formatting & Math
-│   │   └── xp.ts           # Leveling logic
-├── artifacts/              # Development history & Roadmap
-├── package.json            # Dependency manifest
-├── vite.config.ts          # Build system configuration
-└── README.md               # The Master Document
-```
-
----
-
-## 🧠 Deep Logic Implementations
-
-### 1. The Delta-Timer Algorithm
-Instead of trusting `setInterval` (which is inconsistent in browsers), we use:
-```typescript
-elapsed = isPaused ? savedElapsed : (Date.now() - startedAtMs)
-```
-This ensures that even if the browser stops the JS execution for 5 minutes to save battery, when it wakes up, the math remains 100% correct.
-
-### 2. IndexedDB Synchronization
-Using **Dexie.js**, we implement a "Transactional Sync":
-- Every 1 second of active study, the `activeSession` is updated in the database.
-- This creates a "Checkpointed Save" system.
-- If the user's laptop dies, they only ever lose a maximum of 1 second of data.
-
-### 3. The PWA "Offline-First" Strategy
-- **Service Worker**: Cache-first strategy for static assets.
-- **Manifest**: Allows the "Install App" button in Chrome/Edge, making it look and feel like a native Windows/Mac app.
-- **Offline Analytics**: Since Recharts and calculation logic are local, graphs work perfectly even in airplane mode.
-
----
-
-## 🛠️ Technology Specification
-
-| Category | Technology (2026) | Link |
-|----------|-----------|------|
-| ⚛️ Core | React 19 | [react.dev](https://react.dev/) |
-| ⚡ Build | Vite 7 | [vitejs.dev](https://vitejs.dev/) |
-| 🖥️ Wrapper | Electron 43 | [electronjs.org](https://www.electronjs.org/) |
-| 🧵 Multithreading | HTML5 Web Workers | [developer.mozilla.org](https://developer.mozilla.org/) |
-| 🗣️ Voice Synthesizer | Web Speech API | [developer.mozilla.org](https://developer.mozilla.org/) |
-| 💾 Database | IndexedDB via Dexie | [dexie.org](https://dexie.org/) |
-| 🗃️ State | Zustand | [zustand-demo.pmnd.rs](https://zustand-demo.pmnd.rs/) |
-| 🎨 Styling | Tailwind CSS v4 | [tailwindcss.com](https://tailwindcss.com/) |
-| 🎬 Motion | Framer Motion | [framer.com/motion](https://www.framer.com/motion/) |
-| 📆 Date Math | date-fns | [date-fns.org](https://date-fns.org/) |
-| 📊 Graphs | Recharts | [recharts.org](https://recharts.org/) |
-| 🤖 Local AI | Ollama / WebLLM | [ollama.com](https://ollama.com/) |
-| 📱 App Shell | PWA + Service Worker | [web.dev/pwa](https://web.dev/explore/progressive-web-apps) |
-| ☁️ Hosting | Vercel | [Live App →](https://the-ultimate-master-study-tracker.vercel.app/) |
-
----
-
-## 🚀 Desktop App Compile & Developer Setup
-
-### 💻 Developer Local Environment
-To run the FlowTrack master suite locally in development mode:
-```bash
-# 1. Install project dependencies
 npm install
-
-# 2. Start Vite server and launch Electron wrapper in parallel
-npm run electron:dev
+npm run dev          # Vite dev server (browser mein)
+npm run electron:dev # Electron dev mode (agar script ho)
 ```
 
-### 📦 Compile Desktop Installer (.exe)
-To package the final standalone desktop application installer (`FlowTrackPro Setup 1.0.0.exe`):
+### Production build banao (.exe)
 ```bash
 npm run electron:build
-```
-The compiled installer will be generated inside the **`dist-electron/`** directory.
-
----
-
-## 🖥️ Electron Active Window Process Tracking (No Python required)
-FlowTrack's desktop version tracks active windows natively using native JS execution commands without requiring compiled C++ node-gyp binaries or external Python daemons:
-
-```
-[FlowTrack Desktop App Shell]
-        |
-        | IPC Invoke get-active-window
-        ▼
-[Electron Main Process (electron.js)]
-        |
-        | Query Active Window Title via lightweight Windows PowerShell
-        ▼
-   Returns: { "title": "VS Code - main.tsx", "process": "Code" }
+# Output: dist-electron\FlowTrackPro Setup 1.0.0.exe
 ```
 
-### Key Native App Features:
-- **Zero Server Setup**: No batch script, python dependencies, or venv setup needed.
-- **Background Active Window Tracking**: Even if browser tabs are hidden, window titles are captured every 10 seconds.
-- **Offline Local database sync**: All logs are saved locally in the IndexedDB database.
+### Shortcuts
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+Shift+I` | DevTools toggle |
 
 ---
 
-## 🌐 Web & Cloud Deployment
-FlowTrack is static-hostable! You can deploy it to **Vercel** or **Cloudflare Pages** in less than 2 minutes. The project is live on Vercel at:
+## 🗄️ Data Storage
 
-> 👉 **[the-ultimate-master-study-tracker.vercel.app](https://the-ultimate-master-study-tracker.vercel.app/)**
+Sab data **local** store hota hai — koi cloud nahi:
 
-### ⚡ Deployment with Vercel / Cloudflare:
-1. **Push to GitHub**: Push your codebase to your GitHub repository.
-2. **Import Project**: Select the repository in the Vercel/Cloudflare Pages dashboard.
-3. **Build settings**:
-   - **Build Command**: `npm run build`
-   - **Output Directory**: `dist`
-4. **Deploy**: Click deploy.
+| Data | Location |
+|------|----------|
+| Study sessions, subjects, settings | Browser IndexedDB (`Dexie`) |
+| App activity log | `%AppData%\FlowTrackPro\activity-log\YYYY-MM-DD.json` |
+| Timer state | IndexedDB |
+| Pomodoro settings | IndexedDB |
 
-### 🤔 What happens if I deploy online?
-- The app works **100% perfectly** using your local browser database (IndexedDB).
-- The only difference is that sandboxed browsers cannot track desktop window titles. The native Electron application version is recommended if you need automatic active window tracking.
+> **Privacy:** Koi bhi data internet pe nahi jata. Purely offline app.
 
 ---
 
-## 🧠 Local AI & Ollama Integration
+## 🐛 Bugs Fixed (v2.0)
 
-> **2026 Update:** The AI Study Coach now supports both **Ollama** (native desktop models) and **WebLLM** (in-browser, zero-install). Recommended 2026 models: `llama3.3`, `qwen2.5`, `phi-4`, or `gemma2` — all run 100% locally and privately.
-
-To use the AI Assistant fully offline and private with **Ollama**:
-1. Install [Ollama](https://ollama.com).
-2. Configure **CORS** so the browser-based FlowTrack client is allowed to connect to Ollama:
-   - **Windows CMD**:
-     ```cmd
-     set OLLAMA_ORIGINS=*
-     ollama serve
-     ```
-   - **Windows PowerShell**:
-     ```powershell
-     $env:OLLAMA_ORIGINS="*"
-     ollama serve
-     ```
-   - **macOS/Linux**:
-     ```bash
-     OLLAMA_ORIGINS="*" ollama serve
-     ```
-3. Open FlowTrack, navigate to **AI Assistant > Settings (Gear Icon)**, select **Ollama**, click **Auto-Detect Models**, and save configuration.
+| Bug | Fix |
+|-----|-----|
+| Timer minimize pe band ho jaata tha | `backgroundThrottling: false` + `autoPauseOnHidden` check fix |
+| Pomodoro minimize pe freeze hota tha | Timestamp-based countdown |
+| Analytics Worker crash | Broken `analytics.worker.js` Worker call remove kiya |
+| Notifications naye users ke liye OFF thi | Default `true` fallback fix |
+| PiP black screen / not updating | Canvas stream 1fps → 30fps |
+| PiP heartbeat bahut slow tha | 30s → 10s |
+| `pauseSession` race condition | `withSessionLock` wrap |
+| `withSessionLock` deadlock possible tha | 5-second timeout add kiya |
+| App close karne se puri app band hoti thi | Minimize-to-tray implement kiya |
+| Activity data restart pe delete hota tha | File-based persistent storage |
+| Inactivity minimize pe detect nahi hoti thi | Windows `GetLastInputInfo` API |
 
 ---
 
-## 📝 Usage & Strict Design Guidelines
+## 📁 Deleted Files (Web/Python-only, Not Needed for Desktop)
 
-- **Backup Naming**: Whenever you export your workspace data from the Settings page, FlowTrack generates the filename dynamically based on the current date, e.g., `15-06-2026.json` (auto-versioned as `flowtrack-backup-15-06-2026.json` in v3.0.0).
-- **Cheat Prevention**: Actual time for timed sessions is locked in the editor. Only manual session logs can have their studied time directly edited.
-- **Strict Inactivity auto-pause**: If Strict Focus Mode is enabled and a session is running, the timer will automatically pause and trigger a system notification after **10 minutes** of zero active mouse movement, touchpad interactions, keyboard inputs, or scroll/touch activity.
-- **Floating Timer**: Click **Open Floating Timer** to launch a persistent window widget on top of all other windows (e.g. while studying offline PDFs or coding).
+Ye files delete kar diye kyunki sirf web/Python backend ke liye the:
 
----
-
-## 🌟 Community & Support
-
-FlowTrack Pro is powered by an amazing, growing community of learners, developers, and contributors. Every ⭐ **star**, 🍴 **fork**, and 🤝 **pull request** directly fuels the roadmap and keeps this project alive.
-
-<div align="center">
-
-| ⭐ Star it | 🍴 Fork it | 🐛 Report Bugs | 💡 Suggest Features |
-|:---:|:---:|:---:|:---:|
-| [**Give a Star**](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/stargazers) | [**Fork Repo**](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/fork) | [**Open Issue**](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/issues/new) | [**Start Discussion**](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/discussions) |
-
-</div>
+- `START.bat` — Python backend + dev server launcher
+- `start_backend_only.bat` — Python backend script
+- `vercel.json` — Web deployment config
+- `DOCUMENTATION_INDEX.md` — Old docs index
+- `public/analytics.worker.js` — Broken web worker (never worked)
+- `public/docs.html` — Web documentation page
+- `public/showcase.html` — Web showcase page
+- `public/manifest.webmanifest` — PWA manifest
+- `public/sw.js` — Service worker
+- `docs/` folder — All Python/web-specific documentation
 
 ---
 
-## 🍴 Our Amazing Forkers
+## 🏗️ Tech Stack
 
-> Everyone who forks this repository gets their **GitHub profile picture** showcased here automatically. Fork the repo to see your avatar join the wall!
-
-<div align="center">
-
-[![Forkers](https://reporoster.com/forks/dark/SudhirDevOps1/The-Ultimate-Master-Study-Tracker)](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/network/members)
-
-</div>
-
----
-
-## 🤝 Our Amazing Contributors
-
-> A massive thank you to every contributor! Your **profile picture** appears below automatically when your PR is merged. 🙌
-
-<div align="center">
-
-<a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=SudhirDevOps1/The-Ultimate-Master-Study-Tracker&max=100&columns=12" alt="Contributors" />
-</a>
-
-</div>
-
-<br/>
-
-<details>
-<summary><b>🏆 Detailed Contributors Leaderboard</b></summary>
-
-<br/>
-
-<div align="center">
-
-[![Contributors Leaderboard](https://reporoster.com/contributors/dark/SudhirDevOps1/The-Ultimate-Master-Study-Tracker)](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/graphs/contributors)
-
-</div>
-
-</details>
+| Layer | Technology |
+|-------|-----------|
+| Desktop shell | Electron 43 |
+| Frontend | React 19 + TypeScript |
+| Build tool | Vite 7 |
+| State | Zustand |
+| Database | Dexie (IndexedDB) |
+| Animations | Framer Motion |
+| Icons | Lucide React |
+| Charts | Recharts / D3 |
+| Styling | Tailwind CSS |
+| Windows APIs | PowerShell + Win32 via `child_process.exec` |
 
 ---
 
-## ⭐ Stargazers Wall of Fame
+## 🆚 FlowTrack vs ActivityWatch
 
-> Every person who stars this repo gets their **profile picture** displayed here. Star the repo now and watch your avatar appear! ⭐
-
-<div align="center">
-
-[![Star History](https://api.star-history.com/svg?repos=SudhirDevOps1/The-Ultimate-Master-Study-Tracker&type=Date)](https://star-history.com/#SudhirDevOps1/The-Ultimate-Master-Study-Tracker&Date)
-
-</div>
-
-<br/>
-
-<details>
-<summary><b>👀 View All Stargazers — Profile Pictures</b></summary>
-
-<br/>
-
-<div align="center">
-
-[![Stargazers](https://reporoster.com/stars/dark/SudhirDevOps1/The-Ultimate-Master-Study-Tracker)](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/stargazers)
-
-</div>
-
-</details>
+| Feature | ActivityWatch | FlowTrack |
+|---------|--------------|-----------|
+| App usage tracking | ✅ | ✅ |
+| Idle / AFK detection | ✅ | ✅ (Windows API) |
+| Privacy-first, local only | ✅ | ✅ |
+| Data survives restart | ✅ | ✅ |
+| 24-hour timeline | ✅ | ✅ |
+| Date history | ✅ | ✅ |
+| CSV export | ✅ | ✅ |
+| Self-exclusion | ❌ | ✅ |
+| Study timer built-in | ❌ | ✅ |
+| Auto-pause on idle | ❌ | ✅ |
+| Auto-resume on activity | ❌ | ✅ |
+| Pomodoro timer | ❌ | ✅ |
+| PiP floating timer | ❌ | ✅ |
+| Python/server required | ✅ (required) | ❌ (not needed) |
 
 ---
 
-## 🙌 How to Contribute
-
-We follow a **strict, professional contribution workflow** to keep the codebase clean and production-ready. Follow these steps to get your avatar featured on this README:
-
-```bash
-# 1. Fork & Clone
-git clone https://github.com/<your-username>/The-Ultimate-Master-Study-Tracker.git
-cd The-Ultimate-Master-Study-Tracker
-
-# 2. Create a feature branch
-git checkout -b feature/your-feature-name
-
-# 3. Make your changes & commit
-git commit -m "feat: add streak freeze mechanic"
-
-# 4. Push and open a Pull Request
-git push origin feature/your-feature-name
-```
-
-Then open a Pull Request on GitHub. Once merged, your profile picture will automatically appear in the [Contributors](#-our-amazing-contributors) section! 🎉
-
-### 📋 Contribution Rules
-
-| Rule | Details |
-|:-----|:--------|
-| ✅ Build must pass | `npm run build` with zero TypeScript errors |
-| ✅ Follow structure | Use existing folders: `components/`, `hooks/`, `store/`, `utils/` |
-| ✅ No breaking changes | Don't break local-first / privacy-first architecture without discussion |
-| ✅ Clear commits | Use [conventional commits](https://www.conventionalcommits.org/) format |
-| ✅ Be respectful | Constructive code reviews and discussions only |
-| ❌ No secrets | Never commit `.env` files, API keys, or credentials |
-
----
-
-## 🗺️ 2026 Roadmap
-
-Our vision for FlowTrack Pro throughout **2026** and beyond:
-
-| Quarter | Milestone | Status |
-|:-------:|:----------|:------:|
-| ✅ **Q1 2026** | React 19 + Tailwind v4 rebuild, Fluid Glass UI 2.0 | ✅ Done |
-| ✅ **Q1 2026** | AI Study Coach (Ollama + WebLLM), Adaptive Scheduling | ✅ Done |
-| 🚧 **Q2 2026** | Predictive Focus Score v2, weekly AI study reports | 🚧 In Progress |
-| 🔜 **Q2 2026** | Native mobile wrappers (Capacitor) for iOS & Android | 🔜 Planned |
-| 🔜 **Q3 2026** | Team / Study-Group mode with shared leaderboards | 🔜 Planned |
-| 🔜 **Q3 2026** | Calendar sync (Google / Outlook / ICS) | 🔜 Planned |
-| 🧭 **Q4 2026** | Voice-controlled timer + AI voice summaries | 🧭 Exploring |
-| 🧭 **Q4 2026** | Browser extension for automatic distraction blocking | 🧭 Exploring |
-
-> 💬 Have an idea for the roadmap? [Open a discussion →](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/discussions)
-
----
-
-## ❓ Frequently Asked Questions
-
-<details>
-<summary><b>Is FlowTrack Pro really free?</b></summary>
-<br/>
-Yes — 100% free and open source under the MIT license. No paywalls, no ads, no premium tier. Fork it, self-host it, or use the <a href="https://study-tracker-app-pied.vercel.app/">live version</a> forever.
-</details>
-
-<details>
-<summary><b>Where is my data stored? Is it private?</b></summary>
-<br/>
-All your data lives in your browser's <b>IndexedDB</b> — nothing is uploaded by default. The AI Study Coach runs on-device (Ollama/WebLLM), so even AI features stay private. Cloud sync is entirely optional.
-</details>
-
-<details>
-<summary><b>Do I need the Python backend?</b></summary>
-<br/>
-No. The Python <code>activity_tracker.py</code> is <b>100% optional</b> and only adds native active-window detection on Windows. Every other feature works in-browser — which is why the Vercel deployment runs flawlessly with no server.
-</details>
-
-<details>
-<summary><b>What AI models does the 2026 AI Coach support?</b></summary>
-<br/>
-Any model runnable via <b>Ollama</b> or <b>WebLLM</b>. Recommended 2026 picks: <code>llama3.3</code>, <code>qwen2.5</code>, <code>phi-4</code>, and <code>gemma2</code>. Just enable CORS and click "Auto-Detect Models".
-</details>
-
-<details>
-<summary><b>Can I install it as an app?</b></summary>
-<br/>
-Absolutely. FlowTrack Pro is a full <b>PWA</b> — click "Install App" in Chrome/Edge and it behaves like a native desktop or mobile app, with offline support.
-</details>
-
----
-
-## 📜 Version Credits & Info
-
-<div align="center">
-
-| | |
-|:---|:---|
-| **Version** | FlowTrack Pro **v3.0.0** — 2026 Edition |
-| **Author** | Engineered by **Sudhir Singh** for the Global Student Community |
-| **Live App** | [`study-tracker-app-pied.vercel.app`](https://study-tracker-app-pied.vercel.app/) |
-| **Repository** | [`github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker`](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker) |
-| **Stack** | React 19 · TypeScript 5.7 · Vite 6 · Tailwind v4 · Dexie · PWA |
-| **Privacy** | 100% Local — AI runs on-device, keys stored in IndexedDB, never uploaded |
-| **License** | MIT — Free and open source forever |
-
-</div>
-
----
-
-<div align="center">
-
-### 💛 Show Your Support
-
-If FlowTrack Pro helped you build a better study habit, please consider:
-
-**⭐ Star** this repo &nbsp;·&nbsp; **🍴 Fork** it &nbsp;·&nbsp; **🤝 Contribute** &nbsp;·&nbsp; **📢 Share** with fellow learners
-
-<br/>
-
-[![Try FlowTrack Pro Live](https://img.shields.io/badge/🚀%20Try%20FlowTrack%20Pro%20Live-Click%20Here-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://study-tracker-app-pied.vercel.app/)
-
-<br/>
-
-**Made with ❤️, discipline, and relentless focus.**
-
-<sub>© 2026 Sudhir Singh · FlowTrack Pro v3.0.0 (2026 Edition) · All rights reserved.</sub>
-
-</div>
+*Built with ❤️ for serious students. All data stays on your device.*

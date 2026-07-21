@@ -116,8 +116,15 @@ const STRICT_INACTIVITY_LIMIT_MS = 10 * 60 * 1000; // 10 minutes
 let sessionOperationInProgress = false;
 
 async function withSessionLock<T>(operation: () => Promise<T>): Promise<T> {
-  // Wait for any ongoing operation to complete
+  // ✅ BUG FIX: Added 5-second timeout to prevent permanent deadlock
+  const timeoutMs = 5000;
+  const start = Date.now();
   while (sessionOperationInProgress) {
+    if (Date.now() - start > timeoutMs) {
+      console.warn("[withSessionLock] Lock timeout exceeded – force releasing.");
+      sessionOperationInProgress = false;
+      break;
+    }
     await new Promise(resolve => setTimeout(resolve, 10));
   }
   sessionOperationInProgress = true;
@@ -161,15 +168,9 @@ function calculateGamificationStats(sessions: StudySession[]) {
   else if (level > 20) rank = "Architect";
   else if (level > 10) rank = "Scholar";
 
-  // Fire Web Worker analytics trace in background asynchronously
-  if (typeof window !== "undefined" && window.Worker) {
-    const worker = new Worker("./analytics.worker.js");
-    worker.postMessage({ action: "calculate", sessions });
-    worker.onmessage = (e) => {
-      // Background analysis computed. Results can be utilized to populate state summaries
-      console.log("[Worker] Asynchronous analytics computation complete:", e.data);
-    };
-  }
+  // ✅ BUG FIX: Removed broken Worker("./analytics.worker.js") call.
+  // That file never existed — it was throwing uncaught errors on every session update.
+  // Analytics are already calculated synchronously above.
 
   return { totalXP, level, rank, xpToNextLevel, xpProgress };
 }
@@ -478,8 +479,11 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
         dailyGoalHours: Number(goalSetting?.value ?? 4),
         weeklyTargetHours: Number(weeklyTargetSetting?.value ?? 20),
         focusMusicEnabled: focusMusicSetting?.value === "true",
-        notificationsEnabled: notificationsSetting?.value === "true",
-        keyboardShortcutsEnabled: keyboardShortcutsSetting?.value === "true",
+        // ✅ BUG FIX: Use fallback true for new users who have no saved setting.
+        // Previously: `undefined?.value === "true"` evaluated to false, disabling
+        // notifications for all new users despite the default being true.
+        notificationsEnabled: notificationsSetting ? notificationsSetting.value === "true" : true,
+        keyboardShortcutsEnabled: keyboardShortcutsSetting ? keyboardShortcutsSetting.value === "true" : true,
         theme: themeValue,
         achievements,
         dailyGoalHitStreak: dailyGoalHitStreakVal,
@@ -738,62 +742,69 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
   },
 
   pauseSession: async () => {
-    const timer = get().timer;
-    if (!timer.activeSessionId || timer.isPaused || !timer.startedAtMs) return;
-    const activeSession = get().sessions.find((session: StudySession) => session.id === timer.activeSessionId);
-    const elapsedSinceStart = Math.floor((Date.now() - timer.startedAtMs) / 1000);
-    const nextAccumulated = clampElapsedSeconds(activeSession, timer.accumulatedSeconds + elapsedSinceStart);
-    const nextTimer: TimerSnapshot = {
-      ...timer,
-      accumulatedSeconds: nextAccumulated,
-      isPaused: true,
-      pausedAtMs: Date.now(),
-      startedAtMs: null,
-      hiddenAtMs: null,
-    };
-    await saveTimer(nextTimer);
-    await db.sessions.update(timer.activeSessionId, {
-      status: "paused",
-      actualSeconds: nextAccumulated,
-      updatedAt: new Date().toISOString(),
-    });
-    set((state: AppState) => {
-      const newSessions: StudySession[] = state.sessions.map((session: StudySession) =>
-        session.id === timer.activeSessionId
-          ? { ...session, status: "paused" as SessionStatus, actualSeconds: nextAccumulated, updatedAt: new Date().toISOString() }
-          : session
-      );
-      return {
-        timer: nextTimer,
-        sessions: sortSessions(newSessions),
-        ...calculateGamificationStats(newSessions)
+    // ✅ BUG FIX: Wrapped in withSessionLock to prevent race conditions
+    // with syncActiveSession which also holds the lock
+    return withSessionLock(async () => {
+      const timer = get().timer;
+      if (!timer.activeSessionId || timer.isPaused || !timer.startedAtMs) return;
+      const activeSession = get().sessions.find((session: StudySession) => session.id === timer.activeSessionId);
+      const elapsedSinceStart = Math.floor((Date.now() - timer.startedAtMs) / 1000);
+      const nextAccumulated = clampElapsedSeconds(activeSession, timer.accumulatedSeconds + elapsedSinceStart);
+      const nextTimer: TimerSnapshot = {
+        ...timer,
+        accumulatedSeconds: nextAccumulated,
+        isPaused: true,
+        pausedAtMs: Date.now(),
+        startedAtMs: null,
+        hiddenAtMs: null,
       };
+      await saveTimer(nextTimer);
+      await db.sessions.update(timer.activeSessionId, {
+        status: "paused",
+        actualSeconds: nextAccumulated,
+        updatedAt: new Date().toISOString(),
+      });
+      set((state: AppState) => {
+        const newSessions: StudySession[] = state.sessions.map((session: StudySession) =>
+          session.id === timer.activeSessionId
+            ? { ...session, status: "paused" as SessionStatus, actualSeconds: nextAccumulated, updatedAt: new Date().toISOString() }
+            : session
+        );
+        return {
+          timer: nextTimer,
+          sessions: sortSessions(newSessions),
+          ...calculateGamificationStats(newSessions)
+        };
+      });
     });
   },
 
   resumeSession: async () => {
-    const timer = get().timer;
-    if (!timer.activeSessionId || !timer.isPaused) return;
-    const now = Date.now();
-    const nextTimer: TimerSnapshot = {
-      ...timer,
-      startedAtMs: now,
-      isPaused: false,
-      pausedAtMs: null,
-      hiddenAtMs: null,
-      lastInteractionAtMs: now,
-    };
-    await saveTimer(nextTimer);
-    await db.sessions.update(timer.activeSessionId, { status: "in_progress", updatedAt: new Date().toISOString() });
-    set((state: AppState) => {
-      const newSessions: StudySession[] = state.sessions.map((session: StudySession) =>
-        session.id === timer.activeSessionId ? { ...session, status: "in_progress" as SessionStatus, updatedAt: new Date().toISOString() } : session
-      );
-      return {
-        timer: nextTimer,
-        sessions: sortSessions(newSessions),
-        ...calculateGamificationStats(newSessions)
+    // ✅ BUG FIX: Wrapped in withSessionLock to prevent race conditions
+    return withSessionLock(async () => {
+      const timer = get().timer;
+      if (!timer.activeSessionId || !timer.isPaused) return;
+      const now = Date.now();
+      const nextTimer: TimerSnapshot = {
+        ...timer,
+        startedAtMs: now,
+        isPaused: false,
+        pausedAtMs: null,
+        hiddenAtMs: null,
+        lastInteractionAtMs: now,
       };
+      await saveTimer(nextTimer);
+      await db.sessions.update(timer.activeSessionId, { status: "in_progress", updatedAt: new Date().toISOString() });
+      set((state: AppState) => {
+        const newSessions: StudySession[] = state.sessions.map((session: StudySession) =>
+          session.id === timer.activeSessionId ? { ...session, status: "in_progress" as SessionStatus, updatedAt: new Date().toISOString() } : session
+        );
+        return {
+          timer: nextTimer,
+          sessions: sortSessions(newSessions),
+          ...calculateGamificationStats(newSessions)
+        };
+      });
     });
   },
 

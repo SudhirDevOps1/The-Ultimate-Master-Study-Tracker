@@ -1,318 +1,531 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Monitor, Calendar, Clock, BarChart2, ShieldAlert, ArrowLeft, RefreshCw, AlertCircle } from "lucide-react";
+import {
+  Monitor, Calendar, Clock, BarChart2, ShieldAlert, RefreshCw,
+  Activity, Download, ChevronLeft, ChevronRight, Eye, Zap, TrendingUp
+} from "lucide-react";
 import { Panel } from "@/components/common/Panel";
 import { useAppStore, type AppState } from "@/store/useAppStore";
-import type { AppUsageRecord, BrowserTabRecord } from "@/types/models";
 import { AppBlockingPanel } from "@/components/analytics/AppBlockingPanel";
 
-export function AppTrackingPage() {
-  const backendUrl = useAppStore((state: AppState) => state.backendUrl);
-  const isBackendConnected = useAppStore((state: AppState) => state.isBackendConnected);
-  const fetchBackendData = useAppStore((state: AppState) => state.fetchBackendData);
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface ActivityEntry {
+  appName: string;
+  title: string;
+  durationSeconds: number;
+  startTime: string;
+  date: string;
+  hour: number;
+  minute?: number;
+  isLive?: boolean;
+}
+interface AppSummary {
+  appName: string;
+  totalSeconds: number;
+  sessions: number;
+  category: string;
+  isLive: boolean;
+}
 
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [loading, setLoading] = useState(false);
-  const [appUsage, setAppUsage] = useState<AppUsageRecord[]>([]);
-  const [browserTabs, setBrowserTabs] = useState<BrowserTabRecord[]>([]);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [showBlocker, setShowBlocker] = useState(false);
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const STUDY   = ["code","vscode","idea","pycharm","notepad","word","excel","powerpoint","acrobat","obsidian","notion","onenote","anki","typora","atom","sublime","vim","nvim","emacs","jupyter","zotero"];
+const BROWSER = ["chrome","firefox","edge","brave","opera","safari","msedge","chromium","iexplore"];
+const SOCIAL  = ["discord","telegram","whatsapp","slack","teams","zoom","messenger","skype","signal","webex","meet"];
+const ENTERT  = ["vlc","spotify","netflix","youtube","steam","epicgames","epic","games","twitch","mediaplayerclassic","potplayer","mpc","winamp"];
 
-  // Load / generate mock wellbeing stats or fetch from local backend
-  const loadWellbeingData = async () => {
-    setLoading(true);
-    setErrorMsg("");
-    try {
-      if (isBackendConnected && backendUrl) {
-        const usageRes = await fetch(`${backendUrl}/app-usage?days=7`);
-        const browserRes = await fetch(`${backendUrl}/browser-usage?days=7`);
-        if (usageRes.ok && browserRes.ok) {
-          const usageData = await usageRes.json();
-          const browserData = await browserRes.json();
-          
-          // Parse backend data to standard formats
-          const dateData = usageData.by_date?.[selectedDate] || [];
-          const processedApps: AppUsageRecord[] = dateData.map((app: any, idx: number) => ({
-            id: `back-app-${idx}`,
-            appName: app.app || "System",
-            category: app.category || "neutral",
-            duration: app.duration_seconds || 0,
-            date: selectedDate,
-            hour: new Date().getHours(),
-            isActive: idx === 0,
-          }));
+function classifyApp(app: string): string {
+  const n = app.toLowerCase();
+  if (STUDY.some(k => n.includes(k)))   return "study";
+  if (BROWSER.some(k => n.includes(k))) return "browser";
+  if (SOCIAL.some(k => n.includes(k)))  return "social";
+  if (ENTERT.some(k => n.includes(k)))  return "entertainment";
+  return "system";
+}
 
-          const tabData = browserData.top_urls || [];
-          const processedTabs: BrowserTabRecord[] = tabData.map((tab: any, idx: number) => ({
-            id: `back-tab-${idx}`,
-            tabTitle: tab.url ? tab.url.replace(/^https?:\/\/(www\.)?/, "").split("/")[0] : "Site",
-            url: tab.url || "",
-            domain: tab.url ? tab.url.replace(/^https?:\/\/(www\.)?/, "").split("/")[0] : "site",
-            duration: tab.time_seconds || 0,
-            date: selectedDate,
-            hour: new Date().getHours(),
-            visitCount: tab.visits || 1
-          }));
+const CAT_COLORS: Record<string, string> = {
+  study:         "from-indigo-500 to-purple-500",
+  browser:       "from-cyan-500  to-blue-500",
+  social:        "from-rose-500  to-pink-500",
+  entertainment: "from-amber-500 to-orange-500",
+  system:        "from-slate-600 to-slate-700",
+};
+const CAT_SOLID: Record<string, string> = {
+  study:         "bg-indigo-500",
+  browser:       "bg-cyan-500",
+  social:        "bg-rose-500",
+  entertainment: "bg-amber-500",
+  system:        "bg-slate-600",
+};
+const CAT_TAG: Record<string, string> = {
+  study:         "bg-indigo-500/15 text-indigo-300 border-indigo-500/25",
+  browser:       "bg-cyan-500/15  text-cyan-300  border-cyan-500/25",
+  social:        "bg-rose-500/15  text-rose-300  border-rose-500/25",
+  entertainment: "bg-amber-500/15 text-amber-300 border-amber-500/25",
+  system:        "bg-slate-500/15 text-slate-400 border-slate-500/25",
+};
+const CAT_EMOJI: Record<string, string> = {
+  study:"💻", browser:"🌐", social:"💬", entertainment:"🎮", system:"⚙️"
+};
 
-          setAppUsage(processedApps);
-          setBrowserTabs(processedTabs);
-          setLoading(false);
-          return;
-        }
-      }
-      
-      // Fallback: Check localStorage Wellbeing data
-      const localKey = `wellbeing_usage_${selectedDate}`;
-      const localStored = localStorage.getItem(localKey);
-      if (localStored) {
-        const parsed = JSON.parse(localStored);
-        setAppUsage(parsed.apps || []);
-        setBrowserTabs(parsed.tabs || []);
-      } else {
-        // Strict: Show empty state if there is no user data
-        setAppUsage([]);
-        setBrowserTabs([]);
-      }
-    } catch (err) {
-      setErrorMsg("Unable to query app usage. Please ensure Python backend is running.");
+function fmt(secs: number): string {
+  const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+const isElectron = typeof window !== "undefined" && !!(window as any).require;
+const getIpc = () => isElectron ? (window as any).require("electron").ipcRenderer : null;
+
+// ─── Timeline Component ───────────────────────────────────────────────────────
+function Timeline({ rawLog }: { rawLog: ActivityEntry[] }) {
+  const activeHours = useMemo(() => {
+    const map = new Map<number, ActivityEntry[]>();
+    for (const entry of rawLog) {
+      if (!map.has(entry.hour)) map.set(entry.hour, []);
+      map.get(entry.hour)!.push(entry);
     }
+    return map;
+  }, [rawLog]);
+
+  if (activeHours.size === 0) return (
+    <p className="text-xs text-slate-500 text-center py-6">No timeline data for this day.</p>
+  );
+
+  return (
+    <div className="space-y-1">
+      {/* Hour axis */}
+      <div className="flex gap-1 items-center mb-1">
+        <span className="w-12 shrink-0" />
+        {Array.from({ length: 24 }, (_, h) => (
+          h % 3 === 0 ? (
+            <span key={h} className="text-[9px] text-slate-600 font-mono" style={{ flex: "0 0 calc((100% - 3rem) / 24 * 3)", textAlign: "left" }}>
+              {String(h).padStart(2, "0")}
+            </span>
+          ) : null
+        ))}
+      </div>
+
+      {/* One row per app that was active */}
+      {Array.from(
+        rawLog.reduce((m, e) => { m.set(e.appName, (m.get(e.appName) || 0) + e.durationSeconds); return m; }, new Map<string, number>()),
+      ).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([appName]) => {
+        const cat = classifyApp(appName);
+        const appEntries = rawLog.filter(e => e.appName === appName);
+        const totalSec = appEntries.reduce((s, e) => s + e.durationSeconds, 0);
+
+        return (
+          <div key={appName} className="flex items-center gap-2 group">
+            {/* Label */}
+            <span className="w-24 shrink-0 text-[10px] text-slate-400 truncate text-right font-semibold">
+              {appName}
+            </span>
+
+            {/* 24-hour track */}
+            <div className="relative flex-1 h-5 bg-white/[0.03] rounded overflow-hidden border border-white/5">
+              {appEntries.map((entry, i) => {
+                const startMin = entry.hour * 60 + (entry.minute ?? 0);
+                const leftPct  = (startMin / 1440) * 100;
+                const widthPct = Math.max(0.5, (entry.durationSeconds / 86400) * 100);
+                return (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className={`absolute top-0 h-full rounded-sm ${CAT_SOLID[cat] ?? "bg-slate-500"} ${entry.isLive ? "animate-pulse" : ""}`}
+                    style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+                    title={`${appName} @ ${String(entry.hour).padStart(2,"0")}:${String(entry.minute ?? 0).padStart(2,"0")} — ${fmt(entry.durationSeconds)}`}
+                  />
+                );
+              })}
+            </div>
+
+            {/* Duration */}
+            <span className="w-12 shrink-0 text-[10px] text-slate-400 font-mono text-right">{fmt(totalSec)}</span>
+          </div>
+        );
+      })}
+
+      {/* Legend */}
+      <div className="flex items-center gap-3 pt-2 border-t border-white/5 flex-wrap">
+        {Object.entries(CAT_SOLID).map(([cat, cls]) => (
+          <span key={cat} className="flex items-center gap-1 text-[10px] text-slate-400">
+            <span className={`w-2.5 h-2.5 rounded-sm ${cls}`} />
+            {cat}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+export function AppTrackingPage() {
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [rawLog, setRawLog]             = useState<ActivityEntry[]>([]);
+  const [trackedDates, setTrackedDates] = useState<string[]>([]);
+  const [liveApp, setLiveApp]           = useState<{ process: string; title: string } | null>(null);
+  const [liveIdleMs, setLiveIdleMs]     = useState(0);
+  const [loading, setLoading]           = useState(false);
+  const [showBlocker, setShowBlocker]   = useState(false);
+  const [activeTab, setActiveTab]       = useState<"overview"|"timeline"|"windows">("overview");
+  const pollRef = useRef<ReturnType<typeof setInterval>>();
+  const today   = new Date().toISOString().split("T")[0];
+
+  // ── Fetch activity log ─────────────────────────────────────────────────
+  const fetchLog = useCallback(async (date: string) => {
+    const ipc = getIpc();
+    if (!ipc) return;
+    setLoading(true);
+    try {
+      const entries: ActivityEntry[] = await ipc.invoke("get-activity-log", { date });
+      setRawLog(entries);
+    } catch (e) { console.warn("[AppTracking]", e); }
     setLoading(false);
-  };
+  }, []);
+
+  // ── Fetch available historical dates ───────────────────────────────────
+  const fetchDates = useCallback(async () => {
+    const ipc = getIpc();
+    if (!ipc) return;
+    try {
+      const dates: string[] = await ipc.invoke("get-tracked-dates");
+      setTrackedDates(dates);
+    } catch { /* ignore */ }
+  }, []);
+
+  // ── Poll live data every 5 s ───────────────────────────────────────────
+  useEffect(() => {
+    const poll = async () => {
+      const ipc = getIpc();
+      if (!ipc) return;
+      try {
+        const [win, idle] = await Promise.all([
+          ipc.invoke("get-active-window"),
+          ipc.invoke("get-idle-time-ms"),
+        ]);
+        setLiveApp(win?.isSelf || win?.process === "unknown" ? null : { process: win.process, title: win.title });
+        setLiveIdleMs(idle as number);
+      } catch { /* ignore */ }
+    };
+    void poll();
+    pollRef.current = setInterval(() => void poll(), 5000);
+    return () => clearInterval(pollRef.current);
+  }, []);
+
+  // ── Auto-refresh today's log every 30 s ───────────────────────────────
+  useEffect(() => {
+    void fetchLog(selectedDate);
+    void fetchDates();
+  }, [selectedDate, fetchLog, fetchDates]);
 
   useEffect(() => {
-    void loadWellbeingData();
-  }, [selectedDate, isBackendConnected]);
+    if (selectedDate !== today) return;
+    const id = setInterval(() => void fetchLog(today), 30_000);
+    return () => clearInterval(id);
+  }, [selectedDate, today, fetchLog]);
 
-  const totalSeconds = useMemo(() => {
-    return appUsage.reduce((sum, item) => sum + item.duration, 0);
-  }, [appUsage]);
+  // ── Aggregations ───────────────────────────────────────────────────────
+  const appSummaries: AppSummary[] = useMemo(() => {
+    const map = new Map<string, AppSummary>();
+    for (const e of rawLog) {
+      const key = e.appName.toLowerCase();
+      if (!map.has(key)) map.set(key, { appName: e.appName, totalSeconds: 0, sessions: 0, category: classifyApp(e.appName), isLive: false });
+      const r = map.get(key)!;
+      r.totalSeconds += e.durationSeconds;
+      r.sessions++;
+      if (e.isLive) r.isLive = true;
+    }
+    return [...map.values()].sort((a, b) => b.totalSeconds - a.totalSeconds);
+  }, [rawLog]);
 
-  const categoryTime = useMemo(() => {
-    const cats: Record<string, number> = {
-      study: 0,
-      browser: 0,
-      social: 0,
-      entertainment: 0,
-      productivity: 0,
-      system: 0,
-    };
-    appUsage.forEach(a => {
-      const c = a.category || "system";
-      cats[c] = (cats[c] || 0) + a.duration;
-    });
-    return cats;
-  }, [appUsage]);
+  const totalSeconds = useMemo(() => appSummaries.reduce((s, a) => s + a.totalSeconds, 0), [appSummaries]);
 
-  const formatHoursMins = (secs: number) => {
-    const h = Math.floor(secs / 3600);
-    const m = Math.round((secs % 3600) / 60);
-    if (h > 0) return `${h}h ${m}m`;
-    return `${m}m`;
+  const categoryTotals = useMemo(() => {
+    const m: Record<string, number> = {};
+    appSummaries.forEach(a => { m[a.category] = (m[a.category] ?? 0) + a.totalSeconds; });
+    return Object.entries(m).sort((a, b) => b[1] - a[1]);
+  }, [appSummaries]);
+
+  // ── Date navigation ────────────────────────────────────────────────────
+  const dateIdx   = trackedDates.indexOf(selectedDate);
+  const prevDate  = trackedDates[dateIdx + 1];
+  const nextDate  = trackedDates[dateIdx - 1];
+
+  const idleMin   = Math.floor(liveIdleMs / 60000);
+  const idlePct   = Math.min(100, (liveIdleMs / (10 * 60 * 1000)) * 100);
+
+  // ── Export ─────────────────────────────────────────────────────────────
+  const handleExport = async () => {
+    const ipc = getIpc();
+    if (!ipc) return;
+    try {
+      const result = await ipc.invoke("export-activity-csv", { date: selectedDate });
+      if (result.success) alert(`✅ Exported to:\n${result.path}`);
+      else if (result.reason !== "cancelled") alert(`❌ Export failed: ${result.error}`);
+    } catch (e: any) { alert(`Export error: ${e.message}`); }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header bar */}
+    <div className="space-y-5">
+      {/* ── Header ── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-3 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg">
-            <Monitor className="w-6 h-6" />
+          <div className="p-3 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/20">
+            <Activity className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-white">Digital Wellbeing</h1>
-            <p className="text-xs text-slate-400">Track and block study distractions in real-time</p>
+            <h1 className="text-2xl font-black text-white">App Activity Tracker</h1>
+            <p className="text-xs text-slate-400">
+              ActivityWatch-style · Privacy-first · All data stored locally · FlowTrack excluded
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowBlocker(!showBlocker)}
-            className="flex items-center gap-1.5 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-2.5 text-xs font-bold text-rose-300 hover:bg-rose-500/20 transition-all active:scale-95"
-          >
-            <ShieldAlert className="w-4 h-4" />
-            <span>{showBlocker ? "Show Usage Data" : "App Blocker Rules"}</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button onClick={() => setShowBlocker(!showBlocker)}
+            className="flex items-center gap-1.5 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-500/20 transition-all">
+            <ShieldAlert className="w-4 h-4" /> {showBlocker ? "Tracking" : "App Blocker"}
           </button>
-          
-          <div className="flex items-center gap-1.5 rounded-xl bg-slate-950 border border-white/10 px-3 py-1.5">
-            <Calendar className="w-3.5 h-3.5 text-cyan-400" />
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="bg-transparent text-xs text-white focus:outline-none"
-            />
+
+          {/* Date navigation */}
+          <div className="flex items-center gap-1 rounded-xl bg-slate-900 border border-white/10 px-1 py-1">
+            <button onClick={() => prevDate && setSelectedDate(prevDate)} disabled={!prevDate}
+              className="p-1.5 rounded-lg hover:bg-white/10 disabled:opacity-30 transition-colors">
+              <ChevronLeft className="w-3.5 h-3.5 text-slate-300" />
+            </button>
+            <div className="flex items-center gap-1.5 px-2">
+              <Calendar className="w-3.5 h-3.5 text-cyan-400" />
+              <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
+                className="bg-transparent text-xs text-white focus:outline-none w-28" />
+            </div>
+            <button onClick={() => nextDate && setSelectedDate(nextDate)} disabled={!nextDate || selectedDate === today}
+              className="p-1.5 rounded-lg hover:bg-white/10 disabled:opacity-30 transition-colors">
+              <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
+            </button>
           </div>
 
-          <button
-            onClick={() => {
-              void loadWellbeingData();
-              void fetchBackendData();
-            }}
-            className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 transition-colors"
-          >
+          <button onClick={handleExport} title="Export to CSV"
+            className="flex items-center gap-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-500/20 transition-all">
+            <Download className="w-3.5 h-3.5" /> Export CSV
+          </button>
+
+          <button onClick={() => { void fetchLog(selectedDate); void fetchDates(); }}
+            className={`p-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 transition-colors ${loading ? "animate-spin" : ""}`}>
             <RefreshCw className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {!isBackendConnected && (
-        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-amber-300 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-bold">Python Backend Offline</p>
-            <p className="text-xs text-slate-300 mt-1">
-              Real-time process monitoring and system-level app blocking require the FlowTrack Python backend. Run <code className="bg-slate-900 px-1 py-0.5 rounded text-amber-400">python backend.py</code> in the working directory to connect. Falling back to local offline sandbox.
+      {/* ── Live Status Row ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {/* Live active app */}
+        <motion.div animate={{ scale: liveApp ? [1, 1.005, 1] : 1 }} transition={{ repeat: Infinity, duration: 3 }}
+          className="col-span-2 rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 p-4">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+            <span className={`w-2 h-2 rounded-full ${liveApp ? "bg-emerald-400 animate-pulse" : "bg-slate-600"}`} />
+            {liveApp ? "Currently Active" : "Idle / No App"}
+          </p>
+          {liveApp ? (
+            <>
+              <p className="mt-1 text-lg font-black text-white truncate">{liveApp.process}</p>
+              <p className="text-xs text-slate-400 truncate">{liveApp.title}</p>
+            </>
+          ) : (
+            <p className="mt-1 text-sm text-slate-500 italic">
+              {isElectron ? "Desktop is idle" : "Requires desktop app"}
             </p>
+          )}
+        </motion.div>
+
+        {/* Idle Time with progress arc */}
+        <div className={`rounded-2xl border p-4 ${liveIdleMs >= 10 * 60 * 1000 ? "border-rose-500/30 bg-rose-500/10" : "border-white/10 bg-slate-900"}`}>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Idle Time</p>
+          <p className={`mt-1 text-2xl font-black tabular-nums ${liveIdleMs >= 10 * 60 * 1000 ? "text-rose-400" : liveIdleMs >= 5 * 60 * 1000 ? "text-amber-400" : "text-white"}`}>
+            {idleMin > 0 ? `${idleMin}m` : `${Math.floor(liveIdleMs / 1000)}s`}
+          </p>
+          <div className="mt-2 h-1 w-full bg-slate-800 rounded-full overflow-hidden">
+            <motion.div animate={{ width: `${idlePct}%` }} transition={{ duration: 0.5 }}
+              className={`h-full rounded-full ${liveIdleMs >= 10 * 60 * 1000 ? "bg-rose-500" : liveIdleMs >= 5 * 60 * 1000 ? "bg-amber-400" : "bg-emerald-400"}`} />
           </div>
+          <p className="text-[10px] text-slate-500 mt-1">{liveIdleMs >= 10 * 60 * 1000 ? "⏸ Session auto-paused" : "✅ Active"}</p>
+        </div>
+
+        {/* Total tracked */}
+        <div className="rounded-2xl border border-white/10 bg-slate-900 p-4">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Tracked Today</p>
+          <p className="mt-1 text-2xl font-black text-cyan-400">{fmt(totalSeconds)}</p>
+          <p className="text-[10px] text-slate-500 mt-1">{appSummaries.length} unique apps</p>
+          <p className="text-[10px] text-slate-600 mt-0.5">{trackedDates.length} days history</p>
+        </div>
+      </div>
+
+      {/* ── History breadcrumb ── */}
+      {trackedDates.length > 1 && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          {trackedDates.slice(0, 14).map(d => (
+            <button key={d} onClick={() => setSelectedDate(d)}
+              className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${d === selectedDate ? "bg-cyan-500/20 border border-cyan-500/40 text-cyan-300" : "bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10"}`}>
+              {d === today ? "Today" : d}
+            </button>
+          ))}
         </div>
       )}
 
       <AnimatePresence mode="wait">
         {showBlocker ? (
-          <motion.div
-            key="blocker"
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -15 }}
-          >
+          <motion.div key="blocker" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }}>
             <AppBlockingPanel />
           </motion.div>
         ) : (
-          <motion.div
-            key="usage"
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -15 }}
-            className="grid gap-6 lg:grid-cols-3"
-          >
-            {/* Screen Time overview */}
-            <Panel className="lg:col-span-1 space-y-6">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Clock className="w-4 h-4 text-cyan-400" />
-                Screen Time Summary
-              </h3>
+          <motion.div key="usage" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} className="space-y-5">
 
-              <div className="text-center py-6 rounded-2xl bg-white/[0.02] border border-white/5 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-cyan-500/10 to-transparent rounded-bl-full pointer-events-none" />
-                <p className="text-[11px] uppercase tracking-wider font-bold text-slate-500">Total tracked time</p>
-                <p className="text-4xl font-black text-white mt-1">{formatHoursMins(totalSeconds)}</p>
-                <span className="inline-block mt-2 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400 rounded-full bg-emerald-500/10">
-                  Active Focus Session running
-                </span>
-              </div>
-
-              {/* Category charts */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Breakdown by Category</h4>
-                <div className="space-y-2">
-                  {Object.entries(categoryTime).map(([cat, seconds]) => {
-                    const pct = totalSeconds > 0 ? (seconds / totalSeconds) * 100 : 0;
-                    const catColors: Record<string, string> = {
-                      study: "bg-indigo-500",
-                      browser: "bg-cyan-500",
-                      social: "bg-rose-500",
-                      entertainment: "bg-amber-500",
-                      productivity: "bg-emerald-500",
-                      system: "bg-slate-500",
-                    };
-                    if (seconds === 0) return null;
-                    return (
-                      <div key={cat} className="space-y-1">
-                        <div className="flex justify-between text-xs font-semibold text-slate-300">
-                          <span className="capitalize">{cat}</span>
-                          <span>{formatHoursMins(seconds)} ({Math.round(pct)}%)</span>
-                        </div>
-                        <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                          <div className={`h-full ${catColors[cat] || "bg-cyan-500"}`} style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </Panel>
-
-            {/* App lists and browser logs */}
-            <div className="lg:col-span-2 space-y-6">
-              <Panel className="space-y-4">
-                <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <Monitor className="w-4 h-4 text-indigo-400" />
-                    Application Usage logs
-                  </h3>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Sorted by duration</span>
-                </div>
-
-                <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 pretty-scrollbar">
-                  {appUsage.length === 0 ? (
-                    <p className="text-xs text-slate-500 text-center py-6">No application data tracked for this date.</p>
-                  ) : (
-                    appUsage.map((app) => {
-                      const pct = totalSeconds > 0 ? (app.duration / totalSeconds) * 100 : 0;
-                      return (
-                        <div key={app.id} className="flex items-center gap-4 p-2 rounded-xl hover:bg-white/[0.02] transition-colors group">
-                          <div className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center text-lg border border-white/5">
-                            {app.category === "study" ? "💻" : app.category === "social" ? "💬" : app.category === "entertainment" ? "🎵" : "🖥️"}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-sm font-bold text-white truncate">{app.appName}</span>
-                              <span className="text-xs font-semibold text-slate-400">{formatHoursMins(app.duration)}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className="h-1.5 flex-1 bg-slate-800 rounded-full overflow-hidden">
-                                <div className="h-full bg-cyan-400 group-hover:bg-cyan-300 transition-colors" style={{ width: `${pct}%` }} />
-                              </div>
-                              <span className="text-[10px] text-slate-500 font-bold shrink-0">{Math.round(pct)}%</span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </Panel>
-
-              {/* Browser tab lists */}
-              <Panel className="space-y-4">
-                <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <BarChart2 className="w-4 h-4 text-emerald-400" />
-                    Websites & Browser Activity
-                  </h3>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Domain tracker</span>
-                </div>
-
-                <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 pretty-scrollbar">
-                  {browserTabs.length === 0 ? (
-                    <p className="text-xs text-slate-500 text-center py-6">No browser activities recorded.</p>
-                  ) : (
-                    browserTabs.map((tab) => (
-                      <div key={tab.id} className="flex items-center justify-between p-2 rounded-xl bg-white/[0.01] border border-white/5">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <img
-                            src={`https://www.google.com/s2/favicons?domain=${tab.domain}&sz=32`}
-                            alt="favicon"
-                            className="w-6 h-6 rounded-md bg-slate-800 shrink-0"
-                            onError={(e) => {
-                              (e.target as any).src = "https://www.google.com/s2/favicons?domain=google.com&sz=32";
-                            }}
-                          />
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold text-white truncate">{tab.tabTitle}</p>
-                            <p className="text-[10px] text-slate-500 truncate">{tab.url}</p>
-                          </div>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-xs font-bold text-cyan-400">{formatHoursMins(tab.duration)}</p>
-                          <p className="text-[10px] text-slate-500 font-medium">{tab.visitCount} visits</p>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </Panel>
+            {/* ── Tabs ── */}
+            <div className="flex gap-1 bg-slate-900/60 border border-white/10 rounded-2xl p-1 w-fit">
+              {(["overview","timeline","windows"] as const).map(tab => (
+                <button key={tab} onClick={() => setActiveTab(tab)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all ${activeTab === tab ? "bg-white/10 text-white" : "text-slate-500 hover:text-slate-300"}`}>
+                  {tab === "overview" ? "📊 Overview" : tab === "timeline" ? "📈 Timeline" : "🪟 Windows"}
+                </button>
+              ))}
             </div>
+
+            {activeTab === "overview" && (
+              <div className="grid gap-5 lg:grid-cols-3">
+                {/* Category breakdown */}
+                <Panel className="space-y-4">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-cyan-400" /> Category Breakdown
+                  </h3>
+                  {categoryTotals.length === 0 ? (
+                    <p className="text-xs text-slate-500 text-center py-8">
+                      {isElectron ? "Use apps — data appears in ~5 seconds." : "Requires desktop app."}
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {categoryTotals.map(([cat, secs]) => {
+                        const pct = totalSeconds > 0 ? (secs / totalSeconds) * 100 : 0;
+                        return (
+                          <div key={cat} className="space-y-1">
+                            <div className="flex items-center justify-between text-xs font-semibold">
+                              <span className={`rounded-full border px-2.5 py-0.5 text-[11px] ${CAT_TAG[cat]}`}>
+                                {CAT_EMOJI[cat]} {cat}
+                              </span>
+                              <span className="text-slate-300">{fmt(secs)} · {Math.round(pct)}%</span>
+                            </div>
+                            <div className="h-2 rounded-full bg-white/5 overflow-hidden">
+                              <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.6, ease: "circOut" }}
+                                className={`h-full rounded-full bg-gradient-to-r ${CAT_COLORS[cat]}`} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div className="pt-2 border-t border-white/5 flex justify-between text-xs">
+                        <span className="text-slate-500 font-semibold">Total</span>
+                        <span className="text-white font-black">{fmt(totalSeconds)}</span>
+                      </div>
+                    </div>
+                  )}
+                </Panel>
+
+                {/* Per-app list */}
+                <div className="lg:col-span-2">
+                  <Panel className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                        <Monitor className="w-4 h-4 text-indigo-400" /> App Usage
+                        <span className="text-[10px] text-slate-600 font-normal">(FlowTrack excluded)</span>
+                      </h3>
+                      <span className="text-[10px] text-slate-500 uppercase font-bold">by time</span>
+                    </div>
+                    <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1 pretty-scrollbar">
+                      {appSummaries.length === 0 ? (
+                        <div className="py-14 text-center">
+                          <p className="text-4xl mb-3">🖥️</p>
+                          <p className="text-sm text-slate-400 font-semibold">No app activity logged yet</p>
+                          <p className="text-xs text-slate-500 mt-1">
+                            {isElectron ? "Start using apps — appears in ~5 s" : "Open as desktop app to enable tracking"}
+                          </p>
+                        </div>
+                      ) : appSummaries.map((app, i) => {
+                        const pct = totalSeconds > 0 ? (app.totalSeconds / totalSeconds) * 100 : 0;
+                        return (
+                          <motion.div key={app.appName} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.025 }}
+                            className="flex items-center gap-3 p-3 rounded-2xl hover:bg-white/[0.03] border border-transparent hover:border-white/5 transition-all group">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 border ${CAT_TAG[app.category]}`}>
+                              {CAT_EMOJI[app.category]}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1.5">
+                                <span className="text-sm font-bold text-white truncate">{app.appName}</span>
+                                {app.isLive && (
+                                  <span className="flex items-center gap-0.5 text-[9px] font-black uppercase text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-1.5 py-0.5 rounded-full">
+                                    <span className="w-1 h-1 bg-emerald-400 rounded-full animate-pulse" /> LIVE
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="h-1.5 flex-1 rounded-full bg-white/5 overflow-hidden">
+                                  <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.5, ease: "circOut" }}
+                                    className={`h-full rounded-full bg-gradient-to-r ${CAT_COLORS[app.category]}`} />
+                                </div>
+                                <span className="text-[10px] text-slate-500 font-bold">{Math.round(pct)}%</span>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-sm font-black text-white">{fmt(app.totalSeconds)}</p>
+                              <p className="text-[10px] text-slate-500">{app.sessions} window{app.sessions > 1 ? "s" : ""}</p>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  </Panel>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "timeline" && (
+              <Panel className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-amber-400" /> 24-Hour Timeline
+                    <span className="text-[10px] text-slate-500">— each row = one app, bars show when it was active</span>
+                  </h3>
+                </div>
+                <Timeline rawLog={rawLog} />
+              </Panel>
+            )}
+
+            {activeTab === "windows" && (
+              <Panel className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Eye className="w-4 h-4 text-purple-400" /> Window Activity Log
+                  </h3>
+                  <span className="text-[10px] text-slate-500">{rawLog.length} entries</span>
+                </div>
+                <div className="space-y-1 max-h-[500px] overflow-y-auto pretty-scrollbar pr-1">
+                  {rawLog.length === 0 ? (
+                    <p className="text-xs text-slate-500 text-center py-10">No window activity recorded.</p>
+                  ) : [...rawLog].reverse().map((e, i) => (
+                    <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/[0.02] transition-colors">
+                      <span className={`shrink-0 text-[10px] font-bold rounded-full border px-2 py-0.5 ${CAT_TAG[classifyApp(e.appName)]}`}>
+                        {e.appName}
+                      </span>
+                      <p className="text-xs text-slate-400 truncate flex-1 min-w-0">{e.title || "—"}</p>
+                      <div className="shrink-0 text-right">
+                        <p className="text-[10px] text-slate-300 font-bold">{fmt(e.durationSeconds)}</p>
+                        <p className="text-[9px] text-slate-600 font-mono">
+                          {String(e.hour).padStart(2,"0")}:{String(e.minute ?? 0).padStart(2,"0")}
+                        </p>
+                      </div>
+                      {e.isLive && <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+                    </div>
+                  ))}
+                </div>
+              </Panel>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { db } from '@/lib/db';
 
@@ -61,6 +61,64 @@ export function usePomodoro() {
     setSettings(newSettings);
   }, []);
 
+  const skipToNextPhase = useCallback(() => {
+    let nextPhase: PomodoroPhase = 'work';
+    let nextCycleNumber = cycle.cycleNumber;
+
+    if (cycle.phase === 'work') {
+      if (cycle.cycleNumber >= settings.cyclesBeforeLongBreak) {
+        nextPhase = 'longBreak';
+        nextCycleNumber = 1;
+      } else {
+        nextPhase = 'shortBreak';
+        nextCycleNumber = cycle.cycleNumber + 1;
+      }
+    } else {
+      nextPhase = 'work';
+    }
+
+    const durationSeconds = {
+      work: settings.workMinutes * 60,
+      shortBreak: settings.shortBreakMinutes * 60,
+      longBreak: settings.longBreakMinutes * 60,
+    }[nextPhase];
+
+    if (cycle.isActive && cycle.phase === 'work') {
+      const completedEntry = { phase: cycle.phase, completedAt: new Date().toISOString(), durationSeconds: cycle.durationSeconds };
+      setHistory((h) => [...h, completedEntry]);
+
+      void (async () => {
+        await db.settings.put({
+          key: `pomodoro_completed_${Date.now()}`,
+          value: JSON.stringify(completedEntry)
+        });
+      })();
+    }
+
+    const newCycle: PomodoroCycle = {
+      phase: nextPhase,
+      durationSeconds,
+      remainingSeconds: durationSeconds,
+      isActive: (settings.autoStartBreaks && nextPhase !== 'work') || (settings.autoStartWork && nextPhase === 'work'),
+      isPaused: false,
+      cycleNumber: nextCycleNumber,
+    };
+
+    setCycle(newCycle);
+
+    if (settings.desktopNotifications && Notification.permission === 'granted') {
+      new Notification(`Pomodoro ${nextPhase === 'work' ? 'Work' : 'Break'} ${nextPhase === 'longBreak' ? '(Long)' : ''}`, {
+        body: `${nextPhase === 'work' ? 'Time to focus!' : 'Time to relax!'}`,
+        icon: '/icon-192.png',
+      });
+    }
+  }, [cycle, settings]);
+
+  // ✅ BUG FIX: Keep a ref to the latest skipToNextPhase so the interval
+  // closure never goes stale — fixes stale-closure issue when called inside setInterval
+  const skipRef = useRef(skipToNextPhase);
+  useEffect(() => { skipRef.current = skipToNextPhase; }, [skipToNextPhase]);
+
   const startPomodoro = useCallback(() => {
     if (cycle.isActive && !cycle.isPaused) return;
 
@@ -97,81 +155,39 @@ export function usePomodoro() {
     }));
   }, [cycle]);
 
-  const skipToNextPhase = useCallback(() => {
-    let nextPhase: PomodoroPhase = 'work';
-    let nextCycleNumber = cycle.cycleNumber;
-
-    if (cycle.phase === 'work') {
-      if (cycle.cycleNumber >= settings.cyclesBeforeLongBreak) {
-        nextPhase = 'longBreak';
-        nextCycleNumber = 1;
-      } else {
-        nextPhase = 'shortBreak';
-        nextCycleNumber = cycle.cycleNumber + 1;
-      }
-    } else {
-      nextPhase = 'work';
-    }
-
-    const durationSeconds = {
-      work: settings.workMinutes * 60,
-      shortBreak: settings.shortBreakMinutes * 60,
-      longBreak: settings.longBreakMinutes * 60,
-    }[nextPhase];
-
-    if (cycle.isActive && cycle.phase === 'work') {
-      const completedEntry = { phase: cycle.phase, completedAt: new Date().toISOString(), durationSeconds: cycle.durationSeconds };
-      setHistory((h) => [...h, completedEntry]);
-      
-      // Save completed work cycle to database
-      void (async () => {
-        const completedCycleData = {
-          key: `pomodoro_completed_${Date.now()}`,
-          value: JSON.stringify(completedEntry)
-        };
-        await db.settings.put(completedCycleData);
-      })();
-    }
-
-    const newCycle: PomodoroCycle = {
-      phase: nextPhase,
-      durationSeconds,
-      remainingSeconds: durationSeconds,
-      isActive: (settings.autoStartBreaks && nextPhase !== 'work') || (settings.autoStartWork && nextPhase === 'work'),
-      isPaused: false,
-      cycleNumber: nextCycleNumber,
-    };
-
-    setCycle(newCycle);
-
-    if (settings.desktopNotifications && Notification.permission === 'granted') {
-      new Notification(`Pomodoro ${nextPhase === 'work' ? 'Work' : 'Break'} ${nextPhase === 'longBreak' ? '(Long)' : ''}`, {
-        body: `${nextPhase === 'work' ? 'Time to focus!' : 'Time to relax!'}`,
-        icon: '/icon-192.png',
-      });
-    }
-  }, [cycle, settings]);
-
+  // ✅ BUG FIX: Timestamp-based countdown instead of simple setInterval decrement.
+  // Previously setInterval was throttled by the browser/OS when minimized,
+  // causing the Pomodoro to lose time. Now we calculate remaining from a
+  // real timestamp so it's always accurate even after minimize/restore.
   useEffect(() => {
     if (!cycle.isActive || cycle.isPaused || !pomodoroMode) return;
 
+    // Capture the "start of this running phase" timestamp and remaining at that moment
+    const phaseStartMs = Date.now();
+    const remainingAtStart = cycle.remainingSeconds;
+
     const interval = setInterval(() => {
+      const elapsedSec = Math.floor((Date.now() - phaseStartMs) / 1000);
+      const newRemaining = Math.max(0, remainingAtStart - elapsedSec);
+
+      if (newRemaining <= 0) {
+        clearInterval(interval);
+        // Use ref to avoid stale closure
+        skipRef.current();
+        return;
+      }
+
       setCycle((c) => {
-        if (c.remainingSeconds <= 1) {
-          clearInterval(interval);
-          setTimeout(() => skipToNextPhase(), 100);
-          return {
-            ...c,
-            remainingSeconds: 0,
-            isActive: false,
-          };
-        }
-        return { ...c, remainingSeconds: c.remainingSeconds - 1 };
+        // Avoid unnecessary re-renders if value hasn't changed
+        if (c.remainingSeconds === newRemaining) return c;
+        return { ...c, remainingSeconds: newRemaining };
       });
-    }, 1000);
+    }, 500); // 500ms for smooth display while being efficient
 
     return () => clearInterval(interval);
-  }, [cycle.isActive, cycle.isPaused, pomodoroMode, skipToNextPhase]);
+    // Note: skipToNextPhase intentionally excluded — we use skipRef instead
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cycle.isActive, cycle.isPaused, pomodoroMode]);
 
   useEffect(() => {
     if (settings.desktopNotifications && Notification.permission === 'default') {

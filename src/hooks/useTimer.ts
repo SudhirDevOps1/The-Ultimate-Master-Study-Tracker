@@ -8,14 +8,14 @@ function playCompletionSound() {
     const gain = ctx.createGain();
     osc.connect(gain);
     gain.connect(ctx.destination);
-    
+
     osc.type = "sine";
     osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
     osc.frequency.setValueAtTime(880.00, ctx.currentTime + 0.15); // A5
-    
+
     gain.gain.setValueAtTime(0.1, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
-    
+
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 0.4);
   } catch (e) {
@@ -35,6 +35,7 @@ export function useTimer() {
   const [nowMs, setNowMs] = useState(Date.now());
   const notifiedSessionsRef = useRef<Set<string>>(new Set());
 
+  // ─── 1-second tick: sync elapsed, check inactivity & completion ──────────
   useEffect(() => {
     const tick = () => {
       const now = Date.now();
@@ -75,9 +76,8 @@ export function useTimer() {
               const subjectName = state.subjects.find(s => s.id === activeSession.subjectId)?.name || "Subject";
               const title = "FlowTrack - Study Target Reached! 🎉";
               const body = `Congratulations! You have completed your planned study target of ${activeSession.plannedMinutes} minutes for ${subjectName}.`;
-              
+
               if (Notification.permission === "granted") {
-                // Try sending via Service Worker first for background compatibility
                 if (navigator.serviceWorker && navigator.serviceWorker.controller) {
                   navigator.serviceWorker.ready.then(registration => {
                     void registration.showNotification(title, {
@@ -93,23 +93,12 @@ export function useTimer() {
               } else if (Notification.permission === "default") {
                 Notification.requestPermission().then(permission => {
                   if (permission === "granted") {
-                    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-                      navigator.serviceWorker.ready.then(registration => {
-                        void registration.showNotification(title, {
-                          body,
-                          icon: "/icon-192.png",
-                          badge: "/icon-192.png",
-                          vibrate: [100, 50, 100],
-                        } as any);
-                      });
-                    } else {
-                      new Notification(title, { body, icon: "/icon-192.png" });
-                    }
+                    new Notification(title, { body, icon: "/icon-192.png" });
                   }
                 });
               }
             }
-            
+
             // Auto-complete the session when planned time is reached
             setTimeout(async () => {
               await state.stopSession();
@@ -126,6 +115,7 @@ export function useTimer() {
     return () => window.clearInterval(interval);
   }, [syncActiveSession]);
 
+  // ─── Visibility & focus events ───────────────────────────────────────────
   useEffect(() => {
     const onVisibleInteraction = () => {
       if (document.hidden) return;
@@ -134,20 +124,24 @@ export function useTimer() {
     };
 
     const updateVisibility = () => {
-      const isPipActive = useAppStore.getState().isPipActive;
-      
+      const state = useAppStore.getState();
+      const isPipActive = state.isPipActive;
+      // ✅ BUG FIX: Read autoPauseOnHidden from store.
+      // Previously this always paused on minimize regardless of the setting.
+      const autoPauseOnHidden = state.autoPauseOnHidden;
+
       if (document.hidden) {
         void setHiddenAt(Date.now());
         void syncActiveSession(Date.now());
-        
-        // Immediate pause if NOT in PiP mode
-        if (!isPipActive) {
+
+        // Only pause if the user has "auto-pause on minimize" enabled AND not in PiP mode
+        if (autoPauseOnHidden && !isPipActive) {
           void pauseSession();
         }
         return;
       }
 
-      // If we were hidden but PiP kept us alive, just clear hiddenAt
+      // Tab / window became visible again — resume tracking
       void setHiddenAt(null);
       void markTimerInteraction(Date.now());
       void syncActiveSession(Date.now());
@@ -186,12 +180,13 @@ export function useTimer() {
     };
   }, [markTimerInteraction, pauseSession, setHiddenAt, strictFocusMode, syncActiveSession]);
 
+  // ─── App-tracking: poll active window via backend / Electron IPC ─────────
   useEffect(() => {
     let activeInterval: number | undefined;
 
     const pollActiveWindow = async () => {
       const state = useAppStore.getState();
-      
+
       // Always fetch latest stats to keep analytics up-to-date
       void state.fetchBackendData();
 

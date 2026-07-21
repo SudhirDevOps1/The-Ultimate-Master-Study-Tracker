@@ -55,4 +55,9 @@ try {
   `;
 }
 
-registerServiceWorker();
+// Only register service worker in browser/web mode.
+// In Electron (desktop app) it's not needed and can cause conflicts.
+const isElectronRuntime = typeof window !== "undefined" && !!(window as any).require;
+if (!isElectronRuntime) {
+  registerServiceWorker();
+}
