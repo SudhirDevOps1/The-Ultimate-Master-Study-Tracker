@@ -47,16 +47,9 @@ const STUDY   = [
   "git bash","powershell","idea64","pycharm64","webstorm64","devenv","winword","acrobat","acrord32",
 ];
 const BROWSER = [
-  "google chrome","chrome","microsoft edge","msedge","mozilla firefox","firefox",
-  "brave browser","brave","opera","chromium","internet explorer","iexplore",
-];
-const SOCIAL  = [
-  "discord","telegram","whatsapp","slack","microsoft teams","teams","msteams",
-  "zoom","skype","signal","webex","google meet",
-];
-const ENTERT  = [
-  "vlc","spotify","mpc-hc","potplayer","steam","epic games","twitch",
-  "mediaplayerclassic","winamp","mpc_hc","mpc_hc64","potplayermini64",
+  "chrome", "google chrome", "edge", "microsoft edge", "msedge",
+  "firefox", "mozilla firefox", "brave", "brave browser", "opera",
+  "safari", "chromium", "vivaldi", "arc", "waterfox", "tor"
 ];
 
 function classifyApp(app: string): string {
@@ -69,14 +62,18 @@ function classifyApp(app: string): string {
 }
 
 // Extract website domain & clean tab title from browser window titles
-function extractWebDomain(title: string, appName: string): { domain: string; cleanTitle: string } | null {
-  const isBrowser = BROWSER.some(b => appName.toLowerCase().includes(b));
-  if (!isBrowser || !title || title === "Desktop / Idle") return null;
+function extractWebDomain(title: string, appName: string, rawProcess?: string): { domain: string; cleanTitle: string } | null {
+  const nameToCheck = (appName + " " + (rawProcess || "")).toLowerCase();
+  const isBrowser = BROWSER.some(b => nameToCheck.includes(b));
+  if (!isBrowser || !title || title === "Desktop / Idle" || title === "desktop is idle") return null;
 
   // Remove browser suffix (e.g. "- Google Chrome", "- Microsoft Edge")
-  const cleanTitle = (title || "").replace(/\s*-\s*(Google Chrome|Mozilla Firefox|Microsoft Edge|Brave|Safari|Opera|Vivaldi)$/i, "").trim() || "Web Tab";
+  const cleanTitle = (title || "")
+    .replace(/\s*-\s*(Google Chrome|Mozilla Firefox|Microsoft Edge|Brave|Safari|Opera|Vivaldi|Arc|Chromium)$/i, "")
+    .replace(/\s*-\s*Work\s*-\s*Microsoft Edge$/i, "")
+    .replace(/\s*-\s*Personal\s*-\s*Microsoft Edge$/i, "")
+    .trim() || "Web Tab";
   
-  // Try extracting domain from known formats or common site keywords
   const titleLower = cleanTitle.toLowerCase();
   let domain = "web-page";
 
@@ -93,7 +90,6 @@ function extractWebDomain(title: string, appName: string): { domain: string; cle
   else if (titleLower.includes("twitter") || titleLower.includes(" x ")) domain = "x.com";
   else if (titleLower.includes("linkedin")) domain = "linkedin.com";
   else {
-    // Attempt parsing domain word from title string safely
     try {
       const match = cleanTitle.match(/(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]/i);
       if (match && match[0]) domain = match[0].toLowerCase();
@@ -312,7 +308,7 @@ export function AppTrackingPage() {
   const webTabSummaries: WebTabSummary[] = useMemo(() => {
     const map = new Map<string, WebTabSummary>();
     for (const e of rawLog) {
-      const extracted = extractWebDomain(e.title, e.appName);
+      const extracted = extractWebDomain(e.title, e.appName, (e as any).rawProcess);
       if (!extracted) continue;
 
       const key = `${extracted.domain}::${extracted.cleanTitle}`;
