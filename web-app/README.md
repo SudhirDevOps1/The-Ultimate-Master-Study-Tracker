@@ -57,6 +57,16 @@ Deployed live on Vercel with zero mandatory backend servers.
 
 ---
 
+## 🆕 Recent Web App Enhancements
+
+| Feature Added | Technical Detail |
+|:---|:---|
+| 📖 **PDF & WASM Tesseract OCR Reader** | Render PDFs (`pdfjs-dist`) & scan text offline (`tesseract.js`) with Web Speech TTS playback |
+| 📝 **Sticky Notes Kanban Board** | Interactive notes board with Hindi typography (*Rozha One*, *Yatra One*) & `html2canvas` PNG export |
+| 📅 **Today's Tasks Dashboard** | Daily planner page with progress ring calculation & session status buckets |
+| 🎙️ **Voice-Controlled Timer** | Hands-free voice timer commands (`useVoiceTimer.ts`) for Web browsers |
+| 🛡️ **Distraction Blocker** | Site blocking panel synced with Python backend config (`http://localhost:5001/config`) |
+
 ## 🖥️ System & Resource Requirements
 
 The Web App runs entirely inside modern web browsers with minimal hardware overhead:

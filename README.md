@@ -49,7 +49,16 @@ Engineered into **3 distinct operational categories**: Serverless Web App, Web A
 
 ---
 
-## ⚡ The 3 Operational Categories
+## 🆕 Latest Project Updates & Enhancements
+
+| Component | Recent Feature / Bugfix Added | Status |
+|:---|:---|:---:|
+| 🖥️ **Desktop App** | **Single Instance Lock**: Added `app.requestSingleInstanceLock()` in `electron.js` to prevent double-launch collisions and log corruptions | ✅ Shipped |
+| 🌐 **Web App** | **PDF & Tesseract WASM OCR Reader**: Integrated local WASM OCR text scanner (`pdfjs-dist` + `tesseract.js`) and Text-to-Speech playback | ✅ Shipped |
+| 📝 **Web App** | **Sticky Notes Kanban Board**: Added Kanban board with Hindi typography support (`Rozha One`, `Yatra One`, `Poppins`) & PNG export | ✅ Shipped |
+| 📅 **Web App** | **Today's Tasks Dashboard**: Added daily planner dashboard with progress ring calculation | ✅ Shipped |
+| 🎙️ **Web App** | **Hands-Free Voice-Controlled Timer**: Integrated Web Speech Recognition hook (`useVoiceTimer.ts`) for voice timer commands | ✅ Shipped |
+| 🛡️ **Web App** | **Focus Shield Distraction Blocker**: Integrated Web site blocking panel connected to Python backend config (`http://localhost:5001/config`) | ✅ Shipped |
 
 FlowTrack Pro can be used in **3 distinct modes**:
 

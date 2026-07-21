@@ -62,6 +62,13 @@ Requires zero Python installation, zero cloud servers, and zero subscription fee
 
 ---
 
+## 🆕 Recent Desktop App Updates & Fixes
+
+| Component / Fix | Technical Detail |
+|:---|:---|
+| 🔒 **Single Instance Lock** | Integrated `app.requestSingleInstanceLock()` in `electron.js` to prevent double-launch process collisions and log file write conflicts |
+| 🪟 **System Tray Taskbar Fix** | Optimized Windows System Tray balloon notifications & taskbar icon disposal on application exit |
+
 ## 🖥️ System & Resource Requirements
 
 | Component | Minimum Requirement | Recommended Specification |
