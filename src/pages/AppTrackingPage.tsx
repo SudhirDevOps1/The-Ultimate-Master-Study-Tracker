@@ -56,7 +56,7 @@ function extractWebDomain(title: string, appName: string): { domain: string; cle
   if (!isBrowser || !title || title === "Desktop / Idle") return null;
 
   // Remove browser suffix (e.g. "- Google Chrome", "- Microsoft Edge")
-  const cleanTitle = title.replace(/\s*-\s*(Google Chrome|Mozilla Firefox|Microsoft Edge|Brave|Safari|Opera|Vivaldi)$/i, "").trim();
+  const cleanTitle = (title || "").replace(/\s*-\s*(Google Chrome|Mozilla Firefox|Microsoft Edge|Brave|Safari|Opera|Vivaldi)$/i, "").trim() || "Web Tab";
   
   // Try extracting domain from known formats or common site keywords
   const titleLower = cleanTitle.toLowerCase();
@@ -67,7 +67,7 @@ function extractWebDomain(title: string, appName: string): { domain: string; cle
   else if (titleLower.includes("google search") || titleLower.includes("google")) domain = "google.com";
   else if (titleLower.includes("stackoverflow")) domain = "stackoverflow.com";
   else if (titleLower.includes("chatgpt") || titleLower.includes("openai")) domain = "chatgpt.com";
-  else if (titleLower.includes("leetCode")) domain = "leetcode.com";
+  else if (titleLower.includes("leetcode")) domain = "leetcode.com";
   else if (titleLower.includes("coursera")) domain = "coursera.org";
   else if (titleLower.includes("udemy")) domain = "udemy.com";
   else if (titleLower.includes("wikipedia")) domain = "wikipedia.org";
@@ -75,10 +75,14 @@ function extractWebDomain(title: string, appName: string): { domain: string; cle
   else if (titleLower.includes("twitter") || titleLower.includes(" x ")) domain = "x.com";
   else if (titleLower.includes("linkedin")) domain = "linkedin.com";
   else {
-    // Attempt parsing domain word from title string
-    const match = cleanTitle.match(/(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]/i);
-    if (match) domain = match[0].toLowerCase();
-    else domain = cleanTitle.slice(0, 20).toLowerCase().replace(/[^a-z0-9]/g, "") + ".site";
+    // Attempt parsing domain word from title string safely
+    try {
+      const match = cleanTitle.match(/(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]/i);
+      if (match && match[0]) domain = match[0].toLowerCase();
+      else domain = (cleanTitle.slice(0, 20).toLowerCase().replace(/[^a-z0-9]/g, "") || "web") + ".site";
+    } catch {
+      domain = "web.site";
+    }
   }
 
   return { domain, cleanTitle };
