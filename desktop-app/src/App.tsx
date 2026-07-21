@@ -45,6 +45,19 @@ export function App() {
   }, [initApp]);
 
   useEffect(() => {
+    const plannedSecs = (activeSession as any)?.plannedDurationSeconds || activeSession?.durationSeconds || 1500;
+    if (activeSession && !timer.isPaused && plannedSecs > 0) {
+      const elapsed = plannedSecs - remainingSeconds;
+      const progress = Math.max(0, Math.min(1, elapsed / plannedSecs));
+      if (typeof window !== "undefined" && (window as any).electron) {
+        (window as any).electron.ipcRenderer?.invoke?.("set-taskbar-progress", { progress });
+      }
+    } else {
+      if (typeof window !== "undefined" && (window as any).electron) {
+        (window as any).electron.ipcRenderer?.invoke?.("set-taskbar-progress", { progress: -1 });
+      }
+    }
+
     if (activeSession && !timer.isPaused) {
       const pad = (n: number) => String(n).padStart(2, "0");
       const hrs = Math.floor(remainingSeconds / 3600);

@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { isSameDay, format } from "date-fns";
-import { motion } from "framer-motion";
-import { CheckCircle2, Clock, Target, Calendar, ChevronRight, Play } from "lucide-react";
+import { Target, Calendar, Play } from "lucide-react";
 import { Panel } from "@/components/common/Panel";
 import { useAppStore, type AppState } from "@/store/useAppStore";
 import type { StudySession } from "@/types/models";

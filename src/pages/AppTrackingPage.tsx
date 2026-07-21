@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Monitor, ShieldAlert, Globe, Activity } from "lucide-react";
+import { Monitor } from "lucide-react";
 import { Panel } from "@/components/common/Panel";
 import { AppActivityList } from "@/components/analytics/AppActivityList";
 import { AppBlockingPanel } from "@/components/analytics/AppBlockingPanel";

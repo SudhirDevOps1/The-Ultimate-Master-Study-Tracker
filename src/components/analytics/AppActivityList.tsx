@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Monitor, Globe, Shield, Tv, Cpu } from "lucide-react";
+import { Monitor } from "lucide-react";
 import { Panel } from "@/components/common/Panel";
 
 interface AppSummary {

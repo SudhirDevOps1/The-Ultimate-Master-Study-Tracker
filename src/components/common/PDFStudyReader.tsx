@@ -1,9 +1,8 @@
 import { useState, useRef } from "react";
 import { Panel } from "@/components/common/Panel";
-import { BookOpen, FileText, Maximize2, Minimize2, Play, Pause, VolumeX, Eye, Image as ImageIcon, Download, Trash, Palette, Edit3, Bold, Highlighter } from "lucide-react";
+import { BookOpen, FileText, Play, Pause, Image as ImageIcon } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 import { createWorker } from "tesseract.js";
-import html2canvas from "html2canvas";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
@@ -23,62 +22,37 @@ interface StickyNote {
 const NOTE_BACKGROUNDS = [
   { name: "Yellow", class: "bg-yellow-500/15 border-yellow-400/35" },
   { name: "Emerald", class: "bg-emerald-500/15 border-emerald-400/35" },
-  { name: "Cyan", class: "bg-cyan-500/15 border-cyan-400/35" },
+  { name: "Sky", class: "bg-sky-500/15 border-sky-400/35" },
   { name: "Purple", class: "bg-purple-500/15 border-purple-400/35" },
-  { name: "Pink", class: "bg-pink-500/15 border-pink-400/35" },
   { name: "Rose", class: "bg-rose-500/15 border-rose-400/35" },
-  { name: "Dark Slate", class: "bg-slate-900/60 border-slate-700/60" }
-];
-
-const NOTE_TEXT_COLORS = [
-  { name: "Amber/Gold", class: "text-amber-200" },
-  { name: "Mint Green", class: "text-emerald-200" },
-  { name: "Aqua Cyan", class: "text-cyan-200" },
-  { name: "Lavender", class: "text-purple-200" },
-  { name: "Hot Pink", class: "text-pink-200" },
-  { name: "Pure White", class: "text-white" },
-  { name: "Cool Gray", class: "text-slate-300" }
+  { name: "Amber", class: "bg-amber-500/15 border-amber-400/35" },
+  { name: "Indigo", class: "bg-indigo-500/15 border-indigo-400/35" }
 ];
 
 const NOTE_FONTS = [
-  { name: "System Sans", class: "font-sans" },
-  { name: "Classic Serif", class: "font-serif" },
-  { name: "Developer Mono", class: "font-mono" },
-  { name: "Rozha One (Hindi Stylised)", class: "font-[RozhaOne,serif]" },
-  { name: "Poppins (Hindi Modern)", class: "font-[Poppins,sans-serif]" },
-  { name: "Kurale (Hindi Classic)", class: "font-[Kurale,serif]" },
-  { name: "Yatra One (Hindi Retro)", class: "font-[YatraOne,cursive]" }
+  { name: "Poppins (Default)", class: "font-sans" },
+  { name: "Rozha One (Hindi Display)", class: "font-serif" },
+  { name: "Yatra One (Devanagari Bold)", class: "font-mono" },
+  { name: "Kurale (Elegant Hindi)", class: "font-serif" }
 ];
 
 export function PDFStudyReader() {
   const [fileUrl, setFileUrl] = useState<string | null>(null);
-  const [fileName, setFileName] = useState("");
+  const [fileName, setFileName] = useState<string>("");
   const [fileType, setFileType] = useState<"pdf" | "image" | null>(null);
   const [pdfDocument, setPdfDocument] = useState<any>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [extractedText, setExtractedText] = useState<string>("");
+  const [isOcrLoading, setIsOcrLoading] = useState<boolean>(false);
+  const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   
-  const [ocrText, setOcrText] = useState("");
-  const [isOcrProcessing, setIsOcrProcessing] = useState(false);
-  const [ocrProgress, setOcrProgress] = useState(0);
+  const [noteSubject, setNoteSubject] = useState<string>("");
+  const [selectedBg, setSelectedBg] = useState<string>(NOTE_BACKGROUNDS[0].class);
+  const [selectedFont, setSelectedFont] = useState<string>(NOTE_FONTS[0].class);
 
-  const [isSpeaking, setIsSpeaking] = useState(false);
-
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const imageRef = useRef<HTMLImageElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  const [stickyNotes, setStickyNotes] = useState<StickyNote[]>(() => {
-    const saved = localStorage.getItem("workspace_sticky_notes");
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [selectedBg, setSelectedBg] = useState(NOTE_BACKGROUNDS[0].class);
-  const [selectedTextColor, setSelectedTextColor] = useState(NOTE_TEXT_COLORS[5].class);
-  const [selectedFont, setSelectedFont] = useState(NOTE_FONTS[0].class);
-  const [noteSubject, setNoteSubject] = useState("");
-  const [isBold, setIsBold] = useState(false);
-  const [isHighlighted, setIsHighlighted] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -91,7 +65,7 @@ export function PDFStudyReader() {
     if (file.type === "application/pdf") {
       setFileType("pdf");
       try {
-        const loadingTask = pdfjsLib.getDocument(url);
+        const loadingTask = pdfjsLib.getDocument(url as any);
         const pdf = await loadingTask.promise;
         setPdfDocument(pdf);
         setTotalPages(pdf.numPages);
@@ -127,200 +101,207 @@ export function PDFStudyReader() {
   };
 
   const handlePrevPage = () => {
-    if (currentPage > 1) {
+    if (currentPage > 1 && pdfDocument) {
       const p = currentPage - 1;
       setCurrentPage(p);
-      if (pdfDocument) renderPdfPage(pdfDocument, p);
+      renderPdfPage(pdfDocument, p);
     }
   };
 
   const handleNextPage = () => {
-    if (currentPage < totalPages) {
+    if (currentPage < totalPages && pdfDocument) {
       const p = currentPage + 1;
       setCurrentPage(p);
-      if (pdfDocument) renderPdfPage(pdfDocument, p);
+      renderPdfPage(pdfDocument, p);
     }
   };
 
-  const runTesseractOcr = async () => {
-    setIsOcrProcessing(true);
-    setOcrProgress(0);
-    setOcrText("");
-
+  const runTesseractOCR = async () => {
+    setIsOcrLoading(true);
+    setExtractedText("");
     try {
-      let imageSource: any = null;
+      const worker = await createWorker("eng+hin");
+      let source: HTMLCanvasElement | HTMLImageElement | null = null;
       if (fileType === "pdf" && canvasRef.current) {
-        imageSource = canvasRef.current.toDataURL("image/png");
+        source = canvasRef.current;
       } else if (fileType === "image" && imageRef.current) {
-        imageSource = imageRef.current;
+        source = imageRef.current;
       }
 
-      if (!imageSource) {
-        setOcrText("No source file or image found to extract text.");
-        setIsOcrProcessing(false);
-        return;
+      if (source) {
+        const ret = await worker.recognize(source);
+        setExtractedText(ret.data.text);
       }
-
-      const worker = await createWorker("eng");
-      const ret = await worker.recognize(imageSource);
-      setOcrText(ret.data.text);
       await worker.terminate();
     } catch (err) {
-      console.error("OCR Error:", err);
-      setOcrText("Failed to process local OCR. Please check image resolution.");
+      console.error("OCR Scanning failed:", err);
+      setExtractedText("Failed to extract text. Ensure image/PDF page is clear.");
     } finally {
-      setIsOcrProcessing(false);
+      setIsOcrLoading(false);
     }
   };
 
-  const handleSpeak = () => {
-    if (!ocrText) return;
-    if (isSpeaking) {
-      window.speechSynthesis.cancel();
-      setIsSpeaking(false);
-    } else {
-      const utterance = new SpeechSynthesisUtterance(ocrText);
-      utterance.onend = () => setIsSpeaking(false);
-      window.speechSynthesis.speak(utterance);
-      setIsSpeaking(true);
+  const handleToggleSpeech = () => {
+    if (!extractedText.trim()) return;
+    if ("speechSynthesis" in window) {
+      if (isSpeaking) {
+        window.speechSynthesis.cancel();
+        setIsSpeaking(false);
+      } else {
+        const utterance = new SpeechSynthesisUtterance(extractedText);
+        utterance.onend = () => setIsSpeaking(false);
+        utterance.onerror = () => setIsSpeaking(false);
+        setIsSpeaking(true);
+        window.speechSynthesis.speak(utterance);
+      }
     }
   };
 
-  const handleAddStickyNote = () => {
-    if (!ocrText.trim()) return;
-
+  const handleSaveToStickyNotes = () => {
+    if (!extractedText.trim()) return;
+    const existing: StickyNote[] = JSON.parse(localStorage.getItem("workspace_sticky_notes") || "[]");
+    const now = new Date();
     const newNote: StickyNote = {
-      id: `note-${Date.now()}`,
-      text: ocrText,
+      id: `ocr-note-${Date.now()}`,
+      text: extractedText.trim(),
       color: selectedBg,
-      textColor: selectedTextColor,
+      textColor: "text-white",
       font: selectedFont,
-      date: new Date().toLocaleDateString(),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      subject: noteSubject.trim() || "General Note",
-      isBold,
-      isHighlighted
+      date: now.toLocaleDateString(),
+      time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      subject: noteSubject.trim() || fileName || "OCR Study Extract"
     };
 
-    const updated = [newNote, ...stickyNotes];
-    setStickyNotes(updated);
-    localStorage.setItem("workspace_sticky_notes", JSON.stringify(updated));
+    localStorage.setItem("workspace_sticky_notes", JSON.stringify([newNote, ...existing]));
+    alert("✅ Note saved to Sticky Notes Kanban Board (/notes-board)!");
   };
 
   return (
-    <div className="space-y-6">
-      <Panel className="space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h3 className="text-xl font-bold text-white flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-cyan-400" />
-              Local Textbook & Image OCR Study Reader
-            </h3>
-            <p className="text-xs text-slate-400 mt-1">
-              Upload textbook PDFs or images to run local WebAssembly Tesseract OCR, synthesize speech, and generate custom notes.
-            </p>
-          </div>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 text-white font-medium shadow-lg hover:shadow-cyan-500/20 transition-all text-sm"
-          >
-            <ImageIcon className="w-4 h-4" /> Open File (PDF/Image)
-          </button>
+    <Panel className="space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+            <BookOpen className="w-6 h-6 text-cyan-400" /> PDF & Image WASM OCR Reader
+          </h2>
+          <p className="mt-1 text-xs text-slate-400">
+            Read study PDFs offline, extract text with WebAssembly Tesseract OCR (Hindi + English), & listen via TTS.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
           <input
-            ref={fileInputRef}
             type="file"
             accept="application/pdf,image/*"
+            id="file-study-input"
             className="hidden"
             onChange={handleFileUpload}
           />
+          <label
+            htmlFor="file-study-input"
+            className="cursor-pointer px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 text-white font-semibold text-xs shadow-lg hover:scale-105 transition-transform flex items-center gap-2"
+          >
+            <FileText className="w-4 h-4" /> Load PDF / Image
+          </label>
         </div>
-      </Panel>
+      </div>
 
       {fileUrl && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Panel className="flex flex-col h-[650px] overflow-hidden">
-            <div className="flex items-center justify-between pb-3 border-b border-white/10">
-              <span className="text-sm font-semibold text-cyan-300 truncate max-w-[200px]">{fileName}</span>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4 border-t border-white/10">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between bg-slate-900/60 p-3 rounded-xl border border-white/10 text-xs">
+              <span className="font-semibold text-white truncate max-w-[200px]">{fileName}</span>
               {fileType === "pdf" && (
                 <div className="flex items-center gap-2">
-                  <button onClick={handlePrevPage} disabled={currentPage <= 1} className="px-3 py-1 rounded bg-white/10 text-white text-xs disabled:opacity-30">Prev</button>
-                  <span className="text-xs text-slate-400">{currentPage} / {totalPages}</span>
-                  <button onClick={handleNextPage} disabled={currentPage >= totalPages} className="px-3 py-1 rounded bg-white/10 text-white text-xs disabled:opacity-30">Next</button>
+                  <button onClick={handlePrevPage} disabled={currentPage <= 1} className="px-2 py-1 bg-slate-800 rounded disabled:opacity-40 text-white font-bold">
+                    &lt;
+                  </button>
+                  <span className="text-slate-300">Page {currentPage} of {totalPages}</span>
+                  <button onClick={handleNextPage} disabled={currentPage >= totalPages} className="px-2 py-1 bg-slate-800 rounded disabled:opacity-40 text-white font-bold">
+                    &gt;
+                  </button>
                 </div>
               )}
             </div>
 
-            <div className="flex-1 overflow-auto flex items-center justify-center p-4 bg-slate-950/40 rounded-xl mt-3">
+            <div className="flex justify-center bg-slate-950/80 p-4 rounded-2xl border border-white/10 min-h-[400px] overflow-auto">
               {fileType === "pdf" ? (
-                <canvas ref={canvasRef} className="max-w-full rounded shadow-xl" />
+                <canvas ref={canvasRef} className="max-w-full rounded-xl shadow-2xl" />
               ) : (
-                <img ref={imageRef} src={fileUrl} alt="Study File" className="max-h-full rounded object-contain shadow-xl" />
+                <img ref={imageRef} src={fileUrl} alt="Study Asset" className="max-w-full rounded-xl object-contain" />
               )}
             </div>
-          </Panel>
 
-          <Panel className="flex flex-col h-[650px] overflow-hidden">
-            <div className="flex items-center justify-between pb-3 border-b border-white/10">
-              <h4 className="text-sm font-semibold text-white flex items-center gap-2">
-                <FileText className="w-4 h-4 text-emerald-400" /> Extracted Text Layer (OCR)
-              </h4>
-              <div className="flex gap-2">
-                <button
-                  onClick={runTesseractOcr}
-                  disabled={isOcrProcessing}
-                  className="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-semibold hover:bg-emerald-500/30 transition-all disabled:opacity-50"
-                >
-                  {isOcrProcessing ? "Extracting..." : "⚡ Run Local OCR"}
-                </button>
-                <button
-                  onClick={handleSpeak}
-                  disabled={!ocrText}
-                  className="px-3 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-semibold hover:bg-cyan-500/30 transition-all disabled:opacity-50 flex items-center gap-1"
-                >
-                  {isSpeaking ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-                  {isSpeaking ? "Pause" : "Listen (TTS)"}
-                </button>
+            <button
+              onClick={runTesseractOCR}
+              disabled={isOcrLoading}
+              className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold text-xs shadow-lg hover:scale-[1.01] transition-transform disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isOcrLoading ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                  <span>Scanning Text with WASM Tesseract...</span>
+                </div>
+              ) : (
+                <>
+                  <ImageIcon className="w-4 h-4" /> Scan Text via WASM OCR (Hindi + Eng)
+                </>
+              )}
+            </button>
+          </div>
+
+          <div className="space-y-4 flex flex-col justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-cyan-400" /> Extracted Text Workspace
+                </h3>
+                {extractedText && (
+                  <button
+                    onClick={handleToggleSpeech}
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-semibold hover:bg-cyan-500/30 transition-colors"
+                  >
+                    {isSpeaking ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                    <span>{isSpeaking ? "Pause Voice" : "Read Aloud (TTS)"}</span>
+                  </button>
+                )}
               </div>
+              <textarea
+                value={extractedText}
+                onChange={e => setExtractedText(e.target.value)}
+                placeholder="Extracted OCR text will appear here. You can also type or edit notes directly."
+                rows={12}
+                className="w-full rounded-2xl border border-white/10 bg-slate-950/70 p-4 text-xs font-sans text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
+              />
             </div>
 
-            <div className="flex-1 overflow-auto p-4 bg-slate-950/60 rounded-xl mt-3 font-sans text-sm text-slate-200 whitespace-pre-wrap border border-white/5">
-              {ocrText || (
-                <span className="text-slate-500 italic">
-                  Click "Run Local OCR" to extract text from the open PDF page or image using local Tesseract WASM.
-                </span>
-              )}
-            </div>
-
-            {ocrText && (
-              <div className="mt-4 pt-3 border-t border-white/10 space-y-3">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  <select value={selectedBg} onChange={e => setSelectedBg(e.target.value)} className="bg-slate-900 border border-white/10 rounded-lg text-xs text-white p-1.5">
-                    {NOTE_BACKGROUNDS.map(b => <option key={b.name} value={b.class}>{b.name} Bg</option>)}
+            {extractedText && (
+              <div className="space-y-3 p-4 rounded-2xl bg-slate-900/40 border border-white/5">
+                <h4 className="text-xs font-semibold text-slate-300">Save to Sticky Notes Board</h4>
+                <div className="grid grid-cols-2 gap-2">
+                  <select value={selectedBg} onChange={e => setSelectedBg(e.target.value)} className="bg-slate-950 border border-white/10 rounded-xl text-xs text-white p-2">
+                    {NOTE_BACKGROUNDS.map(b => <option key={b.name} value={b.class}>{b.name} Theme</option>)}
                   </select>
-                  <select value={selectedTextColor} onChange={e => setSelectedTextColor(e.target.value)} className="bg-slate-900 border border-white/10 rounded-lg text-xs text-white p-1.5">
-                    {NOTE_TEXT_COLORS.map(t => <option key={t.name} value={t.class}>{t.name} Text</option>)}
-                  </select>
-                  <select value={selectedFont} onChange={e => setSelectedFont(e.target.value)} className="bg-slate-900 border border-white/10 rounded-lg text-xs text-white p-1.5">
+                  <select value={selectedFont} onChange={e => setSelectedFont(e.target.value)} className="bg-slate-950 border border-white/10 rounded-xl text-xs text-white p-2">
                     {NOTE_FONTS.map(f => <option key={f.name} value={f.class}>{f.name}</option>)}
                   </select>
-                  <input
-                    value={noteSubject}
-                    onChange={e => setNoteSubject(e.target.value)}
-                    placeholder="Subject Tag"
-                    className="bg-slate-900 border border-white/10 rounded-lg text-xs text-white px-2 py-1.5"
-                  />
                 </div>
+                <input
+                  type="text"
+                  value={noteSubject}
+                  onChange={e => setNoteSubject(e.target.value)}
+                  placeholder="Subject / Chapter Name"
+                  className="w-full bg-slate-950 border border-white/10 rounded-xl text-xs text-white px-3 py-2"
+                />
                 <button
-                  onClick={handleAddStickyNote}
-                  className="w-full py-2 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-medium text-xs shadow-md hover:from-purple-600 hover:to-indigo-600 transition-all"
+                  onClick={handleSaveToStickyNotes}
+                  className="w-full py-2.5 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-bold hover:bg-cyan-500/30 transition-all"
                 >
-                  📌 Save as Sticky Note on Board
+                  📝 Push to Notes Board
                 </button>
               </div>
             )}
-          </Panel>
+          </div>
         </div>
       )}
-    </div>
+    </Panel>
   );
 }
