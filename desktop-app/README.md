@@ -23,7 +23,7 @@ Zero Python servers required. Zero cloud database dependencies. 100% private dat
 &nbsp;
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](#%EF%B8%8F-tech-stack)
 
-[![Master Guide](https://img.shields.io/badge/📑%20Ecosystem%20Comparison%20Guide-COMPARISON_AND_GUIDE.md-purple?style=for-the-badge&logo=markdown)](../COMPARISON_AND_GUIDE.md)
+[![Master Guide](https://img.shields.io/badge/📑%20Master%20Production%20Guide-FULL_SYSTEM_GUIDE.md-purple?style=for-the-badge&logo=markdown)](../docs/FULL_SYSTEM_GUIDE.md)
 &nbsp;
 [![Root README](https://img.shields.io/badge/🏠%20Root%20README-README.md-blue?style=for-the-badge&logo=readme)](../README.md)
 &nbsp;

@@ -109,7 +109,7 @@
 | [🆕 What's New in 2026](#-whats-new-in-2026-v300) | Latest v3.0.0 features |
 | [🌍 Live Demo](#-live-demo) | Try it right now |
 | [⚡ Quick Start](#-quick-start--one-click) | One-click setup |
-| [📑 Ecosystem & Comparison Guide](COMPARISON_AND_GUIDE.md) | Web vs Desktop guide |
+| [📑 Ecosystem & Production Guide](docs/FULL_SYSTEM_GUIDE.md) | Web, Python & Desktop manual |
 | [🌟 Executive Summary](#-executive-summary) | What is FlowTrack Pro? |
 | [💎 Design Philosophy](#-premium-design-philosophy) | UI/UX principles |
 | [🔥 Features](#-master-feature-breakdown) | Complete feature list |
