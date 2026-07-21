@@ -24,6 +24,8 @@ Deployed live on Vercel with zero mandatory backend servers.
 [![Master Root README](https://img.shields.io/badge/🏠%20Root%20README-README.md-blue?style=for-the-badge&logo=readme)](../README.md)
 &nbsp;&nbsp;
 [![Desktop App README](https://img.shields.io/badge/🖥️%20Desktop%20App%20README-desktop--app%2FREADME.md-purple?style=for-the-badge&logo=electron)](../desktop-app/README.md)
+&nbsp;&nbsp;
+[![Future Roadmap](https://img.shields.io/badge/🗺️%20Future%20Roadmap-docs%2FFUTURE__ROADMAP.md-orange?style=for-the-badge&logo=markdown)](../docs/FUTURE_ROADMAP.md)
 
 </div>
 

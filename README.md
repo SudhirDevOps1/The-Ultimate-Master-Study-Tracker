@@ -29,6 +29,8 @@ Engineered into **3 distinct operational categories**: Serverless Web App, Web A
 [![Desktop App README](https://img.shields.io/badge/🖥️%20Desktop%20App%20Manual-desktop--app%2FREADME.md-purple?style=for-the-badge&logo=electron)](desktop-app/README.md)
 &nbsp;&nbsp;
 [![Full Technical Manual](https://img.shields.io/badge/📑%20Full%20System%20Guide-docs%2FFULL__SYSTEM__GUIDE.md-blueviolet?style=for-the-badge&logo=markdown)](docs/FULL_SYSTEM_GUIDE.md)
+&nbsp;&nbsp;
+[![Future Roadmap](https://img.shields.io/badge/🗺️%20Future%20Roadmap-docs%2FFUTURE__ROADMAP.md-orange?style=for-the-badge&logo=markdown)](docs/FUTURE_ROADMAP.md)
 
 </div>
 

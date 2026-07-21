@@ -29,6 +29,8 @@ Requires zero Python installation, zero cloud servers, and zero subscription fee
 &nbsp;&nbsp;
 [![Web App README](https://img.shields.io/badge/🌐%20Web%20App%20README-web--app%2FREADME.md-green?style=for-the-badge&logo=vercel)](../web-app/README.md)
 &nbsp;&nbsp;
+[![Future Roadmap](https://img.shields.io/badge/🗺️%20Future%20Roadmap-docs%2FFUTURE__ROADMAP.md-orange?style=for-the-badge&logo=markdown)](../docs/FUTURE_ROADMAP.md)
+&nbsp;&nbsp;
 [![Live Web App](https://img.shields.io/badge/🌐%20Live%20Web%20Link-Click%20Here-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://the-ultimate-master-study-tracker.vercel.app/)
 
 </div>
