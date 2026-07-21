@@ -31,6 +31,8 @@ All notable changes, version updates, feature additions, architectural improveme
   - Encoded 1000+ mapped Global & Indian EdTech apps (`Apna College`, `CodeWithHarry`, `Love Babbar CodeHelp`, `Chai aur Code`, `TakeUForward Striver`, `Gate Smashers`, `Physics Wallah PW`, `Allen Digital`, `Unacademy`, `BYJU'S`, `Vedantu`, `Adda247`, `Testbook`, `Drishti IAS`, `Vision IAS`, `Khan Sir`, `Utkarsh`, `Exampur`, `JEE/NEET/UPSC/GATE Exam Portals`, `NPTEL`, `SWAYAM`, `Scaler`, `Coding Ninjas`), 500+ developer IDEs (`VSCodium`, `Cursor`, `Windsurf`, `Zed`), terminals (`PowerShell`, `cmd`, `Antigravity`, `Warp`), database tools, AI coaches (`ChatGPT`, `Claude`, `Ollama`), browsers, and streaming portals.
 - **🎨 UI Layout & Navigation Auto-Scroll Fixes**:
   - Fixed top Navbar horizontal overflow scrollbar clipping. Added prominent `🖥️ Desktop Native App Controls` panel at the very top of Settings Page (`/settings`) for instant access to Always-On-Top Floating Mode, Startup Launching, and Toast Alerts. Disabled layout center-jumping auto-scroll.
+- **🛡️ Production-Grade Crash Prevention Safety**:
+  - Wrapped all local storage data retrievals (`workspace_sticky_notes`, `web_app_block_rules`) in strict JSON try-catch parsing blocks, eliminating potential launch-crash vectors when local user configurations are corrupted.
 
 ---
 

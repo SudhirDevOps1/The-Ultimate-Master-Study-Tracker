@@ -10,12 +10,21 @@ interface BlockRule {
 
 export function AppBlockingPanel() {
   const [rules, setRules] = useState<BlockRule[]>(() => {
-    const saved = localStorage.getItem("web_app_block_rules");
-    return saved ? JSON.parse(saved) : [
-      { id: "1", appName: "youtube.com", blocked: true },
-      { id: "2", appName: "facebook.com", blocked: true },
-      { id: "3", appName: "instagram.com", blocked: true }
-    ];
+    try {
+      const saved = localStorage.getItem("web_app_block_rules");
+      return saved ? JSON.parse(saved) : [
+        { id: "1", appName: "youtube.com", blocked: true },
+        { id: "2", appName: "facebook.com", blocked: true },
+        { id: "3", appName: "instagram.com", blocked: true }
+      ];
+    } catch (e) {
+      console.error("Failed to parse web_app_block_rules:", e);
+      return [
+        { id: "1", appName: "youtube.com", blocked: true },
+        { id: "2", appName: "facebook.com", blocked: true },
+        { id: "3", appName: "instagram.com", blocked: true }
+      ];
+    }
   });
 
   const [newRule, setNewRule] = useState("");

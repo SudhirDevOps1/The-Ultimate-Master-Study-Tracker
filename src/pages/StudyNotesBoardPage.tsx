@@ -49,8 +49,13 @@ const NOTE_FONTS = [
 
 export function StudyNotesBoardPage() {
   const [stickyNotes, setStickyNotes] = useState<StickyNote[]>(() => {
-    const saved = localStorage.getItem("workspace_sticky_notes");
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem("workspace_sticky_notes");
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error("Failed to parse workspace_sticky_notes from localStorage:", e);
+      return [];
+    }
   });
 
   const [noteText, setNoteText] = useState("");
