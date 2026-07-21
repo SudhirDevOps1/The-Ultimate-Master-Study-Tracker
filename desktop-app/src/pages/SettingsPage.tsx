@@ -204,6 +204,78 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-5">
+      {/* 🖥️ Desktop Native Controls & Floating HUD Panel */}
+      <Panel className="border-l-4 border-cyan-400 bg-gradient-to-r from-slate-900 via-cyan-950/20 to-slate-900 space-y-4">
+        <div>
+          <h3 className="text-xl font-bold text-white flex items-center gap-2">
+            🖥️ Desktop Native App Controls
+          </h3>
+          <p className="mt-1 text-xs text-slate-400">
+            Configure system tray behavior, window floating modes, and background launch options.
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
+            <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-white">
+              <input
+                type="checkbox"
+                onChange={(e) => {
+                  const isChecked = e.target.checked;
+                  if (typeof window !== "undefined" && (window as any).electron) {
+                    (window as any).electron.ipcRenderer?.invoke?.("toggle-always-on-top", { flag: isChecked });
+                  }
+                  showMessage(isChecked ? "📌 Always-On-Top Floating Mode Enabled!" : "Always-On-Top Disabled.");
+                }}
+                className="h-5 w-5 rounded border-cyan-400 bg-slate-800 text-cyan-500 focus:ring-0"
+              />
+              📌 Always-On-Top Floating Mode
+            </label>
+            <p className="text-xs text-slate-400 pl-8">
+              Keep FlowTrack window floating above VS Code, Zoom, or PDF lectures.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
+            <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-white">
+              <input
+                type="checkbox"
+                onChange={(e) => {
+                  const isChecked = e.target.checked;
+                  if (typeof window !== "undefined" && (window as any).electron) {
+                    (window as any).electron.ipcRenderer?.invoke?.("set-open-at-login", { openAtLogin: isChecked });
+                  }
+                  showMessage(isChecked ? "🚀 Windows Auto-Launch Enabled!" : "Windows Auto-Launch Disabled.");
+                }}
+                className="h-5 w-5 rounded border-cyan-400 bg-slate-800 text-cyan-500 focus:ring-0"
+              />
+              🚀 Launch on Windows Startup
+            </label>
+            <p className="text-xs text-slate-400 pl-8">
+              Automatically start background tracker in System Tray when PC boots up.
+            </p>
+          </div>
+        </div>
+
+        <div className="p-3 rounded-xl bg-slate-900/60 border border-white/5 flex items-center justify-between text-xs">
+          <span className="text-slate-300 font-mono">⚡ Global System Hotkey: <kbd className="px-2 py-0.5 rounded bg-slate-800 text-cyan-300 font-bold border border-white/10">Ctrl + Alt + P</kbd> (Pause / Resume Study Timer)</span>
+          <button
+            onClick={() => {
+              if (typeof window !== "undefined" && (window as any).electron) {
+                (window as any).electron.ipcRenderer?.invoke?.("send-windows-toast", {
+                  title: "FlowTrack Pro Test Alert",
+                  message: "Windows Native Balloon Toast Notifications are active!"
+                });
+                showMessage("Test Windows Toast sent to System Tray!");
+              }
+            }}
+            className="px-3 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-semibold hover:bg-cyan-500/30 transition-all"
+          >
+            🔔 Test Windows Toast
+          </button>
+        </div>
+      </Panel>
+
       {/* Theme Customization */}
       <Panel>
         <div className="mb-4">

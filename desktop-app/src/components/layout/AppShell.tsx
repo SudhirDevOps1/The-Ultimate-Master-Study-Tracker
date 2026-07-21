@@ -124,7 +124,7 @@ export function AppShell() {
           </div>
         </div>
 
-        <nav className="glass pretty-scrollbar flex gap-2 overflow-x-auto rounded-2xl p-2">
+        <nav className="glass flex gap-1.5 overflow-x-auto rounded-2xl p-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
           {links.map((link) => {
             const LinkIcon = link.Icon;
             return (
@@ -133,21 +133,22 @@ export function AppShell() {
                 to={link.to}
                 className={({ isActive }) =>
                   cn(
-                    "flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
+                    "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all duration-200 focus:outline-none",
                     isActive
                       ? `bg-gradient-to-r ${getGradientClass()} text-white shadow-lg`
                       : "text-slate-200 hover:bg-white/8 hover:text-white"
                   )
                 }
               >
-                <LinkIcon className="w-4 h-4" />
+                <LinkIcon className="w-4 h-4 shrink-0" />
                 <span>{link.label}</span>
               </NavLink>
             );
           })}
         </nav>
       </motion.header>
-      <main className="mx-auto w-full max-w-7xl pb-10">
+
+      <main className="mx-auto w-full max-w-7xl">
         <Outlet />
       </main>
     </div>
