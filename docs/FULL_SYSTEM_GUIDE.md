@@ -53,13 +53,13 @@ FlowTrack Pro documentation is structured into three clean, interconnected files
 
 ### A. Architectural Design
 The Web Application is designed with a **Hybrid Local-First Architecture**:
-- **Frontend**: Built with React 19, Vite 6, and Tailwind CSS v4. Statically hosted on Vercel CDN ([study-tracker-app-pied.vercel.app](https://study-tracker-app-pied.vercel.app/)).
+- **Frontend**: Built with React 19, Vite 6, and Tailwind CSS v4. Statically hosted on Vercel CDN ([the-ultimate-master-study-tracker.vercel.app](https://the-ultimate-master-study-tracker.vercel.app/)).
 - **Primary Data Store**: Browser's local `IndexedDB` via Dexie.js. 100% functional without any server.
 - **Optional Activity Daemon**: A local Python server (`backend.py`) running on `http://localhost:5001`.
 
 ```
 [Vercel CDN / Browser]                                  [Local Machine]
-https://study-tracker-app-pied.vercel.app              backend.py (Python Server)
+https://the-ultimate-master-study-tracker.vercel.app              backend.py (Python Server)
   │                                                       │
   ├── Local Timer & IndexedDB  (100% In-Browser)          ├── win32gui / osascript / xdotool
   │                                                       │     └── Detects Active Window

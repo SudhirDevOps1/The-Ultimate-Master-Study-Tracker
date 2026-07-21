@@ -27,7 +27,7 @@ Zero Python servers required. Zero cloud database dependencies. 100% private dat
 &nbsp;
 [![Root README](https://img.shields.io/badge/🏠%20Root%20README-README.md-blue?style=for-the-badge&logo=readme)](../README.md)
 &nbsp;
-[![Live Web App](https://img.shields.io/badge/🌐%20Live%20Web%20Version-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://study-tracker-app-pied.vercel.app/)
+[![Live Web App](https://img.shields.io/badge/🌐%20Live%20Web%20Version-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://the-ultimate-master-study-tracker.vercel.app/)
 
 <br/>
 

@@ -17,7 +17,7 @@
 
 <br/>
 
-[![Live Demo](https://img.shields.io/badge/🔴%20LIVE%20DEMO-study--tracker--app-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://study-tracker-app-pied.vercel.app/)
+[![Live Demo](https://img.shields.io/badge/🔴%20LIVE%20DEMO-study--tracker--app-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://the-ultimate-master-study-tracker.vercel.app/)
 &nbsp;&nbsp;
 [![GitHub Repo](https://img.shields.io/badge/📦%20Source%20Code-GitHub-181717?style=for-the-badge&logo=github)](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker)
 
@@ -67,7 +67,7 @@
 
 **👆 This is what focused studying looks like.**
 
-[**🔴 Try it Live →**](https://study-tracker-app-pied.vercel.app/) &nbsp;|&nbsp; No install. No signup. No backend. Just open & study.
+[**🔴 Try it Live →**](https://the-ultimate-master-study-tracker.vercel.app/) &nbsp;|&nbsp; No install. No signup. No backend. Just open & study.
 
 </div>
 
@@ -141,13 +141,13 @@
 
 <div align="center">
 
-### [**🔴 https://study-tracker-app-pied.vercel.app**](https://study-tracker-app-pied.vercel.app/)
+### [**🔴 https://the-ultimate-master-study-tracker.vercel.app**](https://the-ultimate-master-study-tracker.vercel.app/)
 
 </div>
 
 | Detail | Info |
 |:-------|:-----|
-| 🌐 **Live App** | [`study-tracker-app-pied.vercel.app`](https://study-tracker-app-pied.vercel.app/) |
+| 🌐 **Live App** | [`the-ultimate-master-study-tracker.vercel.app`](https://the-ultimate-master-study-tracker.vercel.app/) |
 | 📦 **Source Code** | [`github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker`](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker) |
 | ☁️ **Hosting** | Vercel — Global CDN, static-hosted |
 | 🔐 **Data** | 100% local — stored in your browser's IndexedDB |
@@ -191,7 +191,7 @@ chmod +x setup.sh && ./setup.sh
 | **Predictive Focus Score** — Forecasts your weekly performance trend | ✅ Shipped |
 | **React 19 + Tailwind v4** — Rebuilt on the latest 2026 stack | ✅ Shipped |
 | **Cross-Platform Ready** — Windows, macOS, Linux | ✅ Shipped |
-| **Vercel-Deployed** — Works without backend → [See it live](https://study-tracker-app-pied.vercel.app/) | ✅ Shipped |
+| **Vercel-Deployed** — Works without backend → [See it live](https://the-ultimate-master-study-tracker.vercel.app/) | ✅ Shipped |
 | **App Usage Analytics** — Track which apps you use and how long | ✅ Shipped |
 | **Browser Activity** — See your browsing patterns | ✅ Shipped |
 | **Auto-Setup** — One-click setup scripts for all platforms | ✅ Shipped |
@@ -366,7 +366,7 @@ Using **Dexie.js**, we implement a "Transactional Sync":
 | 📊 Graphs | Recharts | [recharts.org](https://recharts.org/) |
 | 🤖 Local AI | Ollama / WebLLM | [ollama.com](https://ollama.com/) |
 | 📱 App Shell | PWA + Service Worker | [web.dev/pwa](https://web.dev/explore/progressive-web-apps) |
-| ☁️ Hosting | Vercel | [Live App →](https://study-tracker-app-pied.vercel.app/) |
+| ☁️ Hosting | Vercel | [Live App →](https://the-ultimate-master-study-tracker.vercel.app/) |
 
 ---
 
@@ -402,7 +402,7 @@ python activity_tracker.py
 
 ## 🐍 Python Activity Tracker (`activity_tracker.py`) — OPTIONAL
 
-> **⚠️ Important**: The Python backend is **100% OPTIONAL**. FlowTrack works perfectly fine without it. All core features (timer, analytics, subjects, AI assistant, PiP, gamification, export/import) are fully browser-based and do not depend on Python at all. This is exactly why the [live Vercel deployment](https://study-tracker-app-pied.vercel.app/) works flawlessly with no server.
+> **⚠️ Important**: The Python backend is **100% OPTIONAL**. FlowTrack works perfectly fine without it. All core features (timer, analytics, subjects, AI assistant, PiP, gamification, export/import) are fully browser-based and do not depend on Python at all. This is exactly why the [live Vercel deployment](https://the-ultimate-master-study-tracker.vercel.app/) works flawlessly with no server.
 
 ### What does it do?
 
@@ -524,7 +524,7 @@ electron.js (Main Process)
 
 FlowTrack is designed to be fully static-hostable! You can deploy it to **Vercel** or **Cloudflare Pages** in less than 2 minutes. This exact project is already **live on Vercel** at:
 
-> 👉 **[study-tracker-app-pied.vercel.app](https://study-tracker-app-pied.vercel.app/)**
+> 👉 **[the-ultimate-master-study-tracker.vercel.app](https://the-ultimate-master-study-tracker.vercel.app/)**
 
 ### ⚡ Deployment with Vercel / Cloudflare:
 1. **Push to GitHub**: Push your codebase to a private or public GitHub repository.
@@ -715,7 +715,7 @@ Our vision for FlowTrack Pro throughout **2026** and beyond:
 <details>
 <summary><b>Is FlowTrack Pro really free?</b></summary>
 <br/>
-Yes — 100% free and open source under the MIT license. No paywalls, no ads, no premium tier. Fork it, self-host it, or use the <a href="https://study-tracker-app-pied.vercel.app/">live version</a> forever.
+Yes — 100% free and open source under the MIT license. No paywalls, no ads, no premium tier. Fork it, self-host it, or use the <a href="https://the-ultimate-master-study-tracker.vercel.app/">live version</a> forever.
 </details>
 
 <details>
@@ -752,7 +752,7 @@ Absolutely. FlowTrack Pro is a full <b>PWA</b> — click "Install App" in Chrome
 |:---|:---|
 | **Version** | FlowTrack Pro **v3.0.0** — 2026 Edition |
 | **Author** | Engineered by **Sudhir Singh** for the Global Student Community |
-| **Live App** | [`study-tracker-app-pied.vercel.app`](https://study-tracker-app-pied.vercel.app/) |
+| **Live App** | [`the-ultimate-master-study-tracker.vercel.app`](https://the-ultimate-master-study-tracker.vercel.app/) |
 | **Repository** | [`github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker`](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker) |
 | **Stack** | React 19 · TypeScript 5.7 · Vite 6 · Tailwind v4 · Dexie · PWA |
 | **Privacy** | 100% Local — AI runs on-device, keys stored in IndexedDB, never uploaded |
@@ -772,7 +772,7 @@ If FlowTrack Pro helped you build a better study habit, please consider:
 
 <br/>
 
-[![Try FlowTrack Pro Live](https://img.shields.io/badge/🚀%20Try%20FlowTrack%20Pro%20Live-Click%20Here-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://study-tracker-app-pied.vercel.app/)
+[![Try FlowTrack Pro Live](https://img.shields.io/badge/🚀%20Try%20FlowTrack%20Pro%20Live-Click%20Here-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://the-ultimate-master-study-tracker.vercel.app/)
 
 <br/>
 
