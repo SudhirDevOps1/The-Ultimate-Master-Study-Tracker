@@ -1,0 +1,167 @@
+# ============================================================
+# FlowTrack Pro — Desktop App (Electron) .gitignore
+# ============================================================
+# Covers: Node, Electron, Vite, TypeScript, Python, OS, IDE
+# Rule: Only commit SOURCE CODE. Never commit generated files.
+# ============================================================
+
+# ── Node & Dependencies ─────────────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+
+# Lock files (root manages versions, avoid subfolder conflicts)
+# Uncomment if you want to track lock file:
+# package-lock.json
+
+# ── Vite Build Outputs ──────────────────────────────────────
+dist/
+dist-ssr/
+build/
+*.local
+
+# ── Electron Build Outputs ──────────────────────────────────
+# These are generated installer/binary files (can be 500MB+)
+dist-electron/
+out/
+release/
+*.exe
+*.msi
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+*.snap
+*.pkg
+*.blockmap
+*.nsis
+*.nsis.bak
+builder-debug.yml
+builder-effective-config.yaml
+
+# EXCEPTION: Keep the native C# helper binary (small, pre-compiled, required)
+# This is checked in intentionally so users don't need to compile C# themselves
+!win-tracker.exe
+
+# ── Electron Dev Artifacts ──────────────────────────────────
+.webpack/
+.quasar/
+forge.config.js.bak
+
+# ── TypeScript Build Cache ───────────────────────────────────
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# ── Activity Logs (User Private Data — NEVER commit) ────────
+# Stored in: %AppData%\FlowTrackPro\activity-log\
+activity-log/
+*.json.bak
+user-data/
+
+# ── Python (If used alongside) ──────────────────────────────
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+
+# ── Database / State Files ──────────────────────────────────
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+flowtrack-backup-*.json
+*-backup-*.json
+
+# ── Environment Secrets ─────────────────────────────────────
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+*.env
+firebase-credentials.json
+google-services.json
+serviceAccountKey.json
+
+# ── IDE & Editor Files ───────────────────────────────────────
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+*.swo
+.project
+.classpath
+.settings/
+
+# ── OS Artifacts ────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# ── Logs ────────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+electron-debug.log
+crash-reports/
+
+# ── Temporary / Cache ────────────────────────────────────────
+.cache/
+.temp/
+.tmp/
+*.tmp
+*.temp
+.eslintcache
+.stylelintcache
+.parcel-cache/
+.turbo/
+
+# ── Test / Coverage ─────────────────────────────────────────
+coverage/
+*.lcov
+.nyc_output/
+test-results/
+playwright-report/
+
+# ── Archive / Zip Files ─────────────────────────────────────
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# ── Internal Dev Notes (Local only, not for repo) ───────────
+BUGFIXES.md
+CHANGES_QUICK_REFERENCE.md
+ENHANCEMENTS_SUMMARY.md
+FEATURES_ADDED.md
+FEATURE_IDEAS.md
+IMPLEMENTATION_COMPLETE.md
+IMPLEMENTATION_ROADMAP.md
+IMPLEMENTATION_SUMMARY.md
+IMPROVEMENTS_SUMMARY.md
+INSTALLATION_FLOWCHART.md
+DOWNLOAD_FEATURE_GUIDE.md
+flowtrack_config.json
+PROMPT_TO_RECREATE_APP.md

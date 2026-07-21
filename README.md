@@ -109,6 +109,7 @@
 | [🆕 What's New in 2026](#-whats-new-in-2026-v300) | Latest v3.0.0 features |
 | [🌍 Live Demo](#-live-demo) | Try it right now |
 | [⚡ Quick Start](#-quick-start--one-click) | One-click setup |
+| [📑 Ecosystem & Comparison Guide](COMPARISON_AND_GUIDE.md) | Web vs Desktop guide |
 | [🌟 Executive Summary](#-executive-summary) | What is FlowTrack Pro? |
 | [💎 Design Philosophy](#-premium-design-philosophy) | UI/UX principles |
 | [🔥 Features](#-master-feature-breakdown) | Complete feature list |
@@ -117,6 +118,7 @@
 | [🛠️ Tech Stack](#%EF%B8%8F-technology-specification) | React, Vite, TS, etc. |
 | [🚀 Setup & Deploy](#-deployment--setup) | Local + cloud deployment |
 | [🐍 Python Tracker](#-python-activity-tracker-activity_trackerpy--optional) | Optional desktop daemon |
+| [🖥️ Desktop App](#%EF%B8%8F-desktop-app-windows-electron) | Windows .exe native app ([README](desktop-app/README.md)) |
 | [🌐 Cloud Deploy](#-cloud-deployment-vercel--cloudflare-pages) | Vercel / Cloudflare |
 | [🧠 Ollama AI](#-local-ai--ollama-integration) | Local AI assistant |
 | [📝 Guidelines](#-usage--strict-design-guidelines) | Strict design rules |
@@ -194,6 +196,10 @@ chmod +x setup.sh && ./setup.sh
 | **Browser Activity** — See your browsing patterns | ✅ Shipped |
 | **Auto-Setup** — One-click setup scripts for all platforms | ✅ Shipped |
 | **Zero Configuration** — Works out of the box | ✅ Shipped |
+| **🖥️ Windows Desktop App** — Standalone Electron .exe with Win32 native tracking | ✅ Shipped |
+| **Today's Task Dashboard** — Daily planner with progress ring (Desktop only) | ✅ Shipped |
+| **Study Notes Board** — Sticky notes kanban with Hindi fonts (Desktop only) | ✅ Shipped |
+| **PDF Study Workspace** — PDF reader + Tesseract OCR locally (Desktop only) | ✅ Shipped |
 
 ---
 
@@ -456,6 +462,61 @@ python activity_tracker.py
 # Custom port
 python activity_tracker.py 5002
 ```
+
+---
+
+## 🖥️ Desktop App (Windows Electron)
+
+> **The Desktop App** is a 100% standalone Windows `.exe` built with Electron 43 + React 19. It has **4 exclusive pages** and **native Win32 APIs** that no browser-based app can provide.
+
+### 🆚 Desktop Exclusive Features (Not in Web App)
+
+| Feature | Desktop Only | Description |
+|:--------|:------------:|:------------|
+| 📅 **Today's Task Dashboard** | ✅ | Daily session planner — status groups, progress ring, goal tracking |
+| 📝 **Sticky Notes Board** | ✅ | Kanban-style notes with 7 colors, Hindi font support, PNG export |
+| 📖 **Study Workspace (PDF + OCR)** | ✅ | Open PDFs/images, run Tesseract OCR locally, speech synthesis |
+| 🖥️ **Native Window Tracker** | ✅ | Win32 C# binary reads foreground app in <5ms — no Python needed |
+| 📈 **24-Hr Gantt Timeline** | ✅ | Hourly app usage bar chart across the full day |
+| 🌐 **Web Tabs Monitor** | ✅ | Extracts domain from browser title, shows YouTube/GitHub/etc. |
+| 🛌 **Dual-Layer Inactivity** | ✅ | Win32 Kernel + DOM events — works even when minimized to Tray |
+| 🔄 **Auto-Resume on Movement** | ✅ | Moving the mouse instantly resumes a paused session — hands-free |
+| 🪟 **System Tray** | ✅ | Close button hides to tray, timer runs in background |
+| 📊 **CSV Activity Export** | ✅ | Export native save dialog → `flowtrack-activity-YYYY-MM-DD.csv` |
+| 🚫 **App Blocking Panel** | ✅ | Block distracting apps during study sessions |
+| 🔋 **No Throttle** | ✅ | `backgroundThrottling: false` — timer never slows when minimized |
+
+### 📦 Quick Start — Desktop App
+
+```bash
+# Navigate to desktop-app folder
+cd desktop-app
+
+# Install dependencies (first time)
+npm install
+
+# Start in development mode (live reload)
+npm run electron:dev
+
+# Build Windows .exe installer
+npm run electron:build
+# → Output: dist-electron\FlowTrackPro Setup 1.0.0.exe
+```
+
+### 🏗️ How the Native Tracker Works
+
+```
+electron.js (Main Process)
+    │
+    ├── win-tracker.exe  ← Pre-compiled C# Win32 binary (committed to git)
+    │     GetForegroundWindow() → GetWindowText() → GetWindowThreadProcessId()
+    │     Returns: { "title": "VS Code - main.tsx", "process": "Code.exe" }
+    │
+    └── Polls every 2 seconds → saves to:
+          %AppData%\FlowTrackPro\activity-log\YYYY-MM-DD.json
+```
+
+> 📖 **Full Desktop Documentation** → [`desktop-app/README.md`](desktop-app/README.md)
 
 ---
 
