@@ -181,6 +181,18 @@ Unlike web browsers that run inside security sandboxes, Desktop Edition executes
 
 ---
 
+## 📜 Acknowledgments & Third-Party Credits
+
+FlowTrack Pro Desktop Edition gratefully acknowledges the following open-source projects and native frameworks:
+
+- **Electron** ([electronjs.org](https://www.electronjs.org/)): Desktop App Container
+- **Win32 User32 APIs** ([microsoft.com](https://learn.microsoft.com/en-us/windows/win32/)): Native Window & Idle Input Interop (`GetLastInputInfo`, `GetForegroundWindow`)
+- **Tesseract.js** ([tesseract.projectnaptha.com](https://tesseract.projectnaptha.com/)): Pure WebAssembly OCR Engine
+- **PDF.js** ([mozilla.github.io/pdf.js](https://mozilla.github.io/pdf.js/)): Web PDF Renderer
+- **html2canvas** ([html2canvas.hertzen.com](https://html2canvas.hertzen.com/)): Notes Board Image Exporter
+
+---
+
 <div align="center">
 
 **[View Master Ecosystem README →](../README.md)** &nbsp;|&nbsp; **[View Web App README →](../web-app/README.md)**

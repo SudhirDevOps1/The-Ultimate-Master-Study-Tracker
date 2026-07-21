@@ -146,6 +146,30 @@ npm run electron:build
 - 🌐 **Web App Detailed Manual**: [`web-app/README.md`](web-app/README.md)
 - 🖥️ **Desktop App Detailed Manual**: [`desktop-app/README.md`](desktop-app/README.md)
 - 📑 **Full Technical Guide & 3-Category Architecture**: [`docs/FULL_SYSTEM_GUIDE.md`](docs/FULL_SYSTEM_GUIDE.md)
+- 🗺️ **Future Evolution Roadmap**: [`docs/FUTURE_ROADMAP.md`](docs/FUTURE_ROADMAP.md)
+
+---
+
+## 📜 Acknowledgments & Third-Party Credits
+
+FlowTrack Pro is built upon the incredible work of the open-source community. We gratefully acknowledge the following core technologies, libraries, and assets:
+
+| Technology / Library | Purpose / Usage | License | Link |
+|:---|:---|:---:|:---|
+| **React 19** | User Interface Engine | MIT | [react.dev](https://react.dev/) |
+| **Electron 43** | Windows Native Application Container | MIT | [electronjs.org](https://www.electronjs.org/) |
+| **Vite 6** | Frontend Bundler & HMR Server | MIT | [vite.dev](https://vite.dev/) |
+| **Tailwind CSS v4** | Utility-First Styling System | MIT | [tailwindcss.com](https://tailwindcss.com/) |
+| **Dexie.js** | IndexedDB Local Database Wrapper | Apache 2.0 | [dexie.org](https://dexie.org/) |
+| **Tesseract.js** | Pure WebAssembly OCR Engine | Apache 2.0 | [tesseract.projectnaptha.com](https://tesseract.projectnaptha.com/) |
+| **PDF.js (`pdfjs-dist`)** | In-Browser PDF Rendering Engine | Apache 2.0 | [mozilla.github.io/pdf.js](https://mozilla.github.io/pdf.js/) |
+| **html2canvas** | HTML/Kanban Canvas Image Exporter | MIT | [html2canvas.hertzen.com](https://html2canvas.hertzen.com/) |
+| **Lucide React** | UI Vector Icon System | ISC | [lucide.dev](https://lucide.dev/) |
+| **Recharts** | Data Analytics & Heatmap Charts | MIT | [recharts.org](https://recharts.org/) |
+| **Framer Motion** | Micro-Animations & Page Transitions | MIT | [motion.dev](https://motion.dev/) |
+| **Zustand** | Global State Management Store | MIT | [zustand-demo.pmnd.rs](https://zustand-demo.pmnd.rs/) |
+| **Google Fonts** | Hindi & English Typography (*Rozha One*, *Yatra One*, *Poppins*, *Kurale*) | OFL | [fonts.google.com](https://fonts.google.com/) |
+| **psutil & pywin32** | Python OS Process & Win32 API Bindings | BSD / PSF | [github.com/giampaolo/psutil](https://github.com/giampaolo/psutil) |
 
 ---
 

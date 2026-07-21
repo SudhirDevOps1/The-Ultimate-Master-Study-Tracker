@@ -194,6 +194,20 @@ The Web App is pre-configured for one-click deployment on Vercel using `vercel.j
 
 ---
 
+## 📜 Acknowledgments & Third-Party Credits
+
+FlowTrack Pro Web Edition gratefully acknowledges the following core open-source projects:
+
+- **React 19** ([react.dev](https://react.dev/)): UI Engine
+- **Dexie.js** ([dexie.org](https://dexie.org/)): IndexedDB Storage Engine
+- **PDF.js** ([mozilla.github.io/pdf.js](https://mozilla.github.io/pdf.js/)): Web PDF Renderer
+- **Tesseract.js** ([tesseract.projectnaptha.com](https://tesseract.projectnaptha.com/)): Pure WebAssembly OCR Engine
+- **html2canvas** ([html2canvas.hertzen.com](https://html2canvas.hertzen.com/)): Kanban PNG Exporter
+- **Lucide Icons** ([lucide.dev](https://lucide.dev/)): Vector UI Icons
+- **Recharts** ([recharts.org](https://recharts.org/)): Analytics Charts
+
+---
+
 <div align="center">
 
 **[View Master Ecosystem README →](../README.md)** &nbsp;|&nbsp; **[View Desktop App README →](../desktop-app/README.md)**
