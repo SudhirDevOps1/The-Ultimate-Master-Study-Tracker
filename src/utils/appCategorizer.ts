@@ -113,6 +113,13 @@ export function classifyApplication(appName: string, windowTitle: string = ""): 
   // 1. Check direct Study process names
   if (STUDY_PROCESSES.has(cleanApp)) return "study";
 
+  if (isSelfApp(appName, windowTitle)) {
+    return "system";
+  }
+
+  // 1. Check direct Study process names
+  if (STUDY_PROCESSES.has(cleanApp)) return "study";
+
   // 2. Check Study window title keywords (override browser if watching lecture/docs/PW/Allen/Apna College)
   if (STUDY_KEYWORDS.some(kw => cleanTitle.includes(kw))) return "study";
 
@@ -135,4 +142,20 @@ export function classifyApplication(appName: string, windowTitle: string = ""): 
   if (BROWSER_PROCESSES.has(cleanApp)) return "browser";
 
   return "system";
+}
+
+/**
+ * Checks if the process name or window title belongs to FlowTrack itself
+ */
+export function isSelfApp(appName: string, windowTitle: string = ""): boolean {
+  const cleanApp = (appName || "").toLowerCase();
+  const cleanTitle = (windowTitle || "").toLowerCase();
+  return (
+    cleanApp.includes("flowtrack") ||
+    cleanApp.includes("react-vite-tailwind") ||
+    cleanApp.includes("electron") ||
+    cleanTitle.includes("flowtrack") ||
+    cleanTitle.includes("smart study tracker") ||
+    cleanTitle.includes("flowtrack pro")
+  );
 }

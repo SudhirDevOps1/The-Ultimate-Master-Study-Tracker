@@ -33,6 +33,8 @@ All notable changes, version updates, feature additions, architectural improveme
   - Fixed top Navbar horizontal overflow scrollbar clipping. Added prominent `🖥️ Desktop Native App Controls` panel at the very top of Settings Page (`/settings`) for instant access to Always-On-Top Floating Mode, Startup Launching, and Toast Alerts. Disabled layout center-jumping auto-scroll.
 - **🛡️ Production-Grade Crash Prevention Safety**:
   - Wrapped all local storage data retrievals (`workspace_sticky_notes`, `web_app_block_rules`) in strict JSON try-catch parsing blocks, eliminating potential launch-crash vectors when local user configurations are corrupted.
+- **🚫 Self-App Activity Tracking Filter Fix**:
+  - Implemented `isSelfApp` / `isSelf` process and window title filter in `electron.js` and `appCategorizer.ts`. FlowTrack no longer logs itself (`FlowTrack`, `react-vite-tailwind`, `Electron`), preserving 100% accurate time tracking for actual user study apps.
 
 ---
 

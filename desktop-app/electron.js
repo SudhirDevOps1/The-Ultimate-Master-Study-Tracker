@@ -56,6 +56,19 @@ function saveLogToFile() {
   }
 }
 
+function isSelf(processName = "", windowTitle = "") {
+  const p = (processName || "").toLowerCase();
+  const t = (windowTitle || "").toLowerCase();
+  return (
+    p.includes("flowtrack") ||
+    p.includes("electron") ||
+    p.includes("react-vite-tailwind") ||
+    t.includes("flowtrack") ||
+    t.includes("smart study tracker") ||
+    t.includes("flowtrack pro")
+  );
+}
+
 // ── Direct Native Win32 Active Window Fetcher (0ms Latency) ───────────────────
 function getForegroundWindow() {
   return new Promise((resolve) => {
@@ -250,6 +263,16 @@ app.whenReady().then(() => {
     globalShortcut.register("CommandOrControl+Alt+P", () => {
       if (mainWindow) {
         mainWindow.webContents.send("global-shortcut-toggle-timer");
+        if (process.platform === "win32" && tray) {
+          try {
+            tray.displayBalloon({
+              iconType: "info",
+              title: "FlowTrack Pro Hotkey",
+              content: "Study Timer Toggled (Ctrl+Alt+P)",
+              noSound: true,
+            });
+          } catch { /* ignore */ }
+        }
       }
     });
   } catch (err) {
@@ -278,6 +301,19 @@ ipcMain.handle("get-active-window", async () => {
   const info = await getForegroundWindow();
   if (!info) return { title: "Desktop / Idle", process: "unknown", isSelf: false };
   return { title: info.title || "Desktop / Idle", process: info.process || "unknown", isSelf: isSelf(info.process, info.title) };
+});
+
+ipcMain.handle("set-taskbar-progress", async (_e, { progress }) => {
+  if (mainWindow) {
+    try {
+      const p = Math.max(0, Math.min(1, Number(progress) || 0));
+      mainWindow.setProgressBar(p > 0 && p < 1 ? p : -1);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+  return { success: false };
 });
 
 ipcMain.handle("toggle-always-on-top", async (_e, { flag }) => {
