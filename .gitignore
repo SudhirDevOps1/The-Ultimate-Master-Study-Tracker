@@ -1,25 +1,38 @@
 # ============================================
-# The Ultimate Master Study Tracker - .gitignore
+# FlowTrack Multi-Platform Suite - Master .gitignore
 # ============================================
 
-# ---- Dependencies ----
+# ---- Secret & Local Notes (Do NOT Commit to Remote) ----
+features.md
+PROMPT_TO_RECREATE_APP.md
+WebApp_v1.1.0.zip
+flowtrack_config.json
+
+# ---- Node & Dependencies ----
 node_modules/
+**/node_modules/
 .pnp
 .pnp.js
+package-lock.json
 
-# ---- Build Output ----
+# ---- Build & Distribution Outputs ----
 dist/
+**/dist/
 dist-ssr/
 build/
+**/build/
 dist-electron/
+**/dist-electron/
 *.local
 
-# ---- Python Environments ----
+# ---- Python Environments & Compiled Bytecode ----
 venv/
 .venv/
-env/
-.env/
+**/venv/
+**/env/
+**/.venv/
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
 *.pyo
@@ -28,14 +41,16 @@ __pycache__/
 pip-log.txt
 pip-delete-this-directory.txt
 
-# ---- Database Files (User Data - Private) ----
+# ---- Database & Local State Logs ----
 *.db
 *.db-shm
 *.db-wal
 *.sqlite
 *.sqlite3
+activity-log/
+**/activity-log/
 
-# ---- Environment Variables (Secrets) ----
+# ---- Environment Variables & Secrets ----
 .env
 .env.local
 .env.development.local
@@ -56,7 +71,7 @@ pip-delete-this-directory.txt
 Thumbs.db
 desktop.ini
 
-# ---- Logs ----
+# ---- System & Log Files ----
 logs/
 *.log
 npm-debug.log*
@@ -65,7 +80,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# ---- Temp & Cache ----
+# ---- Temporary Files & Caches ----
 .cache/
 .temp/
 .tmp/
@@ -74,28 +89,14 @@ lerna-debug.log*
 .eslintcache
 .stylelintcache
 
-# ---- Test Coverage ----
-coverage/
-*.lcov
-.nyc_output/
-
-# ---- TypeScript ----
-*.tsbuildinfo
-
-# ---- OS Files ----
-.DS_Store
+# ---- OS & macOS System Artifacts ----
 .DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
 ehthumbs.db
-Thumbs.db
 
-# ---- Zip/Archive Files in root (keep ver/ folder zips) ----
-*.zip
-!ver/*.zip
-
-# ---- Misc Dev Notes (Internal only) ----
+# ---- Misc Dev Notes ----
 BUGFIXES.md
 CHANGES_QUICK_REFERENCE.md
 ENHANCEMENTS_SUMMARY.md
