@@ -127,11 +127,18 @@ https://the-ultimate-master-study-tracker.vercel.app   backend.py (Python Server
 ```
 
 ### Running Python Backend:
-```bash
-# 1. Install Python dependencies
-pip install pywin32 psutil
 
-# 2. Run backend server
+#### 🪟 Windows Launchers:
+- **`START.bat`**: One-click setup (checks Node, Python, creates venv, starts backend & opens web app).
+- **`start_backend_only.bat`**: Starts only the Python backend service on port 5001.
+
+#### 🍎 macOS / Linux Launchers:
+- **`./setup.sh`**: Cross-platform bash setup script.
+- **`./start_backend_only.sh`**: Starts backend daemon on macOS/Linux.
+
+#### 🛠️ Manual CLI:
+```bash
+pip install psutil
 python backend.py
 ```
 - **Port**: `5001` (Default)

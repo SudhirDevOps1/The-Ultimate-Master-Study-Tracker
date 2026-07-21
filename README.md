@@ -119,10 +119,9 @@ npm run dev
 ```
 
 *(Optional Python Daemon for Web App)*:
-```bash
-pip install pywin32 psutil
-python backend.py
-```
+- **🪟 Windows**: `START.bat` or `start_backend_only.bat`
+- **🍎 macOS / Linux**: `chmod +x setup.sh && ./setup.sh` or `chmod +x start_backend_only.sh && ./start_backend_only.sh`
+- **🛠️ Manual CLI**: `pip install psutil && python backend.py`
 
 ---
 

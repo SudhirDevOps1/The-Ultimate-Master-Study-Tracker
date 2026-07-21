@@ -74,19 +74,32 @@ https://the-ultimate-master-study-tracker.vercel.app              backend.py (Py
 4. If `backend.py` is running, FlowTrack live web app shows an **"Active: VS Code"** badge. If Python is closed, it gracefully hides the badge without throwing errors.
 
 ### C. Running Python Backend (`backend.py`)
-```bash
-# Option 1: One-Click Launcher (Windows)
+
+#### 🪟 Windows (.bat scripts):
+```cmd
+:: Option A: Full App + Backend One-Click Launcher
 Double-click START.bat
 
-# Option 2: Manual Execution
-# Install required dependencies
-pip install pywin32 psutil
+:: Option B: Backend Only Launcher
+Double-click start_backend_only.bat
+```
 
-# Start Python backend server on default port 5001
+#### 🍎 macOS / Linux (.sh scripts):
+```bash
+# Option A: Full Setup Script
+chmod +x setup.sh && ./setup.sh
+
+# Option B: Backend Only Launcher
+chmod +x start_backend_only.sh && ./start_backend_only.sh
+```
+
+#### 🛠️ Manual Execution:
+```bash
+# Install dependencies
+pip install psutil
+
+# Start backend server on default port 5001
 python backend.py
-
-# Custom port or custom polling interval
-python backend.py 5050 --poll 2
 ```
 
 ### D. Running Web App Locally
