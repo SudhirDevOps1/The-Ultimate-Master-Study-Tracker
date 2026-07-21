@@ -2,28 +2,45 @@ import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { cn } from "@/utils/cn";
 import { useAppStore, type AppState } from "@/store/useAppStore";
+import {
+  LayoutDashboard,
+  CalendarCheck,
+  Timer,
+  BookOpen,
+  StickyNote,
+  Monitor,
+  Bot,
+  Calendar,
+  BarChart3,
+  Trophy,
+  History,
+  HelpCircle,
+  BookMarked,
+  Settings
+} from "lucide-react";
 
 const links = [
-  { to: "/dashboard", label: "🏠 Dashboard", icon: "🏠" },
-  { to: "/today", label: "📅 Today's Tasks", icon: "📅" },
-  { to: "/timer", label: "⏱️ Timer", icon: "⏱️" },
-  { to: "/study-workspace", label: "📖 Study Workspace", icon: "📖" },
-  { to: "/notes-board", label: "📝 Notes Board", icon: "📝" },
-  { to: "/app-tracking", label: "🖥️ App Tracking", icon: "🖥️" },
-  { to: "/ai", label: "🤖 AI Assistant", icon: "🤖" },
-  { to: "/calendar", label: "📅 Calendar", icon: "📅" },
-  { to: "/analytics", label: "📊 Analytics", icon: "📊" },
-  { to: "/achievements", label: "🏆 Achievements", icon: "🏆" },
-  { to: "/history", label: "📜 History", icon: "📜" },
-  { to: "/guide", label: "📖 Guide", icon: "📖" },
-  { to: "/subjects", label: "📚 Subjects", icon: "📚" },
-  { to: "/settings", label: "⚙️ Settings", icon: "⚙️" },
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/today", label: "Today's Tasks", icon: CalendarCheck },
+  { to: "/timer", label: "Timer", icon: Timer },
+  { to: "/study-workspace", label: "Study Workspace", icon: BookOpen },
+  { to: "/notes-board", label: "Notes Board", icon: StickyNote },
+  { to: "/app-tracking", label: "App Tracking", icon: Monitor },
+  { to: "/ai", label: "AI Assistant", icon: Bot },
+  { to: "/calendar", label: "Calendar", icon: Calendar },
+  { to: "/analytics", label: "Analytics", icon: BarChart3 },
+  { to: "/achievements", label: "Achievements", icon: Trophy },
+  { to: "/history", label: "History", icon: History },
+  { to: "/guide", label: "Guide", icon: HelpCircle },
+  { to: "/subjects", label: "Subjects", icon: BookMarked },
+  { to: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function AppShell() {
   const location = useLocation();
   const theme = useAppStore((state: AppState) => state.theme);
-  const current = links.find((link) => link.to === location.pathname)?.label ?? "🏠 Dashboard";
+  const activeLink = links.find((link) => link.to === location.pathname) ?? links[0];
+  const CurrentIcon = activeLink.icon;
 
   const getGradientClass = () => {
     switch (theme) {
@@ -56,7 +73,6 @@ export function AppShell() {
                       <path d="M8 22h8" className="stroke-indigo-500" strokeWidth="1.5" />
                     </svg>
                   </div>
-                  {/* Subtle pulsing green indicator dot */}
                   <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border-2 border-slate-950"></span>
@@ -77,34 +93,42 @@ export function AppShell() {
               </p>
             </div>
             <div className={`soft-card rounded-2xl bg-gradient-to-r ${getGradientClass()} p-[2px]`}>
-              <div className="rounded-2xl bg-slate-900/95 px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Current page</p>
-                <p className="mt-1 text-lg font-medium text-white">{current}</p>
+              <div className="rounded-2xl bg-slate-900/95 px-4 py-3 flex items-center gap-3">
+                <CurrentIcon className="w-5 h-5 text-cyan-400" />
+                <div>
+                  <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Current page</p>
+                  <p className="mt-0.5 text-base font-medium text-white">{activeLink.label}</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
         <nav className="glass pretty-scrollbar flex gap-2 overflow-x-auto rounded-2xl p-2">
-          {links.map((link) => (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              className={({ isActive }) =>
-                cn(
-                  "whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
-                  isActive
-                    ? `bg-gradient-to-r ${getGradientClass()} text-white shadow-lg`
-                    : "text-slate-200 hover:bg-white/8 hover:text-white"
-                )
-              }
-            >
-              {link.label}
-            </NavLink>
-          ))}
+          {links.map((link) => {
+            const Icon = link.icon;
+            return (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all duration-200",
+                    isActive
+                      ? `bg-gradient-to-r ${getGradientClass()} text-white shadow-lg`
+                      : "text-slate-200 hover:bg-white/8 hover:text-white"
+                  )
+                }
+              >
+                <Icon className="w-4 h-4 opacity-80" />
+                <span>{link.label}</span>
+              </NavLink>
+            );
+          })}
         </nav>
       </motion.header>
-      <main className="mx-auto w-full max-w-7xl pb-10">
+
+      <main className="mx-auto w-full max-w-7xl">
         <Outlet />
       </main>
     </div>
