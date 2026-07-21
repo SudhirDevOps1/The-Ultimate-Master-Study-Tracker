@@ -7,9 +7,9 @@ let mainWindow;
 let tray;
 let isQuitting = false;
 
-// ─── Persistent Activity Storage (ActivityWatch-style) ────────────────────────
+// ─── Persistent Activity Storage ─────────────────────────────────────────────
 let dataDir  = null;
-let activityLog = [];          // In-memory array of logged entries
+let activityLog = [];
 let currentActivity = { processName: "", windowTitle: "", startMs: Date.now() };
 const SELF_NAMES = ["flowtrackpro", "flowtrack", "electron"];
 
@@ -19,7 +19,6 @@ function isSelf(proc, title) {
   return SELF_NAMES.some(s => p.includes(s) || t.includes(s));
 }
 
-// ── File helpers ──────────────────────────────────────────────────────────────
 function getLogFile(date) {
   return path.join(dataDir, `${date}.json`);
 }
@@ -37,7 +36,6 @@ function saveLogToFile() {
   try {
     if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-    // Group entries by date and save
     const dateMap = new Map();
     for (const entry of activityLog) {
       if (!entry.isLive) {
@@ -53,79 +51,53 @@ function saveLogToFile() {
   }
 }
 
-// ── Windows API: Active Foreground Window via Fast PowerShell ──────────────────
+// ── Ultra-Fast & Reliable Windows Foreground Window Fetcher ───────────────────
 function getForegroundWindow() {
   return new Promise((resolve) => {
-    const ps = `
-      $h = [Win32ActiveWindow]::GetForegroundWindow()
-      $sb = New-Object System.Text.StringBuilder(256)
-      [Win32ActiveWindow]::GetWindowText($h, $sb, 256) | Out-Null
-      $pid = 0
-      [Win32ActiveWindow]::GetWindowThreadProcessId($h, [ref]$pid) | Out-Null
-      $proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
-      @{ title = $sb.ToString(); process = if($proc){$proc.Name}else{"unknown"} } | ConvertTo-Json
-    `;
-    const fullCmd = `powershell -NoProfile -NonInteractive -Command "
-      if (-not ([System.Management.Automation.PSTypeName]'Win32ActiveWindow').Type) {
-        Add-Type -TypeDefinition '
-          using System; using System.Runtime.InteropServices;
-          public class Win32ActiveWindow {
-            [DllImport(\\"user32.dll\\")] public static extern IntPtr GetForegroundWindow();
-            [DllImport(\\"user32.dll\\")] public static extern int GetWindowText(IntPtr h, System.Text.StringBuilder t, int c);
-            [DllImport(\\"user32.dll\\")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
-          }
-        '
+    // Compact single-line PowerShell command using Add-Type
+    const script = `$code = 'using System; using System.Runtime.InteropServices; public class W { [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")] public static extern int GetWindowText(IntPtr h, System.Text.StringBuilder t, int c); [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid); }'; Add-Type -TypeDefinition $code -ErrorAction SilentlyContinue; $h = [W]::GetForegroundWindow(); $sb = New-Object System.Text.StringBuilder(256); [W]::GetWindowText($h, $sb, 256) | Out-Null; $p = 0; [W]::GetWindowThreadProcessId($h, [ref]$p) | Out-Null; $pr = Get-Process -Id $p -ErrorAction SilentlyContinue; @{ title = $sb.ToString(); process = if($pr){$pr.Name}else{"unknown"} } | ConvertTo-Json -Compress`;
+    
+    exec(`powershell -NoProfile -NonInteractive -Command "${script}"`, { timeout: 2000 }, (err, stdout) => {
+      if (err || !stdout) {
+        return resolve(null);
       }
-      ${ps.replace(/\n/g, " ")}
-    "`;
-
-    exec(fullCmd, { timeout: 2500 }, (err, stdout) => {
-      if (err || !stdout) return resolve(null);
-      try { resolve(JSON.parse(stdout.trim())); } catch { resolve(null); }
+      try {
+        const parsed = JSON.parse(stdout.trim());
+        resolve({
+          title: parsed.title || "Desktop / Idle",
+          process: parsed.process || "unknown"
+        });
+      } catch {
+        resolve(null);
+      }
     });
   });
 }
 
-// ── Windows API: System Idle Time ─────────────────────────────────────────────
+// ── Reliable System Idle Time ────────────────────────────────────────────────
 function getSystemIdleMs() {
   return new Promise((resolve) => {
-    const ps = `
-      if (-not ([System.Management.Automation.PSTypeName]'Win32SystemIdle').Type) {
-        Add-Type -TypeDefinition '
-          using System; using System.Runtime.InteropServices;
-          public class Win32SystemIdle {
-            [StructLayout(LayoutKind.Sequential)] public struct LASTINPUTINFO { public uint cbSize; public uint dwTime; }
-            [DllImport(\\"user32.dll\\")] public static extern bool GetLastInputInfo(ref LASTINPUTINFO p);
-            public static uint GetIdleMs() {
-              var l = new LASTINPUTINFO(); l.cbSize = (uint)System.Runtime.InteropServices.Marshal.SizeOf(l);
-              GetLastInputInfo(ref l); return (uint)Environment.TickCount - l.dwTime;
-            }
-          }
-        '
-      }
-      [Win32SystemIdle]::GetIdleMs()
-    `;
-    exec(`powershell -NoProfile -NonInteractive -Command "${ps.replace(/\n/g, " ")}"`, { timeout: 2500 }, (err, stdout) => {
+    const script = `$code = 'using System; using System.Runtime.InteropServices; public class I { [StructLayout(LayoutKind.Sequential)] public struct L { public uint c; public uint t; } [DllImport("user32.dll")] public static extern bool GetLastInputInfo(ref L p); public static uint Get() { var l = new L(); l.c = (uint)Marshal.SizeOf(l); GetLastInputInfo(ref l); return (uint)Environment.TickCount - l.t; } }'; Add-Type -TypeDefinition $code -ErrorAction SilentlyContinue; [I]::Get()`;
+    
+    exec(`powershell -NoProfile -NonInteractive -Command "${script}"`, { timeout: 2000 }, (err, stdout) => {
       if (err || !stdout) return resolve(0);
       resolve(parseInt(stdout.trim()) || 0);
     });
   });
 }
 
-// ── Background Live Tracker Loop (Every 3 seconds) ─────────────────────────────
+// ── Background Activity Tracker Loop (Every 3 seconds) ────────────────────────
 function startActivityTracker() {
   setInterval(async () => {
     const info = await getForegroundWindow();
-    if (!info) return;
+    if (!info || !info.process) return;
 
     const { process: processName, title: windowTitle } = info;
     const now = Date.now();
 
-    // Check if foreground app/window has changed
     const hasChanged = processName !== currentActivity.processName || windowTitle !== currentActivity.windowTitle;
 
     if (hasChanged) {
-      // Commit previous window session to array if valid
       const durationSeconds = Math.round((now - currentActivity.startMs) / 1000);
       if (currentActivity.processName && durationSeconds >= 2 && !isSelf(currentActivity.processName, currentActivity.windowTitle)) {
         const startDt = new Date(currentActivity.startMs);
@@ -141,10 +113,8 @@ function startActivityTracker() {
         if (activityLog.length > 5000) activityLog.splice(0, activityLog.length - 5000);
       }
 
-      // Reset current active window tracker
       currentActivity = { processName, windowTitle, startMs: now };
     } else {
-      // Same window is still active! Accumulate live duration in place into log
       const durationSeconds = Math.round((now - currentActivity.startMs) / 1000);
       if (currentActivity.processName && durationSeconds >= 2 && !isSelf(currentActivity.processName, currentActivity.windowTitle)) {
         const today = new Date().toISOString().split("T")[0];
@@ -169,7 +139,6 @@ function startActivityTracker() {
     }
   }, 3000);
 
-  // Auto-save to disk every 30 seconds
   setInterval(saveLogToFile, 30_000);
 }
 
