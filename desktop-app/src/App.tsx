@@ -45,7 +45,7 @@ export function App() {
   }, [initApp]);
 
   useEffect(() => {
-    const plannedSecs = (activeSession as any)?.plannedDurationSeconds || activeSession?.durationSeconds || 1500;
+    const plannedSecs = (activeSession as any)?.plannedDurationSeconds || (activeSession as any)?.durationSeconds || 1500;
     if (activeSession && !timer.isPaused && plannedSecs > 0) {
       const elapsed = plannedSecs - remainingSeconds;
       const progress = Math.max(0, Math.min(1, elapsed / plannedSecs));

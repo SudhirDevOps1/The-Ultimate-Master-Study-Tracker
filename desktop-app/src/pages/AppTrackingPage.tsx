@@ -234,7 +234,7 @@ export function AppTrackingPage() {
   const [showBlocker, setShowBlocker]   = useState(false);
   const [activeTab, setActiveTab]       = useState<"overview"|"timeline"|"websites"|"windows">("overview");
   const [exportStatus, setExportStatus] = useState<"idle"|"exporting"|"importing">("idle");
-  const pollRef = useRef<ReturnType<typeof setInterval>>();
+  const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const today   = new Date().toISOString().split("T")[0];
   const initApp = useAppStore(s => s.initApp);
   const importAll = useAppStore(s => s.importAll);

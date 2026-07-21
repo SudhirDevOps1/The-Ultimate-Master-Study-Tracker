@@ -19,7 +19,7 @@ const getIpc = () => isElectron ? (window as any).require("electron").ipcRendere
 export function AppActivityList() {
   const [activities, setActivities] = useState<ActivityEntry[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterCategory, setFilterCategory] = useState<"all" | "study" | "entertainment" | "social" | "system">("all");
+  const [filterCategory, setFilterCategory] = useState<"all" | "study" | "browser" | "entertainment" | "social" | "system">("all");
 
   const fetchLogs = async () => {
     const ipc = getIpc();
@@ -43,7 +43,7 @@ export function AppActivityList() {
       appName: string;
       windowTitle: string;
       durationSeconds: number;
-      category: "study" | "entertainment" | "social" | "system";
+      category: "study" | "browser" | "entertainment" | "social" | "system";
       hits: number;
     }> = {};
 
