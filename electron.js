@@ -8,9 +8,8 @@ let tray;
 let isQuitting = false;
 
 // ─── Persistent Activity Storage (ActivityWatch-style) ────────────────────────
-// All data stored locally in user's AppData — NEVER uploaded anywhere
-let dataDir  = null;           // set after app.whenReady
-let activityLog = [];          // in-memory log for today
+let dataDir  = null;
+let activityLog = [];          // In-memory array of logged entries
 let currentActivity = { processName: "", windowTitle: "", startMs: Date.now() };
 const SELF_NAMES = ["flowtrackpro", "flowtrack", "electron"];
 
@@ -33,35 +32,18 @@ function loadLogFromFile(date) {
   return [];
 }
 
-/**
- * Save all in-memory entries to their respective date files.
- * Called every 30 s automatically + on before-quit.
- */
 function saveLogToFile() {
   if (!dataDir) return;
   try {
     if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-    // Flush current in-progress activity first
-    const dur = Math.round((Date.now() - currentActivity.startMs) / 1000);
-    if (currentActivity.processName && dur >= 5 && !isSelf(currentActivity.processName, currentActivity.windowTitle)) {
-      const today = new Date().toISOString().split("T")[0];
-      activityLog.push({
-        appName: currentActivity.processName,
-        title:   currentActivity.windowTitle,
-        durationSeconds: dur,
-        startTime: new Date(currentActivity.startMs).toISOString(),
-        date: today,
-        hour: new Date(currentActivity.startMs).getHours(),
-      });
-      currentActivity.startMs = Date.now(); // reset window for next accumulation
-    }
-
-    // Group by date and write
+    // Group entries by date and save
     const dateMap = new Map();
     for (const entry of activityLog) {
-      if (!dateMap.has(entry.date)) dateMap.set(entry.date, []);
-      dateMap.get(entry.date).push(entry);
+      if (!entry.isLive) {
+        if (!dateMap.has(entry.date)) dateMap.set(entry.date, []);
+        dateMap.get(entry.date).push(entry);
+      }
     }
     for (const [date, entries] of dateMap) {
       fs.writeFileSync(getLogFile(date), JSON.stringify(entries, null, 2), "utf8");
@@ -71,92 +53,121 @@ function saveLogToFile() {
   }
 }
 
-// ── Windows API: active foreground window ──────────────────────────────────
+// ── Windows API: Active Foreground Window via Fast PowerShell ──────────────────
 function getForegroundWindow() {
   return new Promise((resolve) => {
     const ps = `
-      Add-Type -TypeDefinition @'
-        using System; using System.Runtime.InteropServices;
-        public class Win32 {
-          [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
-          [DllImport("user32.dll")] public static extern int GetWindowText(IntPtr h, System.Text.StringBuilder t, int c);
-          [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
-        }
-'@
-      $h = [Win32]::GetForegroundWindow()
+      $h = [Win32ActiveWindow]::GetForegroundWindow()
       $sb = New-Object System.Text.StringBuilder(256)
-      [Win32]::GetWindowText($h, $sb, 256) | Out-Null
-      $pid = 0; [Win32]::GetWindowThreadProcessId($h, [ref]$pid) | Out-Null
+      [Win32ActiveWindow]::GetWindowText($h, $sb, 256) | Out-Null
+      $pid = 0
+      [Win32ActiveWindow]::GetWindowThreadProcessId($h, [ref]$pid) | Out-Null
       $proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
       @{ title = $sb.ToString(); process = if($proc){$proc.Name}else{"unknown"} } | ConvertTo-Json
     `;
-    exec(
-      `powershell -NoProfile -NonInteractive -Command "${ps.replace(/\n/g, " ")}"`,
-      { timeout: 3000 },
-      (err, stdout) => {
-        if (err || !stdout) return resolve(null);
-        try { resolve(JSON.parse(stdout.trim())); } catch { resolve(null); }
+    const fullCmd = `powershell -NoProfile -NonInteractive -Command "
+      if (-not ([System.Management.Automation.PSTypeName]'Win32ActiveWindow').Type) {
+        Add-Type -TypeDefinition '
+          using System; using System.Runtime.InteropServices;
+          public class Win32ActiveWindow {
+            [DllImport(\\"user32.dll\\")] public static extern IntPtr GetForegroundWindow();
+            [DllImport(\\"user32.dll\\")] public static extern int GetWindowText(IntPtr h, System.Text.StringBuilder t, int c);
+            [DllImport(\\"user32.dll\\")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+          }
+        '
       }
-    );
+      ${ps.replace(/\n/g, " ")}
+    "`;
+
+    exec(fullCmd, { timeout: 2500 }, (err, stdout) => {
+      if (err || !stdout) return resolve(null);
+      try { resolve(JSON.parse(stdout.trim())); } catch { resolve(null); }
+    });
   });
 }
 
-// ── Windows API: system idle time (keyboard + mouse + touchpad) ───────────
+// ── Windows API: System Idle Time ─────────────────────────────────────────────
 function getSystemIdleMs() {
   return new Promise((resolve) => {
     const ps = `
-      Add-Type @'
-        using System; using System.Runtime.InteropServices;
-        public class Idle {
-          [StructLayout(LayoutKind.Sequential)] public struct LASTINPUTINFO { public uint cbSize; public uint dwTime; }
-          [DllImport("user32.dll")] public static extern bool GetLastInputInfo(ref LASTINPUTINFO p);
-          public static uint GetIdleMs() {
-            var l = new LASTINPUTINFO(); l.cbSize = (uint)System.Runtime.InteropServices.Marshal.SizeOf(l);
-            GetLastInputInfo(ref l); return (uint)Environment.TickCount - l.dwTime;
+      if (-not ([System.Management.Automation.PSTypeName]'Win32SystemIdle').Type) {
+        Add-Type -TypeDefinition '
+          using System; using System.Runtime.InteropServices;
+          public class Win32SystemIdle {
+            [StructLayout(LayoutKind.Sequential)] public struct LASTINPUTINFO { public uint cbSize; public uint dwTime; }
+            [DllImport(\\"user32.dll\\")] public static extern bool GetLastInputInfo(ref LASTINPUTINFO p);
+            public static uint GetIdleMs() {
+              var l = new LASTINPUTINFO(); l.cbSize = (uint)System.Runtime.InteropServices.Marshal.SizeOf(l);
+              GetLastInputInfo(ref l); return (uint)Environment.TickCount - l.dwTime;
+            }
           }
-        }
-'@
-      [Idle]::GetIdleMs()
-    `;
-    exec(
-      `powershell -NoProfile -NonInteractive -Command "${ps.replace(/\n/g, " ")}"`,
-      { timeout: 3000 },
-      (err, stdout) => {
-        if (err || !stdout) return resolve(0);
-        resolve(parseInt(stdout.trim()) || 0);
+        '
       }
-    );
+      [Win32SystemIdle]::GetIdleMs()
+    `;
+    exec(`powershell -NoProfile -NonInteractive -Command "${ps.replace(/\n/g, " ")}"`, { timeout: 2500 }, (err, stdout) => {
+      if (err || !stdout) return resolve(0);
+      resolve(parseInt(stdout.trim()) || 0);
+    });
   });
 }
 
-// ── Background tracker loop (every 5 s) ──────────────────────────────────────
+// ── Background Live Tracker Loop (Every 3 seconds) ─────────────────────────────
 function startActivityTracker() {
   setInterval(async () => {
     const info = await getForegroundWindow();
     if (!info) return;
+
     const { process: processName, title: windowTitle } = info;
+    const now = Date.now();
 
-    // Same window still active — keep accumulating
-    if (processName === currentActivity.processName && windowTitle === currentActivity.windowTitle) return;
+    // Check if foreground app/window has changed
+    const hasChanged = processName !== currentActivity.processName || windowTitle !== currentActivity.windowTitle;
 
-    // Window changed — commit previous entry
-    const durationSeconds = Math.round((Date.now() - currentActivity.startMs) / 1000);
-    if (currentActivity.processName && durationSeconds >= 2 && !isSelf(currentActivity.processName, currentActivity.windowTitle)) {
-      const startDt = new Date(currentActivity.startMs);
-      activityLog.push({
-        appName:         currentActivity.processName,
-        title:           currentActivity.windowTitle,
-        durationSeconds,
-        startTime:       startDt.toISOString(),
-        date:            startDt.toISOString().split("T")[0],
-        hour:            startDt.getHours(),
-        minute:          startDt.getMinutes(),
-      });
-      // Keep max 5000 entries in memory to avoid RAM bloat
-      if (activityLog.length > 5000) activityLog.splice(0, activityLog.length - 5000);
+    if (hasChanged) {
+      // Commit previous window session to array if valid
+      const durationSeconds = Math.round((now - currentActivity.startMs) / 1000);
+      if (currentActivity.processName && durationSeconds >= 2 && !isSelf(currentActivity.processName, currentActivity.windowTitle)) {
+        const startDt = new Date(currentActivity.startMs);
+        activityLog.push({
+          appName:         currentActivity.processName,
+          title:           currentActivity.windowTitle,
+          durationSeconds,
+          startTime:       startDt.toISOString(),
+          date:            startDt.toISOString().split("T")[0],
+          hour:            startDt.getHours(),
+          minute:          startDt.getMinutes(),
+        });
+        if (activityLog.length > 5000) activityLog.splice(0, activityLog.length - 5000);
+      }
+
+      // Reset current active window tracker
+      currentActivity = { processName, windowTitle, startMs: now };
+    } else {
+      // Same window is still active! Accumulate live duration in place into log
+      const durationSeconds = Math.round((now - currentActivity.startMs) / 1000);
+      if (currentActivity.processName && durationSeconds >= 2 && !isSelf(currentActivity.processName, currentActivity.windowTitle)) {
+        const today = new Date().toISOString().split("T")[0];
+        const existingIdx = activityLog.findIndex(e => e.isLive);
+        const liveEntry = {
+          appName: currentActivity.processName,
+          title: currentActivity.windowTitle,
+          durationSeconds,
+          startTime: new Date(currentActivity.startMs).toISOString(),
+          date: today,
+          hour: new Date(currentActivity.startMs).getHours(),
+          minute: new Date(currentActivity.startMs).getMinutes(),
+          isLive: true
+        };
+
+        if (existingIdx !== -1) {
+          activityLog[existingIdx] = liveEntry;
+        } else {
+          activityLog.push(liveEntry);
+        }
+      }
     }
-    currentActivity = { processName, windowTitle, startMs: Date.now() };
-  }, 5000);
+  }, 3000);
 
   // Auto-save to disk every 30 seconds
   setInterval(saveLogToFile, 30_000);
@@ -194,7 +205,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration:      true,
       contextIsolation:     false,
-      backgroundThrottling: false,  // timers never throttle on minimize
+      backgroundThrottling: false,
     },
   });
 
@@ -230,11 +241,9 @@ function createWindow() {
 
 // ─── App lifecycle ────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
-  // Set up persistent data directory
   dataDir = path.join(app.getPath("userData"), "activity-log");
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-  // Load today's existing log from disk (survives restarts!)
   const today = new Date().toISOString().split("T")[0];
   const loaded = loadLogFromFile(today);
   activityLog.push(...loaded);
@@ -252,49 +261,30 @@ app.whenReady().then(() => {
 
 app.on("before-quit", () => {
   isQuitting = true;
-  saveLogToFile(); // Always save before quitting
+  saveLogToFile();
 });
 
 app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });
 
-// ─── IPC: Idle time (Windows GetLastInputInfo) ────────────────────────────────
+// ─── IPC Handlers ─────────────────────────────────────────────────────────────
 ipcMain.handle("get-idle-time-ms", async () => await getSystemIdleMs());
 
-// ─── IPC: Currently active window ────────────────────────────────────────────
 ipcMain.handle("get-active-window", async () => {
   const info = await getForegroundWindow();
   if (!info) return { title: "Desktop / Idle", process: "unknown", isSelf: false };
   return { title: info.title || "Desktop / Idle", process: info.process || "unknown", isSelf: isSelf(info.process, info.title) };
 });
 
-// ─── IPC: Activity log for a specific date ───────────────────────────────────
 ipcMain.handle("get-activity-log", async (_e, { date } = {}) => {
   const today = new Date().toISOString().split("T")[0];
   const requested = date || today;
 
   if (requested === today) {
-    const entries = [...activityLog.filter(e => e.date === today)];
-    // Append live current entry
-    const dur = Math.round((Date.now() - currentActivity.startMs) / 1000);
-    if (currentActivity.processName && dur >= 2 && !isSelf(currentActivity.processName, currentActivity.windowTitle)) {
-      entries.push({
-        appName: currentActivity.processName,
-        title:   currentActivity.windowTitle,
-        durationSeconds: dur,
-        startTime: new Date(currentActivity.startMs).toISOString(),
-        date: today,
-        hour: new Date(currentActivity.startMs).getHours(),
-        minute: new Date(currentActivity.startMs).getMinutes(),
-        isLive: true,
-      });
-    }
-    return entries;
+    return activityLog;
   }
-  // Historical date: load from file
   return loadLogFromFile(requested);
 });
 
-// ─── IPC: List all dates that have data ──────────────────────────────────────
 ipcMain.handle("get-tracked-dates", async () => {
   try {
     if (!dataDir || !fs.existsSync(dataDir)) return [];
@@ -306,7 +296,6 @@ ipcMain.handle("get-tracked-dates", async () => {
   } catch { return []; }
 });
 
-// ─── IPC: Export to CSV ───────────────────────────────────────────────────────
 ipcMain.handle("export-activity-csv", async (_e, { date } = {}) => {
   try {
     const entries = date ? loadLogFromFile(date) : activityLog;
@@ -335,7 +324,6 @@ ipcMain.handle("export-activity-csv", async (_e, { date } = {}) => {
   }
 });
 
-// ─── IPC: Save image dialog ───────────────────────────────────────────────────
 ipcMain.handle("save-image-dialog", async (_e, { base64Data, defaultFilename }) => {
   try {
     const { filePath } = await dialog.showSaveDialog(mainWindow, {
