@@ -1,0 +1,114 @@
+# ============================================
+# The Ultimate Master Study Tracker - .gitignore
+# ============================================
+
+# ---- Dependencies ----
+node_modules/
+.pnp
+.pnp.js
+
+# ---- Build Output ----
+dist/
+dist-ssr/
+build/
+dist-electron/
+*.local
+
+# ---- Python Environments ----
+venv/
+.venv/
+env/
+.env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ---- Database Files (User Data - Private) ----
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# ---- Environment Variables (Secrets) ----
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+*.env
+
+# ---- IDE & Editor Files ----
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Logs ----
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ---- Temp & Cache ----
+.cache/
+.temp/
+.tmp/
+*.tmp
+*.temp
+.eslintcache
+.stylelintcache
+
+# ---- Test Coverage ----
+coverage/
+*.lcov
+.nyc_output/
+
+# ---- TypeScript ----
+*.tsbuildinfo
+
+# ---- OS Files ----
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ---- Zip/Archive Files in root (keep ver/ folder zips) ----
+*.zip
+!ver/*.zip
+
+# ---- Misc Dev Notes (Internal only) ----
+BUGFIXES.md
+CHANGES_QUICK_REFERENCE.md
+ENHANCEMENTS_SUMMARY.md
+FEATURES_ADDED.md
+FEATURE_IDEAS.md
+IMPLEMENTATION_COMPLETE.md
+IMPLEMENTATION_ROADMAP.md
+IMPLEMENTATION_SUMMARY.md
+IMPROVEMENTS_SUMMARY.md
+INSTALLATION_FLOWCHART.md
+DOWNLOAD_FEATURE_GUIDE.md
+DOWNLOAD_FEATURE_SUMMARY.txt
+FINAL_STATUS.txt
+PROJECT_STATUS.txt
+fixes.md
+suggestions.md

@@ -1,137 +1,100 @@
-# FlowTrack Pro – Ultimate Smart Study Tracker & Activity Engine
+# 🌐 FlowTrack Multi-Platform Suite (Desktop & Web Applications)
 
-> **100% Standalone Desktop Application** — Powered by Electron 43 + React 19 + Native C# Win32 Engine. All data is stored 100% locally on your machine (`%AppData%\FlowTrackPro`). Zero cloud uploads, zero external Python servers, and zero remote tracking.
-
----
-
-## 💻 System Requirements & Disk Space
-
-| Specification | Requirement / Details |
-| :--- | :--- |
-| **Operating System** | Windows 10 / Windows 11 (64-bit) |
-| **Installer Size (`.exe`)** | ~145 MB |
-| **Installed App Size** | ~350 MB |
-| **Local AppData Log Storage** | ~2 MB per month (Daily JSON files stored locally) |
-| **RAM Usage** | ~80 MB - 120 MB (Background throttled & optimized) |
-| **CPU Usage** | < 0.5% (Native compiled `win-tracker.exe` C# binary, 0ms latency) |
-| **Internet Requirement** | **100% Offline** (No internet required for tracking) |
+> **Enterprise Study Tracker & Digital Wellbeing Platform**  
+> Complete dual-edition solution supporting 100% Standalone Offline Windows Desktop App (`.exe`), Live Web Client (`Vercel/PWA`), and Web + Python Local PC Sync Engine.
 
 ---
 
-## 📦 Quick Installation
-
-Double-click the compiled Windows installer to run the desktop application:
-```text
-dist-electron\FlowTrackPro Setup 1.0.0.exe
-```
-
----
-
-## 🗂️ Project Architecture
+## 🗂️ Platform Editions & Architecture Overview
 
 ```text
 The-Ultimate-Master-Study-Tracker/
-├── electron.js                            # Main Electron Process (Win32 APIs, Tray, Native Tracker, IPC)
-├── win-tracker.exe                        # Native Compiled C# Binary Helper (0ms User32 Foreground Window Fetcher)
-├── README.md                              # Technical & System Requirements Overview
-├── APP_ARCHITECTURE_MANUAL.md             # Complete Engineering & Operational Manual
-├── package.json                           # Dependencies & Build Scripts
-├── vite.config.ts                         # Vite Bundler Config
-└── src/
-    ├── main.tsx                           # React Entrypoint
-    ├── App.tsx                            # Main Router & Window Title Bar Sync
-    ├── store/
-    │   └── useAppStore.ts                 # Zustand State Manager (Timer, Sessions, XP, Settings)
-    ├── hooks/
-    │   ├── useTimer.ts                    # Core Study Timer Hook (Visibility & Delta Clock)
-    │   ├── usePomodoro.ts                 # Timestamp-based Freeze-Proof Pomodoro Cycle Hook
-    │   └── useInactivityDetector.ts       # Dual-Layer Hybrid Smart Inactivity Engine
-    ├── pages/
-    │   ├── DashboardPage.tsx              # Overview, Weekly Summaries, Focus Score, Native Widgets
-    │   ├── AppTrackingPage.tsx            # ActivityWatch-style 24-hr Timeline & Web Tabs Monitor
-    │   ├── TimerPage.tsx                  # Interactive Study Target & Pomodoro Control Center
-    │   ├── HistoryPage.tsx                # Logged Study Session Records
-    │   ├── SubjectsPage.tsx               # Subject Manager & Color Schemes
-    │   ├── AnalyticsPage.tsx              # Deep Analytical Charts & Focus Metrics
-    │   └── SettingsPage.tsx               # Native App Settings, Backup (Import/Export)
-    └── components/
-        ├── dashboard/
-        │   └── BackendActivityPanel.tsx   # Dashboard Native IPC Live Activity Widgets
-        ├── analytics/
-        │   └── AppActivityList.tsx        # Native IPC Detailed Process Activity Breakdown
-        └── timer/
-            ├── FloatingTimer.tsx          # PiP Floating Overlay Timer
-            └── AmbiencePlayer.tsx         # Focus Music & Sound Effects Player
+├── 🖥️ (Desktop App Core)               ← Primary Standalone Electron 43 Application
+│   ├── electron.js                      # Main Process (Win32 APIs, System Tray, Local Storage IPC)
+│   ├── win-tracker.exe                  # Compiled C# Win32 Native Helper (0ms active window query)
+│   ├── src/                             # React 19 Frontend Components & Custom Hooks
+│   ├── dist-electron/                   # Output folder containing FlowTrackPro Setup 1.0.0.exe
+│   └── package.json                     # Desktop dependencies & electron-builder setup
+│
+├── 🌐 web-app/                          # Live Web Deployment & Hybrid Edition (Extracted v1.1.0)
+│   ├── backend.py                       # Optional Python Screen-Time Sync Backend Engine
+│   ├── START.bat                        # One-Click Windows Launcher for Web Client + Python Backend
+│   ├── vercel.json                      # Single-click Vercel Deployment Configuration
+│   ├── requirements.txt                 # Python dependencies (pywin32, psutil, flask)
+│   ├── public/                          # PWA Assets, Web Workers & Web Manifests
+│   ├── src/                             # Web Client React Frontend
+│   └── docs/                            # Deep Technical Web Integration Documentation
+│
+├── WebApp_v1.1.0.zip                   # Original Archived Source Package for Web Release
+├── README.md                            # Suite Architectural & Deployment Documentation
+├── APP_ARCHITECTURE_MANUAL.md             # Complete Engineering & Operational Operations Manual
+├── PROMPT_TO_RECREATE_APP.md             # Master AI Recreation Prompt (Local Only)
+└── features.md                          # Local Future Enhancements Roadmap (Local Only)
 ```
 
 ---
 
-## ✅ Core Features & Real Behavior
+## 🚀 Deployment Modes & Usage Guide
 
-### ⏱️ 1. Study Timer & Live Title Sync
-- **Target Sessions:** Start, pause, or complete timed sessions linked to subjects.
-- **Freeze-Proof Minimization:** Built with Electron `backgroundThrottling: false`. Window minimization never freezes or slows down your timer.
-- **Title Bar Sync:** Real-time countdown on window title: `[24:15] Physics - FlowTrack`.
+FlowTrack provides **3 flexible operation modes** depending on user preference:
 
-### 🍅 2. Timestamp-Based Pomodoro Engine
-- **Work / Short Break / Long Break** cycles.
-- Calculated using real-time timestamp deltas (`Date.now() - startedAtMs`) to prevent interval drift when minimized.
-- Audio cues & system notifications on phase transition.
-
-### 🖥️ 3. Native Desktop & Web Activity Monitor (`/app-tracking`)
-- **Native C# Binary Tracker (`win-tracker.exe`):** Automatically captures active foreground process names and window titles with 0ms latency and <0.5% CPU overhead.
-- **FlowTrack Self-Exclusion:** FlowTrack itself (`flowtrackpro.exe`, `electron.exe`) is automatically excluded so your study metrics stay accurate.
-- **4 Dedicated Tracking Tabs:**
-  1. 📊 **Overview:** App breakdown, animated category percentage bars, and live green **`LIVE`** badges.
-  2. 📈 **24-Hour Gantt Timeline:** Hourly visual timeline chart of application usage.
-  3. 🌐 **Web Sites & Tabs Monitor:** Domain extractor for browser tabs (YouTube, GitHub, StackOverflow, ChatGPT, etc.) with favicons, clean site titles, and visit counts.
-  4. 🪟 **Windows Log:** Detailed timestamped history log of every focused window.
-- **Persistent Storage:** Saves daily JSON files inside `%AppData%\FlowTrackPro\activity-log\YYYY-MM-DD.json`. Data survives system reboots.
-- **CSV Data Export:** One-click CSV spreadsheet generation via native save dialogs.
-
-### 🛌 4. Dual-Layer Hybrid Smart Inactivity Detector
-- **Layer 1 (Win32 Kernel Input API):** Polls Windows `GetLastInputInfo` for hardware-level Mouse, Keyboard, Touchpad, and Stylus input (works globally even when minimized or in the tray).
-- **Layer 2 (Instant DOM Event Watcher):** Captures in-app `mousemove`, `keydown`, `scroll`, `touch`, and `wheel` events with 0ms latency.
-- **Smart Logic:**
-  - **10 Minutes No Input:** Auto-pauses active study session + sends a Windows desktop notification.
-  - **Movement Detected:** Instantly **Auto-Resumes** the session without requiring manual clicks!
-
-### 🪟 5. System Tray Background Execution
-- Clicking **Close (X)** or **Minimize** sends FlowTrack to the Windows System Tray (near the taskbar clock).
-- Study timer and background process tracking continue uninterrupted.
-- Right-click tray icon ➔ **`📖 Open FlowTrack`** or **`❌ Quit FlowTrack`**.
-
-### 📺 6. Picture-in-Picture (PiP) Floating Overlay
-- Renders an always-on-top mini floating timer window via a 30fps canvas stream.
-- Includes a 10-second heartbeat to keep focus mode valid while watching video lectures.
-
-### 📊 7. Dashboard & Focus Score Algorithm
-- **Daily Focus Score:** Algorithmic metric: *Studied Hours Weight + Goal Attachment % - Inactivity Penalty*.
-- **Gamified Level/XP:** Earn XP based on actual studied seconds to level up ranks.
-- **Heatmap:** 90-day GitHub-style focus heatmap.
-
-### 💾 8. Backup & Data Mobility (Import / Export)
-- **📤 Export JSON:** One-click full app backup (sessions, subjects, settings, activities).
-- **📥 Import JSON:** One-click complete data restoration.
-- **📊 CSV Export:** Individual CSV export for sessions, subject statistics, or all data.
+| Operation Mode | Targeted User | Requirements | Capabilities & Features |
+| :--- | :--- | :--- | :--- |
+| **Mode 1: Desktop App (`.exe`)** *(Recommended)* | Windows 10/11 Desktop Users | Standalone `.exe` Installer | • 100% Offline, Privacy-First<br>• Win32 C# `win-tracker.exe` (0ms Latency, <0.5% CPU)<br>• Dual-Layer Hybrid Inactivity (Win32 + DOM)<br>• 24-hr Timeline & Web Tab Favicon Extractor<br>• System Tray background execution |
+| **Mode 2: Pure Web App (Vercel)** | Mobile, Mac, Linux & Browser Users | Any Modern Web Browser | • Instant zero-install PWA access<br>• IndexedDB local study sessions & timer<br>• Gamified Focus Score & Heatmap<br>• Ambient Music Player & Notes Board |
+| **Mode 3: Web Client + Local Python Backend** | Web Users wanting PC Screen-Time Sync | Python 3.9+ & `START.bat` | • Bridges web browser UI with local Windows PC processes<br>• `backend.py` polls foreground window & system idle<br>• Syncs screen-time stats to live web interface via localhost API |
 
 ---
 
-## 🛠️ Build & Dev Commands
+## 📦 Mode 1: Installing Standalone Desktop App
 
+To install the high-performance desktop installer:
+```text
+dist-electron\FlowTrackPro Setup 1.0.0.exe
+```
+1. Double-click the installer executable.
+2. The application will launch instantly and minimize to your Windows System Tray.
+3. No Python, internet, or external setup is required.
+
+---
+
+## 🌐 Mode 2 & 3: Web App Deployment & Setup (`/web-app`)
+
+### 1. Deploying Pure Web Client to Vercel
 ```bash
-# Install dependencies
+cd web-app
 npm install
-
-# Run frontend in development mode
-npm run dev
-
-# Compile standalone Windows desktop .exe installer
-npm run electron:build
+npm run build
+# Deploy to Vercel via CLI or GitHub integration using vercel.json
 ```
+
+### 2. Running Web Client + Local Python Backend (`START.bat`)
+For users who prefer using the web interface while tracking local PC screen-time:
+1. Open the `web-app/` directory.
+2. Double-click `START.bat`.
+3. The script automatically creates a Python virtual environment (`.venv`), installs `pywin32` & `psutil`, starts `backend.py` on port `5001`, and launches the web client in your browser.
 
 ---
 
-## 🔒 Privacy & Architecture Notice
+## ⚡ Technical Comparison: Desktop App vs. Web App
 
-FlowTrack Pro is a 100% standalone, offline desktop app. It requires **no Python servers**, **no cloud databases**, and **no background subscriptions**. All data remains on your local storage.
+| Feature | Desktop App (`.exe`) | Web App (`Vercel`) | Web App + Python |
+| :--- | :---: | :---: | :---: |
+| **Offline Functionality** | ✅ 100% Offline | ✅ PWA Caching | ✅ Localhost Sync |
+| **Native Active Window Tracking** | ✅ Direct `win-tracker.exe` | ❌ Browser Restricted | ✅ via `backend.py` |
+| **Web Tab & Favicon Extractor** | ✅ Built-in | ❌ Restricted | ✅ Title Parsing |
+| **Dual-Layer Inactivity (Hardware API)** | ✅ Win32 `GetLastInputInfo` | ⚠️ DOM Events Only | ✅ Win32 via Python |
+| **System Tray Background Operation** | ✅ Yes | ❌ Browser Dependent | ❌ Console Window |
+| **Installation Complexity** | **Zero Setup (Double-click)** | Zero Setup (URL) | Requires Python 3 |
+
+---
+
+## 🔒 Security & Privacy Standard
+
+- **Zero Remote Data Transmissions:** All study records, process usage, and tab logs are stored 100% locally on the user's device.
+- **Local Desktop App Data:** `%AppData%\FlowTrackPro\activity-log\`
+- **Web App Data:** Browser `IndexedDB` (`Dexie.js`)
+
+---
+
+*FlowTrack Multi-Platform Suite — Engineered by SudhirDevOps1 for serious productivity.*
