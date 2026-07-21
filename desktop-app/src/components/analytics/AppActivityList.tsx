@@ -56,7 +56,7 @@ export function AppActivityList() {
       const lowerApp = app.toLowerCase();
       const lowerTitle = title.toLowerCase();
 
-      if (lowerApp.includes("code") || lowerApp.includes("studio") || lowerApp.includes("terminal") || lowerApp.includes("github") || lowerApp.includes("notepad") || lowerApp.includes("word") || lowerApp.includes("pdf")) {
+      if (lowerApp.includes("code") || lowerApp.includes("studio") || lowerApp.includes("terminal") || lowerApp.includes("github") || lowerApp.includes("notepad") || lowerApp.includes("word") || lowerApp.includes("pdf") || lowerApp.includes("antigravity") || lowerApp.includes("cmd") || lowerApp.includes("powershell") || lowerApp.includes("git") || lowerApp.includes("python")) {
         category = "study";
       } else if (lowerTitle.includes("youtube") || lowerTitle.includes("netflix") || lowerTitle.includes("spotify") || lowerApp.includes("vlc")) {
         category = "entertainment";

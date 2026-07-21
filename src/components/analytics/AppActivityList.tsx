@@ -10,7 +10,7 @@ interface AppSummary {
   isLive?: boolean;
 }
 
-const STUDY = ["code","vscode","idea","pycharm","notepad","word","excel","powerpoint","acrobat","obsidian","notion","anki"];
+const STUDY = ["code","vscode","idea","pycharm","notepad","word","excel","powerpoint","acrobat","obsidian","notion","anki","antigravity","cmd","powershell","terminal","git","python"];
 const BROWSER = ["chrome","firefox","edge","brave","opera","safari"];
 const SOCIAL = ["discord","telegram","whatsapp","slack","teams","zoom"];
 const ENTERT = ["vlc","spotify","netflix","youtube","steam","epicgames"];
