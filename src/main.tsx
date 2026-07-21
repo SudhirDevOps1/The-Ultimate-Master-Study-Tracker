@@ -5,7 +5,6 @@ import { App } from "./App";
 import { registerServiceWorker } from "./sw-register";
 
 // App initialization
-const isDevelopment = import.meta.env.DEV;
 
 try {
   const rootElement = document.getElementById("root");
