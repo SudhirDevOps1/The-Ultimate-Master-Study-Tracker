@@ -27,8 +27,8 @@ All notable changes, version updates, feature additions, architectural improveme
   - Added native Windows notification balloons for study session alerts and Pomodoro breaks.
 - **🖼️ Hybrid PNG Notes Board Download Fix**:
   - Fixed PNG download logic in `src/pages/StudyNotesBoardPage.tsx` and `desktop-app/src/pages/StudyNotesBoardPage.tsx` to support both Web browser auto-downloads and Electron native `save-image-dialog` IPC dialogs.
-- **🏷️ Smart Developer Process Categorization Engine**:
-  - Expanded `study` category keywords to automatically classify developer tools (`Antigravity`, `cmd`, `powershell`, `terminal`, `git`, `python`) as Study & Productivity time.
+- **🏷️ Production-Grade 500+ App Process Categorization Engine**:
+  - Implemented `appCategorizer.ts` engine containing 500+ mapped developer tools, IDEs (`VSCodium`, `Cursor`, `Windsurf`, `Zed`, `PyCharm`, `CLion`, `Sublime Text`), terminals (`PowerShell`, `cmd`, `Antigravity`, `Warp`), database managers, AI tools (`ChatGPT`, `Claude`, `Ollama`), browsers, and social/entertainment apps.
 
 ---
 

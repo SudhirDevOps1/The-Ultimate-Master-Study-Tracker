@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { Panel } from "@/components/common/Panel";
 import { toDurationLabel } from "@/utils/time";
+import { classifyApplication } from "@/utils/appCategorizer";
 
 interface ActivityEntry {
   appName: string;
@@ -52,17 +53,7 @@ export function AppActivityList() {
       const key = `${app} - ${title}`;
       const duration = Number(act.durationSeconds || 0);
 
-      let category: "study" | "entertainment" | "social" | "system" = "system";
-      const lowerApp = app.toLowerCase();
-      const lowerTitle = title.toLowerCase();
-
-      if (lowerApp.includes("code") || lowerApp.includes("studio") || lowerApp.includes("terminal") || lowerApp.includes("github") || lowerApp.includes("notepad") || lowerApp.includes("word") || lowerApp.includes("pdf") || lowerApp.includes("antigravity") || lowerApp.includes("cmd") || lowerApp.includes("powershell") || lowerApp.includes("git") || lowerApp.includes("python")) {
-        category = "study";
-      } else if (lowerTitle.includes("youtube") || lowerTitle.includes("netflix") || lowerTitle.includes("spotify") || lowerApp.includes("vlc")) {
-        category = "entertainment";
-      } else if (lowerApp.includes("discord") || lowerApp.includes("telegram") || lowerApp.includes("whatsapp") || lowerApp.includes("slack")) {
-        category = "social";
-      }
+      const category = classifyApplication(app, title);
 
       if (agg[key]) {
         agg[key].durationSeconds += duration;
