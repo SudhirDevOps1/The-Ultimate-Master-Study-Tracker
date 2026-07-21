@@ -211,6 +211,20 @@ function createWindow() {
   });
 }
 
+// ─── Single Instance Lock ──────────────────────────────────────────────────
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
+
 // ─── App lifecycle ────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
   dataDir = path.join(app.getPath("userData"), "activity-log");
