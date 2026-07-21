@@ -14,6 +14,7 @@ build/
 dist-electron/
 *.local
 features.md
+PROMPT_TO_RECREATE_APP.md
 
 # ---- Python Environments ----
 venv/
