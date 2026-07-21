@@ -27,8 +27,8 @@ All notable changes, version updates, feature additions, architectural improveme
   - Added native Windows notification balloons for study session alerts and Pomodoro breaks.
 - **🖼️ Hybrid PNG Notes Board Download Fix**:
   - Fixed PNG download logic in `src/pages/StudyNotesBoardPage.tsx` and `desktop-app/src/pages/StudyNotesBoardPage.tsx` to support both Web browser auto-downloads and Electron native `save-image-dialog` IPC dialogs.
-- **🏷️ Production-Grade 500+ App Process Categorization Engine**:
-  - Implemented `appCategorizer.ts` engine containing 500+ mapped developer tools, IDEs (`VSCodium`, `Cursor`, `Windsurf`, `Zed`, `PyCharm`, `CLion`, `Sublime Text`), terminals (`PowerShell`, `cmd`, `Antigravity`, `Warp`), database managers, AI tools (`ChatGPT`, `Claude`, `Ollama`), browsers, and social/entertainment apps.
+- **🏷️ Production-Grade 500+ Global & Targeted Indian EdTech App Categorization Engine**:
+  - Implemented `appCategorizer.ts` containing 500+ mapped Global & Indian EdTech apps (`Physics Wallah`, `Allen Digital`, `Unacademy`, `BYJU'S`, `Vedantu`, `Adda247`, `Testbook`, `Drishti IAS`, `Vision IAS`, `NextIAS`, `Scaler`, `Coding Ninjas`, `Chai aur Code`, `Gate Smashers`, `Striver TakeUForward`, `Apna College`, `CodeWithHarry`), developer IDEs (`VSCodium`, `Cursor`, `Windsurf`, `Zed`, `PyCharm`), terminals (`PowerShell`, `cmd`, `Antigravity`, `Warp`), AI coaching, and streaming apps.
 
 ---
 

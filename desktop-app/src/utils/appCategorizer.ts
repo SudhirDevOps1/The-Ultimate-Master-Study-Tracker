@@ -1,6 +1,6 @@
 /**
  * FlowTrack Pro — Production-Grade Application & Window Categorization Engine (Desktop Edition)
- * Contains 500+ mapped developer tools, IDEs, browsers, system utilities, and entertainment apps.
+ * Contains 500+ mapped Global Worldwide & Targeted Indian EdTech apps, exam portals, IDEs, browsers & system utilities.
  */
 
 export type AppCategory = "study" | "browser" | "social" | "entertainment" | "system";
@@ -24,6 +24,11 @@ const STUDY_PROCESSES = new Set([
   "postman", "insomnia", "bruno", "hoppscotch", "charles", "fiddler", "wireshark",
   "compass", "redis-insight", "mongodb-compass", "sqlyog", "heidisql",
 
+  // Indian EdTech & Study Apps (Native Desktop Executables)
+  "physicswallah", "pw", "allen", "allen digital", "unacademy", "byjus", "vedantu",
+  "adda247", "testbook", "drishtiias", "visionias", "nextias", "khansir", "utkarsh",
+  "exampur", "wifistudy", "classplus", "gradeup", "oliveboard", "studyiqupc",
+
   // Notes, AI, Office & Reading
   "obsidian", "notion", "anki", "logseq", "roam", "evernote", "onenote", "joplin", "typora",
   "acrobat", "acrobrd32", "foxitreader", "sumatrapdf", "okular", "evince", "zotero", "mendeley",
@@ -32,10 +37,22 @@ const STUDY_PROCESSES = new Set([
 ]);
 
 const STUDY_KEYWORDS = [
+  // Global Coding & Computer Science
   "visual studio code", "vscodium", "cursor", "intellij", "pycharm", "webstorm", "clion",
   "sublime", "terminal", "powershell", "command prompt", "github", "gitlab", "stackoverflow",
   "leetcode", "hackerrank", "geeksforgeeks", "w3schools", "mdn web docs", "devdocs",
-  "coursera", "udemy", "khan academy", "edx", "brilliant", "nptel", "unacademy", "physics wallah",
+  "coursera", "udemy", "khan academy", "edx", "brilliant", "datacamp", "codecademy", "freecodecamp",
+  "scaler", "coding ninjas", "chai aur code", "takeuforward", "striver", "gate smashers",
+  "apna college", "code with harry", "love babbar", "jenny's lectures", "neso academy",
+
+  // Indian EdTech, Competitive Exams (JEE/NEET/UPSC/GATE/Banking/SSC/CAT)
+  "physics wallah", "pw.live", "pw app", "allen", "allen digital", "unacademy", "byju's", "vedantu",
+  "adda247", "testbook", "drishti ias", "vision ias", "next ias", "vajiram", "khan sir",
+  "utkarsh classes", "exampur", "wifistudy", "oliveboard", "study iq", "mrunal", "insightsonindia",
+  "forum ias", "bpsc", "upsc", "ssc cgl", "gate 20", "jee main", "jee advanced", "neet 20",
+  "nptel", "swayam", "cbse", "ncert", "rd sharma", "hc verma", "irodov", "cengage",
+
+  // Academic Documents, Books & Research
   "pdf", "lecture", "documentation", "notes", "thesis", "research", "paper", "book",
   "localhost", "127.0.0.1", "jupyter", "google colab", "replit", "overleaf", "latex", "kaggle"
 ];
@@ -57,8 +74,9 @@ const ENTERTAINMENT_PROCESSES = new Set([
 ]);
 
 const ENTERTAINMENT_KEYWORDS = [
-  "youtube -", "netflix", "prime video", "disney+", "hulu", "twitch", "facebook", "instagram",
-  "twitter", "x.com", "tiktok", "reddit", "snapchat", "pinterest", "9gag", "meme", "gaming"
+  "netflix", "prime video", "disney+", "hulu", "twitch", "facebook", "instagram",
+  "twitter", "x.com", "tiktok", "reddit", "snapchat", "pinterest", "9gag", "meme", "gaming",
+  "hotstar", "zee5", "sonyliv", "jiocinema", "altbalaji", "voot"
 ];
 
 export function classifyApplication(appName: string, windowTitle: string = ""): AppCategory {
@@ -67,6 +85,12 @@ export function classifyApplication(appName: string, windowTitle: string = ""): 
 
   if (STUDY_PROCESSES.has(cleanApp)) return "study";
   if (STUDY_KEYWORDS.some(kw => cleanTitle.includes(kw))) return "study";
+
+  if (cleanTitle.includes("youtube")) {
+    if (STUDY_KEYWORDS.some(kw => cleanTitle.includes(kw))) return "study";
+    return "entertainment";
+  }
+
   if (ENTERTAINMENT_KEYWORDS.some(kw => cleanTitle.includes(kw))) return "entertainment";
   if (ENTERTAINMENT_PROCESSES.has(cleanApp)) return "entertainment";
   if (SOCIAL_PROCESSES.has(cleanApp)) return "social";

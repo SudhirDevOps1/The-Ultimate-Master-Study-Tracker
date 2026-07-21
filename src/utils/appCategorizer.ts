@@ -1,11 +1,11 @@
 /**
  * FlowTrack Pro — Production-Grade Application & Window Categorization Engine
- * Contains 500+ mapped developer tools, IDEs, browsers, system utilities, and entertainment apps.
+ * Contains 500+ mapped Global Worldwide & Targeted Indian EdTech apps, exam portals, IDEs, browsers & system utilities.
  */
 
 export type AppCategory = "study" | "browser" | "social" | "entertainment" | "system";
 
-// 1. STUDY & DEVELOPMENT TOOLS (IDEs, Text Editors, DBs, Terminals, AI Tools, PDF/Notes)
+// 1. STUDY & DEVELOPMENT PROCESSES (IDEs, Code Editors, Terminals, AI Tools, Office & PDF)
 const STUDY_PROCESSES = new Set([
   // IDEs & Code Editors
   "code", "code - insiders", "vscodium", "cursor", "windsurf", "zed", "idea64", "idea",
@@ -25,6 +25,11 @@ const STUDY_PROCESSES = new Set([
   "postman", "insomnia", "bruno", "hoppscotch", "charles", "fiddler", "wireshark",
   "compass", "redis-insight", "mongodb-compass", "sqlyog", "heidisql",
 
+  // Indian EdTech & Study Apps (Native Desktop Executables)
+  "physicswallah", "pw", "allen", "allen digital", "unacademy", "byjus", "vedantu",
+  "adda247", "testbook", "drishtiias", "visionias", "nextias", "khansir", "utkarsh",
+  "exampur", "wifistudy", "classplus", "gradeup", "oliveboard", "studyiqupc",
+
   // Notes, AI, Office & Reading
   "obsidian", "notion", "anki", "logseq", "roam", "evernote", "onenote", "joplin", "typora",
   "acrobat", "acrobrd32", "foxitreader", "sumatrapdf", "okular", "evince", "zotero", "mendeley",
@@ -32,11 +37,24 @@ const STUDY_PROCESSES = new Set([
   "antigravity", "chatgpt", "claude", "ollama", "lm-studio", "jan", "anything-llm"
 ]);
 
+// GLOBAL & INDIAN TARGETED STUDY KEYWORDS (Browser Window Titles & Websites)
 const STUDY_KEYWORDS = [
+  // Global Coding & Computer Science
   "visual studio code", "vscodium", "cursor", "intellij", "pycharm", "webstorm", "clion",
   "sublime", "terminal", "powershell", "command prompt", "github", "gitlab", "stackoverflow",
   "leetcode", "hackerrank", "geeksforgeeks", "w3schools", "mdn web docs", "devdocs",
-  "coursera", "udemy", "khan academy", "edx", "brilliant", "nptel", "unacademy", "physics wallah",
+  "coursera", "udemy", "khan academy", "edx", "brilliant", "datacamp", "codecademy", "freecodecamp",
+  "scaler", "coding ninjas", "chai aur code", "takeuforward", "striver", "gate smashers",
+  "apna college", "code with harry", "love babbar", "jenny's lectures", "neso academy",
+
+  // Indian EdTech, Competitive Exams (JEE/NEET/UPSC/GATE/Banking/SSC/CAT)
+  "physics wallah", "pw.live", "pw app", "allen", "allen digital", "unacademy", "byju's", "vedantu",
+  "adda247", "testbook", "drishti ias", "vision ias", "next ias", "vajiram", "khan sir",
+  "utkarsh classes", "exampur", "wifistudy", "oliveboard", "study iq", "mrunal", "insightsonindia",
+  "forum ias", "bpsc", "upsc", "ssc cgl", "gate 20", "jee main", "jee advanced", "neet 20",
+  "nptel", "swayam", "cbse", "ncert", "rd sharma", "hc verma", "irodov", "cengage",
+
+  // Academic Documents, Books & Research
   "pdf", "lecture", "documentation", "notes", "thesis", "research", "paper", "book",
   "localhost", "127.0.0.1", "jupyter", "google colab", "replit", "overleaf", "latex", "kaggle"
 ];
@@ -61,13 +79,14 @@ const ENTERTAINMENT_PROCESSES = new Set([
 ]);
 
 const ENTERTAINMENT_KEYWORDS = [
-  "youtube -", "netflix", "prime video", "disney+", "hulu", "twitch", "facebook", "instagram",
-  "twitter", "x.com", "tiktok", "reddit", "snapchat", "pinterest", "9gag", "meme", "gaming"
+  "netflix", "prime video", "disney+", "hulu", "twitch", "facebook", "instagram",
+  "twitter", "x.com", "tiktok", "reddit", "snapchat", "pinterest", "9gag", "meme", "gaming",
+  "hotstar", "zee5", "sonyliv", "jiocinema", "altbalaji", "voot"
 ];
 
 /**
  * Classifies an app or window title into 1 of 5 categories:
- * - study: Coding, IDEs, terminals, docs, PDFs, AI tools
+ * - study: Coding, IDEs, terminals, Indian & Global EdTech apps, docs, PDFs, AI tools
  * - browser: Web Browsers
  * - social: Chat & Communication tools
  * - entertainment: Games, Streaming, Music
@@ -80,19 +99,25 @@ export function classifyApplication(appName: string, windowTitle: string = ""): 
   // 1. Check direct Study process names
   if (STUDY_PROCESSES.has(cleanApp)) return "study";
 
-  // 2. Check Study window title keywords (override browser if watching lecture/docs)
+  // 2. Check Study window title keywords (override browser if watching lecture/docs/PW/Allen)
   if (STUDY_KEYWORDS.some(kw => cleanTitle.includes(kw))) return "study";
 
-  // 3. Check Entertainment title keywords
+  // 3. Special YouTube Education Handler (If YouTube title has study keywords, count as STUDY)
+  if (cleanTitle.includes("youtube")) {
+    if (STUDY_KEYWORDS.some(kw => cleanTitle.includes(kw))) return "study";
+    return "entertainment";
+  }
+
+  // 4. Check Entertainment title keywords
   if (ENTERTAINMENT_KEYWORDS.some(kw => cleanTitle.includes(kw))) return "entertainment";
 
-  // 4. Check Entertainment processes
+  // 5. Check Entertainment processes
   if (ENTERTAINMENT_PROCESSES.has(cleanApp)) return "entertainment";
 
-  // 5. Check Social processes
+  // 6. Check Social processes
   if (SOCIAL_PROCESSES.has(cleanApp)) return "social";
 
-  // 6. Check Browser processes
+  // 7. Check Browser processes
   if (BROWSER_PROCESSES.has(cleanApp)) return "browser";
 
   return "system";
