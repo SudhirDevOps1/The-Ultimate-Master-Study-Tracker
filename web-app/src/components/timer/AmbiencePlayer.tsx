@@ -51,9 +51,8 @@ export function AmbiencePlayer() {
   
   const [localUrl, setLocalUrl] = useState<string>("");
   const [localFileName, setLocalFileName] = useState<string>("");
-  // ✅ BUG FIX: Removed unused `webUrl` state that was never updated (dead code)
+  const [webUrl] = useState<string>("");
   const [isUrlInputOpen, setIsUrlInputOpen] = useState(false);
-  const [audioError, setAudioError] = useState<string | null>(null);
   const dragControls = useDragControls();
   // Playlist state
   const [savedPlaylist, setSavedPlaylist] = useState<Array<{ id: string; name: string; url: string }>>([
@@ -105,15 +104,14 @@ export function AmbiencePlayer() {
     }
   }, [volume]);
   // Track switching & playback
-  const activeUrl = selectedTrack.id === "youtube" ? savedPlaylist[currentPlaylistIndex]?.url || "" : selectedTrack.url;
+  const activeUrl = selectedTrack.id === "youtube" ? savedPlaylist[currentPlaylistIndex]?.url || webUrl : selectedTrack.url;
   useEffect(() => {
     if (isMusicEnabled) {
       const isYoutubeVideo = selectedTrack.id === "youtube" && activeUrl && getYoutubeId(activeUrl);
-
+      
       if (isYoutubeVideo) {
         // Stop HTML audio if YouTube iframe is handling playback
         audioRef.current?.pause();
-        setAudioError(null);
       } else {
         if (selectedTrack.id === "local" && localUrl) {
           if (audioRef.current && audioRef.current.src !== localUrl) {
@@ -131,7 +129,7 @@ export function AmbiencePlayer() {
             audioRef.current.load();
           }
         }
-
+        
         audioRef.current?.play().catch(e => {
           console.log("Audio play blocked, waiting for user interaction.", e);
         });
@@ -400,13 +398,7 @@ export function AmbiencePlayer() {
       <audio
         ref={audioRef}
         loop
-        onError={() => setAudioError("⚠️ Audio failed to load. Try a different track or check your internet.")}
-        onCanPlay={() => setAudioError(null)}
       />
-      {/* ✅ BUG FIX: Show audio error state so user knows when sound is unavailable */}
-      {audioError && isMusicEnabled && (
-        <p className="text-[10px] text-amber-400 px-1 mt-1 max-w-xs">{audioError}</p>
-      )}
     </div>
   );
 }

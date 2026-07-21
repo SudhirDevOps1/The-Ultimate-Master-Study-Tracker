@@ -116,15 +116,8 @@ const STRICT_INACTIVITY_LIMIT_MS = 10 * 60 * 1000; // 10 minutes
 let sessionOperationInProgress = false;
 
 async function withSessionLock<T>(operation: () => Promise<T>): Promise<T> {
-  // ✅ BUG FIX: Added 5-second timeout to prevent permanent deadlock
-  const timeoutMs = 5000;
-  const start = Date.now();
+  // Wait for any ongoing operation to complete
   while (sessionOperationInProgress) {
-    if (Date.now() - start > timeoutMs) {
-      console.warn("[withSessionLock] Lock timeout exceeded – force releasing.");
-      sessionOperationInProgress = false;
-      break;
-    }
     await new Promise(resolve => setTimeout(resolve, 10));
   }
   sessionOperationInProgress = true;
@@ -167,10 +160,6 @@ function calculateGamificationStats(sessions: StudySession[]) {
   else if (level > 30) rank = "Master";
   else if (level > 20) rank = "Architect";
   else if (level > 10) rank = "Scholar";
-
-  // ✅ BUG FIX: Removed broken Worker("./analytics.worker.js") call.
-  // That file never existed — it was throwing uncaught errors on every session update.
-  // Analytics are already calculated synchronously above.
 
   return { totalXP, level, rank, xpToNextLevel, xpProgress };
 }
@@ -222,76 +211,6 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
     void get().fetchBackendData();
   },
   fetchBackendData: async () => {
-    // Check if running inside Electron desktop shell
-    if (typeof window !== "undefined" && (window as any).require) {
-      try {
-        const electron = (window as any).require("electron");
-        const active = await electron.ipcRenderer.invoke("get-active-window");
-        if (active) {
-          const title = active.title || "Desktop / Idle";
-          const processName = active.process || "unknown";
-          
-          set({ 
-            activeWindow: title,
-            isBackendConnected: true 
-          });
-
-          // PREVENT SELF TRACKING: Ignore logging if the focused window is FlowTrack itself
-          const isSelf = processName.toLowerCase().includes("flowtrack") || 
-                         processName.toLowerCase().includes("electron") ||
-                         title.toLowerCase().includes("flowtrack");
-
-          if (isSelf) {
-            return;
-          }
-
-          // Log active window locally in IndexedDB as a wellbeing/activity log entry
-          const today = new Date().toISOString().split("T")[0];
-          const logEntry = {
-            id: crypto.randomUUID(),
-            appName: processName,
-            title: title,
-            duration: 10,
-            date: today,
-            hour: new Date().getHours(),
-            category: "study"
-          };
-
-          // Save tracking logs locally inIndexedDB
-          const existing = await db.settings.get("local_activities_logs");
-          const logs = existing ? JSON.parse(existing.value) : [];
-          logs.push(logEntry);
-          await db.settings.put({ key: "local_activities_logs", value: JSON.stringify(logs.slice(-500)) });
-
-          // Calculate mockup active processes stats from local logs
-          const category_stats = { productive: 0, distracting: 0, neutral: 0, idle: 0 };
-          logs.forEach((log: any) => {
-            category_stats.productive += log.duration;
-          });
-
-          set({
-            backendActivities: logs.map((l: any) => ({
-              title: l.title,
-              process: l.appName,
-              duration: l.duration,
-              category: "productive"
-            })),
-            backendStats: {
-              activity_by_category: {
-                productive: category_stats.productive,
-                distracting: 0,
-                neutral: 0,
-                idle: 0
-              }
-            }
-          });
-        }
-        return;
-      } catch (err) {
-        console.warn("Electron IPC query failed, falling back to network polling", err);
-      }
-    }
-
     const url = get().backendUrl;
     if (!url) {
       set({ isBackendConnected: false });
@@ -479,11 +398,8 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
         dailyGoalHours: Number(goalSetting?.value ?? 4),
         weeklyTargetHours: Number(weeklyTargetSetting?.value ?? 20),
         focusMusicEnabled: focusMusicSetting?.value === "true",
-        // ✅ BUG FIX: Use fallback true for new users who have no saved setting.
-        // Previously: `undefined?.value === "true"` evaluated to false, disabling
-        // notifications for all new users despite the default being true.
-        notificationsEnabled: notificationsSetting ? notificationsSetting.value === "true" : true,
-        keyboardShortcutsEnabled: keyboardShortcutsSetting ? keyboardShortcutsSetting.value === "true" : true,
+        notificationsEnabled: notificationsSetting?.value === "true",
+        keyboardShortcutsEnabled: keyboardShortcutsSetting?.value === "true",
         theme: themeValue,
         achievements,
         dailyGoalHitStreak: dailyGoalHitStreakVal,
@@ -742,69 +658,62 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
   },
 
   pauseSession: async () => {
-    // ✅ BUG FIX: Wrapped in withSessionLock to prevent race conditions
-    // with syncActiveSession which also holds the lock
-    return withSessionLock(async () => {
-      const timer = get().timer;
-      if (!timer.activeSessionId || timer.isPaused || !timer.startedAtMs) return;
-      const activeSession = get().sessions.find((session: StudySession) => session.id === timer.activeSessionId);
-      const elapsedSinceStart = Math.floor((Date.now() - timer.startedAtMs) / 1000);
-      const nextAccumulated = clampElapsedSeconds(activeSession, timer.accumulatedSeconds + elapsedSinceStart);
-      const nextTimer: TimerSnapshot = {
-        ...timer,
-        accumulatedSeconds: nextAccumulated,
-        isPaused: true,
-        pausedAtMs: Date.now(),
-        startedAtMs: null,
-        hiddenAtMs: null,
+    const timer = get().timer;
+    if (!timer.activeSessionId || timer.isPaused || !timer.startedAtMs) return;
+    const activeSession = get().sessions.find((session: StudySession) => session.id === timer.activeSessionId);
+    const elapsedSinceStart = Math.floor((Date.now() - timer.startedAtMs) / 1000);
+    const nextAccumulated = clampElapsedSeconds(activeSession, timer.accumulatedSeconds + elapsedSinceStart);
+    const nextTimer: TimerSnapshot = {
+      ...timer,
+      accumulatedSeconds: nextAccumulated,
+      isPaused: true,
+      pausedAtMs: Date.now(),
+      startedAtMs: null,
+      hiddenAtMs: null,
+    };
+    await saveTimer(nextTimer);
+    await db.sessions.update(timer.activeSessionId, {
+      status: "paused",
+      actualSeconds: nextAccumulated,
+      updatedAt: new Date().toISOString(),
+    });
+    set((state: AppState) => {
+      const newSessions: StudySession[] = state.sessions.map((session: StudySession) =>
+        session.id === timer.activeSessionId
+          ? { ...session, status: "paused" as SessionStatus, actualSeconds: nextAccumulated, updatedAt: new Date().toISOString() }
+          : session
+      );
+      return {
+        timer: nextTimer,
+        sessions: sortSessions(newSessions),
+        ...calculateGamificationStats(newSessions)
       };
-      await saveTimer(nextTimer);
-      await db.sessions.update(timer.activeSessionId, {
-        status: "paused",
-        actualSeconds: nextAccumulated,
-        updatedAt: new Date().toISOString(),
-      });
-      set((state: AppState) => {
-        const newSessions: StudySession[] = state.sessions.map((session: StudySession) =>
-          session.id === timer.activeSessionId
-            ? { ...session, status: "paused" as SessionStatus, actualSeconds: nextAccumulated, updatedAt: new Date().toISOString() }
-            : session
-        );
-        return {
-          timer: nextTimer,
-          sessions: sortSessions(newSessions),
-          ...calculateGamificationStats(newSessions)
-        };
-      });
     });
   },
 
   resumeSession: async () => {
-    // ✅ BUG FIX: Wrapped in withSessionLock to prevent race conditions
-    return withSessionLock(async () => {
-      const timer = get().timer;
-      if (!timer.activeSessionId || !timer.isPaused) return;
-      const now = Date.now();
-      const nextTimer: TimerSnapshot = {
-        ...timer,
-        startedAtMs: now,
-        isPaused: false,
-        pausedAtMs: null,
-        hiddenAtMs: null,
-        lastInteractionAtMs: now,
+    const timer = get().timer;
+    if (!timer.activeSessionId || !timer.isPaused) return;
+    const now = Date.now();
+    const nextTimer: TimerSnapshot = {
+      ...timer,
+      startedAtMs: now,
+      isPaused: false,
+      pausedAtMs: null,
+      hiddenAtMs: null,
+      lastInteractionAtMs: now,
+    };
+    await saveTimer(nextTimer);
+    await db.sessions.update(timer.activeSessionId, { status: "in_progress", updatedAt: new Date().toISOString() });
+    set((state: AppState) => {
+      const newSessions: StudySession[] = state.sessions.map((session: StudySession) =>
+        session.id === timer.activeSessionId ? { ...session, status: "in_progress" as SessionStatus, updatedAt: new Date().toISOString() } : session
+      );
+      return {
+        timer: nextTimer,
+        sessions: sortSessions(newSessions),
+        ...calculateGamificationStats(newSessions)
       };
-      await saveTimer(nextTimer);
-      await db.sessions.update(timer.activeSessionId, { status: "in_progress", updatedAt: new Date().toISOString() });
-      set((state: AppState) => {
-        const newSessions: StudySession[] = state.sessions.map((session: StudySession) =>
-          session.id === timer.activeSessionId ? { ...session, status: "in_progress" as SessionStatus, updatedAt: new Date().toISOString() } : session
-        );
-        return {
-          timer: nextTimer,
-          sessions: sortSessions(newSessions),
-          ...calculateGamificationStats(newSessions)
-        };
-      });
     });
   },
 

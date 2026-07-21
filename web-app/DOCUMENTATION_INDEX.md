@@ -7,13 +7,13 @@ Welcome to FlowTrack Pro! This guide helps you find the right documentation for 
 ## 🚀 Getting Started (Choose Your Path)
 
 ### I want to **start using the app right now**
-👉 **[QUICK_START.md](docs/QUICK_START.md)** - 3 minutes
+👉 **[QUICK_START.md](QUICK_START.md)** - 3 minutes
 - Setup instructions for your OS
 - Start the app in 3 steps
 - Quick verification it's working
 
 ### I want to **understand how to use each feature**
-👉 **[USER_GUIDE.md](docs/USER_GUIDE.md)** - 20 minutes
+👉 **[USER_GUIDE.md](USER_GUIDE.md)** - 20 minutes
 - Complete feature overview
 - How each section works
 - Tips and best practices
@@ -21,7 +21,7 @@ Welcome to FlowTrack Pro! This guide helps you find the right documentation for 
 - FAQ section
 
 ### I want a **quick reference while studying**
-👉 **[CHEAT_SHEET.md](docs/CHEAT_SHEET.md)** - 5 minutes
+👉 **[CHEAT_SHEET.md](CHEAT_SHEET.md)** - 5 minutes
 - Quick navigation
 - Goal recommendations
 - Metrics explained
@@ -29,7 +29,7 @@ Welcome to FlowTrack Pro! This guide helps you find the right documentation for 
 - Daily checklists
 
 ### I want **detailed setup instructions**
-👉 **[SETUP_GUIDE.md](docs/SETUP_GUIDE.md)** - 15 minutes
+👉 **[SETUP_GUIDE.md](SETUP_GUIDE.md)** - 15 minutes
 - System requirements
 - Step-by-step installation
 - Dependency management
@@ -37,7 +37,7 @@ Welcome to FlowTrack Pro! This guide helps you find the right documentation for 
 - Troubleshooting
 
 ### I want to **understand the technical details**
-👉 **[BACKEND_INTEGRATION.md](docs/BACKEND_INTEGRATION.md)** - 20 minutes
+👉 **[BACKEND_INTEGRATION.md](BACKEND_INTEGRATION.md)** - 20 minutes
 - Architecture overview
 - API documentation
 - Database schema
@@ -45,14 +45,14 @@ Welcome to FlowTrack Pro! This guide helps you find the right documentation for 
 - Advanced configuration
 
 ### I want a **visual step-by-step guide**
-👉 **[INSTALLATION_FLOWCHART.md](docs/INSTALLATION_FLOWCHART.md)** - 10 minutes
+👉 **[INSTALLATION_FLOWCHART.md](INSTALLATION_FLOWCHART.md)** - 10 minutes
 - Flowcharts for each OS
 - Visual decision trees
 - Success indicators
 - Troubleshooting tree
 
 ### I want to **understand what was fixed**
-👉 **[ENHANCEMENTS_SUMMARY.md](docs/ENHANCEMENTS_SUMMARY.md)** - 15 minutes
+👉 **[ENHANCEMENTS_SUMMARY.md](ENHANCEMENTS_SUMMARY.md)** - 15 minutes
 - All improvements made
 - New features added
 - Documentation overview
@@ -205,17 +205,17 @@ Welcome to FlowTrack Pro! This guide helps you find the right documentation for 
 
 | Document | Purpose | Length | Time |
 |----------|---------|--------|------|
-| [QUICK_START.md](docs/QUICK_START.md) | Fast setup guide | 180 lines | 3 min |
-| [USER_GUIDE.md](docs/USER_GUIDE.md) | Complete user guide | 450 lines | 20 min |
-| [CHEAT_SHEET.md](docs/CHEAT_SHEET.md) | Quick reference | 424 lines | 5 min |
-| [SETUP_GUIDE.md](docs/SETUP_GUIDE.md) | Detailed setup | 360 lines | 15 min |
-| [BACKEND_INTEGRATION.md](docs/BACKEND_INTEGRATION.md) | Technical details | 350 lines | 20 min |
-| [INSTALLATION_FLOWCHART.md](docs/INSTALLATION_FLOWCHART.md) | Visual guide | 365 lines | 10 min |
-| [ENHANCEMENTS_SUMMARY.md](docs/ENHANCEMENTS_SUMMARY.md) | What's new | 460 lines | 15 min |
-| [FIXES_APPLIED.md](docs/FIXES_APPLIED.md) | Fix details | 440 lines | 10 min |
-| [IMPLEMENTATION_COMPLETE.md](docs/IMPLEMENTATION_COMPLETE.md) | Project overview | 550 lines | 15 min |
-| [README.md](../README.md) | Project intro | Varies | 5 min |
-| [DOCUMENTATION_INDEX.md](docs/DOCUMENTATION_INDEX.md) | This document | - | 5 min |
+| [QUICK_START.md](QUICK_START.md) | Fast setup guide | 180 lines | 3 min |
+| [USER_GUIDE.md](USER_GUIDE.md) | Complete user guide | 450 lines | 20 min |
+| [CHEAT_SHEET.md](CHEAT_SHEET.md) | Quick reference | 424 lines | 5 min |
+| [SETUP_GUIDE.md](SETUP_GUIDE.md) | Detailed setup | 360 lines | 15 min |
+| [BACKEND_INTEGRATION.md](BACKEND_INTEGRATION.md) | Technical details | 350 lines | 20 min |
+| [INSTALLATION_FLOWCHART.md](INSTALLATION_FLOWCHART.md) | Visual guide | 365 lines | 10 min |
+| [ENHANCEMENTS_SUMMARY.md](ENHANCEMENTS_SUMMARY.md) | What's new | 460 lines | 15 min |
+| [FIXES_APPLIED.md](FIXES_APPLIED.md) | Fix details | 440 lines | 10 min |
+| [IMPLEMENTATION_COMPLETE.md](IMPLEMENTATION_COMPLETE.md) | Project overview | 550 lines | 15 min |
+| [README.md](README.md) | Project intro | Varies | 5 min |
+| [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md) | This document | - | 5 min |
 
 **Total Documentation: 2000+ KB of comprehensive guides**
 

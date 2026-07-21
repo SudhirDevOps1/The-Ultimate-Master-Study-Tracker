@@ -1,39 +1,24 @@
 # ============================================
-# FlowTrack Multi-Platform Suite - Master .gitignore
+# The Ultimate Master Study Tracker - .gitignore
 # ============================================
 
-# ---- Secret & Local Notes (Do NOT Commit to Remote) ----
-features.md
-PROMPT_TO_RECREATE_APP.md
-WebApp_v1.1.0.zip
-The-Ultimate-Master-Study-Tracker-main.zip
-flowtrack_config.json
-
-# ---- Node & Dependencies ----
+# ---- Dependencies ----
 node_modules/
-**/node_modules/
 .pnp
 .pnp.js
-package-lock.json
 
-# ---- Build & Distribution Outputs ----
+# ---- Build Output ----
 dist/
-**/dist/
 dist-ssr/
 build/
-**/build/
-dist-electron/
-**/dist-electron/
 *.local
 
-# ---- Python Environments & Compiled Bytecode ----
+# ---- Python Environments ----
 venv/
 .venv/
-**/venv/
-**/env/
-**/.venv/
+env/
+.env/
 __pycache__/
-**/__pycache__/
 *.py[cod]
 *$py.class
 *.pyo
@@ -42,16 +27,14 @@ __pycache__/
 pip-log.txt
 pip-delete-this-directory.txt
 
-# ---- Database & Local State Logs ----
+# ---- Database Files (User Data - Private) ----
 *.db
 *.db-shm
 *.db-wal
 *.sqlite
 *.sqlite3
-activity-log/
-**/activity-log/
 
-# ---- Environment Variables & Secrets ----
+# ---- Environment Variables (Secrets) ----
 .env
 .env.local
 .env.development.local
@@ -72,7 +55,7 @@ activity-log/
 Thumbs.db
 desktop.ini
 
-# ---- System & Log Files ----
+# ---- Logs ----
 logs/
 *.log
 npm-debug.log*
@@ -81,7 +64,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# ---- Temporary Files & Caches ----
+# ---- Temp & Cache ----
 .cache/
 .temp/
 .tmp/
@@ -90,14 +73,28 @@ lerna-debug.log*
 .eslintcache
 .stylelintcache
 
-# ---- OS & macOS System Artifacts ----
+# ---- Test Coverage ----
+coverage/
+*.lcov
+.nyc_output/
+
+# ---- TypeScript ----
+*.tsbuildinfo
+
+# ---- OS Files ----
+.DS_Store
 .DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
 ehthumbs.db
+Thumbs.db
 
-# ---- Misc Dev Notes ----
+# ---- Zip/Archive Files in root (keep ver/ folder zips) ----
+*.zip
+!ver/*.zip
+
+# ---- Misc Dev Notes (Internal only) ----
 BUGFIXES.md
 CHANGES_QUICK_REFERENCE.md
 ENHANCEMENTS_SUMMARY.md

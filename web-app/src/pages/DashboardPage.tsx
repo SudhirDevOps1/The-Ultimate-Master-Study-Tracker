@@ -10,8 +10,6 @@ import { useAppStore, type AppState } from "@/store/useAppStore";
 import type { StudySession } from "@/types/models";
 import { useStreak } from "@/hooks/useStreak";
 import { toDurationLabel, formatTime12Hour } from "@/utils/time";
-import { PDFStudyReader } from "@/components/common/PDFStudyReader";
-import { GamifiedFocusQuest } from "@/components/goals/GamifiedFocusQuest";
 
 // Progress Ring Component
 function ProgressRing({ progress, size = 180, strokeWidth = 12, color = "cyan", children }: { progress: number; size?: number; strokeWidth?: number; color?: string; children?: React.ReactNode }) {
@@ -390,187 +388,6 @@ export function DashboardPage() {
         </motion.div>
       </Panel>
 
-      {/* ===== TODAY'S PLAN - Shows today's active sessions to complete ===== */}
-      {(() => {
-        const now = new Date();
-        const todayStr = format(now, "yyyy-MM-dd");
-        
-        // Get today's sessions (planned, in_progress, paused, completed)
-        const todaySessions = sessions.filter((s: StudySession) => {
-          const sessionDate = format(new Date(s.startTime), "yyyy-MM-dd");
-          return sessionDate === todayStr;
-        });
-        
-        // Active tasks = planned + in_progress + paused for today
-        const activeTasks = todaySessions.filter(
-          (s: StudySession) => s.status === "planned" || s.status === "in_progress" || s.status === "paused"
-        );
-        
-        // Completed today
-        const completedToday = todaySessions.filter((s: StudySession) => s.status === "completed");
-        
-        // Overdue from previous days (planned sessions from past dates)
-        const overdueSessions = sessions.filter((s: StudySession) => {
-          const sessionDate = format(new Date(s.startTime), "yyyy-MM-dd");
-          return sessionDate < todayStr && s.status === "planned";
-        }).slice(0, 5);
-        
-        // Daily recurring sessions (sessions with recurrence type 'daily')
-        const recurringDaily = sessions.filter((s: StudySession) => {
-          if (!s.recurrence || s.recurrence.type !== "daily") return false;
-          const sessionDate = format(new Date(s.startTime), "yyyy-MM-dd");
-          return sessionDate !== todayStr && s.status === "planned";
-        }).slice(0, 3);
-        
-        // Combine all tasks for today
-        const allTodayTasks = [...activeTasks, ...recurringDaily];
-        
-        // Total planned time for today (in minutes)
-        const totalPlannedMinutes = allTodayTasks.reduce((sum, s) => sum + (s.plannedMinutes || 0), 0);
-        const totalCompletedMinutes = completedToday.reduce((sum, s) => sum + Math.round(s.actualSeconds / 60), 0);
-        const planProgress = totalPlannedMinutes > 0 ? Math.min(100, (totalCompletedMinutes / totalPlannedMinutes) * 100) : 0;
-        
-        if (allTodayTasks.length === 0 && completedToday.length === 0 && overdueSessions.length === 0) return null;
-        
-        return (
-          <Panel>
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-indigo-500/20 border border-cyan-500/30">
-                  <span className="text-xl">📋</span>
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-white">Today's Plan</h3>
-                  <p className="text-xs text-slate-400">
-                    {completedToday.length} completed • {activeTasks.length} remaining
-                    {overdueSessions.length > 0 && <span className="text-amber-400 ml-1">• {overdueSessions.length} overdue</span>}
-                  </p>
-                </div>
-              </div>
-              <Link to="/today" className="text-xs font-bold uppercase tracking-wider text-cyan-400 hover:text-cyan-300 transition-colors">View All →</Link>
-            </div>
-
-            {/* Planned vs Actual Progress */}
-            {totalPlannedMinutes > 0 && (
-              <div className="mb-4 rounded-xl border border-white/5 bg-white/5 p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold text-slate-300">Planned Time Progress</span>
-                  <span className="text-xs font-bold text-cyan-400">{formatGoalMinutes(totalCompletedMinutes)} / {formatGoalMinutes(totalPlannedMinutes)}</span>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
-                  <motion.div
-                    className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-indigo-500"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${planProgress}%` }}
-                    transition={{ duration: 1, ease: "easeOut" }}
-                  />
-                </div>
-                <p className="text-[10px] text-slate-500 mt-1">{Math.round(planProgress)}% of today's planned study completed</p>
-              </div>
-            )}
-
-            {/* Overdue Warning */}
-            {overdueSessions.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mb-3 rounded-xl border border-rose-500/20 bg-rose-500/10 p-3"
-              >
-                <p className="text-xs font-bold text-rose-300 mb-1">⚠️ Overdue Sessions</p>
-                <div className="flex flex-wrap gap-2">
-                  {overdueSessions.map(s => {
-                    const sub = getSubject(s.subjectId);
-                    return (
-                      <Link
-                        key={s.id}
-                        to="/timer"
-                        className="flex items-center gap-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 px-2.5 py-1 text-xs text-rose-200 hover:bg-rose-500/20 transition-colors"
-                      >
-                        <span>{sub?.emoji || "📚"}</span>
-                        <span className="font-medium">{sub?.name || "Unknown"}</span>
-                        <span className="text-rose-400/70">{toDurationLabel(s.plannedMinutes)}</span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </motion.div>
-            )}
-
-            {/* Active Tasks Grid */}
-            <div className="grid gap-2 sm:grid-cols-2">
-              {allTodayTasks.map((session, i) => {
-                const sub = getSubject(session.subjectId);
-                const statusColors: Record<string, string> = {
-                  planned: "border-slate-500/30 bg-slate-500/5",
-                  in_progress: "border-cyan-500/30 bg-cyan-500/10",
-                  paused: "border-amber-500/30 bg-amber-500/10",
-                };
-                const statusIcons: Record<string, string> = {
-                  planned: "⏳",
-                  in_progress: "▶️",
-                  paused: "⏸️",
-                };
-                return (
-                  <motion.div
-                    key={session.id}
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.04 }}
-                  >
-                    <Link
-                      to={`/timer#${session.id}`}
-                      className={`flex items-center gap-3 rounded-xl border ${statusColors[session.status] || statusColors.planned} p-3 hover:bg-white/10 transition-all group`}
-                    >
-                      <div
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg"
-                        style={{ backgroundColor: `${sub?.color || "#6366f1"}15`, border: `1px solid ${sub?.color || "#6366f1"}30` }}
-                      >
-                        {sub?.emoji || "📚"}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="truncate text-sm font-bold text-white">{sub?.name || "Deleted Subject"}</p>
-                        <p className="text-[10px] text-slate-400">
-                          {formatTime12Hour(session.startTime)} • {toDurationLabel(session.plannedMinutes)}
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-sm">{statusIcons[session.status] || "⏳"}</span>
-                        <p className="text-[10px] font-semibold text-slate-400 capitalize">{session.status.replace("_", " ")}</p>
-                      </div>
-                    </Link>
-                  </motion.div>
-                );
-              })}
-              
-              {/* Completed Today */}
-              {completedToday.slice(0, 4).map((session, i) => {
-                const sub = getSubject(session.subjectId);
-                return (
-                  <motion.div
-                    key={session.id}
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: (allTodayTasks.length + i) * 0.04 }}
-                    className="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 opacity-70"
-                  >
-                    <div
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg"
-                      style={{ backgroundColor: `${sub?.color || "#10b981"}15` }}
-                    >
-                      ✅
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="truncate text-sm font-medium text-white/70 line-through">{sub?.name || "Deleted Subject"}</p>
-                      <p className="text-[10px] text-slate-500">{toDurationLabel(Math.round(session.actualSeconds / 60))} studied</p>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </Panel>
-        );
-      })()}
-
       <div className="grid gap-5 lg:grid-cols-3">
         {/* Upcoming */}
         <Panel className="lg:col-span-1">
@@ -663,11 +480,6 @@ export function DashboardPage() {
             })}
           </div>
         </Panel>
-      </div>
-
-      {/* Gamified Focus Quest */}
-      <div className="grid gap-5 grid-cols-1">
-        <GamifiedFocusQuest />
       </div>
 
       {/* Heatmap Section */}

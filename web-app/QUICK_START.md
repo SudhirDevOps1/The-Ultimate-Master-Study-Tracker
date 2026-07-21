@@ -2,22 +2,17 @@
 
 ## 3-Minute Setup
 
-# 1. Option A: Desktop Application Installer (.exe)
+### Windows
 ```bash
-# Compile and package FlowTrack into a standalone Windows installer
-npm install
-npm run build
-npm run electron:build
-# Run FlowTrackPro Setup 1.0.0.exe from dist-electron/ folder!
-```
-
-# 2. Option B: Local Browser Mode (Web Host)
-```bash
-# Double-click setup batch
+# 1. Double-click this file:
 setup_windows.bat
-# Start local host servers
+
+# 2. Wait for completion (~1-2 min)
+
+# 3. Double-click this:
 start_local.bat
-# Open http://localhost:5173
+
+# 4. Open http://localhost:5173
 ```
 
 ### macOS / Linux

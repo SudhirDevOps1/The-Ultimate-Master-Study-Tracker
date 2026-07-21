@@ -398,7 +398,6 @@ export function AIAssistantPage() {
   const streakData     = useStreak();
 
   const [provider, setProvider]     = useState<AiConfig["provider"]>(aiConfig?.provider ?? "local_rules");
-  const [windowWidth, setWindowWidth] = useState(typeof window !== "undefined" ? window.innerWidth : 1280);
   const [apiKey, setApiKey]         = useState(aiConfig?.apiKey ?? "");
   const [model, setModel]           = useState(aiConfig?.model ?? "local-rules");
   const [ollamaUrl, setOllamaUrl]   = useState(aiConfig?.ollamaUrl ?? "http://localhost:11434");
@@ -448,13 +447,6 @@ export function AIAssistantPage() {
 
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const abortRef   = useRef<AbortController | null>(null); // to cancel streaming
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const handleResize = () => setWindowWidth(window.innerWidth);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
 
   useEffect(() => {
     db.settings.get("ai_token_usage").then(val => {
@@ -510,29 +502,6 @@ export function AIAssistantPage() {
       setApiKeys(newKeys);
     }
   }, [aiConfig]);
-
-  // Auto-save changes with debounce
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const updatedKeys = { ...apiKeys, [provider]: apiKey };
-      const config: AiConfig = {
-        provider,
-        apiKey,
-        model,
-        ollamaUrl,
-        apiKeys: updatedKeys
-      };
-      if (provider === "custom") {
-        config.customProvider = {
-          name: customProviderName,
-          endpoint: customProviderEndpoint,
-          apiKey: apiKey
-        };
-      }
-      void setAiConfig(config);
-    }, 800);
-    return () => clearTimeout(timer);
-  }, [provider, apiKey, model, ollamaUrl, customProviderName, customProviderEndpoint]);
 
   // ─── Test Connection ───────────────────────────────────────────────
   const handleTestConnection = async () => {
@@ -801,41 +770,18 @@ ${studyContext.recentActivity}`;
     const headers  = getProviderHeaders(provider, apiKey);
     const defaultModel = provider === "ollama" ? "llama3" : provider === "groq" ? "llama-3.3-70b-versatile" : provider === "custom" ? model : "gpt-4o-mini";
 
-    const backendUrl = useAppStore.getState().backendUrl;
-    const isBackendConnected = useAppStore.getState().isBackendConnected;
-
-    let res;
-    if (isBackendConnected && backendUrl) {
-      res = await fetch(`${backendUrl}/api/ai/proxy`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          url: endpoint,
-          headers: headers,
-          body: {
-            model: model || defaultModel,
-            messages: [
-              { role: "system", content: buildSystemPrompt() },
-              { role: "user", content: userMessage }
-            ],
-            temperature: 0.5
-          }
-        })
-      });
-    } else {
-      res = await fetch(endpoint, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          model: model || defaultModel,
-          messages: [
-            { role: "system", content: buildSystemPrompt() },
-            { role: "user", content: userMessage }
-          ],
-          temperature: 0.5
-        })
-      });
-    }
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: model || defaultModel,
+        messages: [
+          { role: "system", content: buildSystemPrompt() },
+          { role: "user", content: userMessage }
+        ],
+        temperature: 0.5
+      })
+    });
 
     const data = await res.json();
 
@@ -898,12 +844,11 @@ ${studyContext.recentActivity}`;
   };
 
   // ─── Handle Send ────────────────────────────────────────────────────
-  const handleSend = async (e?: React.FormEvent, directMessage?: string) => {
-    if (e) e.preventDefault();
-    const messageToSend = directMessage || input.trim();
-    if (!messageToSend || loading) return;
+  const handleSend = async () => {
+    if (!input.trim() || loading) return;
 
-    setMessages(prev => [...prev, { role: "user", content: messageToSend }]);
+    const userMessage = input.trim();
+    setMessages(prev => [...prev, { role: "user", content: userMessage }]);
     setInput("");
     setLoading(true);
     setStreamingText("");
@@ -912,7 +857,7 @@ ${studyContext.recentActivity}`;
       // ── Local Rules ──
       if (provider === "local_rules") {
         setTimeout(() => {
-          const reply = getLocalRuleResponse(messageToSend);
+          const reply = getLocalRuleResponse(userMessage);
           setMessages(prev => [...prev, { role: "assistant", content: reply }]);
           setLoading(false);
         }, 1200);
@@ -923,19 +868,19 @@ ${studyContext.recentActivity}`;
 
       // ── Groq with Streaming ──
       if (provider === "groq" && groqStreaming) {
-        reply = await fetchGroqStreaming(messageToSend) || "";
+        reply = await fetchGroqStreaming(userMessage) || "";
       }
       // ── Groq Non-Streaming ──
       else if (provider === "groq" && !groqStreaming) {
-        reply = await fetchNonStreaming(messageToSend);
+        reply = await fetchNonStreaming(userMessage);
       }
       // ── Gemini ──
       else if (provider === "gemini") {
-        reply = await fetchGemini(messageToSend);
+        reply = await fetchGemini(userMessage);
       }
-      // ── OpenAI-compatible (cerebras, openai, mistral, grok, ollama, custom) ──
+      // ── OpenAI-compatible (cerebras, openai, mistral, grok, ollama) ──
       else {
-        reply = await fetchNonStreaming(messageToSend);
+        reply = await fetchNonStreaming(userMessage);
       }
 
       setMessages(prev => [...prev, { role: "assistant", content: reply }]);
@@ -964,7 +909,6 @@ ${studyContext.recentActivity}`;
 
   const handleSuggestionClick = (promptText: string) => {
     setInput(promptText);
-    void handleSend(undefined, promptText);
   };
 
   // ─── Speed indicator color for Groq models ─────────────────────────
@@ -1138,7 +1082,7 @@ ${studyContext.recentActivity}`;
 
       {/* ─── Right Column: Config ───────────────────────────────────── */}
       <AnimatePresence>
-        {(showConfig || windowWidth >= 1280) && (
+        {(showConfig || window.innerWidth >= 1280) && (
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}

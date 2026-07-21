@@ -1,31 +1,12 @@
 {
   "name": "react-vite-tailwind",
   "private": true,
-  "version": "1.0.0",
-  "main": "electron.js",
-  "type": "commonjs",
+  "version": "0.0.0",
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview",
-    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
-    "electron:build": "vite build && electron-builder"
-  },
-  "build": {
-    "appId": "com.flowtrack.studytracker",
-    "productName": "FlowTrackPro",
-    "win": {
-      "target": "nsis",
-      "icon": "public/favicon.png"
-    },
-    "directories": {
-      "output": "dist-electron"
-    },
-    "files": [
-      "dist/**/*",
-      "electron.js",
-      "package.json"
-    ]
+    "preview": "vite preview"
   },
   "dependencies": {
     "clsx": "2.1.1",
@@ -33,15 +14,12 @@
     "dexie": "^4.3.0",
     "firebase": "^12.15.0",
     "framer-motion": "^12.35.0",
-    "html2canvas": "^1.4.1",
     "lucide-react": "^0.474.0",
-    "pdfjs-dist": "^6.1.200",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-router-dom": "^7.13.1",
     "recharts": "^3.8.0",
     "tailwind-merge": "3.4.0",
-    "tesseract.js": "^7.0.0",
     "zustand": "^5.0.11"
   },
   "devDependencies": {
@@ -50,12 +28,8 @@
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.1.1",
-    "concurrently": "^10.0.3",
-    "electron": "^43.1.1",
-    "electron-builder": "^26.15.3",
     "tailwindcss": "4.1.17",
     "typescript": "5.9.3",
-    "vite": "7.2.4",
-    "wait-on": "^9.0.10"
+    "vite": "7.2.4"
   }
 }

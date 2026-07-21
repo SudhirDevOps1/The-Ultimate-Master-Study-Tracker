@@ -375,21 +375,6 @@ export function SettingsPage() {
                 } catch (e) {
                   console.warn("Backend offline or unreachable, exporting without backend activities", e);
                 }
-
-                // Pack all Local Wellbeing & System App usage lists from localStorage
-                const localWellbeingData: Record<string, any> = {};
-                try {
-                  for (let i = 0; i < localStorage.length; i++) {
-                    const key = localStorage.key(i);
-                    if (key && (key.startsWith("wellbeing_usage_") || key.startsWith("app_activity_") || key === "app_block_rules")) {
-                      const val = localStorage.getItem(key);
-                      if (val) localWellbeingData[key] = JSON.parse(val);
-                    }
-                  }
-                } catch (err) {
-                  console.error("Error reading wellbeing data for backup", err);
-                }
-
                 exportData({
                   app: "FlowTrack",
                   exportedAt: new Date().toISOString(),
@@ -397,7 +382,6 @@ export function SettingsPage() {
                   sessions,
                   settings: settingsList,
                   activities: backendActivities,
-                  wellbeingData: localWellbeingData
                 } as any);
                 showMessage("Backup exported successfully.");
               }}
@@ -413,18 +397,8 @@ export function SettingsPage() {
               onChange={(event) => {
                 const file = event.target.files?.[0];
                 if (!file) return;
-                void importBackup(file).then((payload: any) => {
+                void importBackup(file).then((payload) => {
                   void importAll(payload.subjects, payload.sessions, payload.settings, (payload as any).activities).then(() => {
-                    // Restore Local Wellbeing, App Activity logs and App Blocking Rules
-                    if (payload.wellbeingData) {
-                      try {
-                        Object.entries(payload.wellbeingData).forEach(([key, value]) => {
-                          localStorage.setItem(key, JSON.stringify(value));
-                        });
-                      } catch (err) {
-                        console.error("Error importing wellbeing data", err);
-                      }
-                    }
                     showMessage("Backup imported successfully.");
                     if (fileRef.current) fileRef.current.value = "";
                   });
@@ -650,9 +624,9 @@ export function SettingsPage() {
       <div className="grid gap-5 lg:grid-cols-2">
         <Panel className="space-y-4">
           <div>
-            <h3 className="text-xl font-semibold text-white">📱 FlowTrack Pro Desktop App</h3>
+            <h3 className="text-xl font-semibold text-white">📱 FlowTrack PWA</h3>
             <p className="mt-1 text-sm text-slate-400">
-              100% Offline & Native Electron Desktop Application. Your data stays 100% private on your machine.
+              This app works offline! Install it on your device for the best experience.
             </p>
           </div>
           <div className="flex gap-3">
@@ -665,7 +639,7 @@ export function SettingsPage() {
               <p className="text-xs text-slate-400">Subjects</p>
             </div>
             <div className="rounded-xl bg-white/5 px-4 py-2 text-center">
-              <p className="text-lg font-bold text-purple-400">v2.0.0</p>
+              <p className="text-lg font-bold text-purple-400">v1.3.0</p>
               <p className="text-xs text-slate-400">Version</p>
             </div>
           </div>
@@ -678,21 +652,98 @@ export function SettingsPage() {
               <p className="mt-1 text-xs text-slate-400 font-semibold uppercase tracking-wider">Premium & Private Edition</p>
             </div>
             <div className="flex gap-2">
-              <a
-                href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 rounded-xl bg-white/5 border border-white/10 px-3.5 py-2 text-xs font-semibold text-white hover:bg-white/10 hover:border-cyan-500/50 transition-all duration-200"
+              <button
+                onClick={() => showMessage("💖 Thank you for starring! Repos: github.com/antigravity/flowtrack")}
+                className="rounded-xl bg-white/5 border border-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/10 transition-colors"
               >
-                <span>⭐ View Repo</span>
-              </a>
+                ⭐ Star Repo
+              </button>
             </div>
           </div>
           <p className="text-sm text-slate-400 leading-relaxed">
-            FlowTrack Pro is developed by <strong className="text-white font-semibold">SudhirDevOps1</strong> with a strict privacy-first architecture. It features fully offline operations, ActivityWatch-grade native tracking, and dual-layer hybrid inactivity engines.
+            FlowTrack is developed with a strict privacy-first architecture. It features fully offline operations, local AI engines, PWA caching, and anti-cheat strict window analytics.
           </p>
+          <div className="pt-2 flex flex-wrap items-center justify-between gap-4 border-t border-white/5">
+            <span className="text-xs text-slate-500 font-medium">MIT License • Built with React 19 & Vite 7</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400">Buy developer coffee? ☕</span>
+              <button
+                onClick={() => showMessage("☕ Coffee donation simulated! Thank you for supporting open source.")}
+                className="rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-1 text-xs font-bold text-slate-950 hover:scale-105 transition-transform"
+              >
+                Donate
+              </button>
+            </div>
+          </div>
         </Panel>
       </div>
+
+      {/* Local Python Backend Configuration Panel */}
+      <Panel className="space-y-4 border-l-4 border-emerald-500 bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950/10">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-xl font-semibold text-white flex items-center gap-2">🐍 Local Python Tracker Backend</h3>
+            <p className="mt-1 text-sm text-slate-400">
+              Configure connection to the python script running on your PC. Fallback mode is active when disconnected.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 rounded-full bg-white/5 px-3 py-1.5">
+            <span className={`h-2.5 w-2.5 rounded-full ${isBackendConnected ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+              {isBackendConnected ? "Connected" : "Offline Mode"}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+          <div className="flex-1 space-y-2">
+            <label className="block text-sm text-slate-300">Backend URL (e.g. Local PC IP or localhost)</label>
+            <input
+              type="text"
+              value={inputBackendUrl}
+              onChange={(e) => setInputBackendUrl(e.target.value)}
+              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white focus:border-emerald-400 focus:outline-none font-mono"
+              placeholder="e.g. http://localhost:5001"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={async () => {
+                try {
+                  let testUrl = inputBackendUrl.trim().replace(/\/$/, "");
+                  if (testUrl && !/^https?:\/\//i.test(testUrl)) {
+                    testUrl = "http://" + testUrl;
+                  }
+                  const res = await fetch(`${testUrl}/health`);
+                  if (res.ok) {
+                    const data = await res.json();
+                    showMessage(`Connected successfully! Server version: ${data.version || "Unknown"}`);
+                  } else {
+                    showMessage("❌ Server responded with an error status.");
+                  }
+                } catch (e) {
+                  showMessage("❌ Could not connect to local server. Make sure START.bat is running on your PC.");
+                }
+              }}
+              className="rounded-2xl border border-white/15 px-5 py-3 font-semibold text-white transition-colors hover:bg-white/8 hover:scale-102"
+            >
+              ⚡ Test Connection
+            </button>
+            <button
+              onClick={async () => {
+                await setBackendUrl(inputBackendUrl);
+                showMessage("Backend URL configuration updated successfully.");
+              }}
+              className="rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-3 font-bold text-slate-950 shadow-lg hover:scale-105 transition-transform"
+            >
+              💾 Save Connection
+            </button>
+          </div>
+        </div>
+        <p className="text-xs text-slate-400">
+          💡 <strong>Tip for Vercel:</strong> If you are opening this live Vercel link, keep the URL as <code>http://localhost:5001</code> to connect to your local PC. Or if you want to sync with a network PC, enter its local IP address (e.g., <code>http://192.168.1.15:5001</code>).
+        </p>
+      </Panel>
 
       {/* Danger Zone */}
       <Panel className="space-y-4 border border-red-500/20 bg-red-950/5">

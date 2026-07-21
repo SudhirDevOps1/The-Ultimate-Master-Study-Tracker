@@ -121,17 +121,6 @@ export interface UserProfile {
   goal: string;
 }
 
-// ========== Custom AI Provider ==========
-export interface CustomAIProvider {
-  id: string;
-  name: string;
-  baseUrl: string;
-  model: string;
-  apiKey: string;
-  isActive: boolean;
-  createdAt: string;
-}
-
 export interface AiConfig {
   provider: "gemini" | "cerebras" | "openai" | "mistral" | "grok" | "ollama" | "local_rules" | "groq" | "custom";
   apiKey: string;
@@ -143,8 +132,6 @@ export interface AiConfig {
     endpoint: string;
     apiKey: string;
   };
-  customProviders?: CustomAIProvider[];
-  activeCustomProviderId?: string;
 }
 
 export type CloudSyncStatus = "idle" | "syncing" | "synced" | "error";
@@ -153,65 +140,4 @@ export interface CloudUser {
   uid: string;
   email: string | null;
   displayName: string | null;
-}
-
-// ========== App Usage Tracking (Digital Wellbeing) ==========
-export interface AppUsageRecord {
-  id: string;
-  appName: string;
-  icon?: string;
-  category: "productivity" | "social" | "entertainment" | "study" | "communication" | "browser" | "system" | "other";
-  duration: number; // seconds
-  date: string; // YYYY-MM-DD
-  hour: number; // 0-23
-  isActive: boolean;
-  processName?: string;
-}
-
-export interface BrowserTabRecord {
-  id: string;
-  tabTitle: string;
-  url: string;
-  favicon?: string;
-  domain: string;
-  duration: number; // seconds
-  date: string; // YYYY-MM-DD
-  hour: number; // 0-23
-  visitCount: number;
-}
-
-export interface DailyAppUsageSummary {
-  date: string;
-  totalScreenTime: number; // seconds
-  apps: AppUsageRecord[];
-  browserTabs: BrowserTabRecord[];
-  hourlyBreakdown: Record<number, number>; // hour -> seconds
-  topApps: { name: string; duration: number; icon?: string }[];
-  categories: Record<string, number>; // category -> seconds
-}
-
-// ========== Video Rest Break ==========
-export interface VideoSchedule {
-  enabled: boolean;
-  intervalMinutes: number; // study interval before break (default 60)
-  restMinutes: number; // rest break duration (default 10)
-  lastPlayedAt: string | null;
-  videosPlayed: number;
-  autoPlay: boolean;
-}
-
-// ========== App Blocking ==========
-export type BlockStrictLevel = "soft" | "medium" | "hard";
-
-export interface AppBlockRule {
-  id: string;
-  appName: string;
-  processName?: string;
-  blocked: boolean;
-  strictLevel: BlockStrictLevel;
-  schedule: "always" | "study_hours" | "custom";
-  customStartTime?: string; // HH:mm
-  customEndTime?: string; // HH:mm
-  category: string;
-  createdAt: string;
 }
