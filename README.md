@@ -27,7 +27,7 @@ FlowTrack/
 │   ├── hooks/
 │   │   ├── useTimer.ts      ← Timer tick loop, visibility handling
 │   │   ├── usePomodoro.ts   ← Pomodoro cycle (timestamp-based, freeze-proof)
-│   │   └── useInactivityDetector.ts  ← Windows API idle detection
+│   │   └── useInactivityDetector.ts  ← Dual-layer hybrid smart inactivity detector
 │   ├── pages/
 │   │   ├── TimerPage.tsx         ← Main study timer
 │   │   ├── DashboardPage.tsx     ← Overview & stats
@@ -38,6 +38,8 @@ FlowTrack/
 │   │   ├── SettingsPage.tsx      ← App settings
 │   │   └── ...other pages
 │   └── components/
+│       ├── dashboard/
+│       │   └── BackendActivityPanel.tsx ← Dashboard native IPC live activity widgets
 │       └── timer/
 │           ├── FloatingTimer.tsx     ← PiP floating timer
 │           └── AmbiencePlayer.tsx    ← Background sounds
@@ -81,13 +83,12 @@ FlowTrack/
 - **CSV Export** — kisi bhi din ka data export karo
 - **Data survive karta hai restart ke baad** — AppData mein save hota hai
 
-### 🛌 Inactivity Detection (Windows API)
-- **`GetLastInputInfo` Windows API** use karta hai
-- Keyboard, mouse, touchpad — **sab detect hota hai**
-- **Window minimize pe bhi kaam karta hai** (DOM events se better!)
-- 10 minute idle → session auto-pause + desktop notification
-- User wapas aaye → session auto-resume
-- Inactivity timer progress bar (App Tracking page pe)
+### 🛌 Inactivity Detection (Dual-Layer Hybrid Smart Engine)
+- **Layer 1 (Win32 Kernel Input API):** `GetLastInputInfo` Windows API use karta hai (Keyboard, Mouse, Touchpad, Stylus sab detect hota hai, minimize par bhi).
+- **Layer 2 (Instant DOM Event Watcher):** App ke andar mouse movement, typing, scrolling par instant response (0ms latency).
+- 10 minute idle → session auto-pause + desktop notification.
+- Movement / Typing hote hi → session **Auto-Resume** ho jata hai!
+- Inactivity timer progress bar (App Tracking page pe).
 
 ### 🪟 System Tray
 - App minimize karo ya X dabao → **tray mein chali jaati hai**
@@ -145,7 +146,7 @@ FlowTrack/
 | Setting | Description |
 |---------|-------------|
 | Auto-pause on hide | Window minimize/hide pe timer pause karo |
-| Strict Focus Mode | 10 min inactivity pe auto-pause (Windows API) |
+| Strict Focus Mode | 10 min inactivity pe auto-pause (Dual-Layer Hybrid Engine) |
 | Notifications | Desktop notifications on/off |
 | Daily Goal | Hours per day target |
 | Weekly Target | Hours per week target |
@@ -210,7 +211,7 @@ Sab data **local** store hota hai — koi cloud nahi:
 | `withSessionLock` deadlock possible tha | 5-second timeout add kiya |
 | App close karne se puri app band hoti thi | Minimize-to-tray implement kiya |
 | Activity data restart pe delete hota tha | File-based persistent storage |
-| Inactivity minimize pe detect nahi hoti thi | Windows `GetLastInputInfo` API |
+| Inactivity minimize pe detect nahi hoti thi | Dual-Layer Hybrid Smart Engine (Win32 API + DOM) |
 
 ---
 
@@ -223,7 +224,7 @@ Ye files delete kar diye kyunki sirf web/Python backend ke liye the:
 - `vercel.json` — Web deployment config
 - `DOCUMENTATION_INDEX.md` — Old docs index
 - `public/analytics.worker.js` — Broken web worker (never worked)
-- `public/docs.html` — Web documentation page
+- `public/docs.html` — Web docs page
 - `public/showcase.html` — Web showcase page
 - `public/manifest.webmanifest` — PWA manifest
 - `public/sw.js` — Service worker
@@ -253,7 +254,7 @@ Ye files delete kar diye kyunki sirf web/Python backend ke liye the:
 | Feature | ActivityWatch | FlowTrack |
 |---------|--------------|-----------|
 | App usage tracking | ✅ | ✅ |
-| Idle / AFK detection | ✅ | ✅ (Windows API) |
+| Idle / AFK detection | ✅ | ✅ (Dual-Layer Hybrid: Win32 API + DOM) |
 | Privacy-first, local only | ✅ | ✅ |
 | Data survives restart | ✅ | ✅ |
 | 24-hour timeline | ✅ | ✅ |
