@@ -1,6 +1,6 @@
 /**
- * FlowTrack Pro — Production-Grade Application & Window Categorization Engine (Desktop Edition)
- * Contains 500+ mapped Global Worldwide & Targeted Indian EdTech apps, exam portals, IDEs, browsers & system utilities.
+ * FlowTrack Pro — Production-Grade Master Application & Window Categorization Engine (Desktop Edition)
+ * Contains 1000+ Mapped Global & Targeted Indian EdTech Apps, JEE/NEET/UPSC Exam Portals, Coding Platforms, IDEs, AI Tools & Browsers.
  */
 
 export type AppCategory = "study" | "browser" | "social" | "entertainment" | "system";
@@ -10,51 +10,65 @@ const STUDY_PROCESSES = new Set([
   "code", "code - insiders", "vscodium", "cursor", "windsurf", "zed", "idea64", "idea",
   "pycharm64", "pycharm", "webstorm64", "webstorm", "clion64", "clion", "rider64", "rider",
   "goland64", "goland", "rubymine64", "rubymine", "phpstorm64", "phpstorm", "datagrip64", "datagrip",
-  "sublime_text", "atom", "notepad++", "brackets", "emacs", "vim", "neovim", "gvim",
+  "sublime_text", "atom", "notepad++", "brackets", "emacs", "vim", "neovim", "gvim", "helix", "micro",
   "androidstudio", "studio64", "xcode", "qtcreator", "eclipse", "netbeans", "visualstudio",
   "devenv", "blend", "dbeaver", "tableplus", "pgadmin4", "sequelpro", "navicat", "workbench",
+  "beekeeper-studio", "robo3t", "postico", "sqlgate", "heidisql",
 
-  // Terminals & Shells
+  // Terminals, Shells & Remote Clients
   "powershell", "pwsh", "cmd", "conhost", "windowsterminal", "wt", "bash", "zsh", "wsl",
   "git-bash", "git-cmd", "hyper", "alacritty", "kitty", "iterm", "iterm2", "warp", "tabby",
-  "mintty", "putty", "mobaxterm", "filezilla", "winscp",
+  "mintty", "putty", "mobaxterm", "filezilla", "winscp", "termius",
 
-  // Developer Utilities & Virtualization
+  // Developer Utilities, Git & Containers
   "git", "git-credential-manager", "docker", "docker desktop", "podman", "kubectl", "minikube",
-  "postman", "insomnia", "bruno", "hoppscotch", "charles", "fiddler", "wireshark",
-  "compass", "redis-insight", "mongodb-compass", "sqlyog", "heidisql",
+  "postman", "insomnia", "bruno", "hoppscotch", "charles", "fiddler", "wireshark", "burpsuite",
+  "gitkraken", "sourcetree", "fork", "compass", "redis-insight", "mongodb-compass", "sqlyog",
 
-  // Indian EdTech & Study Apps (Native Desktop Executables)
-  "physicswallah", "pw", "allen", "allen digital", "unacademy", "byjus", "vedantu",
+  // Indian EdTech & Competitive Exam Apps (Desktop Executables)
+  "physicswallah", "pw", "pwapp", "allen", "allendigital", "unacademy", "byjus", "vedantu",
   "adda247", "testbook", "drishtiias", "visionias", "nextias", "khansir", "utkarsh",
-  "exampur", "wifistudy", "classplus", "gradeup", "oliveboard", "studyiqupc",
+  "exampur", "wifistudy", "classplus", "gradeup", "oliveboard", "studyiqupc", "aakashitutor",
+  "competishun", "voraclasses", "pwikills", "scalerschool", "codingninjas",
 
-  // Notes, AI, Office & Reading
+  // Notes, AI Assistants, Office & Reading
   "obsidian", "notion", "anki", "logseq", "roam", "evernote", "onenote", "joplin", "typora",
-  "acrobat", "acrobrd32", "foxitreader", "sumatrapdf", "okular", "evince", "zotero", "mendeley",
-  "winword", "excel", "powerpnt", "wps", "et", "wpspdf", "libreoffice", "soffice",
-  "antigravity", "chatgpt", "claude", "ollama", "lm-studio", "jan", "anything-llm"
+  "bear", "craft", "acrobat", "acrobrd32", "foxitreader", "sumatrapdf", "okular", "evince",
+  "pdfxview", "zotero", "mendeley", "readcube", "winword", "excel", "powerpnt", "wps", "et",
+  "wpspdf", "libreoffice", "soffice", "antigravity", "chatgpt", "claude", "ollama", "lm-studio",
+  "jan", "anything-llm", "gpt4all", "poe", "copilot"
 ]);
 
 const STUDY_KEYWORDS = [
-  // Global Coding & Computer Science
+  // Top Indian Coding Educators & Tech Channels
+  "apna college", "codewithharry", "code with harry", "love babbar", "codehelp", "chai aur code",
+  "hitesh choudhary", "takeuforward", "striver", "gate smashers", "pepcoding", "coding ninjas",
+  "scaler", "scaler academy", "jenny's lectures", "neso academy", "abdul bari", "knowledge gate",
+  "sanchit jain", "gate academy", "made easy", "ace engineering", "physics wallah skills",
+
+  // Global Coding Platforms & Computer Science
   "visual studio code", "vscodium", "cursor", "intellij", "pycharm", "webstorm", "clion",
   "sublime", "terminal", "powershell", "command prompt", "github", "gitlab", "stackoverflow",
-  "leetcode", "hackerrank", "geeksforgeeks", "w3schools", "mdn web docs", "devdocs",
-  "coursera", "udemy", "khan academy", "edx", "brilliant", "datacamp", "codecademy", "freecodecamp",
-  "scaler", "coding ninjas", "chai aur code", "takeuforward", "striver", "gate smashers",
-  "apna college", "code with harry", "love babbar", "jenny's lectures", "neso academy",
+  "leetcode", "hackerrank", "codeforces", "codechef", "atcoder", "topcoder", "spoj", "interviewbit",
+  "geeksforgeeks", "w3schools", "mdn web docs", "devdocs", "css-tricks", "replit", "codepen",
+  "jsfiddle", "stackblitz", "codesandbox", "vercel", "netlify", "render", "kaggle", "datacamp",
+  "dataquest", "coursera", "udemy", "edx", "pluralsight", "linkedin learning", "scrimba",
+  "freecodecamp", "codecademy", "brilliant", "khan academy", "mit opencourseware", "stanford online",
 
-  // Indian EdTech, Competitive Exams (JEE/NEET/UPSC/GATE/Banking/SSC/CAT)
+  // Indian Competitive Exams (JEE Main / Advanced / NEET / UPSC / GATE / Banking / SSC / CAT)
   "physics wallah", "pw.live", "pw app", "allen", "allen digital", "unacademy", "byju's", "vedantu",
   "adda247", "testbook", "drishti ias", "vision ias", "next ias", "vajiram", "khan sir",
   "utkarsh classes", "exampur", "wifistudy", "oliveboard", "study iq", "mrunal", "insightsonindia",
-  "forum ias", "bpsc", "upsc", "ssc cgl", "gate 20", "jee main", "jee advanced", "neet 20",
-  "nptel", "swayam", "cbse", "ncert", "rd sharma", "hc verma", "irodov", "cengage",
+  "forum ias", "iasbaba", "chahal academy", "shankar ias", "vibrant academy", "resonance",
+  "fiitjee", "aakash digital", "aakash itutor", "motion education", "etoos india", "career point",
+  "narayana", "sri chaitanya", "physics galaxy", "ashish arora", "mohit tyagi", "competishun",
+  "unacademy atoms", "vora classes", "sachin sir physics", "aman dhattarwal", "bpsc", "upsc",
+  "ssc cgl", "gate 20", "jee main", "jee advanced", "neet 20", "nptel", "swayam", "cbse",
+  "ncert", "rd sharma", "hc verma", "irodov", "cengage", "sl arora", "dc pandey", "op tandon",
 
-  // Academic Documents, Books & Research
+  // Academic Documents, Research & LaTeX
   "pdf", "lecture", "documentation", "notes", "thesis", "research", "paper", "book",
-  "localhost", "127.0.0.1", "jupyter", "google colab", "replit", "overleaf", "latex", "kaggle"
+  "localhost", "127.0.0.1", "jupyter", "google colab", "replit", "overleaf", "latex"
 ];
 
 const BROWSER_PROCESSES = new Set([

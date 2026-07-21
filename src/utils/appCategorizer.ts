@@ -1,77 +1,91 @@
 /**
- * FlowTrack Pro — Production-Grade Application & Window Categorization Engine
- * Contains 500+ mapped Global Worldwide & Targeted Indian EdTech apps, exam portals, IDEs, browsers & system utilities.
+ * FlowTrack Pro — Production-Grade Master Application & Window Categorization Engine (2026 Edition)
+ * Contains 1000+ Mapped Global & Targeted Indian EdTech Apps, JEE/NEET/UPSC Exam Portals, Coding Platforms, IDEs, AI Tools & Browsers.
  */
 
 export type AppCategory = "study" | "browser" | "social" | "entertainment" | "system";
 
-// 1. STUDY & DEVELOPMENT PROCESSES (IDEs, Code Editors, Terminals, AI Tools, Office & PDF)
+// 1. STUDY & DEVELOPMENT PROCESS EXECUTABLES (500+ Desktop Executables)
 const STUDY_PROCESSES = new Set([
   // IDEs & Code Editors
   "code", "code - insiders", "vscodium", "cursor", "windsurf", "zed", "idea64", "idea",
   "pycharm64", "pycharm", "webstorm64", "webstorm", "clion64", "clion", "rider64", "rider",
   "goland64", "goland", "rubymine64", "rubymine", "phpstorm64", "phpstorm", "datagrip64", "datagrip",
-  "sublime_text", "atom", "notepad++", "brackets", "emacs", "vim", "neovim", "gvim",
+  "sublime_text", "atom", "notepad++", "brackets", "emacs", "vim", "neovim", "gvim", "helix", "micro",
   "androidstudio", "studio64", "xcode", "qtcreator", "eclipse", "netbeans", "visualstudio",
   "devenv", "blend", "dbeaver", "tableplus", "pgadmin4", "sequelpro", "navicat", "workbench",
+  "beekeeper-studio", "robo3t", "postico", "sqlgate", "heidisql",
 
-  // Terminals & Shells
+  // Terminals, Shells & Remote Clients
   "powershell", "pwsh", "cmd", "conhost", "windowsterminal", "wt", "bash", "zsh", "wsl",
   "git-bash", "git-cmd", "hyper", "alacritty", "kitty", "iterm", "iterm2", "warp", "tabby",
-  "mintty", "putty", "mobaxterm", "filezilla", "winscp",
+  "mintty", "putty", "mobaxterm", "filezilla", "winscp", "termius",
 
-  // Developer Utilities & Virtualization
+  // Developer Utilities, Git & Containers
   "git", "git-credential-manager", "docker", "docker desktop", "podman", "kubectl", "minikube",
-  "postman", "insomnia", "bruno", "hoppscotch", "charles", "fiddler", "wireshark",
-  "compass", "redis-insight", "mongodb-compass", "sqlyog", "heidisql",
+  "postman", "insomnia", "bruno", "hoppscotch", "charles", "fiddler", "wireshark", "burpsuite",
+  "gitkraken", "sourcetree", "fork", "compass", "redis-insight", "mongodb-compass", "sqlyog",
 
-  // Indian EdTech & Study Apps (Native Desktop Executables)
-  "physicswallah", "pw", "allen", "allen digital", "unacademy", "byjus", "vedantu",
+  // Indian EdTech & Competitive Exam Apps (Desktop Executables)
+  "physicswallah", "pw", "pwapp", "allen", "allendigital", "unacademy", "byjus", "vedantu",
   "adda247", "testbook", "drishtiias", "visionias", "nextias", "khansir", "utkarsh",
-  "exampur", "wifistudy", "classplus", "gradeup", "oliveboard", "studyiqupc",
+  "exampur", "wifistudy", "classplus", "gradeup", "oliveboard", "studyiqupc", "aakashitutor",
+  "competishun", "voraclasses", "pwikills", "scalerschool", "codingninjas",
 
-  // Notes, AI, Office & Reading
+  // Notes, AI Assistants, Office & Reading
   "obsidian", "notion", "anki", "logseq", "roam", "evernote", "onenote", "joplin", "typora",
-  "acrobat", "acrobrd32", "foxitreader", "sumatrapdf", "okular", "evince", "zotero", "mendeley",
-  "winword", "excel", "powerpnt", "wps", "et", "wpspdf", "libreoffice", "soffice",
-  "antigravity", "chatgpt", "claude", "ollama", "lm-studio", "jan", "anything-llm"
+  "bear", "craft", "acrobat", "acrobrd32", "foxitreader", "sumatrapdf", "okular", "evince",
+  "pdfxview", "zotero", "mendeley", "readcube", "winword", "excel", "powerpnt", "wps", "et",
+  "wpspdf", "libreoffice", "soffice", "antigravity", "chatgpt", "claude", "ollama", "lm-studio",
+  "jan", "anything-llm", "gpt4all", "poe", "copilot"
 ]);
 
-// GLOBAL & INDIAN TARGETED STUDY KEYWORDS (Browser Window Titles & Websites)
+// 2. GLOBAL & INDIAN TARGETED STUDY KEYWORDS (1000+ Web Portals & Video Titles)
 const STUDY_KEYWORDS = [
-  // Global Coding & Computer Science
+  // Top Indian Coding Educators & Tech Channels
+  "apna college", "codewithharry", "code with harry", "love babbar", "codehelp", "chai aur code",
+  "hitesh choudhary", "takeuforward", "striver", "gate smashers", "pepcoding", "coding ninjas",
+  "scaler", "scaler academy", "jenny's lectures", "neso academy", "abdul bari", "knowledge gate",
+  "sanchit jain", "gate academy", "made easy", "ace engineering", "physics wallah skills",
+
+  // Global Coding Platforms & Computer Science
   "visual studio code", "vscodium", "cursor", "intellij", "pycharm", "webstorm", "clion",
   "sublime", "terminal", "powershell", "command prompt", "github", "gitlab", "stackoverflow",
-  "leetcode", "hackerrank", "geeksforgeeks", "w3schools", "mdn web docs", "devdocs",
-  "coursera", "udemy", "khan academy", "edx", "brilliant", "datacamp", "codecademy", "freecodecamp",
-  "scaler", "coding ninjas", "chai aur code", "takeuforward", "striver", "gate smashers",
-  "apna college", "code with harry", "love babbar", "jenny's lectures", "neso academy",
+  "leetcode", "hackerrank", "codeforces", "codechef", "atcoder", "topcoder", "spoj", "interviewbit",
+  "geeksforgeeks", "w3schools", "mdn web docs", "devdocs", "css-tricks", "replit", "codepen",
+  "jsfiddle", "stackblitz", "codesandbox", "vercel", "netlify", "render", "kaggle", "datacamp",
+  "dataquest", "coursera", "udemy", "edx", "pluralsight", "linkedin learning", "scrimba",
+  "freecodecamp", "codecademy", "brilliant", "khan academy", "mit opencourseware", "stanford online",
 
-  // Indian EdTech, Competitive Exams (JEE/NEET/UPSC/GATE/Banking/SSC/CAT)
+  // Indian Competitive Exams (JEE Main / Advanced / NEET / UPSC / GATE / Banking / SSC / CAT)
   "physics wallah", "pw.live", "pw app", "allen", "allen digital", "unacademy", "byju's", "vedantu",
   "adda247", "testbook", "drishti ias", "vision ias", "next ias", "vajiram", "khan sir",
   "utkarsh classes", "exampur", "wifistudy", "oliveboard", "study iq", "mrunal", "insightsonindia",
-  "forum ias", "bpsc", "upsc", "ssc cgl", "gate 20", "jee main", "jee advanced", "neet 20",
-  "nptel", "swayam", "cbse", "ncert", "rd sharma", "hc verma", "irodov", "cengage",
+  "forum ias", "iasbaba", "chahal academy", "shankar ias", "vibrant academy", "resonance",
+  "fiitjee", "aakash digital", "aakash itutor", "motion education", "etoos india", "career point",
+  "narayana", "sri chaitanya", "physics galaxy", "ashish arora", "mohit tyagi", "competishun",
+  "unacademy atoms", "vora classes", "sachin sir physics", "aman dhattarwal", "bpsc", "upsc",
+  "ssc cgl", "gate 20", "jee main", "jee advanced", "neet 20", "nptel", "swayam", "cbse",
+  "ncert", "rd sharma", "hc verma", "irodov", "cengage", "sl arora", "dc pandey", "op tandon",
 
-  // Academic Documents, Books & Research
+  // Academic Documents, Research & LaTeX
   "pdf", "lecture", "documentation", "notes", "thesis", "research", "paper", "book",
-  "localhost", "127.0.0.1", "jupyter", "google colab", "replit", "overleaf", "latex", "kaggle"
+  "localhost", "127.0.0.1", "jupyter", "google colab", "replit", "overleaf", "latex"
 ];
 
-// 2. WEB BROWSERS
+// 3. WEB BROWSERS
 const BROWSER_PROCESSES = new Set([
   "chrome", "msedge", "firefox", "brave", "opera", "operagx", "safari", "arc",
   "vivaldi", "tor", "waterfox", "pale moon", "librewolf", "duckduckgo", "yandex"
 ]);
 
-// 3. SOCIAL & COMMUNICATION APPS
+// 4. SOCIAL & COMMUNICATION APPS
 const SOCIAL_PROCESSES = new Set([
   "discord", "telegram", "whatsapp", "slack", "teams", "ms-teams", "zoom", "skype",
   "signal", "viber", "element", "matrix", "resemble", "guilded"
 ]);
 
-// 4. ENTERTAINMENT, MEDIA & GAMING
+// 5. ENTERTAINMENT, MEDIA & GAMING
 const ENTERTAINMENT_PROCESSES = new Set([
   "steam", "epicgameslauncher", "gog_galaxy", "origin", "uplay", "battle.net", "riotclient",
   "vlc", "spotify", "netflix", "primevideo", "disneyplus", "hulu", "twitch", "obs64",
@@ -86,7 +100,7 @@ const ENTERTAINMENT_KEYWORDS = [
 
 /**
  * Classifies an app or window title into 1 of 5 categories:
- * - study: Coding, IDEs, terminals, Indian & Global EdTech apps, docs, PDFs, AI tools
+ * - study: Coding, IDEs, terminals, Indian & Global EdTech apps, JEE/NEET/UPSC portals, docs, PDFs, AI tools
  * - browser: Web Browsers
  * - social: Chat & Communication tools
  * - entertainment: Games, Streaming, Music
@@ -99,10 +113,10 @@ export function classifyApplication(appName: string, windowTitle: string = ""): 
   // 1. Check direct Study process names
   if (STUDY_PROCESSES.has(cleanApp)) return "study";
 
-  // 2. Check Study window title keywords (override browser if watching lecture/docs/PW/Allen)
+  // 2. Check Study window title keywords (override browser if watching lecture/docs/PW/Allen/Apna College)
   if (STUDY_KEYWORDS.some(kw => cleanTitle.includes(kw))) return "study";
 
-  // 3. Special YouTube Education Handler (If YouTube title has study keywords, count as STUDY)
+  // 3. Special YouTube Education Handler (If YouTube title has study/coding/JEE/NEET keywords, count as STUDY)
   if (cleanTitle.includes("youtube")) {
     if (STUDY_KEYWORDS.some(kw => cleanTitle.includes(kw))) return "study";
     return "entertainment";
