@@ -138,8 +138,6 @@ If you want to use the Web interface while tracking your local Windows PC applic
 For deep technical specifications, design details, and AI guidelines:
 
 - 📖 **[APP_ARCHITECTURE_MANUAL.md](APP_ARCHITECTURE_MANUAL.md)** — Complete Engineering & Operational Operations Manual.
-- 🔮 **[features.md](features.md)** — Local Future Roadmap & Ideas (Local Only).
-- 🤖 **[PROMPT_TO_RECREATE_APP.md](PROMPT_TO_RECREATE_APP.md)** — Master AI Recreation Prompt (Local Only).
 - 🌐 **[web-app/README.md](web-app/README.md)** — Web Release & Python Backend Documentation.
 - 📝 **[web-app/DOCUMENTATION_INDEX.md](web-app/DOCUMENTATION_INDEX.md)** — Full Index of Web Edition Technical Specs.
 
