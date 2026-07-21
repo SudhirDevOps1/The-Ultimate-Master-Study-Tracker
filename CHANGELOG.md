@@ -6,11 +6,45 @@ All notable changes, version updates, feature additions, architectural improveme
 
 ## 🏷️ Version History Summary
 
+- [v3.2.0 (2026-07-21)](#v320---2026-07-21) — 🐛 Critical Tracking Fix, App Data Import/Export, Friendly App Names
 - [v3.1.0 (2026-07-21)](#v310---2026-07-21) — 🖥️ Ultra-Smart Desktop Enhancements (Global OS Hotkeys, Always-On-Top Mini HUD & Windows Toast IPC)
 - [v3.0.0 (2026-07-21)](#v300---2026-07-21) — 🚀 Master 3-Category Architecture & Full 14-Page Ecosystem Release
 - [v2.1.0 (2026-07-20)](#v210---2026-07-20) — 🐍 Python REST Backend & SQLite WAL Database Integration
 - [v2.0.0 (2026-07-19)](#v200---2026-07-19) — 🖥️ Standalone Electron Desktop App & Win32 C# Tracker Release
 - [v1.0.0 (2026-07-15)](#v100---2026-07-15) — 🌐 Initial Serverless Web App Release
+
+---
+
+## [v3.2.0] — 2026-07-21
+
+### 🐛 Critical Bug Fixes — App Activity Tracker
+
+- **🔴 ROOT CAUSE FIX — `win-tracker.exe` NOT bundled in production**:
+  - Added `extraResources` in `desktop-app/package.json` to include `win-tracker.exe` in the packaged `.exe`. This was the primary reason tracking failed in production — the C# Win32 binary was missing from the installer, causing `getForegroundWindow()` to always return `null`.
+- **🔴 Duplicate `isSelf` function removed**:
+  - Fixed a broken duplicate `isSelf` definition in `electron.js` that was silently overriding the correct self-detection logic, causing FlowTrack itself to appear in tracked apps.
+- **✅ Precise `isSelf` detection**:
+  - Now matches all known FlowTrack process names: `electron` (dev), `flowtrackpro` (packaged productName), `flowtrack-pro-desktop`, and `the-ultimate-master*` prefix.
+- **✅ Separate `shouldSkip()` function**:
+  - Cleanly separates "is own app" (isSelf) from "is invalid reading" (unknown, idle, empty) so legitimate system apps are never over-filtered.
+- **✅ App Name Normalizer (`FRIENDLY_NAMES` map)**:
+  - Raw process names (`msedge`, `code`, `winword`, `discord`) now display as human-friendly names (`Microsoft Edge`, `VS Code`, `Microsoft Word`, `Discord`) — 60+ apps covered.
+- **✅ Normalized names in live entry + committed entries**:
+  - Both `isLive` real-time entries and finalized logged entries now show friendly display names.
+- **✅ `get-active-window` IPC upgraded**:
+  - Returns `appName` (normalized), `skip` flag, and `isSelf` — frontend now uses `skip` centrally instead of re-implementing filter logic.
+- **✅ Frontend `classifyApp` updated**:
+  - Category detection now matches friendly names (`Google Chrome`, `Microsoft Edge`, `VS Code`, `Discord`, etc.) instead of raw process names.
+- **📦 Full App Data Import/Export**:
+  - Added `export-app-data` IPC: exports all subjects, sessions, settings + all activity log dates as a single JSON backup file.
+  - Added `import-app-data` IPC: restores complete app state from JSON backup — merges activity logs to disk, reloads Dexie IndexedDB, re-initializes store.
+  - UI: Added `Backup` (cyan) and `Restore` (amber) buttons in App & Web Monitor header.
+- **📅 Historical Activity Loading**:
+  - Startup now loads last 30 days of activity logs from disk into memory (previously only today).
+- **🧹 TypeScript audit**:
+  - Removed unused imports (`BarChart2`, `Clock`, `AppState`) from `AppTrackingPage.tsx`.
+- **📝 package.json metadata**:
+  - Added `description` and `author` fields (were missing, causing electron-builder warnings).
 
 ---
 
