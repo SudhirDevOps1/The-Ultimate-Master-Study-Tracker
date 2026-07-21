@@ -16,13 +16,7 @@ const trackerExePath = app.isPackaged
 let dataDir  = null;
 let activityLog = [];
 let currentActivity = { processName: "", windowTitle: "", startMs: Date.now() };
-const SELF_NAMES = ["flowtrackpro", "flowtrack", "electron"];
-
-function isSelf(proc, title) {
-  const p = (proc  || "").toLowerCase();
-  const t = (title || "").toLowerCase();
-  return SELF_NAMES.some(s => p.includes(s) || t.includes(s));
-}
+// isSelf is defined below (after getForegroundWindow helper)
 
 function getLogFile(date) {
   return path.join(dataDir, `${date}.json`);
@@ -56,31 +50,133 @@ function saveLogToFile() {
   }
 }
 
-function isSelf(processName = "", windowTitle = "") {
-  const p = (processName || "").toLowerCase();
-  const t = (windowTitle || "").toLowerCase();
-  return (
-    p.includes("flowtrack") ||
-    p.includes("electron") ||
-    p.includes("react-vite-tailwind") ||
-    t.includes("flowtrack") ||
+// ─── Self-App Detection ───────────────────────────────────────────────────────
+// Precisely matches only FlowTrack / Electron — NOT system apps or browsers.
+// productName in package.json = "FlowTrackPro" → packaged exe = FlowTrackPro.exe
+function isSelf(processName, windowTitle) {
+  const p = (processName || "").toLowerCase().trim();
+  const t = (windowTitle  || "").toLowerCase().trim();
+
+  // Match by process exe name (all known variants)
+  if (
+    p === "electron"          || // Dev: Electron runtime
+    p === "flowtrack"         || // Packaged v1
+    p === "flowtrackpro"      || // Packaged v2 (current productName)
+    p === "flowtrack-pro-desktop" ||
+    p.startsWith("the-ultimate-master") || // Dev project dir exe
+    p.includes("react-vite-tailwind")
+  ) return true;
+
+  // Match by window title (only our own app windows)
+  if (
+    t.includes("flowtrack")           ||
     t.includes("smart study tracker") ||
     t.includes("flowtrack pro")
-  );
+  ) return true;
+
+  return false;
 }
 
-// ── Direct Native Win32 Active Window Fetcher (0ms Latency) ───────────────────
+// ─── Skip Decision (isSelf OR invalid reading) ────────────────────────────────
+function shouldSkip(processName, windowTitle) {
+  const p = (processName || "").toLowerCase().trim();
+  const t = (windowTitle  || "").toLowerCase().trim();
+  if (isSelf(p, t)) return true;
+  if (!p || p === "unknown" || p === "idle") return true;
+  if (t === "desktop / idle" || t === "desktop is idle") return true;
+  return false;
+}
+
+// ─── App Name Normalizer ───────────────────────────────────────────────────────
+// Turns raw exe names (msedge, chrome, code) into human-friendly display names.
+const FRIENDLY_NAMES = {
+  // Browsers
+  chrome:         "Google Chrome",
+  msedge:         "Microsoft Edge",
+  firefox:        "Mozilla Firefox",
+  brave:          "Brave Browser",
+  opera:          "Opera",
+  chromium:       "Chromium",
+  iexplore:       "Internet Explorer",
+  // Editors / IDEs
+  code:           "VS Code",
+  "code - insiders": "VS Code Insiders",
+  idea64:         "IntelliJ IDEA",
+  pycharm64:      "PyCharm",
+  webstorm64:     "WebStorm",
+  phpstorm64:     "PhpStorm",
+  clion64:        "CLion",
+  goland64:       "GoLand",
+  devenv:         "Visual Studio",
+  notepad:        "Notepad",
+  notepad2:       "Notepad2",
+  notepadplusplus:"Notepad++",
+  sublime_text:   "Sublime Text",
+  atom:           "Atom",
+  vim:            "Vim",
+  nvim:           "Neovim",
+  "windowsterminal": "Windows Terminal",
+  powershell:     "PowerShell",
+  cmd:            "Command Prompt",
+  bash:           "Git Bash",
+  // Productivity
+  winword:        "Microsoft Word",
+  excel:          "Microsoft Excel",
+  powerpnt:       "PowerPoint",
+  onenote:        "OneNote",
+  outlook:        "Outlook",
+  teams:          "Microsoft Teams",
+  msteams:        "Microsoft Teams",
+  zoom:           "Zoom",
+  slack:          "Slack",
+  notion:         "Notion",
+  obsidian:       "Obsidian",
+  acrobat:        "Adobe Acrobat",
+  acrord32:       "Adobe Reader",
+  // Communication
+  discord:        "Discord",
+  telegram:       "Telegram",
+  whatsapp:       "WhatsApp",
+  skype:          "Skype",
+  // Media
+  vlc:            "VLC",
+  spotify:        "Spotify",
+  mpc_hc:         "MPC-HC",
+  mpc_hc64:       "MPC-HC",
+  potplayermini64:"PotPlayer",
+  // Development tools
+  git:            "Git",
+  python:         "Python",
+  node:           "Node.js",
+  // System
+  explorer:       "File Explorer",
+  taskmgr:        "Task Manager",
+  regedit:        "Registry Editor",
+  mspaint:        "Paint",
+  calc:           "Calculator",
+};
+
+function normalizeAppName(rawProcess) {
+  const key = (rawProcess || "").toLowerCase().trim().replace(/\.exe$/, "");
+  return FRIENDLY_NAMES[key] || rawProcess;
+}
+
+
+
+// ── Direct Native Win32 Active Window Fetcher via win-tracker.exe ─────────────
+// STRICT: win-tracker.exe only. No fallback. If not available → returns null.
 function getForegroundWindow() {
   return new Promise((resolve) => {
     if (!fs.existsSync(trackerExePath)) {
-      return resolve({ title: "Desktop / Idle", process: "unknown" });
+      console.warn("[Tracker] win-tracker.exe not found at:", trackerExePath);
+      return resolve(null);
     }
     execFile(trackerExePath, { timeout: 1000 }, (err, stdout) => {
       if (err || !stdout) return resolve(null);
       try {
         const parsed = JSON.parse(stdout.trim());
         resolve({
-          title: parsed.title || "Desktop / Idle",
+          title:   parsed.title   || "",
           process: parsed.process || "unknown"
         });
       } catch {
@@ -111,14 +207,29 @@ function startActivityTracker() {
     const { process: processName, title: windowTitle } = info;
     const now = Date.now();
 
+    // Skip self-app and truly invalid readings
+    if (shouldSkip(processName, windowTitle)) {
+      // Still update currentActivity so we don't log a stale entry next time
+      if (currentActivity.processName !== processName) {
+        currentActivity = { processName, windowTitle, startMs: now };
+      }
+      return;
+    }
+
     const hasChanged = processName !== currentActivity.processName || windowTitle !== currentActivity.windowTitle;
 
     if (hasChanged) {
+      // Flush the previous activity (if it was a valid non-self app)
       const durationSeconds = Math.round((now - currentActivity.startMs) / 1000);
-      if (currentActivity.processName && durationSeconds >= 2 && !isSelf(currentActivity.processName, currentActivity.windowTitle)) {
+      if (
+        currentActivity.processName &&
+        durationSeconds >= 3 &&
+        !shouldSkip(currentActivity.processName, currentActivity.windowTitle)
+      ) {
         const startDt = new Date(currentActivity.startMs);
         activityLog.push({
-          appName:         currentActivity.processName,
+          appName:         normalizeAppName(currentActivity.processName),
+          rawProcess:      currentActivity.processName,
           title:           currentActivity.windowTitle,
           durationSeconds,
           startTime:       startDt.toISOString(),
@@ -126,35 +237,36 @@ function startActivityTracker() {
           hour:            startDt.getHours(),
           minute:          startDt.getMinutes(),
         });
-        if (activityLog.length > 5000) activityLog.splice(0, activityLog.length - 5000);
+        // Cap memory at 10,000 entries
+        if (activityLog.length > 10000) activityLog.splice(0, activityLog.length - 10000);
       }
 
       currentActivity = { processName, windowTitle, startMs: now };
     } else {
+      // Same app still active — update live entry
       const durationSeconds = Math.round((now - currentActivity.startMs) / 1000);
-      if (currentActivity.processName && durationSeconds >= 2 && !isSelf(currentActivity.processName, currentActivity.windowTitle)) {
+      if (durationSeconds >= 2) {
         const today = new Date().toISOString().split("T")[0];
         const existingIdx = activityLog.findIndex(e => e.isLive);
         const liveEntry = {
-          appName: currentActivity.processName,
-          title: currentActivity.windowTitle,
+          appName:         normalizeAppName(currentActivity.processName),
+          rawProcess:      currentActivity.processName,
+          title:           currentActivity.windowTitle,
           durationSeconds,
-          startTime: new Date(currentActivity.startMs).toISOString(),
-          date: today,
-          hour: new Date(currentActivity.startMs).getHours(),
-          minute: new Date(currentActivity.startMs).getMinutes(),
-          isLive: true
+          startTime:       new Date(currentActivity.startMs).toISOString(),
+          date:            today,
+          hour:            new Date(currentActivity.startMs).getHours(),
+          minute:          new Date(currentActivity.startMs).getMinutes(),
+          isLive:          true
         };
 
-        if (existingIdx !== -1) {
-          activityLog[existingIdx] = liveEntry;
-        } else {
-          activityLog.push(liveEntry);
-        }
+        if (existingIdx !== -1) activityLog[existingIdx] = liveEntry;
+        else                    activityLog.push(liveEntry);
       }
     }
   }, 2000);
 
+  // Auto-save to disk every 30 seconds
   setInterval(saveLogToFile, 30_000);
 }
 
@@ -243,10 +355,20 @@ app.whenReady().then(() => {
   dataDir = path.join(app.getPath("userData"), "activity-log");
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-  const today = new Date().toISOString().split("T")[0];
-  const loaded = loadLogFromFile(today);
-  activityLog.push(...loaded);
-  console.log(`[ActivityLog] Loaded ${loaded.length} entries from disk for ${today}`);
+  // Load all historical activity log dates into memory (max 30 days)
+  try {
+    const files = fs.readdirSync(dataDir)
+      .filter(f => f.endsWith(".json"))
+      .sort()
+      .slice(-30);
+    for (const f of files) {
+      const entries = JSON.parse(fs.readFileSync(path.join(dataDir, f), "utf8"));
+      activityLog.push(...entries);
+    }
+    console.log(`[ActivityLog] Loaded ${activityLog.length} entries from ${files.length} day(s)`);
+  } catch (e) {
+    console.error("[ActivityLog] Startup load error:", e);
+  }
 
   createWindow();
   createTray();
@@ -299,8 +421,15 @@ ipcMain.handle("get-idle-time-ms", async () => await getSystemIdleMs());
 
 ipcMain.handle("get-active-window", async () => {
   const info = await getForegroundWindow();
-  if (!info) return { title: "Desktop / Idle", process: "unknown", isSelf: false };
-  return { title: info.title || "Desktop / Idle", process: info.process || "unknown", isSelf: isSelf(info.process, info.title) };
+  if (!info) return { title: "", process: "", appName: "", isSelf: false, skip: true };
+  const skip = shouldSkip(info.process, info.title);
+  return {
+    title:    info.title   || "",
+    process:  info.process || "unknown",
+    appName:  skip ? "" : normalizeAppName(info.process),
+    isSelf:   isSelf(info.process, info.title),
+    skip,
+  };
 });
 
 ipcMain.handle("set-taskbar-progress", async (_e, { progress }) => {
@@ -406,6 +535,93 @@ ipcMain.handle("save-image-dialog", async (_e, { base64Data, defaultFilename }) 
       return { success: true, path: filePath };
     }
     return { success: false, reason: "cancelled" };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// ─── Full App Data Export (JSON Backup) ───────────────────────────────────────
+ipcMain.handle("export-app-data", async (_e, { appData }) => {
+  try {
+    // Merge localStorage appData with all activity logs from disk
+    const allActivityDates = (dataDir && fs.existsSync(dataDir))
+      ? fs.readdirSync(dataDir).filter(f => f.endsWith(".json")).sort()
+      : [];
+
+    const allActivityData = {};
+    for (const f of allActivityDates) {
+      const date = f.replace(".json", "");
+      try {
+        allActivityData[date] = JSON.parse(fs.readFileSync(path.join(dataDir, f), "utf8"));
+      } catch { allActivityData[date] = []; }
+    }
+    // Also save today's in-memory data
+    const today = new Date().toISOString().split("T")[0];
+    allActivityData[today] = activityLog.filter(e => !e.isLive);
+
+    const exportPayload = {
+      exportedAt: new Date().toISOString(),
+      version: "3.1.0",
+      appData: appData || {},        // localStorage data (sessions, subjects, etc.)
+      activityLog: allActivityData,  // All tracked app usage, grouped by date
+    };
+
+    const { filePath } = await dialog.showSaveDialog(mainWindow, {
+      title: "Export FlowTrack App Data",
+      defaultPath: `flowtrack-backup-${today}.json`,
+      filters: [{ name: "JSON Backup", extensions: ["json"] }],
+    });
+    if (filePath) {
+      fs.writeFileSync(filePath, JSON.stringify(exportPayload, null, 2), "utf8");
+      return { success: true, path: filePath };
+    }
+    return { success: false, reason: "cancelled" };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// ─── Full App Data Import (JSON Restore) ─────────────────────────────────────
+ipcMain.handle("import-app-data", async () => {
+  try {
+    const { filePaths } = await dialog.showOpenDialog(mainWindow, {
+      title: "Import FlowTrack App Data",
+      filters: [{ name: "JSON Backup", extensions: ["json"] }],
+      properties: ["openFile"],
+    });
+    if (!filePaths || !filePaths[0]) return { success: false, reason: "cancelled" };
+
+    const raw = fs.readFileSync(filePaths[0], "utf8");
+    const payload = JSON.parse(raw);
+
+    // Validate payload structure
+    if (!payload.version || !payload.exportedAt) {
+      return { success: false, error: "Invalid backup file: missing version or exportedAt" };
+    }
+
+    // Restore activity log files to disk
+    if (payload.activityLog && typeof payload.activityLog === "object") {
+      if (!dataDir) dataDir = path.join(app.getPath("userData"), "activity-log");
+      if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+
+      for (const [date, entries] of Object.entries(payload.activityLog)) {
+        if (Array.isArray(entries) && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+          fs.writeFileSync(path.join(dataDir, `${date}.json`), JSON.stringify(entries, null, 2), "utf8");
+        }
+      }
+
+      // Reload today's activity into memory
+      const today = new Date().toISOString().split("T")[0];
+      const fresh = payload.activityLog[today] || [];
+      activityLog.splice(0, activityLog.length, ...fresh);
+    }
+
+    return {
+      success: true,
+      appData: payload.appData || {},  // Return localStorage data for renderer to restore
+      exportedAt: payload.exportedAt,
+      version: payload.version,
+    };
   } catch (err) {
     return { success: false, error: err.message };
   }

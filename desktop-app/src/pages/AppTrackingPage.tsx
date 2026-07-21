@@ -1,12 +1,14 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Monitor, Calendar, Clock, BarChart2, ShieldAlert, RefreshCw,
-  Activity, Download, ChevronLeft, ChevronRight, Eye, Zap, TrendingUp, Globe
+  Monitor, Calendar, ShieldAlert, RefreshCw,
+  Activity, Download, ChevronLeft, ChevronRight, Eye, Zap, TrendingUp, Globe,
+  Upload, PackageOpen
 } from "lucide-react";
 import { Panel } from "@/components/common/Panel";
-import { useAppStore, type AppState } from "@/store/useAppStore";
+import { useAppStore } from "@/store/useAppStore";
 import { AppBlockingPanel } from "@/components/analytics/AppBlockingPanel";
+import { db } from "@/lib/db";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ActivityEntry {
@@ -36,17 +38,33 @@ interface WebTabSummary {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const STUDY   = ["code","vscode","idea","pycharm","notepad","word","excel","powerpoint","acrobat","obsidian","notion","onenote","anki","typora","atom","sublime","vim","nvim","emacs","jupyter","zotero"];
-const BROWSER = ["chrome","firefox","edge","brave","opera","safari","msedge","chromium","iexplore"];
-const SOCIAL  = ["discord","telegram","whatsapp","slack","teams","zoom","messenger","skype","signal","webex","meet"];
-const ENTERT  = ["vlc","spotify","netflix","youtube","steam","epicgames","epic","games","twitch","mediaplayerclassic","potplayer","mpc","winamp"];
+const STUDY   = [
+  "vs code","vs code insiders","code","vscode","intellij idea","pycharm","webstorm",
+  "phpstorm","clion","goland","visual studio","notepad","notepad++","notepad2",
+  "sublime text","atom","vim","neovim","microsoft word","word","excel","powerpoint",
+  "onenote","adobe acrobat","adobe reader","obsidian","notion","anki","typora",
+  "zotero","jupyter","git","python","node.js","windows terminal","command prompt",
+  "git bash","powershell","idea64","pycharm64","webstorm64","devenv","winword","acrobat","acrord32",
+];
+const BROWSER = [
+  "google chrome","chrome","microsoft edge","msedge","mozilla firefox","firefox",
+  "brave browser","brave","opera","chromium","internet explorer","iexplore",
+];
+const SOCIAL  = [
+  "discord","telegram","whatsapp","slack","microsoft teams","teams","msteams",
+  "zoom","skype","signal","webex","google meet",
+];
+const ENTERT  = [
+  "vlc","spotify","mpc-hc","potplayer","steam","epic games","twitch",
+  "mediaplayerclassic","winamp","mpc_hc","mpc_hc64","potplayermini64",
+];
 
 function classifyApp(app: string): string {
   const n = app.toLowerCase();
-  if (STUDY.some(k => n.includes(k)))   return "study";
+  if (STUDY.some(k   => n.includes(k))) return "study";
   if (BROWSER.some(k => n.includes(k))) return "browser";
-  if (SOCIAL.some(k => n.includes(k)))  return "social";
-  if (ENTERT.some(k => n.includes(k)))  return "entertainment";
+  if (SOCIAL.some(k  => n.includes(k))) return "social";
+  if (ENTERT.some(k  => n.includes(k))) return "entertainment";
   return "system";
 }
 
@@ -215,8 +233,11 @@ export function AppTrackingPage() {
   const [loading, setLoading]           = useState(false);
   const [showBlocker, setShowBlocker]   = useState(false);
   const [activeTab, setActiveTab]       = useState<"overview"|"timeline"|"websites"|"windows">("overview");
+  const [exportStatus, setExportStatus] = useState<"idle"|"exporting"|"importing">("idle");
   const pollRef = useRef<ReturnType<typeof setInterval>>();
   const today   = new Date().toISOString().split("T")[0];
+  const initApp = useAppStore(s => s.initApp);
+  const importAll = useAppStore(s => s.importAll);
 
   // ── Fetch activity log ─────────────────────────────────────────────────
   const fetchLog = useCallback(async (date: string) => {
@@ -250,7 +271,9 @@ export function AppTrackingPage() {
           ipc.invoke("get-active-window"),
           ipc.invoke("get-idle-time-ms"),
         ]);
-        setLiveApp(win?.isSelf || win?.process === "unknown" ? null : { process: win.process, title: win.title });
+        // Use the skip flag from main process — handles all filtering centrally
+        const showLive = win && !win.skip && win.appName;
+        setLiveApp(showLive ? { process: win.appName, title: win.title } : null);
         setLiveIdleMs(idle as number);
       } catch { /* ignore */ }
     };
@@ -325,7 +348,7 @@ export function AppTrackingPage() {
   const idleMin   = Math.floor(liveIdleMs / 60000);
   const idlePct   = Math.min(100, (liveIdleMs / (10 * 60 * 1000)) * 100);
 
-  // ── Export ─────────────────────────────────────────────────────────────
+  // ── Export CSV ─────────────────────────────────────────────────────────
   const handleExport = async () => {
     const ipc = getIpc();
     if (!ipc) return;
@@ -334,6 +357,63 @@ export function AppTrackingPage() {
       if (result.success) alert(`✅ Exported to:\n${result.path}`);
       else if (result.reason !== "cancelled") alert(`❌ Export failed: ${result.error}`);
     } catch (e: any) { alert(`Export error: ${e.message}`); }
+  };
+
+  // ── Export Full App Data (JSON Backup) ─────────────────────────────────
+  const handleExportAll = async () => {
+    const ipc = getIpc();
+    if (!ipc) return;
+    setExportStatus("exporting");
+    try {
+      // Collect all data from Dexie
+      const [subjects, sessions, settings] = await Promise.all([
+        db.subjects.toArray(),
+        db.sessions.toArray(),
+        db.settings.toArray(),
+      ]);
+      const result = await ipc.invoke("export-app-data", {
+        appData: { subjects, sessions, settings },
+      });
+      if (result.success) alert(`✅ Full backup saved to:\n${result.path}`);
+      else if (result.reason !== "cancelled") alert(`❌ Export failed: ${result.error}`);
+    } catch (e: any) { alert(`Export error: ${e.message}`); }
+    setExportStatus("idle");
+  };
+
+  // ── Import Full App Data (JSON Restore) ────────────────────────────────
+  const handleImportAll = async () => {
+    const ipc = getIpc();
+    if (!ipc) return;
+    const confirmed = window.confirm(
+      "⚠️ Import will REPLACE all existing study sessions, subjects & settings.\n" +
+      "Activity log will be merged.\n\nProceed with import?"
+    );
+    if (!confirmed) return;
+
+    setExportStatus("importing");
+    try {
+      const result = await ipc.invoke("import-app-data");
+      if (!result.success) {
+        if (result.reason !== "cancelled") alert(`❌ Import failed: ${result.error || "Unknown error"}`);
+        setExportStatus("idle");
+        return;
+      }
+
+      const { appData } = result;
+      if (appData?.subjects && appData?.sessions) {
+        await importAll(
+          appData.subjects,
+          appData.sessions,
+          appData.settings || []
+        );
+      }
+
+      await initApp();
+      void fetchLog(selectedDate);
+      void fetchDates();
+      alert(`✅ Import successful!\nBacked up on: ${new Date(result.exportedAt).toLocaleString()}\nVersion: ${result.version}`);
+    } catch (e: any) { alert(`Import error: ${e.message}`); }
+    setExportStatus("idle");
   };
 
   return (
@@ -377,7 +457,21 @@ export function AppTrackingPage() {
 
           <button onClick={handleExport} title="Export to CSV"
             className="flex items-center gap-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-500/20 transition-all">
-            <Download className="w-3.5 h-3.5" /> Export CSV
+            <Download className="w-3.5 h-3.5" /> CSV
+          </button>
+
+          {/* Full App Data Export */}
+          <button onClick={handleExportAll} disabled={!isElectron || exportStatus !== "idle"} title="Export full app backup (JSON)" 
+            className="flex items-center gap-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 px-3 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-500/20 transition-all disabled:opacity-40">
+            <PackageOpen className="w-3.5 h-3.5" />
+            {exportStatus === "exporting" ? "Exporting..." : "Backup"}
+          </button>
+
+          {/* Full App Data Import */}
+          <button onClick={handleImportAll} disabled={!isElectron || exportStatus !== "idle"} title="Import app data from JSON backup"
+            className="flex items-center gap-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-xs font-bold text-amber-300 hover:bg-amber-500/20 transition-all disabled:opacity-40">
+            <Upload className="w-3.5 h-3.5" />
+            {exportStatus === "importing" ? "Restoring..." : "Restore"}
           </button>
 
           <button onClick={() => { void fetchLog(selectedDate); void fetchDates(); }}
