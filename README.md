@@ -1,273 +1,122 @@
-# FlowTrack – Smart Study Tracker
+# FlowTrack Pro – Smart Study Tracker & Native Activity Engine
 
-> **Desktop-only Electron app** — All data stored locally, nothing uploaded to the cloud.
+> **100% Standalone Desktop Application** — Powered by Electron 43 + React 19. All data is stored 100% locally on your machine (`%AppData%\FlowTrackPro`). Zero cloud uploads, zero external Python servers, and zero dummy mocks.
 
 ---
 
-## 📦 Install karo (Bas itna karo)
+## 📦 Quick Installation
 
-```
+Double-click the compiled Windows installer to run the desktop application:
+```text
 dist-electron\FlowTrackPro Setup 1.0.0.exe
 ```
 
-Double-click karo → install → done. 🎉
-
 ---
 
-## 🗂️ Project Structure
+## 🗂️ Real Project File Architecture
 
-```
-FlowTrack/
-├── electron.js              ← Electron main process (window, tray, IPC, activity tracker)
-├── src/
-│   ├── main.tsx             ← React app entry point
-│   ├── App.tsx              ← Router + page layout
-│   ├── store/
-│   │   └── useAppStore.ts   ← Global state (Zustand) — timer, sessions, settings
-│   ├── hooks/
-│   │   ├── useTimer.ts      ← Timer tick loop, visibility handling
-│   │   ├── usePomodoro.ts   ← Pomodoro cycle (timestamp-based, freeze-proof)
-│   │   └── useInactivityDetector.ts  ← Dual-layer hybrid smart inactivity detector
-│   ├── pages/
-│   │   ├── TimerPage.tsx         ← Main study timer
-│   │   ├── DashboardPage.tsx     ← Overview & stats
-│   │   ├── AnalyticsPage.tsx     ← Charts & analytics
-│   │   ├── AppTrackingPage.tsx   ← ActivityWatch-style app tracker ← NEW
-│   │   ├── HistoryPage.tsx       ← Session history
-│   │   ├── SubjectsPage.tsx      ← Subject management
-│   │   ├── SettingsPage.tsx      ← App settings
-│   │   └── ...other pages
-│   └── components/
-│       ├── dashboard/
-│       │   └── BackendActivityPanel.tsx ← Dashboard native IPC live activity widgets
-│       └── timer/
-│           ├── FloatingTimer.tsx     ← PiP floating timer
-│           └── AmbiencePlayer.tsx    ← Background sounds
-├── public/
-│   ├── favicon.png           ← App icon (also used for tray)
-│   ├── icon-192.png          ← Notification icon
-│   └── logo.svg              ← Logo
-├── dist/                     ← Vite build output (auto-generated)
-├── dist-electron/            ← Electron build output (.exe here)
-├── package.json
-└── vite.config.ts
+```text
+The-Ultimate-Master-Study-Tracker/
+├── electron.js                            # Main Electron Process (Win32 APIs, Tray, Native Tracker, IPC)
+├── README.md                              # Technical & User Overview Documentation
+├── APP_ARCHITECTURE_MANUAL.md             # Complete Engineering & Operational Manual
+├── package.json                           # Dependencies & Build Scripts
+├── vite.config.ts                         # Vite Bundler Config
+└── src/
+    ├── main.tsx                           # React Entrypoint
+    ├── App.tsx                            # Main Router & Window Title Bar Sync
+    ├── store/
+    │   └── useAppStore.ts                 # Zustand State Manager (Timer, Sessions, XP, Settings)
+    ├── hooks/
+    │   ├── useTimer.ts                    # Core Study Timer Hook (Visibility & Delta Clock)
+    │   ├── usePomodoro.ts                 # Timestamp-based Freeze-Proof Pomodoro Cycle Hook
+    │   └── useInactivityDetector.ts       # Dual-Layer Hybrid Smart Inactivity Engine
+    ├── pages/
+    │   ├── DashboardPage.tsx              # Overview, Weekly Summaries, Focus Score, Native Widgets
+    │   ├── AppTrackingPage.tsx            # ActivityWatch-style 24-hr Timeline & Web Tabs Monitor
+    │   ├── TimerPage.tsx                  # Interactive Study Target & Pomodoro Control Center
+    │   ├── HistoryPage.tsx                # Logged Study Session Records
+    │   ├── SubjectsPage.tsx               # Subject Manager & Color Schemes
+    │   ├── AnalyticsPage.tsx              # Deep Analytical Charts & Focus Metrics
+    │   └── SettingsPage.tsx               # Native App Settings, Backup (Import/Export)
+    └── components/
+        ├── dashboard/
+        │   └── BackendActivityPanel.tsx   # Dashboard Native IPC Live Activity Widgets
+        ├── analytics/
+        │   └── AppActivityList.tsx        # Native IPC Detailed Process Activity Breakdown
+        └── timer/
+            ├── FloatingTimer.tsx          # PiP Floating Overlay Timer
+            └── AmbiencePlayer.tsx         # Focus Music & Sound Effects Player
 ```
 
 ---
 
-## ✅ Features
+## ✅ Core Real Features & Exact Behavior
 
-### ⏱️ Study Timer
-- **Start / Pause / Stop** session with subject selection
-- Timer runs in background — window minimize karo, timer chalta rehta hai
-- **Auto-pause on minimize** setting (Settings mein on/off)
-- Planned session time — timer complete hone pe notification + auto-stop
-- Real-time title bar countdown: `[24:15] Physics - FlowTrack`
+### ⏱️ 1. Study Timer & Live Title Sync
+- **Target Sessions:** Start, pause, or complete timed sessions linked to subjects.
+- **Freeze-Proof Minimization:** Built with Electron `backgroundThrottling: false`. Window minimization never freezes or slows down your timer.
+- **Title Bar Sync:** Real-time countdown on window title: `[24:15] Physics - FlowTrack`.
 
-### 🍅 Pomodoro Mode
-- Work / Short Break / Long Break cycles
-- **Timestamp-based countdown** — minimize/hide pe freeze nahi hoga
-- Auto-start breaks and work sessions (configurable)
-- Desktop notifications on phase change
-- Cycle counter aur history
+### 🍅 2. Timestamp-Based Pomodoro Engine
+- **Work / Short Break / Long Break** cycles.
+- Calculated using real-time timestamp deltas (`Date.now() - startedAtMs`) to prevent interval drift when minimized.
+- Audio cues & system notifications on phase transition.
 
-### 🖥️ App Activity Tracker (ActivityWatch-style)
-- **Automatic** — kuch set nahi karna, sirf app kholo
-- Har **5 seconds** mein Windows foreground window detect karta hai
-- **FlowTrack khud track nahi hota** (self-excluded)
-- Duration per app accumulate hoti hai
-- **24-hour Gantt Timeline** — kab kaunsa app kitni der chala
-- **Category classification** — Study / Browser / Social / Entertainment / System
-- **3 Tabs**: Overview · Timeline · Windows Log
-- **Date history** — purane din ka data dekho (breadcrumb navigation)
-- **CSV Export** — kisi bhi din ka data export karo
-- **Data survive karta hai restart ke baad** — AppData mein save hota hai
+### 🖥️ 3. Native Desktop & Web Activity Monitor (`/app-tracking`)
+- **Real-Time Polling (Every 3 seconds):** Automatically captures active foreground process names and window titles.
+- **FlowTrack Self-Exclusion:** FlowTrack itself (`flowtrackpro.exe`, `electron.exe`) is automatically excluded so your study metrics stay accurate.
+- **4 Dedicated Tracking Tabs:**
+  1. 📊 **Overview:** App breakdown, animated category percentage bars, and live green **`LIVE`** badges.
+  2. 📈 **24-Hour Gantt Timeline:** Hourly visual timeline chart of application usage.
+  3. 🌐 **Web Sites & Tabs Monitor:** Domain extractor for browser tabs (YouTube, GitHub, StackOverflow, ChatGPT, etc.) with favicons, clean site titles, and visit counts.
+  4. 🪟 **Windows Log:** Detailed timestamped history log of every focused window.
+- **Persistent Storage:** Saves daily JSON files inside `%AppData%\FlowTrackPro\activity-log\YYYY-MM-DD.json`. Data survives system reboots.
+- **CSV Data Export:** One-click CSV spreadsheet generation via native save dialogs.
 
-### 🛌 Inactivity Detection (Dual-Layer Hybrid Smart Engine)
-- **Layer 1 (Win32 Kernel Input API):** `GetLastInputInfo` Windows API use karta hai (Keyboard, Mouse, Touchpad, Stylus sab detect hota hai, minimize par bhi).
-- **Layer 2 (Instant DOM Event Watcher):** App ke andar mouse movement, typing, scrolling par instant response (0ms latency).
-- 10 minute idle → session auto-pause + desktop notification.
-- Movement / Typing hote hi → session **Auto-Resume** ho jata hai!
-- Inactivity timer progress bar (App Tracking page pe).
+### 🛌 4. Dual-Layer Hybrid Smart Inactivity Detector
+- **Layer 1 (Win32 Kernel Input API):** Polls Windows `GetLastInputInfo` for hardware-level Mouse, Keyboard, Touchpad, and Stylus input (works globally even when minimized or in the tray).
+- **Layer 2 (Instant DOM Event Watcher):** Captures in-app `mousemove`, `keydown`, `scroll`, `touch`, and `wheel` events with 0ms latency.
+- **Smart Logic:**
+  - **10 Minutes No Input:** Auto-pauses active study session + sends a Windows desktop notification.
+  - **Movement Detected:** Instantly **Auto-Resumes** the session without requiring manual clicks!
 
-### 🪟 System Tray
-- App minimize karo ya X dabao → **tray mein chali jaati hai**
-- Timer background mein chalta rehta hai
-- Right-click → Open / Quit
-- Double-click → app ko front pe laao
-- Windows balloon notification pehli baar minimize hone pe
+### 🪟 5. System Tray Background Execution
+- Clicking **Close (X)** or **Minimize** sends FlowTrack to the Windows System Tray (near the taskbar clock).
+- Study timer and background process tracking continue uninterrupted.
+- Right-click tray icon ➔ **`📖 Open FlowTrack`** or **`❌ Quit FlowTrack`**.
 
-### 📺 PiP (Picture-in-Picture)
-- Timer ko floating mini-window mein dekho
-- Document PiP (native browser) → Video PiP (canvas stream) → fallback overlay
-- **30fps canvas stream** — smooth updates
-- **10-second heartbeat** — session auto-pause se protect karta hai PiP mein
-- PiP khule hone pe minimize se auto-pause nahi hoga
+### 📺 6. Picture-in-Picture (PiP) Floating Overlay
+- Renders an always-on-top mini floating timer window via a 30fps canvas stream.
+- Includes a 10-second heartbeat to keep focus mode valid while watching video lectures.
 
-### 🎵 Ambience / Focus Music
-- Built-in tracks: Rain, Cafe, Forest, White Noise, etc.
-- YouTube playlist support
-- Local audio file upload
-- Volume control
-- Error display agar audio load na ho
+### 📊 7. Dashboard & Focus Score Algorithm
+- **Daily Focus Score:** Algorithmic metric: *Studied Hours Weight + Goal Attachment % - Inactivity Penalty*.
+- **Gamified Level/XP:** Earn XP based on actual studied seconds to level up ranks.
+- **Heatmap:** 90-day GitHub-style focus heatmap.
 
-### 📊 Analytics & History
-- Daily / Weekly / Monthly study charts
-- Subject-wise breakdown
-- Streak tracking
-- XP / Level / Rank gamification system
-- Session history with edit support
-
-### 🏆 Achievements
-- Automatically unlocked based on study milestones
-- XP rewards
-- Progress tracking
-
-### 📅 Calendar
-- Monthly study heatmap
-- Day-wise session details
-
-### 🤖 AI Assistant
-- Built-in AI study assistant
-
-### 📝 Study Notes / Whiteboard
-- Rich text notes
-- Sticky notes board
-- Export board as PNG (native save dialog)
-
-### 📋 Today Tasks
-- Daily task list integrated with subjects
-- Priority and completion tracking
+### 💾 8. Backup & Data Mobility (Import / Export)
+- **📤 Export JSON:** One-click full app backup (sessions, subjects, settings, activities).
+- **📥 Import JSON:** One-click complete data restoration.
+- **📊 CSV Export:** Individual CSV export for sessions, subject statistics, or all data.
 
 ---
 
-## ⚙️ Settings
+## 🛠️ Build & Dev Commands
 
-| Setting | Description |
-|---------|-------------|
-| Auto-pause on hide | Window minimize/hide pe timer pause karo |
-| Strict Focus Mode | 10 min inactivity pe auto-pause (Dual-Layer Hybrid Engine) |
-| Notifications | Desktop notifications on/off |
-| Daily Goal | Hours per day target |
-| Weekly Target | Hours per week target |
-| Pomodoro Settings | Work/break duration, auto-start |
-| Theme | Dark theme (default) |
-| Keyboard Shortcuts | Global shortcuts on/off |
-
----
-
-## 🔧 Development
-
-### Prerequisites
-- Node.js 18+
-- Windows 10/11 (for Windows API features)
-
-### Dev mode chalao
 ```bash
+# Install dependencies
 npm install
-npm run dev          # Vite dev server (browser mein)
-npm run electron:dev # Electron dev mode (agar script ho)
-```
 
-### Production build banao (.exe)
-```bash
+# Run frontend in development mode
+npm run dev
+
+# Compile standalone Windows desktop .exe installer
 npm run electron:build
-# Output: dist-electron\FlowTrackPro Setup 1.0.0.exe
 ```
 
-### Shortcuts
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+Shift+I` | DevTools toggle |
-
 ---
 
-## 🗄️ Data Storage
+## 🔒 Privacy & Architecture Notice
 
-Sab data **local** store hota hai — koi cloud nahi:
-
-| Data | Location |
-|------|----------|
-| Study sessions, subjects, settings | Browser IndexedDB (`Dexie`) |
-| App activity log | `%AppData%\FlowTrackPro\activity-log\YYYY-MM-DD.json` |
-| Timer state | IndexedDB |
-| Pomodoro settings | IndexedDB |
-
-> **Privacy:** Koi bhi data internet pe nahi jata. Purely offline app.
-
----
-
-## 🐛 Bugs Fixed (v2.0)
-
-| Bug | Fix |
-|-----|-----|
-| Timer minimize pe band ho jaata tha | `backgroundThrottling: false` + `autoPauseOnHidden` check fix |
-| Pomodoro minimize pe freeze hota tha | Timestamp-based countdown |
-| Analytics Worker crash | Broken `analytics.worker.js` Worker call remove kiya |
-| Notifications naye users ke liye OFF thi | Default `true` fallback fix |
-| PiP black screen / not updating | Canvas stream 1fps → 30fps |
-| PiP heartbeat bahut slow tha | 30s → 10s |
-| `pauseSession` race condition | `withSessionLock` wrap |
-| `withSessionLock` deadlock possible tha | 5-second timeout add kiya |
-| App close karne se puri app band hoti thi | Minimize-to-tray implement kiya |
-| Activity data restart pe delete hota tha | File-based persistent storage |
-| Inactivity minimize pe detect nahi hoti thi | Dual-Layer Hybrid Smart Engine (Win32 API + DOM) |
-
----
-
-## 📁 Deleted Files (Web/Python-only, Not Needed for Desktop)
-
-Ye files delete kar diye kyunki sirf web/Python backend ke liye the:
-
-- `START.bat` — Python backend + dev server launcher
-- `start_backend_only.bat` — Python backend script
-- `vercel.json` — Web deployment config
-- `DOCUMENTATION_INDEX.md` — Old docs index
-- `public/analytics.worker.js` — Broken web worker (never worked)
-- `public/docs.html` — Web docs page
-- `public/showcase.html` — Web showcase page
-- `public/manifest.webmanifest` — PWA manifest
-- `public/sw.js` — Service worker
-- `docs/` folder — All Python/web-specific documentation
-
----
-
-## 🏗️ Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Desktop shell | Electron 43 |
-| Frontend | React 19 + TypeScript |
-| Build tool | Vite 7 |
-| State | Zustand |
-| Database | Dexie (IndexedDB) |
-| Animations | Framer Motion |
-| Icons | Lucide React |
-| Charts | Recharts / D3 |
-| Styling | Tailwind CSS |
-| Windows APIs | PowerShell + Win32 via `child_process.exec` |
-
----
-
-## 🆚 FlowTrack vs ActivityWatch
-
-| Feature | ActivityWatch | FlowTrack |
-|---------|--------------|-----------|
-| App usage tracking | ✅ | ✅ |
-| Idle / AFK detection | ✅ | ✅ (Dual-Layer Hybrid: Win32 API + DOM) |
-| Privacy-first, local only | ✅ | ✅ |
-| Data survives restart | ✅ | ✅ |
-| 24-hour timeline | ✅ | ✅ |
-| Date history | ✅ | ✅ |
-| CSV export | ✅ | ✅ |
-| Self-exclusion | ❌ | ✅ |
-| Study timer built-in | ❌ | ✅ |
-| Auto-pause on idle | ❌ | ✅ |
-| Auto-resume on activity | ❌ | ✅ |
-| Pomodoro timer | ❌ | ✅ |
-| PiP floating timer | ❌ | ✅ |
-| Python/server required | ✅ (required) | ❌ (not needed) |
-
----
-
-*Built with ❤️ for serious students. All data stays on your device.*
+FlowTrack Pro is a 100% standalone, offline desktop app. It requires **no Python servers**, **no cloud databases**, and **no background subscriptions**. All data remains on your local storage.
