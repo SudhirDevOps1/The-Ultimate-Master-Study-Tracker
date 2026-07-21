@@ -24,11 +24,7 @@
     "files": [
       "dist/**/*",
       "electron.js",
-      "win-tracker.exe",
       "package.json"
-    ],
-    "extraResources": [
-      "win-tracker.exe"
     ]
   },
   "dependencies": {

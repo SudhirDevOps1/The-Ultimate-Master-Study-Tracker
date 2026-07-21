@@ -13,9 +13,6 @@ dist-ssr/
 build/
 dist-electron/
 *.local
-features.md
-PROMPT_TO_RECREATE_APP.md
-WebApp_v1.1.0.zip
 
 # ---- Python Environments ----
 venv/
