@@ -2,24 +2,22 @@
 
 ---
 
-## 🗂️ Architectural Layout
+## 🗂️ Clean Isolated Folder Architecture
 
-- **Root Level (`/`):** Houses the Live Web Client deployable directly to Vercel/Netlify. Contains `index.html`, `src/`, `public/`, `vercel.json`, `START.bat`, and `backend.py`.
-- **Desktop Level (`/desktop-app`):** Houses the Standalone Windows Electron Application Engine. Contains `electron.js`, `win-tracker.exe` (compiled C# Win32 active window helper binary), `flowtrack_config.json`, and `dist-electron/FlowTrackPro Setup 1.0.0.exe`.
+- **`desktop-app/` Directory:** Standalone Windows Electron Application. Contains `electron.js`, `win-tracker.exe` (native Win32 binary helper), `flowtrack_config.json`, React source, and `dist-electron/FlowTrackPro Setup 1.0.0.exe`.
+- **`web-app/` Directory:** Live Web Application. Contains `index.html`, `src/`, `public/`, `vercel.json`, `START.bat`, `backend.py`, and `DOCUMENTATION_INDEX.md`.
 
 ---
 
-## 🛠️ Deployment Workflows
+## 🛠️ Workflows
 
-### 🌐 Web App (Vercel)
-- **Directory:** Root (`/`)
-- **Config:** `vercel.json`
-- **Command:** `npm run build`
+### 🖥️ Desktop App
+- Path: `desktop-app/`
+- Run/Install: `desktop-app/dist-electron/FlowTrackPro Setup 1.0.0.exe`
 
-### 🖥️ Desktop App Executable
-- **Directory:** `desktop-app/`
-- **Installer:** `desktop-app/dist-electron/FlowTrackPro Setup 1.0.0.exe`
-- **Native Helper:** `desktop-app/win-tracker.exe`
+### 🌐 Web App (Vercel Deploy)
+- Path: `web-app/`
+- Build: `cd web-app && npm run build`
 
 ---
 
