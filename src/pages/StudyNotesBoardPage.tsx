@@ -93,13 +93,32 @@ export function StudyNotesBoardPage() {
   const exportBoardAsPNG = async () => {
     if (!boardRef.current) return;
     try {
-      const canvas = await html2canvas(boardRef.current, { backgroundColor: "#090d16", scale: 2 });
+      const canvas = await html2canvas(boardRef.current, { backgroundColor: "#090d16", scale: 2, useCORS: true });
+      const base64Data = canvas.toDataURL("image/png");
+      const filename = `flowtrack-notes-board-${new Date().toISOString().split("T")[0]}.png`;
+
+      // Desktop Electron Environment Native Save Dialog
+      if (typeof window !== "undefined" && (window as any).electron) {
+        const res = await (window as any).electron.ipcRenderer?.invoke?.("save-image-dialog", {
+          base64Data,
+          defaultFilename: filename
+        });
+        if (res && res.success) {
+          alert(`✅ PNG saved successfully to: ${res.path}`);
+          return;
+        }
+      }
+
+      // Standard Browser Download Fallback
       const link = document.createElement("a");
-      link.download = `flowtrack-notes-board-${new Date().toISOString().split("T")[0]}.png`;
-      link.href = canvas.toDataURL("image/png");
+      link.download = filename;
+      link.href = base64Data;
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
     } catch (err) {
       console.error("Export PNG failed:", err);
+      alert("Failed to export PNG. Please try again.");
     }
   };
 

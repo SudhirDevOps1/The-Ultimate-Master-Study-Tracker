@@ -25,6 +25,8 @@ All notable changes, version updates, feature additions, architectural improveme
   - Integrated `set-open-at-login` IPC for automatic background launch when Windows starts up.
 - **🔔 Windows OS Toast Notifications**:
   - Added native Windows notification balloons for study session alerts and Pomodoro breaks.
+- **🖼️ Hybrid PNG Notes Board Download Fix**:
+  - Fixed PNG download logic in `src/pages/StudyNotesBoardPage.tsx` and `desktop-app/src/pages/StudyNotesBoardPage.tsx` to support both Web browser auto-downloads and Electron native `save-image-dialog` IPC dialogs.
 
 ---
 
