@@ -3,6 +3,7 @@
 # ============================================
 
 # ---- Secret & Local Notes (Do NOT Commit to Remote) ----
+rule.txt
 features.md
 PROMPT_TO_RECREATE_APP.md
 WebApp_v1.1.0.zip
