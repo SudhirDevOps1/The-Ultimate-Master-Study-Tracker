@@ -297,15 +297,31 @@ export function SettingsPage() {
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-          <label className="flex items-center gap-2 text-sm text-slate-300">
-            <input
-              type="checkbox"
-              checked={autoCarryForward}
-              onChange={(e) => setAutoCarryForward(e.target.checked)}
-              className="h-4 w-4 rounded border-white/10 bg-slate-800"
-            />
-            🔄 Auto Carry-Forward subjects to next day
-          </label>
+          <div className="flex flex-col gap-2">
+            <label className="flex items-center gap-2 text-sm text-slate-300">
+              <input
+                type="checkbox"
+                checked={autoCarryForward}
+                onChange={(e) => setAutoCarryForward(e.target.checked)}
+                className="h-4 w-4 rounded border-white/10 bg-slate-800"
+              />
+              🔄 Auto Carry-Forward subjects to next day
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-300">
+              <input
+                type="checkbox"
+                onChange={(e) => {
+                  const isChecked = e.target.checked;
+                  if (typeof window !== "undefined" && (window as any).electron) {
+                    (window as any).electron.ipcRenderer?.invoke?.("toggle-always-on-top", { flag: isChecked });
+                  }
+                  showMessage(isChecked ? "📌 Always-On-Top Floating Mode Enabled!" : "Always-On-Top Floating Mode Disabled.");
+                }}
+                className="h-4 w-4 rounded border-cyan-400 bg-slate-800"
+              />
+              📌 Always-On-Top Floating Mode (Keep app on top of other windows)
+            </label>
+          </div>
           
           <button
             onClick={handleSaveProfile}

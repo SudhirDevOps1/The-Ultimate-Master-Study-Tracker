@@ -20,7 +20,7 @@ All notable changes, version updates, feature additions, architectural improveme
 - **⚡ Global System-Wide Hotkeys**:
   - Registered `CommandOrControl+Alt+P` OS hotkey to pause/resume study timer from any application across Windows.
 - **🪟 Always-On-Top Floating HUD Mode**:
-  - Added `toggle-always-on-top` IPC handler to float compact study timer over VS Code, Zoom, or PDF readers.
+  - Added `toggle-always-on-top` IPC handler & connected to UI toggle switch inside Settings Page (`/settings`) to float study app over VS Code, Zoom, or PDF readers.
 - **🚀 Windows Auto-Launch Startup Integration**:
   - Integrated `set-open-at-login` IPC for automatic background launch when Windows starts up.
 - **🔔 Windows OS Toast Notifications**:
