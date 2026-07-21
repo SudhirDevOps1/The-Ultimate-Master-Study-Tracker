@@ -1,5 +1,7 @@
 {
   "name": "flowtrack-pro-desktop",
+  "description": "FlowTrack Pro – Smart Study & Productivity Tracker Desktop App",
+  "author": "FlowTrack Team",
   "private": true,
   "version": "3.1.0",
   "main": "electron.js",
@@ -25,6 +27,12 @@
       "dist/**/*",
       "electron.js",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "win-tracker.exe",
+        "to": "win-tracker.exe"
+      }
     ]
   },
   "dependencies": {
