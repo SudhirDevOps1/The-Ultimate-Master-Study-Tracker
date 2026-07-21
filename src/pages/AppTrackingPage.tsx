@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Monitor, Calendar, Clock, BarChart2, ShieldAlert, RefreshCw,
-  Activity, Download, ChevronLeft, ChevronRight, Eye, Zap, TrendingUp
+  Activity, Download, ChevronLeft, ChevronRight, Eye, Zap, TrendingUp, Globe
 } from "lucide-react";
 import { Panel } from "@/components/common/Panel";
 import { useAppStore, type AppState } from "@/store/useAppStore";
@@ -27,6 +27,14 @@ interface AppSummary {
   isLive: boolean;
 }
 
+interface WebTabSummary {
+  domain: string;
+  title: string;
+  totalSeconds: number;
+  visitCount: number;
+  browser: string;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const STUDY   = ["code","vscode","idea","pycharm","notepad","word","excel","powerpoint","acrobat","obsidian","notion","onenote","anki","typora","atom","sublime","vim","nvim","emacs","jupyter","zotero"];
 const BROWSER = ["chrome","firefox","edge","brave","opera","safari","msedge","chromium","iexplore"];
@@ -40,6 +48,40 @@ function classifyApp(app: string): string {
   if (SOCIAL.some(k => n.includes(k)))  return "social";
   if (ENTERT.some(k => n.includes(k)))  return "entertainment";
   return "system";
+}
+
+// Extract website domain & clean tab title from browser window titles
+function extractWebDomain(title: string, appName: string): { domain: string; cleanTitle: string } | null {
+  const isBrowser = BROWSER.some(b => appName.toLowerCase().includes(b));
+  if (!isBrowser || !title || title === "Desktop / Idle") return null;
+
+  // Remove browser suffix (e.g. "- Google Chrome", "- Microsoft Edge")
+  const cleanTitle = title.replace(/\s*-\s*(Google Chrome|Mozilla Firefox|Microsoft Edge|Brave|Safari|Opera|Vivaldi)$/i, "").trim();
+  
+  // Try extracting domain from known formats or common site keywords
+  const titleLower = cleanTitle.toLowerCase();
+  let domain = "web-page";
+
+  if (titleLower.includes("youtube")) domain = "youtube.com";
+  else if (titleLower.includes("github")) domain = "github.com";
+  else if (titleLower.includes("google search") || titleLower.includes("google")) domain = "google.com";
+  else if (titleLower.includes("stackoverflow")) domain = "stackoverflow.com";
+  else if (titleLower.includes("chatgpt") || titleLower.includes("openai")) domain = "chatgpt.com";
+  else if (titleLower.includes("leetCode")) domain = "leetcode.com";
+  else if (titleLower.includes("coursera")) domain = "coursera.org";
+  else if (titleLower.includes("udemy")) domain = "udemy.com";
+  else if (titleLower.includes("wikipedia")) domain = "wikipedia.org";
+  else if (titleLower.includes("reddit")) domain = "reddit.com";
+  else if (titleLower.includes("twitter") || titleLower.includes(" x ")) domain = "x.com";
+  else if (titleLower.includes("linkedin")) domain = "linkedin.com";
+  else {
+    // Attempt parsing domain word from title string
+    const match = cleanTitle.match(/(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]/i);
+    if (match) domain = match[0].toLowerCase();
+    else domain = cleanTitle.slice(0, 20).toLowerCase().replace(/[^a-z0-9]/g, "") + ".site";
+  }
+
+  return { domain, cleanTitle };
 }
 
 const CAT_COLORS: Record<string, string> = {
@@ -168,7 +210,7 @@ export function AppTrackingPage() {
   const [liveIdleMs, setLiveIdleMs]     = useState(0);
   const [loading, setLoading]           = useState(false);
   const [showBlocker, setShowBlocker]   = useState(false);
-  const [activeTab, setActiveTab]       = useState<"overview"|"timeline"|"windows">("overview");
+  const [activeTab, setActiveTab]       = useState<"overview"|"timeline"|"websites"|"windows">("overview");
   const pollRef = useRef<ReturnType<typeof setInterval>>();
   const today   = new Date().toISOString().split("T")[0];
 
@@ -225,7 +267,7 @@ export function AppTrackingPage() {
     return () => clearInterval(id);
   }, [selectedDate, today, fetchLog]);
 
-  // ── Aggregations ───────────────────────────────────────────────────────
+  // ── App Aggregations ───────────────────────────────────────────────────
   const appSummaries: AppSummary[] = useMemo(() => {
     const map = new Map<string, AppSummary>();
     for (const e of rawLog) {
@@ -235,6 +277,30 @@ export function AppTrackingPage() {
       r.totalSeconds += e.durationSeconds;
       r.sessions++;
       if (e.isLive) r.isLive = true;
+    }
+    return [...map.values()].sort((a, b) => b.totalSeconds - a.totalSeconds);
+  }, [rawLog]);
+
+  // ── Web Sites & Tabs Aggregations ──────────────────────────────────────
+  const webTabSummaries: WebTabSummary[] = useMemo(() => {
+    const map = new Map<string, WebTabSummary>();
+    for (const e of rawLog) {
+      const extracted = extractWebDomain(e.title, e.appName);
+      if (!extracted) continue;
+
+      const key = `${extracted.domain}::${extracted.cleanTitle}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          domain: extracted.domain,
+          title: extracted.cleanTitle,
+          totalSeconds: 0,
+          visitCount: 0,
+          browser: e.appName,
+        });
+      }
+      const r = map.get(key)!;
+      r.totalSeconds += e.durationSeconds;
+      r.visitCount++;
     }
     return [...map.values()].sort((a, b) => b.totalSeconds - a.totalSeconds);
   }, [rawLog]);
@@ -275,9 +341,9 @@ export function AppTrackingPage() {
             <Activity className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-white">App Activity Tracker</h1>
+            <h1 className="text-2xl font-black text-white">App & Web Monitor</h1>
             <p className="text-xs text-slate-400">
-              ActivityWatch-style · Privacy-first · All data stored locally · FlowTrack excluded
+              Desktop Apps + Browser Websites & Tabs Tracker · Privacy-First Local Logging
             </p>
           </div>
         </div>
@@ -319,17 +385,17 @@ export function AppTrackingPage() {
 
       {/* ── Live Status Row ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {/* Live active app */}
+        {/* Live active app / tab */}
         <motion.div animate={{ scale: liveApp ? [1, 1.005, 1] : 1 }} transition={{ repeat: Infinity, duration: 3 }}
           className="col-span-2 rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 p-4">
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
             <span className={`w-2 h-2 rounded-full ${liveApp ? "bg-emerald-400 animate-pulse" : "bg-slate-600"}`} />
-            {liveApp ? "Currently Active" : "Idle / No App"}
+            {liveApp ? "Currently Active Window / Web Tab" : "Idle / No Active Window"}
           </p>
           {liveApp ? (
             <>
               <p className="mt-1 text-lg font-black text-white truncate">{liveApp.process}</p>
-              <p className="text-xs text-slate-400 truncate">{liveApp.title}</p>
+              <p className="text-xs text-cyan-300 truncate">{liveApp.title}</p>
             </>
           ) : (
             <p className="mt-1 text-sm text-slate-500 italic">
@@ -338,7 +404,7 @@ export function AppTrackingPage() {
           )}
         </motion.div>
 
-        {/* Idle Time with progress arc */}
+        {/* Idle Time */}
         <div className={`rounded-2xl border p-4 ${liveIdleMs >= 10 * 60 * 1000 ? "border-rose-500/30 bg-rose-500/10" : "border-white/10 bg-slate-900"}`}>
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Idle Time</p>
           <p className={`mt-1 text-2xl font-black tabular-nums ${liveIdleMs >= 10 * 60 * 1000 ? "text-rose-400" : liveIdleMs >= 5 * 60 * 1000 ? "text-amber-400" : "text-white"}`}>
@@ -355,8 +421,7 @@ export function AppTrackingPage() {
         <div className="rounded-2xl border border-white/10 bg-slate-900 p-4">
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Tracked Today</p>
           <p className="mt-1 text-2xl font-black text-cyan-400">{fmt(totalSeconds)}</p>
-          <p className="text-[10px] text-slate-500 mt-1">{appSummaries.length} unique apps</p>
-          <p className="text-[10px] text-slate-600 mt-0.5">{trackedDates.length} days history</p>
+          <p className="text-[10px] text-slate-500 mt-1">{appSummaries.length} apps · {webTabSummaries.length} web tabs</p>
         </div>
       </div>
 
@@ -382,10 +447,10 @@ export function AppTrackingPage() {
 
             {/* ── Tabs ── */}
             <div className="flex gap-1 bg-slate-900/60 border border-white/10 rounded-2xl p-1 w-fit">
-              {(["overview","timeline","windows"] as const).map(tab => (
+              {(["overview","timeline","websites","windows"] as const).map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all ${activeTab === tab ? "bg-white/10 text-white" : "text-slate-500 hover:text-slate-300"}`}>
-                  {tab === "overview" ? "📊 Overview" : tab === "timeline" ? "📈 Timeline" : "🪟 Windows"}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all ${activeTab === tab ? "bg-white/10 text-white shadow-sm" : "text-slate-500 hover:text-slate-300"}`}>
+                  {tab === "overview" ? "📊 Overview" : tab === "timeline" ? "📈 Timeline" : tab === "websites" ? "🌐 Web Sites & Tabs" : "🪟 Windows"}
                 </button>
               ))}
             </div>
@@ -494,6 +559,58 @@ export function AppTrackingPage() {
                   </h3>
                 </div>
                 <Timeline rawLog={rawLog} />
+              </Panel>
+            )}
+
+            {/* 🌐 NEW TAB: Web Sites & Browser Tabs Monitor */}
+            {activeTab === "websites" && (
+              <Panel className="space-y-4">
+                <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Globe className="w-4 h-4 text-cyan-400" /> Web Activity & Browser Tab Tracker
+                  </h3>
+                  <span className="text-[10px] text-slate-400 font-mono">{webTabSummaries.length} unique sites/tabs</span>
+                </div>
+
+                <div className="space-y-2.5 max-h-[500px] overflow-y-auto pretty-scrollbar pr-1">
+                  {webTabSummaries.length === 0 ? (
+                    <div className="py-12 text-center">
+                      <p className="text-4xl mb-3">🌐</p>
+                      <p className="text-sm text-slate-400 font-semibold">No browser website tabs tracked for this date</p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Open Chrome, Edge, Brave, or Firefox and browse websites to log web activity.
+                      </p>
+                    </div>
+                  ) : (
+                    webTabSummaries.map((tab, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-cyan-500/30 transition-all">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <img
+                            src={`https://www.google.com/s2/favicons?domain=${tab.domain}&sz=32`}
+                            alt="favicon"
+                            className="w-7 h-7 rounded-lg bg-slate-800 shrink-0 p-1 border border-white/10"
+                            onError={(e) => {
+                              (e.target as any).src = "https://www.google.com/s2/favicons?domain=google.com&sz=32";
+                            }}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-bold text-white truncate">{tab.title}</p>
+                            <p className="text-[10px] text-cyan-400 font-mono flex items-center gap-2">
+                              <span>{tab.domain}</span>
+                              <span className="text-slate-600">•</span>
+                              <span className="text-slate-400 uppercase font-sans font-semibold text-[9px]">{tab.browser}</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0 ml-4">
+                          <p className="text-sm font-black text-cyan-300">{fmt(tab.totalSeconds)}</p>
+                          <p className="text-[10px] text-slate-500 font-medium">{tab.visitCount} visits/switches</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </Panel>
             )}
 
