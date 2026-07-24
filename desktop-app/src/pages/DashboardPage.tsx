@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { isSameDay, format, startOfWeek, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Panel } from "@/components/common/Panel";
 import { LevelSystem } from "@/components/gamification/LevelSystem";
@@ -223,6 +223,9 @@ export function DashboardPage() {
     <div className="space-y-6 pb-12">
       {/* Weekly Summary Card */}
       <WeeklySummary sessions={sessions} subjects={subjects} theme={theme} />
+
+      {/* 🚀 Welcome & Changelog Modal overlay */}
+      <WelcomeChangelogModal />
 
       {/* Backend Activity Tracker Panel */}
       <BackendActivityPanel />
@@ -711,6 +714,100 @@ export function DashboardPage() {
         </div>
       </Panel>
     </div>
+  );
+}
+
+// ─── Welcome & Changelog Modal Component ─────────────────────────────────────
+function WelcomeChangelogModal() {
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    // Show only once per major release version update
+    const seenVersion = localStorage.getItem("flowtrack_changelog_v3.3.0");
+    if (!seenVersion) {
+      setIsOpen(true);
+    }
+  }, []);
+
+  const handleClose = () => {
+    localStorage.setItem("flowtrack_changelog_v3.3.0", "true");
+    setIsOpen(false);
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="w-full max-w-lg rounded-3xl border border-white/10 bg-slate-900 p-6 shadow-2xl space-y-4"
+          >
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">
+                🚀 Shipped: v3.3.0
+              </span>
+              <h3 className="text-2xl font-black text-white">
+                What&apos;s New in FlowTrack Pro!
+              </h3>
+              <p className="text-xs text-slate-400">
+                Explore the latest features and updates optimized for your study workflow.
+              </p>
+            </div>
+
+            <hr className="border-white/5" />
+
+            <div className="space-y-3 max-h-60 overflow-y-auto pr-1 text-xs text-slate-300 pretty-scrollbar">
+              <div className="space-y-1">
+                <p className="font-bold text-white flex items-center gap-1.5">
+                  🔄 Real-time Update Checker
+                </p>
+                <p className="text-slate-400 pl-5">
+                  Direct GitHub releases integration checks if a new version is live. Click download to trigger clean local system upgrades.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-white flex items-center gap-1.5">
+                  🐧 Multi-OS Releases Packages
+                </p>
+                <p className="text-slate-400 pl-5">
+                  Windows Setup installers (.exe), macOS Disk Images (.dmg), and Linux packages (.AppImage) compile on tag pushes.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-white flex items-center gap-1.5">
+                  🌐 500+ Website & Process Mappings
+                </p>
+                <p className="text-slate-400 pl-5">
+                  Automatically classifies web tabs (Apna College, GeeksforGeeks, freeCodeCamp, CodeWithHarry, YouTube, Instagram) into productivity logs.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-white flex items-center gap-1.5">
+                  ⚡ Auto-Uninstall Clean Upgrades
+                </p>
+                <p className="text-slate-400 pl-5">
+                  NSIS installer configuration automatically uninstalls older versions silently during PC setup.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                onClick={handleClose}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold transition-all shadow-md"
+              >
+                Let&apos;s Start Studying!
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
   );
 }
 
