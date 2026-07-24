@@ -2,7 +2,7 @@
 
 <img src="public/images/flowtrack-banner.png" alt="FlowTrack Pro Banner" width="100%" />
 
-# 🚀 FlowTrack Pro (v3.2.0)
+# 🚀 FlowTrack Pro (v3.3.0)
 
 ### The Ultimate Master Study & Productivity Ecosystem — 2026 Edition
 
@@ -27,7 +27,7 @@ Engineered into **3 distinct operational categories**: Serverless Web App, Web A
 |:---|:---|
 | **Project Name** | FlowTrack Pro — The Ultimate Master Study Tracker |
 | **Creator / Lead Architect** | **Sudhir Singh** ([@SudhirDevOps1](https://github.com/SudhirDevOps1)) |
-| **Version** | v3.2.0 (2026 Edition) |
+| **Version** | v3.3.0 (2026 Edition) |
 | **License** | MIT Open Source License |
 | **Live Web App** | [`https://the-ultimate-master-study-tracker.vercel.app/`](https://the-ultimate-master-study-tracker.vercel.app/) |
 | **Source Repository** | [`https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git`](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git) |
@@ -133,6 +133,6 @@ FlowTrack Pro is built upon React, Electron, Vite, Tailwind CSS, Dexie.js, Tesse
 
 <div align="center">
 
-**Engineered by Sudhir Singh (@SudhirDevOps1)** · FlowTrack Pro v3.2.0 · MIT License
+**Engineered by Sudhir Singh (@SudhirDevOps1)** · FlowTrack Pro v3.3.0 · MIT License
 
 </div>
