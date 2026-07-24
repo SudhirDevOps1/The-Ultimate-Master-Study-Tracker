@@ -67,19 +67,19 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: |
         cd desktop-app
-        npx electron-builder --win -c.publish=null
+        npx electron-builder --win --publish never
 
     - name: Build Electron App (Linux)
       if: matrix.os == 'ubuntu-latest'
       run: |
         cd desktop-app
-        npx electron-builder --linux -c.publish=null
+        npx electron-builder --linux --publish never
 
     - name: Build Electron App (macOS)
       if: matrix.os == 'macos-latest'
       run: |
         cd desktop-app
-        npx electron-builder --mac -c.publish=null
+        npx electron-builder --mac --publish never
 
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
