@@ -409,9 +409,12 @@ app.on("will-quit", () => {
   } catch { /* ignore */ }
 });
 
-app.on("before-quit", () => {
+app.on("before-quit", (e) => {
   isQuitting = true;
   saveLogToFile();
+  if (mainWindow) {
+    mainWindow.webContents.send("save-session-state-sync");
+  }
 });
 
 app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });

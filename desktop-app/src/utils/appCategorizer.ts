@@ -109,6 +109,16 @@ export function classifyApplication(appName: string, windowTitle: string = ""): 
     return "entertainment";
   }
 
+  // Explicit check for social media browser tabs/apps
+  if (
+    cleanTitle.includes("instagram.com") || cleanTitle.includes("instagram") ||
+    cleanTitle.includes("facebook.com") || cleanTitle.includes("facebook") || cleanTitle.includes("fb.com") ||
+    cleanTitle.includes("twitter.com") || cleanTitle.includes("twitter") || cleanTitle.includes("x.com") ||
+    cleanTitle.includes("linkedin.com") || cleanTitle.includes("linkedin")
+  ) {
+    return "social";
+  }
+
   if (ENTERTAINMENT_KEYWORDS.some(kw => cleanTitle.includes(kw))) return "entertainment";
   if (ENTERTAINMENT_PROCESSES.has(cleanApp)) return "entertainment";
   if (SOCIAL_PROCESSES.has(cleanApp)) return "social";

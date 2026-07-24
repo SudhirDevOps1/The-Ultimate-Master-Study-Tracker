@@ -429,21 +429,19 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
         lastInteractionAtMs: parsedTimer?.lastInteractionAtMs ?? parsedTimer?.startedAtMs ?? null,
       };
 
-      if (parsedTimer && parsedTimer.activeSessionId && !parsedTimer.isPaused) {
+      if (parsedTimer && parsedTimer.activeSessionId && !parsedTimer.isPaused && parsedTimer.startedAtMs) {
         const activeSession = finalSessions.find(s => s.id === parsedTimer.activeSessionId);
         if (activeSession) {
-          const startedAt = parsedTimer.startedAtMs ?? Date.now();
-          const lastInteraction = parsedTimer.lastInteractionAtMs ?? startedAt;
-          const interactionLimit = startedAt + STRICT_INACTIVITY_LIMIT_MS;
-          const cutoffMs = Math.min(lastInteraction, interactionLimit);
-          const elapsedSinceStart = Math.max(0, Math.floor((cutoffMs - startedAt) / 1000));
-          const newAccumulated = Math.max(0, Math.floor((parsedTimer.accumulatedSeconds || 0) + elapsedSinceStart));
+          const startedAt = parsedTimer.startedAtMs;
+          const currentMs = Date.now();
+          const rawElapsedSinceStart = Math.max(0, Math.floor((currentMs - startedAt) / 1000));
+          const newAccumulated = Math.max(0, Math.floor((parsedTimer.accumulatedSeconds || 0) + rawElapsedSinceStart));
 
           safeTimer = {
             ...safeTimer,
             accumulatedSeconds: newAccumulated,
             isPaused: true,
-            pausedAtMs: lastInteraction,
+            pausedAtMs: currentMs,
             startedAtMs: null,
             hiddenAtMs: null,
           };

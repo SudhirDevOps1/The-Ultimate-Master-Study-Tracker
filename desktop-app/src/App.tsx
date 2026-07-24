@@ -42,6 +42,31 @@ export function App() {
 
   useEffect(() => {
     void initApp();
+
+    if (typeof window !== "undefined" && (window as any).electron?.ipcRenderer) {
+      const handleToggleTimer = () => {
+        const state = useAppStore.getState();
+        if (state.timer.activeSessionId) {
+          if (state.timer.isPaused) {
+            void state.resumeSession();
+          } else {
+            void state.pauseSession();
+          }
+        }
+      };
+      const handleQuitSync = () => {
+        const state = useAppStore.getState();
+        if (state.timer.activeSessionId && !state.timer.isPaused) {
+          void state.pauseSession();
+        }
+      };
+      (window as any).electron.ipcRenderer.on("global-shortcut-toggle-timer", handleToggleTimer);
+      (window as any).electron.ipcRenderer.on("save-session-state-sync", handleQuitSync);
+      return () => {
+        (window as any).electron.ipcRenderer.off("global-shortcut-toggle-timer", handleToggleTimer);
+        (window as any).electron.ipcRenderer.off("save-session-state-sync", handleQuitSync);
+      };
+    }
   }, [initApp]);
 
   useEffect(() => {

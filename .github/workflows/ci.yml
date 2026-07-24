@@ -1,0 +1,36 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  audit-and-build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: 'npm'
+
+    - name: Install Desktop App Dependencies
+      run: |
+        cd desktop-app
+        npm ci
+
+    - name: Run TypeScript Compiler Check
+      run: |
+        cd desktop-app
+        npx tsc --noEmit
+
+    - name: Compile and Build Verification
+      run: |
+        cd desktop-app
+        npm run build

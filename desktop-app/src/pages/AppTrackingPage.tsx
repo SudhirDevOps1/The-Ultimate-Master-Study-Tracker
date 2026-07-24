@@ -51,6 +51,14 @@ const BROWSER = [
   "firefox", "mozilla firefox", "brave", "brave browser", "opera",
   "safari", "chromium", "vivaldi", "arc", "waterfox", "tor"
 ];
+const SOCIAL  = [
+  "discord","telegram","whatsapp","slack","microsoft teams","teams","msteams",
+  "zoom","skype","signal","webex","google meet",
+];
+const ENTERT  = [
+  "vlc","spotify","mpc-hc","potplayer","steam","epic games","twitch",
+  "mediaplayerclassic","winamp","mpc_hc","mpc_hc64","potplayermini64",
+];
 
 function classifyApp(app: string): string {
   const n = app.toLowerCase();
@@ -61,13 +69,12 @@ function classifyApp(app: string): string {
   return "system";
 }
 
-// Extract website domain & clean tab title from browser window titles
 function extractWebDomain(title: string, appName: string, rawProcess?: string): { domain: string; cleanTitle: string } | null {
   const nameToCheck = (appName + " " + (rawProcess || "")).toLowerCase();
   const isBrowser = BROWSER.some(b => nameToCheck.includes(b));
   if (!isBrowser || !title || title === "Desktop / Idle" || title === "desktop is idle") return null;
 
-  // Remove browser suffix (e.g. "- Google Chrome", "- Microsoft Edge")
+  // Remove browser suffix (e.g. "- Google Chrome", "- Microsoft Edge", etc.)
   const cleanTitle = (title || "")
     .replace(/\s*-\s*(Google Chrome|Mozilla Firefox|Microsoft Edge|Brave|Safari|Opera|Vivaldi|Arc|Chromium)$/i, "")
     .replace(/\s*-\s*Work\s*-\s*Microsoft Edge$/i, "")
@@ -77,7 +84,9 @@ function extractWebDomain(title: string, appName: string, rawProcess?: string): 
   const titleLower = cleanTitle.toLowerCase();
   let domain = "web-page";
 
-  if (titleLower.includes("youtube")) domain = "youtube.com";
+  if (titleLower.includes("youtube.com") || titleLower.includes("youtube")) domain = "youtube.com";
+  else if (titleLower.includes("instagram.com") || titleLower.includes("instagram")) domain = "instagram.com";
+  else if (titleLower.includes("facebook.com") || titleLower.includes("facebook") || titleLower.includes("fb.com")) domain = "facebook.com";
   else if (titleLower.includes("github")) domain = "github.com";
   else if (titleLower.includes("google search") || titleLower.includes("google")) domain = "google.com";
   else if (titleLower.includes("stackoverflow")) domain = "stackoverflow.com";

@@ -29,7 +29,9 @@ function extractWebDomain(title: string, appName: string, rawProcess?: string): 
   const titleLower = cleanTitle.toLowerCase();
   let domain = "web-page";
 
-  if (titleLower.includes("youtube")) domain = "youtube.com";
+  if (titleLower.includes("youtube.com") || titleLower.includes("youtube")) domain = "youtube.com";
+  else if (titleLower.includes("instagram.com") || titleLower.includes("instagram")) domain = "instagram.com";
+  else if (titleLower.includes("facebook.com") || titleLower.includes("facebook") || titleLower.includes("fb.com")) domain = "facebook.com";
   else if (titleLower.includes("github")) domain = "github.com";
   else if (titleLower.includes("google search") || titleLower.includes("google")) domain = "google.com";
   else if (titleLower.includes("stackoverflow")) domain = "stackoverflow.com";
