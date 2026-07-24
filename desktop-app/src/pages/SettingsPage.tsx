@@ -821,7 +821,7 @@ export function SettingsPage() {
 
 // ─── UpdateChecker Helper Component (Queries GitHub Releases) ──────────────────
 function UpdateChecker({ showMessage }: { showMessage: (msg: string) => void }) {
-  const [currentVersion, setCurrentVersion] = useState("3.1.0");
+  const [currentVersion, setCurrentVersion] = useState("3.3.0");
   const [latestVersion, setLatestVersion] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [updateUrl, setUpdateUrl] = useState("https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases");

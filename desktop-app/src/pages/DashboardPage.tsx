@@ -720,7 +720,7 @@ export function DashboardPage() {
 // ─── OS-Detecting Desktop App Download Card ───────────────────────────────────
 function OSAppDownloadCard() {
   const [detectedOS, setDetectedOS] = useState<"win" | "mac" | "linux" | "web">("web");
-  const releaseBaseUrl = "https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/download/v3.2.0";
+  const releaseBaseUrl = "https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/download/v3.3.0";
 
   useEffect(() => {
     const ua = navigator.userAgent.toLowerCase();
@@ -738,22 +738,22 @@ function OSAppDownloadCard() {
       case "win":
         return {
           osName: "Windows",
-          fileName: "FlowTrackPro Setup 3.1.0.exe",
-          url: `${releaseBaseUrl}/FlowTrackPro.Setup.3.1.0.exe`,
+          fileName: "FlowTrackPro Setup 3.3.0.exe",
+          url: `${releaseBaseUrl}/FlowTrackPro.Setup.3.3.0.exe`,
           badge: "🚀 Recommended for PC",
         };
       case "mac":
         return {
           osName: "macOS (Apple/Intel)",
-          fileName: "FlowTrackPro-3.1.0.dmg",
-          url: `${releaseBaseUrl}/FlowTrackPro-3.1.0.dmg`,
+          fileName: "FlowTrackPro-3.3.0.dmg",
+          url: `${releaseBaseUrl}/FlowTrackPro-3.3.0.dmg`,
           badge: "🍎 Native Apple Build",
         };
       case "linux":
         return {
           osName: "Linux",
-          fileName: "FlowTrackPro-3.1.0.AppImage",
-          url: `${releaseBaseUrl}/FlowTrackPro-3.1.0.AppImage`,
+          fileName: "FlowTrackPro-3.3.0.AppImage",
+          url: `${releaseBaseUrl}/FlowTrackPro-3.3.0.AppImage`,
           badge: "🐧 Standard AppImage",
         };
       default:
