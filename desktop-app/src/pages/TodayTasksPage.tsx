@@ -291,7 +291,7 @@ function SessionCard({
               </div>
             </div>
 
-            {/* Center: Time Info */}
+            {/* Center & Right: Time Info */}
             <div className="flex flex-col items-end gap-2 flex-shrink-0">
               <span className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${statusBadge}`}>
                 {isActive ? "Active" : isPaused ? "Paused" : isCompleted ? "Done" : "Planned"}
