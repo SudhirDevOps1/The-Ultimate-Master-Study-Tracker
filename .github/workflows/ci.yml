@@ -68,28 +68,25 @@ jobs:
       run: |
         cd desktop-app
         npx electron-builder --win -c.publish=null
-      continue-on-error: true
 
     - name: Build Electron App (Linux)
       if: matrix.os == 'ubuntu-latest'
       run: |
         cd desktop-app
         npx electron-builder --linux -c.publish=null
-      continue-on-error: true
 
     - name: Build Electron App (macOS)
       if: matrix.os == 'macos-latest'
       run: |
         cd desktop-app
         npx electron-builder --mac -c.publish=null
-      continue-on-error: true
 
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: flowtrack-${{ matrix.os }}
         path: desktop-app/dist-electron/
-        if-no-files-found: ignore
+        if-no-files-found: warn
 
   publish-github-release:
     name: Publish Release to GitHub
