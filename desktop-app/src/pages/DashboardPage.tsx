@@ -224,9 +224,6 @@ export function DashboardPage() {
       {/* Weekly Summary Card */}
       <WeeklySummary sessions={sessions} subjects={subjects} theme={theme} />
 
-      {/* 🚀 Dynamic OS Native App Download Panel */}
-      <OSAppDownloadCard />
-
       {/* Backend Activity Tracker Panel */}
       <BackendActivityPanel />
 
@@ -714,93 +711,6 @@ export function DashboardPage() {
         </div>
       </Panel>
     </div>
-  );
-}
-
-// ─── OS-Detecting Desktop App Download Card ───────────────────────────────────
-function OSAppDownloadCard() {
-  const [detectedOS, setDetectedOS] = useState<"win" | "mac" | "linux" | "web">("web");
-  const releaseBaseUrl = "https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/download/v3.3.0";
-
-  useEffect(() => {
-    const ua = navigator.userAgent.toLowerCase();
-    if (ua.includes("win")) {
-      setDetectedOS("win");
-    } else if (ua.includes("mac")) {
-      setDetectedOS("mac");
-    } else if (ua.includes("linux")) {
-      setDetectedOS("linux");
-    }
-  }, []);
-
-  const getDownloadDetails = () => {
-    switch (detectedOS) {
-      case "win":
-        return {
-          osName: "Windows",
-          fileName: "FlowTrackPro Setup 3.3.0.exe",
-          url: `${releaseBaseUrl}/FlowTrackPro.Setup.3.3.0.exe`,
-          badge: "🚀 Recommended for PC",
-        };
-      case "mac":
-        return {
-          osName: "macOS (Apple/Intel)",
-          fileName: "FlowTrackPro-3.3.0.dmg",
-          url: `${releaseBaseUrl}/FlowTrackPro-3.3.0.dmg`,
-          badge: "🍎 Native Apple Build",
-        };
-      case "linux":
-        return {
-          osName: "Linux",
-          fileName: "FlowTrackPro-3.3.0.AppImage",
-          url: `${releaseBaseUrl}/FlowTrackPro-3.3.0.AppImage`,
-          badge: "🐧 Standard AppImage",
-        };
-      default:
-        return {
-          osName: "Web Workspace",
-          fileName: "GitHub Release Center",
-          url: "https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases",
-          badge: "🌐 Multiplatform Hub",
-        };
-    }
-  };
-
-  const dl = getDownloadDetails();
-
-  return (
-    <Panel className="border-l-4 border-emerald-400 bg-gradient-to-r from-slate-900 via-emerald-950/20 to-slate-900 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-      <div className="space-y-1">
-        <div className="flex items-center gap-2">
-          <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
-            🖥️ Native Desktop Tracker App
-          </h4>
-          <span className="text-[10px] font-bold text-emerald-300 bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 rounded-md">
-            {dl.badge}
-          </span>
-        </div>
-        <p className="text-xs text-slate-400">
-          Get native Win32 active window tracking, background system tray minimization, global hotkeys, and distraction blocking.
-        </p>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 w-full md:w-auto shrink-0">
-        <a
-          href={dl.url}
-          className="px-4 py-2 text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-xl transition-all shadow-md flex items-center gap-1.5"
-        >
-          📥 Download for {dl.osName}
-        </a>
-        <a
-          href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases"
-          target="_blank"
-          rel="noreferrer"
-          className="px-3 py-2 text-xs font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all border border-white/10"
-        >
-          📦 Other Formats
-        </a>
-      </div>
-    </Panel>
   );
 }
 
