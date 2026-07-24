@@ -756,7 +756,7 @@ export function SettingsPage() {
               <p className="text-xs text-slate-400">Subjects</p>
             </div>
             <div className="rounded-xl bg-white/5 px-4 py-2 text-center">
-              <p className="text-lg font-bold text-purple-400">v2.0.0</p>
+              <p className="text-lg font-bold text-purple-400">v3.3.0</p>
               <p className="text-xs text-slate-400">Version</p>
             </div>
           </div>
