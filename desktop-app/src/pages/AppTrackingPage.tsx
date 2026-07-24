@@ -53,6 +53,7 @@ const STUDY   = [
   "byju","physics wallah","pw","allen","resonance","fiitjee","vedantu",
   "doubtnut","geeksforgeeks","gfg","leetcode","hackerrank","codechef",
   "codeforces","hackerearth","interviewbit","w3schools","mdn","w3schools",
+  "vscodium","cursor","apna college","apnacollege","freecodecamp","codewithharry","code with harry","chai aur code",
 ];
 const BROWSER = [
   "chrome", "google chrome", "edge", "microsoft edge", "msedge",
@@ -106,6 +107,10 @@ function extractWebDomain(title: string, appName: string, rawProcess?: string): 
   else if (titleLower.includes("reddit")) domain = "reddit.com";
   else if (titleLower.includes("twitter") || titleLower.includes(" x ")) domain = "x.com";
   else if (titleLower.includes("linkedin")) domain = "linkedin.com";
+  else if (titleLower.includes("apnacollege") || titleLower.includes("apna college")) domain = "apnacollege.in";
+  else if (titleLower.includes("freecodecamp")) domain = "freecodecamp.org";
+  else if (titleLower.includes("codewithharry")) domain = "codewithharry.com";
+  else if (titleLower.includes("geeksforgeeks")) domain = "geeksforgeeks.org";
   else {
     try {
       const match = cleanTitle.match(/(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]/i);
