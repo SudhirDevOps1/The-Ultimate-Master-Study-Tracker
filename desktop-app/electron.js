@@ -629,3 +629,18 @@ ipcMain.handle("import-app-data", async () => {
     return { success: false, error: err.message };
   }
 });
+
+// ─── App Version & External Links (Auto Update triggers) ──────────────────────
+ipcMain.handle("get-app-version", () => {
+  return app.getVersion();
+});
+
+ipcMain.handle("open-external-link", async (_e, { url }) => {
+  try {
+    const { shell } = require("electron");
+    await shell.openExternal(url);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});

@@ -274,6 +274,9 @@ export function SettingsPage() {
             🔔 Test Windows Toast
           </button>
         </div>
+
+        {/* 🚀 New Update Checker Card */}
+        <UpdateChecker showMessage={showMessage} />
       </Panel>
 
       {/* Theme Customization */}
@@ -812,6 +815,104 @@ export function SettingsPage() {
           <p className="text-xs text-slate-500">Deletes all subjects, sessions, settings, and reloads the app fresh.</p>
         </div>
       </Panel>
+    </div>
+  );
+}
+
+// ─── UpdateChecker Helper Component (Queries GitHub Releases) ──────────────────
+function UpdateChecker({ showMessage }: { showMessage: (msg: string) => void }) {
+  const [currentVersion, setCurrentVersion] = useState("3.1.0");
+  const [latestVersion, setLatestVersion] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [updateUrl, setUpdateUrl] = useState("https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases");
+
+  useEffect(() => {
+    const fetchLocalVersion = async () => {
+      if (typeof window !== "undefined" && (window as any).electron) {
+        try {
+          const ver = await (window as any).electron.ipcRenderer?.invoke("get-app-version");
+          if (ver) setCurrentVersion(ver);
+        } catch { /* fallback to default */ }
+      }
+    };
+    void fetchLocalVersion();
+  }, []);
+
+  const handleCheckUpdate = async () => {
+    setChecking(true);
+    try {
+      const res = await fetch("https://api.github.com/repos/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest");
+      if (res.ok) {
+        const data = await res.json();
+        const tag = data.tag_name; // e.g. "v3.2.0"
+        const cleanTag = tag.replace(/^v/, "");
+        setLatestVersion(cleanTag);
+        if (data.html_url) setUpdateUrl(data.html_url);
+
+        if (cleanTag !== currentVersion) {
+          showMessage(`🎁 New Update Available: v${cleanTag}!`);
+        } else {
+          showMessage("✅ FlowTrack is up to date.");
+        }
+      } else {
+        showMessage("❌ Failed to contact update server.");
+      }
+    } catch {
+      showMessage("❌ Network error checking updates.");
+    }
+    setChecking(false);
+  };
+
+  const handleDownload = async () => {
+    if (typeof window !== "undefined" && (window as any).electron) {
+      try {
+        await (window as any).electron.ipcRenderer?.invoke("open-external-link", { url: updateUrl });
+      } catch {
+        window.open(updateUrl, "_blank");
+      }
+    } else {
+      window.open(updateUrl, "_blank");
+    }
+  };
+
+  return (
+    <div className="p-4 mt-2 rounded-2xl bg-slate-950/40 border border-white/5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-xs">
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-white uppercase text-[10px] tracking-wider bg-slate-800 border border-white/10 px-2 py-0.5 rounded-md">
+            Version: v{currentVersion}
+          </span>
+          {latestVersion && latestVersion !== currentVersion && (
+            <span className="animate-pulse bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-md font-bold">
+              🎁 Update Available (v{latestVersion})
+            </span>
+          )}
+        </div>
+        <p className="text-slate-400">
+          {latestVersion && latestVersion !== currentVersion
+            ? "New production release is available on GitHub with performance upgrades."
+            : "Automatic checks verify current release version directly with GitHub."}
+        </p>
+      </div>
+
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          onClick={handleCheckUpdate}
+          disabled={checking}
+          className="px-3 py-1.5 rounded-lg bg-slate-900 text-slate-300 border border-white/10 font-semibold hover:bg-slate-800 transition-all flex items-center gap-1 disabled:opacity-50"
+        >
+          {checking ? "⌛ Checking..." : "🔄 Check for Updates"}
+        </button>
+
+        {latestVersion && latestVersion !== currentVersion && (
+          <button
+            onClick={handleDownload}
+            className="px-3 py-1.5 rounded-lg bg-cyan-500 text-slate-950 font-bold hover:bg-cyan-400 transition-all shadow-md"
+          >
+            📥 Download Update
+          </button>
+        )}
+      </div>
     </div>
   );
 }
