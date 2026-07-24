@@ -20,6 +20,15 @@
       "target": "nsis",
       "icon": "public/favicon.png"
     },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "uninstallDisplayName": "FlowTrackPro",
+      "deleteAppDataOnUninstall": false,
+      "perMachine": false
+    },
     "directories": {
       "output": "dist-electron"
     },
