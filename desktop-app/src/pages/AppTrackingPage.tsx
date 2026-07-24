@@ -45,6 +45,14 @@ const STUDY   = [
   "onenote","adobe acrobat","adobe reader","obsidian","notion","anki","typora",
   "zotero","jupyter","git","python","node.js","windows terminal","command prompt",
   "git bash","powershell","idea64","pycharm64","webstorm64","devenv","winword","acrobat","acrord32",
+  "android studio","studio64","xcode","eclipse","netbeans","postman","docker","dbeaver",
+  "pgadmin","mysql workbench","sourcetree","gitkraken","github desktop","sublime_text",
+  "texstudio","overleaf","mendeley","mathworks","matlab","mathematica","rstudio",
+  "trello","linear","jira","clickup","asana","microsoft to do","todoist",
+  "edx","coursera","udemy","khan academy","khanacademy","nptel","unacademy",
+  "byju","physics wallah","pw","allen","resonance","fiitjee","vedantu",
+  "doubtnut","geeksforgeeks","gfg","leetcode","hackerrank","codechef",
+  "codeforces","hackerearth","interviewbit","w3schools","mdn","w3schools",
 ];
 const BROWSER = [
   "chrome", "google chrome", "edge", "microsoft edge", "msedge",
