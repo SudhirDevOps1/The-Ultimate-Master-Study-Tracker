@@ -227,6 +227,9 @@ export function DashboardPage() {
       {/* 🚀 Welcome & Changelog Modal overlay */}
       <WelcomeChangelogModal />
 
+      {/* 📊 Live Activity Tracker & Today App Usage Panel */}
+      <LiveAppUsagePanel />
+
       {/* Backend Activity Tracker Panel */}
       <BackendActivityPanel />
 
@@ -808,6 +811,147 @@ function WelcomeChangelogModal() {
         </div>
       )}
     </AnimatePresence>
+  );
+}
+
+// ─── Live App Usage Panel Component ──────────────────────────────────────────
+const isElectron = typeof window !== "undefined" && !!(window as any).electron;
+const getIpc = () => isElectron ? (window as any).require("electron").ipcRenderer : null;
+
+function LiveAppUsagePanel() {
+  const [liveApp, setLiveApp] = useState<{ process: string; title: string } | null>(null);
+  const [todayApps, setTodayApps] = useState<{ name: string; seconds: number }[]>([]);
+  const [todayWebs, setTodayWebs] = useState<{ title: string; seconds: number }[]>([]);
+
+  const fetchLog = async () => {
+    const ipc = getIpc();
+    if (!ipc) return;
+    try {
+      const todayStr = new Date().toISOString().split("T")[0];
+      const entries = await ipc.invoke("get-activity-log", { date: todayStr });
+      if (Array.isArray(entries)) {
+        // aggregate apps
+        const appMap = new Map<string, number>();
+        const webMap = new Map<string, number>();
+
+        entries.forEach((e: any) => {
+          const appName = e.appName || "Unknown";
+          appMap.set(appName, (appMap.get(appName) || 0) + e.durationSeconds);
+
+          // Web Domain extract if title contains browser details
+          if (e.title && e.title !== "Desktop / Idle" && e.title !== "desktop is idle") {
+            const cleanTitle = e.title
+              .replace(/\s*-\s*(Google Chrome|Mozilla Firefox|Microsoft Edge|Brave|Safari|Opera|Vivaldi|Arc|Chromium)$/i, "")
+              .trim() || "Web Page";
+            webMap.set(cleanTitle, (webMap.get(cleanTitle) || 0) + e.durationSeconds);
+          }
+        });
+
+        const sortedApps = [...appMap.entries()]
+          .map(([name, seconds]) => ({ name, seconds }))
+          .sort((a, b) => b.seconds - a.seconds)
+          .slice(0, 5);
+
+        const sortedWebs = [...webMap.entries()]
+          .map(([title, seconds]) => ({ title, seconds }))
+          .sort((a, b) => b.seconds - a.seconds)
+          .slice(0, 5);
+
+        setTodayApps(sortedApps);
+        setTodayWebs(sortedWebs);
+      }
+    } catch (err) {
+      console.warn("[LiveAppUsagePanel] Error fetching logs:", err);
+    }
+  };
+
+  useEffect(() => {
+    const poll = async () => {
+      const ipc = getIpc();
+      if (!ipc) return;
+      try {
+        const win = await ipc.invoke("get-active-window");
+        if (win && !win.skip && win.appName) {
+          setLiveApp({ process: win.appName, title: win.title });
+        } else {
+          setLiveApp(null);
+        }
+      } catch {
+        setLiveApp(null);
+      }
+    };
+
+    void poll();
+    void fetchLog();
+
+    const appInterval = setInterval(() => void poll(), 5000);
+    const logInterval = setInterval(() => void fetchLog(), 10000);
+
+    return () => {
+      clearInterval(appInterval);
+      clearInterval(logInterval);
+    };
+  }, []);
+
+  const formatSec = (total: number) => {
+    const m = Math.floor(total / 60);
+    if (m > 0) return `${m}m`;
+    return `${total}s`;
+  };
+
+  return (
+    <Panel className="border-l-4 border-indigo-400 bg-slate-900/60 backdrop-blur-md space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/5">
+        <div>
+          <h3 className="text-md font-bold text-white flex items-center gap-2">
+            📊 Live App & Web Tracker
+          </h3>
+          <p className="text-[10px] text-slate-400">Autosynced every 5 seconds · Tracking what you are studying right now</p>
+        </div>
+        {liveApp && (
+          <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-xs text-emerald-300 font-semibold animate-pulse self-start sm:self-auto">
+            <span className="h-2 w-2 rounded-full bg-emerald-400" />
+            <span>Currently Active: {liveApp.process}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Apps usage today */}
+        <div className="space-y-2">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">📱 Apps Used Today (Top 5)</p>
+          {todayApps.length === 0 ? (
+            <p className="text-xs text-slate-500 italic">No apps recorded yet</p>
+          ) : (
+            <div className="space-y-2">
+              {todayApps.map((a, idx) => (
+                <div key={idx} className="flex justify-between items-center bg-white/5 rounded-xl px-3 py-2 text-xs">
+                  <span className="text-white font-bold truncate max-w-[180px]">{a.name}</span>
+                  <span className="text-indigo-300 font-mono">{formatSec(a.seconds)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Web Sites today */}
+        <div className="space-y-2">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">🌐 Websites / Tabs Today (Top 5)</p>
+          {todayWebs.length === 0 ? (
+            <p className="text-xs text-slate-500 italic">No web activity recorded yet</p>
+          ) : (
+            <div className="space-y-2">
+              {todayWebs.map((w, idx) => (
+                <div key={idx} className="flex justify-between items-center bg-white/5 rounded-xl px-3 py-2 text-xs">
+                  <span className="text-white font-bold truncate max-w-[180px]">{w.title}</span>
+                  <span className="text-cyan-300 font-mono">{formatSec(w.seconds)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </Panel>
   );
 }
 
