@@ -827,8 +827,9 @@ function LiveAppUsagePanel() {
     const ipc = getIpc();
     if (!ipc) return;
     try {
-      const todayStr = new Date().toISOString().split("T")[0];
-      const entries = await ipc.invoke("get-activity-log", { date: todayStr });
+      const now = new Date();
+      const localTodayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      const entries = await ipc.invoke("get-activity-log", { date: localTodayStr });
       if (Array.isArray(entries)) {
         // aggregate apps
         const appMap = new Map<string, number>();
