@@ -844,7 +844,31 @@ function LiveAppUsagePanel() {
             const cleanTitle = e.title
               .replace(/\s*-\s*(Google Chrome|Mozilla Firefox|Microsoft Edge|Brave|Safari|Opera|Vivaldi|Arc|Chromium)$/i, "")
               .trim() || "Web Page";
-            webMap.set(cleanTitle, (webMap.get(cleanTitle) || 0) + e.durationSeconds);
+            
+            // Try to extract dynamic domain name for cleaner group look
+            let domain = "web-page";
+            const titleLower = cleanTitle.toLowerCase();
+            if (titleLower.includes("youtube.com") || titleLower.includes("youtube")) domain = "youtube.com";
+            else if (titleLower.includes("instagram.com") || titleLower.includes("instagram")) domain = "instagram.com";
+            else if (titleLower.includes("facebook.com") || titleLower.includes("facebook")) domain = "facebook.com";
+            else if (titleLower.includes("github")) domain = "github.com";
+            else if (titleLower.includes("google search") || titleLower.includes("google")) domain = "google.com";
+            else if (titleLower.includes("stackoverflow")) domain = "stackoverflow.com";
+            else if (titleLower.includes("chatgpt") || titleLower.includes("openai")) domain = "chatgpt.com";
+            else if (titleLower.includes("leetcode")) domain = "leetcode.com";
+            else if (titleLower.includes("geeksforgeeks")) domain = "geeksforgeeks.org";
+            else if (titleLower.includes("apnacollege") || titleLower.includes("apna college")) domain = "apnacollege.in";
+            else if (titleLower.includes("freecodecamp")) domain = "freecodecamp.org";
+            else if (titleLower.includes("codewithharry")) domain = "codewithharry.com";
+            else {
+              try {
+                const match = cleanTitle.match(/(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]/i);
+                if (match && match[0]) domain = match[0].toLowerCase();
+              } catch { /* fallback */ }
+            }
+
+            const label = domain !== "web-page" ? domain : cleanTitle;
+            webMap.set(label, (webMap.get(label) || 0) + e.durationSeconds);
           }
         });
 
