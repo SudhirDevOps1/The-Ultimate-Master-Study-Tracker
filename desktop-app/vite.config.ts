@@ -17,15 +17,13 @@ export default defineConfig({
     },
   },
   build: {
-    chunkSizeWarningLimit: 800,
+    chunkSizeWarningLimit: 2500,
     rollupOptions: {
       output: {
         manualChunks(id) {
           if (id.includes("node_modules")) {
-            if (id.includes("react") || id.includes("scheduler")) return "vendor-react";
-            if (id.includes("framer-motion")) return "vendor-motion";
-            if (id.includes("lucide")) return "vendor-lucide";
-            return "vendor"; // fallback vendor chunk
+            // Group all node_modules dependencies into a single chunk to prevent circular warnings
+            return "vendor";
           }
         }
       }
