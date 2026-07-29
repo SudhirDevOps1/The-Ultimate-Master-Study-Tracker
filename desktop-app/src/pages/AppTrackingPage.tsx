@@ -69,10 +69,25 @@ const ENTERT  = [
   "mediaplayerclassic","winamp","mpc_hc","mpc_hc64","potplayermini64",
 ];
 
-function classifyApp(app: string): string {
+function classifyApp(app: string, title: string = ""): string {
   const n = app.toLowerCase();
+  const t = (title || "").toLowerCase();
+  const isBrowserProcess = BROWSER.some(b => n.includes(b));
+  
+  if (isBrowserProcess || n.includes("chrome") || n.includes("firefox") || n.includes("edge") || n.includes("brave") || n.includes("opera") || n.includes("safari")) {
+    if (t.includes("youtube") || t.includes("netflix") || t.includes("spotify") || t.includes("twitch") || t.includes("prime video") || t.includes("hotstar") || t.includes("vimeo") || t.includes("mxplayer") || t.includes("music.youtube")) {
+      return "entertainment";
+    }
+    if (t.includes("instagram") || t.includes("linkedin") || t.includes("facebook") || t.includes("twitter") || t.includes(" x ") || t.includes("reddit") || t.includes("whatsapp") || t.includes("discord") || t.includes("telegram") || t.includes("slack")) {
+      return "social";
+    }
+    if (t.includes("github") || t.includes("stackoverflow") || t.includes("leetcode") || t.includes("chatgpt") || t.includes("openai") || t.includes("coursera") || t.includes("udemy") || t.includes("w3schools") || t.includes("wikipedia") || t.includes("mdn") || t.includes("geeksforgeeks") || t.includes("gfg") || t.includes("apna college") || t.includes("freecodecamp") || t.includes("codewithharry") || t.includes("overleaf")) {
+      return "study";
+    }
+  }
+
   if (STUDY.some(k   => n.includes(k))) return "study";
-  if (BROWSER.some(k => n.includes(k))) return "browser";
+  if (isBrowserProcess) return "browser";
   if (SOCIAL.some(k  => n.includes(k))) return "social";
   if (ENTERT.some(k  => n.includes(k))) return "entertainment";
   return "system";
@@ -214,7 +229,7 @@ function Timeline({ rawLog }: { rawLog: ActivityEntry[] }) {
                     key={i}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className={`absolute top-0 h-full rounded-sm ${CAT_SOLID[cat] ?? "bg-slate-500"} ${entry.isLive ? "animate-pulse" : ""}`}
+                    className={`absolute top-0 h-full rounded-sm ${CAT_SOLID[classifyApp(entry.appName, entry.title)] ?? "bg-slate-500"} ${entry.isLive ? "animate-pulse" : ""}`}
                     style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
                     title={`${appName} @ ${String(entry.hour).padStart(2,"0")}:${String(entry.minute ?? 0).padStart(2,"0")} — ${fmt(entry.durationSeconds)}`}
                   />
@@ -252,10 +267,34 @@ export function AppTrackingPage() {
   const [showBlocker, setShowBlocker]   = useState(false);
   const [activeTab, setActiveTab]       = useState<"overview"|"timeline"|"websites"|"windows">("overview");
   const [exportStatus, setExportStatus] = useState<"idle"|"exporting"|"importing">("idle");
+  const [weeklyOverview, setWeeklyOverview] = useState<{ date: string; seconds: number }[]>([]);
   const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const today   = new Date().toISOString().split("T")[0];
   const initApp = useAppStore(s => s.initApp);
   const importAll = useAppStore(s => s.importAll);
+
+  // ── Fetch past 7 days of screen time totals ─────────────────────────────
+  useEffect(() => {
+    const fetchWeeklyOverview = async () => {
+      const ipc = getIpc();
+      if (!ipc || trackedDates.length === 0) return;
+      try {
+        // Take the last 7 tracked dates (newest first in trackedDates, reverse to show left-to-right chrono)
+        const datesToFetch = trackedDates.slice(0, 7).reverse();
+        const totals = await Promise.all(
+          datesToFetch.map(async (d) => {
+            const entries: ActivityEntry[] = await ipc.invoke("get-activity-log", { date: d });
+            const total = entries.reduce((sum, e) => sum + e.durationSeconds, 0);
+            return { date: d, seconds: total };
+          })
+        );
+        setWeeklyOverview(totals);
+      } catch (err) {
+        console.warn("[AppTracking] Error loading weekly overview", err);
+      }
+    };
+    void fetchWeeklyOverview();
+  }, [trackedDates]);
 
   // ── Fetch activity log ─────────────────────────────────────────────────
   const fetchLog = useCallback(async (date: string) => {
@@ -308,7 +347,7 @@ export function AppTrackingPage() {
 
   useEffect(() => {
     if (selectedDate !== today) return;
-    const id = setInterval(() => void fetchLog(today), 30_000);
+    const id = setInterval(() => void fetchLog(today), 5_000);
     return () => clearInterval(id);
   }, [selectedDate, today, fetchLog]);
 
@@ -317,7 +356,7 @@ export function AppTrackingPage() {
     const map = new Map<string, AppSummary>();
     for (const e of rawLog) {
       const key = e.appName.toLowerCase();
-      if (!map.has(key)) map.set(key, { appName: e.appName, totalSeconds: 0, sessions: 0, category: classifyApp(e.appName), isLive: false });
+      if (!map.has(key)) map.set(key, { appName: e.appName, totalSeconds: 0, sessions: 0, category: classifyApp(e.appName, e.title), isLive: false });
       const r = map.get(key)!;
       r.totalSeconds += e.durationSeconds;
       r.sessions++;
@@ -354,14 +393,27 @@ export function AppTrackingPage() {
 
   const categoryTotals = useMemo(() => {
     const m: Record<string, number> = {};
-    appSummaries.forEach(a => { m[a.category] = (m[a.category] ?? 0) + a.totalSeconds; });
+    for (const e of rawLog) {
+      const cat = classifyApp(e.appName, e.title);
+      m[cat] = (m[cat] ?? 0) + e.durationSeconds;
+    }
     return Object.entries(m).sort((a, b) => b[1] - a[1]);
-  }, [appSummaries]);
+  }, [rawLog]);
 
   // ── Date navigation ────────────────────────────────────────────────────
   const dateIdx   = trackedDates.indexOf(selectedDate);
   const prevDate  = trackedDates[dateIdx + 1];
   const nextDate  = trackedDates[dateIdx - 1];
+
+  const differenceText = useMemo(() => {
+    if (weeklyOverview.length < 2) return null;
+    const todayData = weeklyOverview[weeklyOverview.length - 1];
+    const yesterdayData = weeklyOverview[weeklyOverview.length - 2];
+    const diff = todayData.seconds - yesterdayData.seconds;
+    if (diff === 0) return "⚖️ Same usage as yesterday";
+    const absDiffStr = fmt(Math.abs(diff));
+    return diff > 0 ? `📈 ${absDiffStr} more than yesterday` : `📉 ${absDiffStr} less than yesterday`;
+  }, [weeklyOverview]);
 
   const idleMin   = Math.floor(liveIdleMs / 60000);
   const idlePct   = Math.min(100, (liveIdleMs / (10 * 60 * 1000)) * 100);
@@ -537,9 +589,68 @@ export function AppTrackingPage() {
         <div className="rounded-2xl border border-white/10 bg-slate-900 p-4">
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Tracked Today</p>
           <p className="mt-1 text-2xl font-black text-cyan-400">{fmt(totalSeconds)}</p>
-          <p className="text-[10px] text-slate-500 mt-1">{appSummaries.length} apps · {webTabSummaries.length} web tabs</p>
+          <p className="text-[10px] text-slate-500 mt-1">{appSummaries.length} apps · {webTabSummaries.length} tabs</p>
+          {differenceText && (
+            <p className="text-[9px] font-bold text-slate-400 mt-2 border-t border-white/5 pt-1.5">
+              {differenceText}
+            </p>
+          )}
         </div>
       </div>
+
+      {/* ── Digital Wellbeing Past 7 Days Chart ── */}
+      {weeklyOverview.length > 0 && (
+        <Panel className="space-y-4 bg-gradient-to-br from-slate-900 to-slate-950/80 border border-white/10">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-slate-100 flex items-center gap-1.5">
+                📊 Daily Screen Time Summary (Past {weeklyOverview.length} Tracked Days)
+              </h2>
+              <p className="text-[10px] text-slate-500">
+                Click any bar to load historical app and browser activity log entries
+              </p>
+            </div>
+            <span className="text-[10px] uppercase font-bold text-slate-500 bg-white/5 px-2 py-0.5 rounded border border-white/5">
+              Digital Wellbeing
+            </span>
+          </div>
+
+          <div className="flex items-end justify-between gap-2 h-28 pt-2 overflow-x-auto min-w-[280px]">
+            {weeklyOverview.map((item) => {
+              const maxSecs = Math.max(...weeklyOverview.map(w => w.seconds), 1);
+              const heightPct = Math.max(8, (item.seconds / maxSecs) * 100);
+              const isSelected = item.date === selectedDate;
+              
+              return (
+                <div key={item.date} className="flex-1 flex flex-col items-center gap-1.5 group select-none min-w-[32px]">
+                  {/* Hours badge */}
+                  <span className={`text-[10px] font-bold ${isSelected ? "text-cyan-400 font-extraboldScale" : "text-slate-400 group-hover:text-white"} transition-colors`}>
+                    {item.seconds > 0 ? fmt(item.seconds).split(" ")[0] : "0s"}
+                  </span>
+                  
+                  {/* Bar */}
+                  <button
+                    onClick={() => setSelectedDate(item.date)}
+                    className="w-full relative rounded-t-lg transition-all focus:outline-none"
+                    style={{ height: `${heightPct}%` }}
+                  >
+                    <div className={`absolute inset-0 rounded-t-lg bg-gradient-to-t transition-all ${
+                      isSelected 
+                        ? "from-cyan-500 to-indigo-500 shadow-[0_0_12px_rgba(34,211,238,0.4)]" 
+                        : "from-slate-700/60 to-slate-500/70 group-hover:from-cyan-600/60 group-hover:to-cyan-400/80"
+                    }`} />
+                  </button>
+
+                  {/* Day label */}
+                  <span className={`text-[9px] font-bold tracking-wider ${isSelected ? "text-cyan-300 font-extrabold" : "text-slate-500 group-hover:text-slate-300"} transition-colors`}>
+                    {item.date === today ? "Today" : item.date.slice(5)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </Panel>
+      )}
 
       {/* ── History breadcrumb ── */}
       {trackedDates.length > 1 && (
@@ -743,7 +854,7 @@ export function AppTrackingPage() {
                     <p className="text-xs text-slate-500 text-center py-10">No window activity recorded.</p>
                   ) : [...rawLog].reverse().map((e, i) => (
                     <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/[0.02] transition-colors">
-                      <span className={`shrink-0 text-[10px] font-bold rounded-full border px-2 py-0.5 ${CAT_TAG[classifyApp(e.appName)]}`}>
+                      <span className={`shrink-0 text-[10px] font-bold rounded-full border px-2 py-0.5 ${CAT_TAG[classifyApp(e.appName, e.title)]}`}>
                         {e.appName}
                       </span>
                       <p className="text-xs text-slate-400 truncate flex-1 min-w-0">{e.title || "—"}</p>

@@ -166,31 +166,119 @@ export function FlashcardsPage() {
     }
   };
 
-  // AI Flashcard Parser Simulator (rule-based local fallback)
-  const handleAiParse = () => {
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  // AI Flashcard Parser Simulator & AI Query API (rule-based local fallback)
+  const handleAiParse = async () => {
     if (!aiNoteInput.trim() || !selectedSubjectId) return;
     
-    // Split sentences or key concepts
-    const lines = aiNoteInput.split(/[.\n]+/);
+    setIsGenerating(true);
     let count = 0;
-    
-    lines.forEach(line => {
-      const clean = line.trim();
-      if (!clean) return;
+    let parsedCards: { front: string; back: string }[] = [];
 
-      // Extract simple Definition format (e.g. "React is a library")
-      const matches = clean.match(/(.+?)\s+is\s+a\s+(.+)/i) || clean.match(/(.+?)\s+means\s+(.+)/i);
-      if (matches && matches[1] && matches[2]) {
-        handleAddCard(`What is ${matches[1].trim()}?`, matches[2].trim(), selectedSubjectId);
-        count++;
-      } else if (clean.length > 15) {
-        // Fallback QA
-        handleAddCard(`Explain key concept:`, clean, selectedSubjectId);
-        count++;
+    const aiConfig = useAppStore.getState().aiConfig;
+    const { provider, model, apiKey, ollamaUrl, customProviderEndpoint } = aiConfig;
+
+    // Helper to get endpoint URL
+    const getEndpoint = () => {
+      if (provider === "ollama") return `${ollamaUrl || "http://localhost:11434"}/api/chat`;
+      if (provider === "groq") return "https://api.groq.com/openai/v1/chat/completypes";
+      if (provider === "gemini") {
+        return `https://generativelanguage.googleapis.com/v1beta/models/${model || "gemini-1.5-flash"}:generateContent?key=${apiKey}`;
       }
-    });
+      if (provider === "custom") return customProviderEndpoint || "";
+      return "https://api.openai.com/v1/chat/completions";
+    };
+
+    const endpoint = getEndpoint();
+
+    if (provider && provider !== "none" && endpoint) {
+      try {
+        const userPrompt = `You are a professional study tool. Analyze the following notes and generate a JSON array of flashcards. Each flashcard should have a clear, concise question "front" and answer "back". Produce ONLY valid JSON inside markdown block or raw text.
+Format:
+[
+  { "front": "What is the capital of France?", "back": "Paris" }
+]
+
+Notes:
+${aiNoteInput}`;
+
+        let responseText = "";
+
+        if (provider === "gemini") {
+          const res = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts: [{ text: userPrompt }] }]
+            })
+          });
+          const data = await res.json();
+          responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        } else {
+          // OpenAI compatible endpoint formats
+          const isOllama = provider === "ollama";
+          const res = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(apiKey ? { "Authorization": `Bearer ${apiKey}` } : {})
+            },
+            body: JSON.stringify({
+              model: model || (isOllama ? "llama3" : "gpt-4o-mini"),
+              messages: [
+                { role: "system", content: "You are a flashcard generator. Return only valid JSON array." },
+                { role: "user", content: userPrompt }
+              ],
+              temperature: 0.3,
+              ...(isOllama ? { stream: false } : {}) // Disable stream for raw parsing
+            })
+          });
+          
+          const data = await res.json();
+          responseText = isOllama 
+            ? (data.message?.content || "") 
+            : (data.choices?.[0]?.message?.content || "");
+        }
+
+        // Clean markdown backticks if present
+        const jsonMatch = responseText.match(/\[\s*\{[\s\S]*\}\s*\]/);
+        const cleanJson = jsonMatch ? jsonMatch[0] : responseText.trim();
+        parsedCards = JSON.parse(cleanJson);
+
+        if (Array.isArray(parsedCards)) {
+          parsedCards.forEach(c => {
+            if (c.front && c.back) {
+              handleAddCard(c.front, c.back, selectedSubjectId);
+              count++;
+            }
+          });
+        }
+      } catch (err) {
+        console.warn("[SRS Flashcards] AI Generation failed, switching to local rule-based fallback.", err);
+      }
+    }
+
+    // Fallback: Rule-based local parser if AI failed or provider is empty
+    if (count === 0) {
+      const lines = aiNoteInput.split(/[.\n]+/);
+      lines.forEach(line => {
+        const clean = line.trim();
+        if (!clean) return;
+
+        const matches = clean.match(/(.+?)\s+is\s+a\s+(.+)/i) || clean.match(/(.+?)\s+means\s+(.+)/i);
+        if (matches && matches[1] && matches[2]) {
+          handleAddCard(`What is ${matches[1].trim()}?`, matches[2].trim(), selectedSubjectId);
+          count++;
+        } else if (clean.length > 15) {
+          handleAddCard(`Explain key concept:`, clean, selectedSubjectId);
+          count++;
+        }
+      });
+    }
 
     setAiNoteInput("");
+    setIsGenerating(false);
     setShowAiHelper(false);
     alert(`✨ Successfully generated ${count} flashcards from notes!`);
   };
@@ -436,9 +524,10 @@ export function FlashcardsPage() {
             </div>
             <button
               onClick={handleAiParse}
-              className="w-full rounded-lg bg-gradient-to-r from-purple-500 to-indigo-500 py-2.5 text-xs font-bold text-white hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-purple-500/20"
+              disabled={isGenerating || !aiNoteInput.trim() || !selectedSubjectId}
+              className="w-full rounded-lg bg-gradient-to-r from-purple-500 to-indigo-500 py-2.5 text-xs font-bold text-white hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-purple-500/20 disabled:opacity-40 disabled:pointer-events-none"
             >
-              🪄 Generate Cards from Notes
+              {isGenerating ? "⏳ Generating Cards..." : "🪄 Generate Cards from Notes"}
             </button>
           </div>
         </Panel>
