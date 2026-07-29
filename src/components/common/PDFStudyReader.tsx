@@ -479,6 +479,18 @@ export function PDFStudyReader() {
                         <span>{isPlaying ? "Pause" : "Speak"}</span>
                       </button>
                       <button
+                        onClick={() => {
+                          if (!speechText.trim()) return;
+                          localStorage.setItem("flowtrack_temp_flashcard_input", speechText);
+                          window.location.hash = "/flashcards";
+                        }}
+                        disabled={!speechText || extractingText}
+                        className="flex h-8 px-3 items-center justify-center gap-1.5 rounded-lg text-xs font-bold bg-indigo-500 text-white hover:bg-indigo-400 transition-transform active:scale-95 disabled:opacity-40"
+                        title="Send to Flashcards Generator"
+                      >
+                        <span>🧠 Send to Flashcards</span>
+                      </button>
+                      <button
                         onClick={handleStopTTS}
                         className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10"
                         title="Mute"

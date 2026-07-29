@@ -256,6 +256,28 @@ function Timeline({ rawLog }: { rawLog: ActivityEntry[] }) {
   );
 }
 
+function Favicon({ domain }: { domain: string }) {
+  const [error, setError] = useState(false);
+  const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+
+  if (error || !domain || domain.endsWith(".site") || domain === "web-page") {
+    return (
+      <div className="w-7 h-7 rounded-lg bg-slate-800 shrink-0 flex items-center justify-center border border-white/10 text-cyan-400">
+        <Globe className="w-4 h-4" />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={faviconUrl}
+      alt="icon"
+      className="w-7 h-7 rounded-lg bg-slate-800 shrink-0 p-1 border border-white/10"
+      onError={() => setError(true)}
+    />
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export function AppTrackingPage() {
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split("T")[0]);
@@ -414,6 +436,30 @@ export function AppTrackingPage() {
     const absDiffStr = fmt(Math.abs(diff));
     return diff > 0 ? `📈 ${absDiffStr} more than yesterday` : `📉 ${absDiffStr} less than yesterday`;
   }, [weeklyOverview]);
+
+  const distractionAlert = useMemo(() => {
+    let productiveSecs = 0;
+    let distractionSecs = 0;
+    for (const e of rawLog) {
+      const cat = classifyApp(e.appName, e.title);
+      if (cat === "study") productiveSecs += e.durationSeconds;
+      else if (cat === "social" || cat === "entertainment") distractionSecs += e.durationSeconds;
+    }
+    if (distractionSecs > productiveSecs && distractionSecs > 10 * 60) {
+      const ratio = Math.round((distractionSecs / Math.max(1, productiveSecs)) * 10) / 10;
+      return {
+        text: `⚠️ Screen distraction ratio is higher than study focus time (${ratio}x). Consider turning on Strict Focus Mode to lock down browser tabs!`,
+        type: "warning"
+      };
+    }
+    if (productiveSecs > distractionSecs && productiveSecs > 30 * 60) {
+      return {
+        text: "🎉 Excellent job! You are staying highly focused today. Keep building the momentum!",
+        type: "success"
+      };
+    }
+    return null;
+  }, [rawLog]);
 
   const idleMin   = Math.floor(liveIdleMs / 60000);
   const idlePct   = Math.min(100, (liveIdleMs / (10 * 60 * 1000)) * 100);
@@ -597,6 +643,17 @@ export function AppTrackingPage() {
           )}
         </div>
       </div>
+
+      {/* ── Distraction Warning Banner ── */}
+      {distractionAlert && (
+        <div className={`p-3.5 rounded-2xl border text-xs font-semibold flex items-center gap-2 shadow-sm transition-all ${
+          distractionAlert.type === "warning" 
+            ? "border-rose-500/20 bg-rose-500/10 text-rose-300" 
+            : "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
+        }`}>
+          {distractionAlert.text}
+        </div>
+      )}
 
       {/* ── Digital Wellbeing Past 7 Days Chart ── */}
       {weeklyOverview.length > 0 && (
@@ -812,14 +869,7 @@ export function AppTrackingPage() {
                     webTabSummaries.map((tab, idx) => (
                       <div key={idx} className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-cyan-500/30 transition-all">
                         <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <img
-                            src={`https://www.google.com/s2/favicons?domain=${tab.domain}&sz=32`}
-                            alt="favicon"
-                            className="w-7 h-7 rounded-lg bg-slate-800 shrink-0 p-1 border border-white/10"
-                            onError={(e) => {
-                              (e.target as any).src = "https://www.google.com/s2/favicons?domain=google.com&sz=32";
-                            }}
-                          />
+                          <Favicon domain={tab.domain} />
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-bold text-white truncate">{tab.title}</p>
                             <p className="text-[10px] text-cyan-400 font-mono flex items-center gap-2">

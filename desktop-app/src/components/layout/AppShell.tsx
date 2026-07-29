@@ -129,7 +129,7 @@ export function AppShell() {
           </div>
         </div>
 
-        <nav className="glass flex gap-1.5 overflow-x-auto rounded-2xl p-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+        <nav className="f7-segmented overflow-x-auto p-1 max-w-full flex-nowrap scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent gap-1">
           {links.map((link) => {
             const LinkIcon = link.Icon;
             return (
@@ -138,14 +138,14 @@ export function AppShell() {
                 to={link.to}
                 className={({ isActive }) =>
                   cn(
-                    "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all duration-200 focus:outline-none",
+                    "f7-segmented-btn flex shrink-0 items-center gap-1.5 whitespace-nowrap px-4 py-2 text-xs font-bold transition-all",
                     isActive
-                      ? `bg-gradient-to-r ${getGradientClass()} text-white shadow-lg`
-                      : "text-slate-200 hover:bg-white/8 hover:text-white"
+                      ? "active bg-white/10 text-white border border-white/10 shadow-[0_2px_8px_rgba(255,255,255,0.05)]"
+                      : "text-slate-400 hover:text-slate-200"
                   )
                 }
               >
-                <LinkIcon className="w-4 h-4 shrink-0" />
+                <LinkIcon className="w-3.5 h-3.5 shrink-0" />
                 <span>{link.label}</span>
               </NavLink>
             );

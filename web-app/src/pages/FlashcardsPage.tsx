@@ -96,6 +96,16 @@ export function FlashcardsPage() {
     saveFlashcards(cards);
   }, [cards]);
 
+  // Load temp AI note input from OCR Study Reader redirection
+  useEffect(() => {
+    const tempInput = localStorage.getItem("flowtrack_temp_flashcard_input");
+    if (tempInput) {
+      setAiNoteInput(tempInput);
+      setShowAiHelper(true);
+      localStorage.removeItem("flowtrack_temp_flashcard_input");
+    }
+  }, []);
+
   // Aggregate cards per subject
   const deckStats = useMemo(() => {
     const stats: Record<string, { total: number; due: number }> = {};

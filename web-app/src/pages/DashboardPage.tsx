@@ -98,6 +98,54 @@ export function DashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
+  const handleRescheduleAllOverdue = async () => {
+    const todayStr = format(new Date(), "yyyy-MM-dd");
+    const overdue = sessions.filter((s: StudySession) => {
+      const sessionDate = format(new Date(s.startTime), "yyyy-MM-dd");
+      return sessionDate < todayStr && s.status === "planned";
+    });
+    if (overdue.length === 0) return;
+    const confirmReschedule = window.confirm(`Reschedule all ${overdue.length} overdue tasks to today?`);
+    if (!confirmReschedule) return;
+
+    const updateSession = useAppStore.getState().updateSession;
+    const initApp = useAppStore.getState().initApp;
+
+    for (const session of overdue) {
+      const originalDate = new Date(session.startTime);
+      const newDate = new Date();
+      newDate.setHours(originalDate.getHours(), originalDate.getMinutes(), 0, 0);
+      const newEndTime = new Date(session.endTime);
+      newEndTime.setFullYear(newDate.getFullYear(), newDate.getMonth(), newDate.getDate());
+
+      await updateSession({
+        ...session,
+        startTime: newDate.toISOString(),
+        endTime: newEndTime.toISOString()
+      });
+    }
+    await initApp();
+  };
+
+  const handleClearAllOverdue = async () => {
+    const todayStr = format(new Date(), "yyyy-MM-dd");
+    const overdue = sessions.filter((s: StudySession) => {
+      const sessionDate = format(new Date(s.startTime), "yyyy-MM-dd");
+      return sessionDate < todayStr && s.status === "planned";
+    });
+    if (overdue.length === 0) return;
+    const confirmClear = window.confirm(`Permanently delete all ${overdue.length} overdue planned tasks?`);
+    if (!confirmClear) return;
+
+    const deleteSession = useAppStore.getState().deleteSession;
+    const initApp = useAppStore.getState().initApp;
+
+    for (const session of overdue) {
+      await deleteSession(session.id);
+    }
+    await initApp();
+  };
+
   const today = useMemo(() => sessions.filter((session: StudySession) => isSameDay(new Date(session.startTime), new Date())), [sessions]);
 
   const activeSubjectObj = useMemo(() => subjects.find(s => s.id === selectedSubjectId), [subjects, selectedSubjectId]);
@@ -483,7 +531,24 @@ export function DashboardPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="mb-3 rounded-xl border border-rose-500/20 bg-rose-500/10 p-3"
               >
-                <p className="text-xs font-bold text-rose-300 mb-1">⚠️ Overdue Sessions</p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-bold text-rose-300">⚠️ Overdue Sessions</p>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={handleRescheduleAllOverdue}
+                      className="text-[10px] font-black uppercase text-cyan-400 hover:underline focus:outline-none"
+                    >
+                      Reschedule to Today
+                    </button>
+                    <span className="text-[10px] text-slate-600">|</span>
+                    <button 
+                      onClick={handleClearAllOverdue}
+                      className="text-[10px] font-black uppercase text-rose-400 hover:underline focus:outline-none"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {overdueSessions.map(s => {
                     const sub = getSubject(s.subjectId);

@@ -248,3 +248,168 @@ button:focus-visible {
     grid-template-columns: repeat(30, minmax(0, 1fr));
   }
 }
+
+/* ──────────────────────────────────────────────────────────────────────────────
+ * FRAMEWORK7 CORE COMPONENT UTILITIES (v9.1.1 July 2026 Stable iOS/Material Style)
+ * ────────────────────────────────────────────────────────────────────────────── */
+
+/* F7 iOS/Material Navbar styles */
+.f7-navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 48px;
+  padding: 0 16px;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.f7-navbar-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #ffffff;
+  text-align: center;
+  flex: 1;
+}
+
+/* F7 Card components */
+.f7-card {
+  background: rgba(30, 41, 59, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.f7-card-header {
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.f7-card-content {
+  padding: 16px;
+}
+
+.f7-card-footer {
+  padding: 8px 16px;
+  font-size: 12px;
+  color: #64748b;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.1);
+}
+
+/* F7 Segmented Controls */
+.f7-segmented {
+  display: flex;
+  align-items: center;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 2px;
+  border-radius: 8px;
+  width: fit-content;
+}
+
+.f7-segmented-btn {
+  padding: 6px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #94a3b8;
+  border-radius: 6px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.f7-segmented-btn.active {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* F7 List items layouts */
+.f7-list {
+  background: rgba(30, 41, 59, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.f7-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: background 0.15s ease;
+}
+
+.f7-list-item:last-child {
+  border-bottom: none;
+}
+
+.f7-list-item-media {
+  display: flex;
+  align-items: center;
+  margin-right: 12px;
+  color: var(--theme-primary);
+}
+
+.f7-list-item-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
+  min-w: 0;
+}
+
+.f7-list-item-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.f7-list-item-after {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  margin-left: 8px;
+}
+
+/* F7 Floating Action Buttons (FAB) */
+.f7-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: gradient-to-br;
+  background-image: linear-gradient(135deg, var(--theme-primary), var(--theme-secondary));
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35);
+  z-index: 50;
+  transition: all 0.25s ease;
+}
+
+.f7-fab:hover {
+  transform: scale(1.08) rotate(90deg);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+}
+

@@ -2,7 +2,7 @@
 
 <img src="public/images/flowtrack-banner.png" alt="FlowTrack Pro Banner" width="100%" />
 
-# 🚀 FlowTrack Pro (v3.3.0)
+# 🚀 FlowTrack Pro (v5.1.0)
 
 ### The Ultimate Master Study & Productivity Ecosystem — 2026 Edition
 
@@ -27,7 +27,7 @@ Engineered into **3 distinct operational categories**: Serverless Web App, Web A
 |:---|:---|
 | **Project Name** | FlowTrack Pro — The Ultimate Master Study Tracker |
 | **Creator / Lead Architect** | **Sudhir Singh** ([@SudhirDevOps1](https://github.com/SudhirDevOps1)) |
-| **Version** | v3.3.0 (2026 Edition) |
+| **Version** | v5.1.0 (2026 Edition) |
 | **License** | MIT Open Source License |
 | **Live Web App** | [`https://the-ultimate-master-study-tracker.vercel.app/`](https://the-ultimate-master-study-tracker.vercel.app/) |
 | **Source Repository** | [`https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git`](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git) |
@@ -38,13 +38,20 @@ Engineered into **3 distinct operational categories**: Serverless Web App, Web A
 
 FlowTrack Pro is built to keep your studies organized, completely distraction-free, and synced.
 
+### 📱 Framework7 v9.1.1 UI Look (Latest July 2026 Stable)
+* **iOS/Material Hybrid Cards:** Integrated custom `.f7-card` panels and segmented tab bar viewports across the entire application interface.
+* **Modern Pill Layouts:** Replaced standard button links with responsive, glassmorphic segmented controls.
+
 ### ⏱️ Timer Stability & Crash Resilience
 * **Timestamp-Based Recovery:** Tracks and saves study elapsed time using absolute timestamps. If the application closes unexpectedly or crashes, the system computes the exact duration upon reload.
 * **Quit Hook Sync:** Hooks directly into Electron's exit handler to pause and write database status updates before the application shuts down.
+* **Overdue Tasks Clean-Up:** Sunsama-style "Reschedule to Today" and "Clear All" buttons to instantly cleanup pending schedules.
 
 ### 🌐 Advanced Website & App Monitoring
 * **Win32 C# Tracker integration:** C-Sharp helper `win-tracker.exe` detects focused application window names natively with 0ms latency.
 * **Browser Tab Dynamic Parsing:** Auto-extracts domains for **YouTube**, **Instagram**, and **Facebook**, classifying them instantly into social, study, or entertainment analytics logs.
+* **Real-time 5s Live Loop:** Highly responsive polling intervals paired with a distraction warning banner (`⚠️ Screen distraction ratio is higher than study focus time`) that advises users dynamically.
+* **Textbook OCR to Flashcards:** Highlight or parse textbook images/PDFs and send the text directly into decks with a one-click integration flow.
 * **500+ App Classifications:** Features an extensive mapping database covering popular Indian EdTech apps, developer IDEs, terminals, and distraction pages.
 
 ---
@@ -129,10 +136,10 @@ npm run electron:build
 
 ## 📜 Acknowledgments & Credits
 
-FlowTrack Pro is built upon React, Electron, Vite, Tailwind CSS, Dexie.js, Tesseract.js, and Recharts.
+FlowTrack Pro is built upon React, Electron, Vite, Tailwind CSS, Dexie.js, Tesseract.js, Recharts, and styled in alignment with **Framework7 v9.1.1 (Stable July 2026)** specs. Special credit to **Sudhir Singh** for leading the v5.1.0 release features (Hybrid iOS/Material theme, Live Screen trackers, OCR decks generators, and reschedule planners).
 
 <div align="center">
 
-**Engineered by Sudhir Singh (@SudhirDevOps1)** · FlowTrack Pro v3.3.0 · MIT License
+**Engineered by Sudhir Singh (@SudhirDevOps1)** · FlowTrack Pro v5.1.0 · MIT License
 
 </div>

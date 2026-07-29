@@ -6,12 +6,31 @@ All notable changes, version updates, feature additions, architectural improveme
 
 ## 🏷️ Version History Summary
 
+- [v5.1.0 (2026-07-29)](#v510---2026-07-29) — 📱 Framework7 v9.1.1 Look, Live Loop & OCR Decks Integration
 - [v3.2.0 (2026-07-21)](#v320---2026-07-21) — 🐛 Critical Tracking Fix, App Data Import/Export, Friendly App Names
 - [v3.1.0 (2026-07-21)](#v310---2026-07-21) — 🖥️ Ultra-Smart Desktop Enhancements (Global OS Hotkeys, Always-On-Top Mini HUD & Windows Toast IPC)
 - [v3.0.0 (2026-07-21)](#v300---2026-07-21) — 🚀 Master 3-Category Architecture & Full 14-Page Ecosystem Release
 - [v2.1.0 (2026-07-20)](#v210---2026-07-20) — 🐍 Python REST Backend & SQLite WAL Database Integration
 - [v2.0.0 (2026-07-19)](#v200---2026-07-19) — 🖥️ Standalone Electron Desktop App & Win32 C# Tracker Release
 - [v1.0.0 (2026-07-15)](#v100---2026-07-15) — 🌐 Initial Serverless Web App Release
+
+---
+
+## [v5.1.0] — 2026-07-29
+
+### 📱 Framework7 v9.1.1 Aesthetic Migration
+- **iOS/Material Navbar & Cards Layout (`index.css`):** Styled the global container elements to follow Framework7 `v9.1.1` (July 2026 Stable) native mobile interface designs.
+- **Segmented App Shell (`AppShell.tsx`):** Transformed horizontal top tab menus to native pill segments.
+- **Custom Card Component Mapping (`Panel.tsx`):** Mapped all workspace panels directly to `f7-card` styles.
+
+### 📈 Intelligent Live Logs & Warners (`AppTrackingPage.tsx`)
+- **5s Activity Polling Loop:** Upgraded log cycles from 30s to 5s.
+- **Dynamic Domain Classification:** Browser titles automatically match against key study/social targets.
+- **Distraction Warning Banner:** Shows real-time warnings when social/entertainment metrics exceed study hours.
+
+### 🧠 Workspace & Decks Pipeline (`PDFStudyReader.tsx`)
+- **"Send to Flashcards" Connector:** Allows OCR result blocks to automatically populate the AI deck card generator page.
+- **Task Cleanup:** Sunsama-style reschedule buttons to clean overdue plans.
 
 ---
 
