@@ -34,6 +34,7 @@ export function useTimer() {
   const syncActiveSession = useAppStore((state) => state.syncActiveSession);
   const [nowMs, setNowMs] = useState(Date.now());
   const notifiedSessionsRef = useRef<Set<string>>(new Set());
+  const hasStoppedRef = useRef<Set<string>>(new Set()); // FIX B2: Guard against double-stop
 
   useEffect(() => {
     const tick = () => {
@@ -110,10 +111,13 @@ export function useTimer() {
               }
             }
             
-            // Auto-complete the session when planned time is reached
-            setTimeout(async () => {
-              await state.stopSession();
-            }, 500);
+            // FIX B2: Guard against double-stop race condition
+            if (!hasStoppedRef.current.has(currentTimer.activeSessionId)) {
+              hasStoppedRef.current.add(currentTimer.activeSessionId);
+              setTimeout(async () => {
+                await state.stopSession();
+              }, 500);
+            }
           }
         }
       }

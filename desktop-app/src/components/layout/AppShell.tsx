@@ -16,7 +16,8 @@ import {
   Book, 
   Settings as SettingsIcon,
   Github,
-  Globe
+  Globe,
+  Target
 } from "lucide-react";
 
 const links = [
@@ -28,6 +29,7 @@ const links = [
   { to: "/app-tracking", label: "App Tracking", Icon: Monitor },
   { to: "/ai", label: "AI Assistant", Icon: Brain },
   { to: "/calendar", label: "Calendar", Icon: CalendarIcon },
+  { to: "/exams", label: "Exam Countdown", Icon: Target },
   { to: "/analytics", label: "Analytics", Icon: BarChart2 },
   { to: "/achievements", label: "Achievements", Icon: Award },
   { to: "/history", label: "History", Icon: HistoryIcon },

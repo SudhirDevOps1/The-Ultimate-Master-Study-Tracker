@@ -726,14 +726,14 @@ function WelcomeChangelogModal() {
 
   useEffect(() => {
     // Show only once per major release version update
-    const seenVersion = localStorage.getItem("flowtrack_changelog_v3.3.0");
+    const seenVersion = localStorage.getItem("flowtrack_changelog_v3.3.2");
     if (!seenVersion) {
       setIsOpen(true);
     }
   }, []);
 
   const handleClose = () => {
-    localStorage.setItem("flowtrack_changelog_v3.3.0", "true");
+    localStorage.setItem("flowtrack_changelog_v3.3.2", "true");
     setIsOpen(false);
   };
 
@@ -749,13 +749,13 @@ function WelcomeChangelogModal() {
           >
             <div className="space-y-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">
-                🚀 Shipped: v3.3.0
+                🚀 Shipped: v3.3.2
               </span>
               <h3 className="text-2xl font-black text-white">
                 What&apos;s New in FlowTrack Pro!
               </h3>
               <p className="text-xs text-slate-400">
-                Explore the latest features and updates optimized for your study workflow.
+                Explore the latest premium features and security updates added to your tracker.
               </p>
             </div>
 
@@ -764,37 +764,37 @@ function WelcomeChangelogModal() {
             <div className="space-y-3 max-h-60 overflow-y-auto pr-1 text-xs text-slate-300 pretty-scrollbar">
               <div className="space-y-1">
                 <p className="font-bold text-white flex items-center gap-1.5">
-                  🔄 Real-time Update Checker
+                  📅 Exam Countdown Widget
                 </p>
                 <p className="text-slate-400 pl-5">
-                  Direct GitHub releases integration checks if a new version is live. Click download to trigger clean local system upgrades.
+                  Pin upcoming tests and exams to track days, hours, and minutes with custom urgency alerts.
                 </p>
               </div>
 
               <div className="space-y-1">
                 <p className="font-bold text-white flex items-center gap-1.5">
-                  🐧 Multi-OS Releases Packages
+                  🔥 GitHub-style Subject Heatmap
                 </p>
                 <p className="text-slate-400 pl-5">
-                  Windows Setup installers (.exe), macOS Disk Images (.dmg), and Linux packages (.AppImage) compile on tag pushes.
+                  Visual daily consistency grids per subject. Watch your tracking blocks darken as you commit more study hours.
                 </p>
               </div>
 
               <div className="space-y-1">
                 <p className="font-bold text-white flex items-center gap-1.5">
-                  🌐 500+ Website & Process Mappings
+                  ⚡ Anti-Lag Engine & Optimized DB
                 </p>
                 <p className="text-slate-400 pl-5">
-                  Automatically classifies web tabs (Apna College, GeeksforGeeks, freeCodeCamp, CodeWithHarry, YouTube, Instagram) into productivity logs.
+                  No more UI freezing. Writes to DB are throttled (10s debounce) and session calculations optimized to consume 80% less CPU.
                 </p>
               </div>
 
               <div className="space-y-1">
                 <p className="font-bold text-white flex items-center gap-1.5">
-                  ⚡ Auto-Uninstall Clean Upgrades
+                  🔒 Sandboxed YouTube & Web Framing
                 </p>
                 <p className="text-slate-400 pl-5">
-                  NSIS installer configuration automatically uninstalls older versions silently during PC setup.
+                  External study resources (Apna College, video tutorials, etc.) load securely without blank screens or privacy tracking leaks.
                 </p>
               </div>
             </div>

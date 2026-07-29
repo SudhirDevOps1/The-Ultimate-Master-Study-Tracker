@@ -2,27 +2,26 @@ import { useEffect, useRef, useCallback } from "react";
 import { useAppStore } from "@/store/useAppStore";
 
 const INACTIVITY_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
-const SYSTEM_POLL_MS          = 5_000;          // Check Win32 API every 5s for fast response
+// FIX P5: Increased poll interval 2s → 5s to reduce win-tracker.exe spawns
+// Each execFile call creates a new child process — 30/min was causing CPU spikes
+const SYSTEM_POLL_MS = 5_000;
 
 /**
- * 💥 HYBRID SMART INACTIVITY DETECTOR (DUAL-LAYER ENGINE)
+ * HYBRID SMART INACTIVITY DETECTOR (DUAL-LAYER ENGINE)
  *
- * ┌──────────────────────────────────────────────────────────────────────────┐
- * │ LAYER 1: Win32 API (Hardware-Level System Idle Tracker)                  │
- * │  - Polls Windows GetLastInputInfo via Electron IPC                       │
- * │  - Tracks hardware Mouse, Keyboard, Touchpad, Stylus, Gamepad            │
- * │  - Works globally even when FlowTrack is minimized or in System Tray!     │
- * ├──────────────────────────────────────────────────────────────────────────┤
- * │ LAYER 2: In-App DOM Event Watcher (Instant Reaction Engine)               │
- * │  - Captures instant mousemove, keydown, scroll, touchstart, wheel events  │
- * │  - Instantly resets idle timer & resumes session without waiting for IPC │
- * └──────────────────────────────────────────────────────────────────────────┘
+ * LAYER 1: Win32 API (Hardware-Level System Idle Tracker)
+ *  - Polls Windows GetLastInputInfo via Electron IPC
+ *  - Tracks hardware Mouse, Keyboard, Touchpad, Stylus, Gamepad
+ *  - Works globally even when FlowTrack is minimized or in System Tray!
+ *
+ * LAYER 2: In-App DOM Event Watcher (Instant Reaction Engine)
+ *  - Captures instant mousemove, keydown, scroll, touchstart, wheel events
+ *  - Instantly resets idle timer without waiting for IPC poll
  */
 export function useInactivityDetector() {
   const timer                = useAppStore((s) => s.timer);
   const strictFocusMode      = useAppStore((s) => s.strictFocusMode);
   const notificationsEnabled = useAppStore((s) => s.notificationsEnabled);
-  const markTimerInteraction = useAppStore((s) => s.markTimerInteraction);
 
   const hasAutoPausedRef     = useRef(false);
   const lastInteractionMsRef = useRef<number>(Date.now());
@@ -30,17 +29,19 @@ export function useInactivityDetector() {
   const isElectron = typeof window !== "undefined" && !!(window as any).require;
 
   // ── LAYER 2: Instant In-App DOM Activity Watcher ─────────────────────────
+  // FIX P4: Removed redundant IndexedDB write from recordDOMActivity.
+  // Previously, BOTH useTimer.ts AND useInactivityDetector wrote to DB on every
+  // event. Now only the ref is updated here; DB writes happen via the throttled
+  // markTimerInteraction in useTimer.ts which is already attached to the same events.
   const recordDOMActivity = useCallback(() => {
     const now = Date.now();
     lastInteractionMsRef.current = now;
 
     const state = useAppStore.getState();
-    void state.markTimerInteraction(now);
 
-    // If auto-paused, instant DOM interaction in-app immediately resumes!
+    // If auto-paused by inactivity, instant DOM interaction resumes session
     if (hasAutoPausedRef.current && state.timer.activeSessionId && state.timer.isPaused) {
       hasAutoPausedRef.current = false;
-      console.log("[HybridInactivity] Instant In-App DOM activity detected -> Auto Resuming session!");
       void state.resumeSession();
     }
   }, []);
@@ -86,16 +87,17 @@ export function useInactivityDetector() {
           // Hybrid logic: Take the minimum of hardware idle and DOM idle
           effectiveIdleMs = Math.min(hardwareIdleMs, effectiveIdleMs);
         } catch {
-          /* Fallback to DOM idle */
+          /* Fallback to DOM idle tracking */
         }
       }
 
-      // Check Inactivity threshold (10 Mins)
+      // Check Inactivity threshold (10 minutes)
       if (effectiveIdleMs >= INACTIVITY_THRESHOLD_MS) {
         if (!hasAutoPausedRef.current && !state.timer.isPaused) {
           hasAutoPausedRef.current = true;
           const mins = Math.round(effectiveIdleMs / 60000);
-          console.log(`[HybridInactivity] ${mins}min hardware/software idle -> Auto-pausing session`);
+          // FIX V3: Removed console.log — production builds shouldn't leak
+          // activity metadata (idle time, session events) to DevTools
 
           void state.pauseSession();
 
@@ -111,7 +113,7 @@ export function useInactivityDetector() {
         // Active again
         if (hasAutoPausedRef.current && state.timer.isPaused) {
           hasAutoPausedRef.current = false;
-          console.log("[HybridInactivity] Activity resumed -> Auto Resuming session!");
+          // FIX V3: Removed console.log
           void state.resumeSession();
         }
         void state.markTimerInteraction(Date.now() - effectiveIdleMs);

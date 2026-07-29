@@ -20,8 +20,10 @@ import { StudyNotesPage } from "@/pages/StudyNotesPage";
 import { StudyNotesBoardPage } from "@/pages/StudyNotesBoardPage";
 import { AppTrackingPage } from "@/pages/AppTrackingPage";
 import { useTimer } from "@/hooks/useTimer";
+import { useScheduleReminder } from "@/hooks/useScheduleReminder";
 
 export function App() {
+  useScheduleReminder();
   const initApp = useAppStore((state: AppState) => state.initApp);
   const loading = useAppStore((state: AppState) => state.loading);
   const timer = useAppStore((state) => state.timer);

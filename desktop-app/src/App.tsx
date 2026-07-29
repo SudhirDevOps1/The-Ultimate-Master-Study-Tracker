@@ -19,11 +19,14 @@ import { TodayTasksPage } from "@/pages/TodayTasksPage";
 import { AppTrackingPage } from "@/pages/AppTrackingPage";
 import { StudyNotesPage } from "@/pages/StudyNotesPage";
 import { StudyNotesBoardPage } from "@/pages/StudyNotesBoardPage";
+import { ExamCountdownPage } from "@/pages/ExamCountdownPage";
 import { useTimer } from "@/hooks/useTimer";
+import { useScheduleReminder } from "@/hooks/useScheduleReminder";
 
 import { VideoRestBreak } from "@/components/timer/VideoRestBreak";
 
 export function App() {
+  useScheduleReminder();
   const initApp = useAppStore((state: AppState) => state.initApp);
   const loading = useAppStore((state: AppState) => state.loading);
   const timer = useAppStore((state) => state.timer);
@@ -268,6 +271,20 @@ function AnimatedRoutes() {
                 className="w-full"
               >
                 <SettingsPage />
+              </motion.div>
+            }
+          />
+          <Route
+            path="/exams"
+            element={
+              <motion.div
+                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
+                transition={{ duration: 0.3, ease: "circOut" }}
+                className="w-full"
+              >
+                <ExamCountdownPage />
               </motion.div>
             }
           />

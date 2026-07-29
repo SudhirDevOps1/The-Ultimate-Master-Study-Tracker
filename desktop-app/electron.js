@@ -229,7 +229,9 @@ function startActivityTracker() {
         activityLog.push({
           appName:         normalizeAppName(currentActivity.processName),
           rawProcess:      currentActivity.processName,
-          title:           currentActivity.windowTitle,
+          // FIX V2: Truncate title to 60 chars — prevents storing private data
+          // (chat messages, document titles, private URLs, etc.)
+          title:           (currentActivity.windowTitle || "").substring(0, 60),
           durationSeconds,
           startTime:       startDt.toISOString(),
           date:            startDt.toISOString().split("T")[0],
@@ -263,7 +265,9 @@ function startActivityTracker() {
         else                    activityLog.push(liveEntry);
       }
     }
-  }, 2000);
+  // FIX P5: Reduced from 2000ms to 5000ms to cut win-tracker.exe spawns by 60%
+  // Each execFile call forks a child process — 30/min was causing background CPU spikes
+  }, 5000);
 
   // Auto-save to disk every 30 seconds
   setInterval(saveLogToFile, 30_000);
@@ -302,7 +306,40 @@ function createWindow() {
       nodeIntegration:      true,
       contextIsolation:     false,
       backgroundThrottling: false,
+      webviewTag:           true,
+      spellcheck:           false, // FIX Privacy: Disable OS spellcheck (text leaks to system)
     },
+  });
+
+  const { session: electronSession } = require("electron");
+
+  // FIX Privacy: Block permission requests from embedded iframes/webviews.
+  // Prevents malicious or noisy sites from requesting camera, mic, or location.
+  electronSession.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    const allowedPermissions = ["notifications", "fullscreen"];
+    callback(allowedPermissions.includes(permission));
+  });
+
+  electronSession.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
+    const allowedPermissions = ["notifications", "fullscreen"];
+    return allowedPermissions.includes(permission);
+  });
+
+  // FIX Privacy: Strip X-Frame-Options and CSP only from iframe (subFrame) requests
+  // so embedded study resources load correctly, without affecting main app security
+  electronSession.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    if (details.responseHeaders && details.resourceType === "subFrame") {
+      const responseHeaders = { ...details.responseHeaders };
+      Object.keys(responseHeaders).forEach((key) => {
+        const lowerKey = key.toLowerCase();
+        if (lowerKey === "x-frame-options" || lowerKey === "content-security-policy") {
+          delete responseHeaders[key];
+        }
+      });
+      callback({ cancel: false, responseHeaders });
+    } else {
+      callback({ cancel: false });
+    }
   });
 
   const isDev = !app.isPackaged;

@@ -17,6 +17,7 @@ export interface Subject {
   emoji?: string;
   weeklyGoalMinutes?: number;
   createdAt: string;
+  url?: string;
 }
 
 export interface StudySession {

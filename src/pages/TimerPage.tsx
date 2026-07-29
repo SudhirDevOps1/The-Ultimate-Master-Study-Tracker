@@ -8,6 +8,7 @@ import { FloatingTimer } from "@/components/timer/FloatingTimer";
 import { TimerDisplay } from "@/components/timer/TimerDisplay";
 import { PomodoroTimer } from "@/components/timer/PomodoroTimer";
 import { AmbiencePlayer } from "@/components/timer/AmbiencePlayer";
+import { MediaSandbox } from "@/components/timer/MediaSandbox";
 import { useTimer } from "@/hooks/useTimer";
 import { useAppStore, type AppState } from "@/store/useAppStore";
 import { formatDate12Hour, formatTimeRange12Hour, toDurationLabel } from "@/utils/time";
@@ -195,6 +196,17 @@ export function TimerPage() {
                   }}
                 />
               </div>
+
+              {activeSubject?.url && (
+                <div className="mt-6">
+                  <MediaSandbox
+                    url={activeSubject.url}
+                    activeSubjectName={activeSubject.name}
+                    color={activeSubject.color}
+                    onInteraction={() => void markTimerInteraction(Date.now())}
+                  />
+                </div>
+              )}
             </motion.div>
           ) : (
             <motion.div

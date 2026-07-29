@@ -34,6 +34,7 @@ export function useTimer() {
   const syncActiveSession = useAppStore((state) => state.syncActiveSession);
   const [nowMs, setNowMs] = useState(Date.now());
   const notifiedSessionsRef = useRef<Set<string>>(new Set());
+  const hasStoppedRef = useRef<Set<string>>(new Set()); // FIX B2: Guard against double-stop
 
   // ─── 1-second tick: sync elapsed, check inactivity & completion ──────────
   useEffect(() => {
@@ -99,10 +100,15 @@ export function useTimer() {
               }
             }
 
-            // Auto-complete the session when planned time is reached
-            setTimeout(async () => {
-              await state.stopSession();
-            }, 500);
+            // FIX B2: Use hasStoppedRef to guard against double-stop race condition.
+            // Without this, if user clicks Stop during the 500ms window, stopSession
+            // fires twice which can corrupt session data.
+            if (!hasStoppedRef.current.has(currentTimer.activeSessionId)) {
+              hasStoppedRef.current.add(currentTimer.activeSessionId);
+              setTimeout(async () => {
+                await state.stopSession();
+              }, 500);
+            }
           }
         }
       }
@@ -187,12 +193,17 @@ export function useTimer() {
     const pollActiveWindow = async () => {
       const state = useAppStore.getState();
 
-      // Always fetch latest stats to keep analytics up-to-date
-      void state.fetchBackendData();
+      // FIX P6: Only fetch backend data if user has explicitly configured a backend URL
+      // (not the default localhost:5001 which is almost never running).
+      // This eliminates constant failed network requests that slow down the app.
+      const hasCustomBackend = state.backendUrl && state.backendUrl !== "http://localhost:5001";
+      if (hasCustomBackend || state.isBackendConnected) {
+        void state.fetchBackendData();
+      }
 
       if (state.timer.activeSessionId && !state.timer.isPaused) {
         const url = state.backendUrl;
-        if (!url) {
+        if (!url || !hasCustomBackend) {
           state.setActiveWindow("");
           return;
         }

@@ -23,6 +23,7 @@ export function SubjectsPage() {
   const [color, setColor] = useState("#6366f1");
   const [emoji, setEmoji] = useState(EMOJIS[0]);
   const [weeklyGoal, setWeeklyGoal] = useState("10");
+  const [url, setUrl] = useState("");
 
   // Edit state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -30,6 +31,7 @@ export function SubjectsPage() {
   const [editColor, setEditColor] = useState("#60a5fa");
   const [editEmoji, setEditEmoji] = useState(EMOJIS[0]);
   const [editGoal, setEditGoal] = useState("10");
+  const [editUrl, setEditUrl] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,9 +40,11 @@ export function SubjectsPage() {
       name.trim(),
       color,
       emoji,
-      parseFloat(weeklyGoal) * 60
+      parseFloat(weeklyGoal) * 60,
+      url.trim() || undefined
     );
     setName("");
+    setUrl("");
     setEmoji(EMOJIS[0]);
   };
 
@@ -123,6 +127,16 @@ export function SubjectsPage() {
             </div>
           </div>
 
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Resource URL / Local File Path (YouTube, Web, MP4/MP3)</label>
+            <input
+              value={url}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUrl(e.target.value)}
+              placeholder="e.g. https://www.youtube.com/watch?v=... or C:/study/video.mp4"
+              className="w-full rounded-xl border border-white/10 bg-slate-900/50 px-4 py-2.5 text-white focus:border-indigo-500 focus:outline-none"
+            />
+          </div>
+
           <div className="flex gap-3">
             <button
               type="submit"
@@ -170,7 +184,7 @@ export function SubjectsPage() {
 
               {isEditing ? (
                 <div className="space-y-4">
-                   <input
+                  <input
                     value={editName}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditName(e.target.value)}
                     className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-white"
@@ -180,10 +194,17 @@ export function SubjectsPage() {
                     <span className="text-xs text-slate-500 whitespace-nowrap">Goal (Hrs)</span>
                     <input type="color" value={editColor} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditColor(e.target.value)} className="h-8 w-10 bg-transparent" />
                   </div>
+                  <input
+                    value={editUrl}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditUrl(e.target.value)}
+                    placeholder="Resource URL / Path"
+                    className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-white text-xs"
+                  />
                   <div className="flex flex-wrap gap-1">
                     {EMOJIS.map(e => (
                       <button
                         key={e}
+                        type="button"
                         onClick={() => setEditEmoji(e)}
                         className={cn("text-lg p-1 rounded-md", editEmoji === e ? "bg-white/10" : "opacity-40")}
                       >
@@ -194,7 +215,7 @@ export function SubjectsPage() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => {
-                        void updateSubject(subject.id, editName.trim(), editColor, editEmoji, parseFloat(editGoal) * 60).then(() => setEditingId(null));
+                        void updateSubject(subject.id, editName.trim(), editColor, editEmoji, parseFloat(editGoal) * 60, editUrl.trim() || undefined).then(() => setEditingId(null));
                       }}
                       className="flex-1 rounded-lg bg-emerald-500 py-1.5 text-sm font-bold text-black"
                     >
@@ -221,6 +242,11 @@ export function SubjectsPage() {
                           <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: subject.color }} />
                           <span className="text-xs text-slate-400 capitalize">Weekly Goal: {goalHours > 0 ? `${goalHours}h` : 'None'}</span>
                         </div>
+                        {subject.url && (
+                          <div className="mt-1 text-[10px] text-cyan-400/90 truncate max-w-[180px]" title={subject.url}>
+                            🔗 {subject.url}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -233,6 +259,7 @@ export function SubjectsPage() {
                         setEditColor(subject.color);
                         setEditEmoji(subject.emoji || EMOJIS[0]);
                         setEditGoal(goalHours.toString());
+                        setEditUrl(subject.url || "");
                       }}
                       className="rounded-lg bg-white/5 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-white/10"
                     >

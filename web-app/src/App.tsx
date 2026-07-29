@@ -16,8 +16,10 @@ import { AchievementsPage } from "@/pages/AchievementsPage";
 import { GuidePage } from "@/pages/GuidePage";
 import { AIAssistantPage } from "@/pages/AIAssistantPage";
 import { useTimer } from "@/hooks/useTimer";
+import { useScheduleReminder } from "@/hooks/useScheduleReminder";
 
 export function App() {
+  useScheduleReminder();
   const initApp = useAppStore((state: AppState) => state.initApp);
   const loading = useAppStore((state: AppState) => state.loading);
   const timer = useAppStore((state) => state.timer);

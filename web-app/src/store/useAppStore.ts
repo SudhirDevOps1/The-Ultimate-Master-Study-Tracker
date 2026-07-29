@@ -60,8 +60,8 @@ export interface AppState {
   fetchBackendData: () => Promise<void>;
   updateDailyGoalStreak: (newSessions: StudySession[]) => Promise<void>;
   initApp: () => Promise<void>;
-  createSubject: (name: string, color: string, emoji?: string, weeklyGoalMinutes?: number) => Promise<void>;
-  updateSubject: (id: string, name: string, color: string, emoji?: string, weeklyGoalMinutes?: number) => Promise<void>;
+  createSubject: (name: string, color: string, emoji?: string, weeklyGoalMinutes?: number, url?: string) => Promise<void>;
+  updateSubject: (id: string, name: string, color: string, emoji?: string, weeklyGoalMinutes?: number, url?: string) => Promise<void>;
   deleteSubject: (id: string) => Promise<void>;
   createSession: (input: CreateSessionInput) => Promise<void>;
   updateSession: (session: StudySession) => Promise<void>;
@@ -116,8 +116,14 @@ const STRICT_INACTIVITY_LIMIT_MS = 10 * 60 * 1000; // 10 minutes
 let sessionOperationInProgress = false;
 
 async function withSessionLock<T>(operation: () => Promise<T>): Promise<T> {
-  // Wait for any ongoing operation to complete
+  // Timeout guard prevents permanent deadlock if DB stalls
+  const timeoutMs = 5000;
+  const start = Date.now();
   while (sessionOperationInProgress) {
+    if (Date.now() - start > timeoutMs) {
+      sessionOperationInProgress = false;
+      break;
+    }
     await new Promise(resolve => setTimeout(resolve, 10));
   }
   sessionOperationInProgress = true;
@@ -127,6 +133,10 @@ async function withSessionLock<T>(operation: () => Promise<T>): Promise<T> {
     sessionOperationInProgress = false;
   }
 }
+
+// FIX P3: Debounce timer interaction DB writes — max 1 write per 10 seconds
+let lastInteractionWriteMs = 0;
+const INTERACTION_WRITE_THROTTLE_MS = 10_000;
 
 async function saveTimer(timer: TimerSnapshot): Promise<void> {
   await db.settings.put({ key: "timer", value: JSON.stringify(timer) });
@@ -416,7 +426,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
     }
   },
 
-  createSubject: async (name: string, color: string, emoji?: string, weeklyGoalMinutes?: number) => {
+  createSubject: async (name: string, color: string, emoji?: string, weeklyGoalMinutes?: number, url?: string) => {
     const newSubject: Subject = {
       id: crypto.randomUUID(),
       name,
@@ -424,15 +434,16 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
       emoji,
       weeklyGoalMinutes,
       createdAt: new Date().toISOString(),
+      url,
     };
     await db.subjects.add(newSubject);
     set((state: AppState) => ({ subjects: [...state.subjects, newSubject] }));
   },
 
-  updateSubject: async (id: string, name: string, color: string, emoji?: string, weeklyGoalMinutes?: number) => {
-    await db.subjects.update(id, { name, color, emoji, weeklyGoalMinutes });
+  updateSubject: async (id: string, name: string, color: string, emoji?: string, weeklyGoalMinutes?: number, url?: string) => {
+    await db.subjects.update(id, { name, color, emoji, weeklyGoalMinutes, url });
     set((state: AppState) => ({
-      subjects: state.subjects.map((s) => (s.id === id ? { ...s, name, color, emoji, weeklyGoalMinutes } : s)),
+      subjects: state.subjects.map((s) => (s.id === id ? { ...s, name, color, emoji, weeklyGoalMinutes, url } : s)),
       sessions: state.sessions.map((session) => (session.subjectId === id ? { ...session, colorTag: color } : session)),
     }));
   },
@@ -627,26 +638,27 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
   },
 
   startSession: async (sessionId: string) => {
-    const session = get().sessions.find((item: StudySession) => item.id === sessionId);
-    if (!session) return;
+    return withSessionLock(async () => {
+      const session = get().sessions.find((item: StudySession) => item.id === sessionId);
+      if (!session) return;
 
-    const currentTimer = get().timer;
-    if (currentTimer.activeSessionId && currentTimer.activeSessionId !== sessionId) {
-      await get().stopSession();
-    }
+      const currentTimer = get().timer;
+      if (currentTimer.activeSessionId && currentTimer.activeSessionId !== sessionId) {
+        await get().stopSession();
+      }
 
-    const now = Date.now();
-    const timer: TimerSnapshot = {
-      activeSessionId: session.id,
-      startedAtMs: now,
-      accumulatedSeconds: clampElapsedSeconds(session, session.actualSeconds),
-      pausedAtMs: null,
-      isPaused: false,
-      hiddenAtMs: null,
-      lastInteractionAtMs: now,
-    };
-    await saveTimer(timer);
-    await db.sessions.update(session.id, { status: "in_progress", updatedAt: new Date().toISOString() });
+      const now = Date.now();
+      const timer: TimerSnapshot = {
+        activeSessionId: session.id,
+        startedAtMs: now,
+        accumulatedSeconds: clampElapsedSeconds(session, session.actualSeconds),
+        pausedAtMs: null,
+        isPaused: false,
+        hiddenAtMs: null,
+        lastInteractionAtMs: now,
+      };
+      await saveTimer(timer);
+      await db.sessions.update(session.id, { status: "in_progress", updatedAt: new Date().toISOString() });
       set((state: AppState) => {
         const newSessions: StudySession[] = state.sessions.map((item: StudySession) => (item.id === session.id ? { ...item, status: "in_progress" as SessionStatus, updatedAt: new Date().toISOString() } : item));
         return {
@@ -655,65 +667,70 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
           ...calculateGamificationStats(newSessions)
         };
       });
+    });
   },
 
   pauseSession: async () => {
-    const timer = get().timer;
-    if (!timer.activeSessionId || timer.isPaused || !timer.startedAtMs) return;
-    const activeSession = get().sessions.find((session: StudySession) => session.id === timer.activeSessionId);
-    const elapsedSinceStart = Math.floor((Date.now() - timer.startedAtMs) / 1000);
-    const nextAccumulated = clampElapsedSeconds(activeSession, timer.accumulatedSeconds + elapsedSinceStart);
-    const nextTimer: TimerSnapshot = {
-      ...timer,
-      accumulatedSeconds: nextAccumulated,
-      isPaused: true,
-      pausedAtMs: Date.now(),
-      startedAtMs: null,
-      hiddenAtMs: null,
-    };
-    await saveTimer(nextTimer);
-    await db.sessions.update(timer.activeSessionId, {
-      status: "paused",
-      actualSeconds: nextAccumulated,
-      updatedAt: new Date().toISOString(),
-    });
-    set((state: AppState) => {
-      const newSessions: StudySession[] = state.sessions.map((session: StudySession) =>
-        session.id === timer.activeSessionId
-          ? { ...session, status: "paused" as SessionStatus, actualSeconds: nextAccumulated, updatedAt: new Date().toISOString() }
-          : session
-      );
-      return {
-        timer: nextTimer,
-        sessions: sortSessions(newSessions),
-        ...calculateGamificationStats(newSessions)
+    return withSessionLock(async () => {
+      const timer = get().timer;
+      if (!timer.activeSessionId || timer.isPaused || !timer.startedAtMs) return;
+      const activeSession = get().sessions.find((session: StudySession) => session.id === timer.activeSessionId);
+      const elapsedSinceStart = Math.floor((Date.now() - timer.startedAtMs) / 1000);
+      const nextAccumulated = clampElapsedSeconds(activeSession, timer.accumulatedSeconds + elapsedSinceStart);
+      const nextTimer: TimerSnapshot = {
+        ...timer,
+        accumulatedSeconds: nextAccumulated,
+        isPaused: true,
+        pausedAtMs: Date.now(),
+        startedAtMs: null,
+        hiddenAtMs: null,
       };
+      await saveTimer(nextTimer);
+      await db.sessions.update(timer.activeSessionId, {
+        status: "paused",
+        actualSeconds: nextAccumulated,
+        updatedAt: new Date().toISOString(),
+      });
+      set((state: AppState) => {
+        const newSessions: StudySession[] = state.sessions.map((session: StudySession) =>
+          session.id === timer.activeSessionId
+            ? { ...session, status: "paused" as SessionStatus, actualSeconds: nextAccumulated, updatedAt: new Date().toISOString() }
+            : session
+        );
+        return {
+          timer: nextTimer,
+          sessions: sortSessions(newSessions),
+          ...calculateGamificationStats(newSessions)
+        };
+      });
     });
   },
 
   resumeSession: async () => {
-    const timer = get().timer;
-    if (!timer.activeSessionId || !timer.isPaused) return;
-    const now = Date.now();
-    const nextTimer: TimerSnapshot = {
-      ...timer,
-      startedAtMs: now,
-      isPaused: false,
-      pausedAtMs: null,
-      hiddenAtMs: null,
-      lastInteractionAtMs: now,
-    };
-    await saveTimer(nextTimer);
-    await db.sessions.update(timer.activeSessionId, { status: "in_progress", updatedAt: new Date().toISOString() });
-    set((state: AppState) => {
-      const newSessions: StudySession[] = state.sessions.map((session: StudySession) =>
-        session.id === timer.activeSessionId ? { ...session, status: "in_progress" as SessionStatus, updatedAt: new Date().toISOString() } : session
-      );
-      return {
-        timer: nextTimer,
-        sessions: sortSessions(newSessions),
-        ...calculateGamificationStats(newSessions)
+    return withSessionLock(async () => {
+      const timer = get().timer;
+      if (!timer.activeSessionId || !timer.isPaused) return;
+      const now = Date.now();
+      const nextTimer: TimerSnapshot = {
+        ...timer,
+        startedAtMs: now,
+        isPaused: false,
+        pausedAtMs: null,
+        hiddenAtMs: null,
+        lastInteractionAtMs: now,
       };
+      await saveTimer(nextTimer);
+      await db.sessions.update(timer.activeSessionId, { status: "in_progress", updatedAt: new Date().toISOString() });
+      set((state: AppState) => {
+        const newSessions: StudySession[] = state.sessions.map((session: StudySession) =>
+          session.id === timer.activeSessionId ? { ...session, status: "in_progress" as SessionStatus, updatedAt: new Date().toISOString() } : session
+        );
+        return {
+          timer: nextTimer,
+          sessions: sortSessions(newSessions),
+          ...calculateGamificationStats(newSessions)
+        };
+      });
     });
   },
 
@@ -759,8 +776,13 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
   markTimerInteraction: async (ms?: number) => {
     const timer = get().timer;
     if (!timer.activeSessionId) return;
-    const nextTimer = { ...timer, lastInteractionAtMs: ms ?? Date.now() };
-    await saveTimer(nextTimer);
+    const now = ms ?? Date.now();
+    const nextTimer = { ...timer, lastInteractionAtMs: now };
+    // FIX P3: Only write to IndexedDB at most once per 10s (not on every mouse event)
+    if (now - lastInteractionWriteMs >= INTERACTION_WRITE_THROTTLE_MS) {
+      lastInteractionWriteMs = now;
+      await saveTimer(nextTimer);
+    }
     set({ timer: nextTimer });
   },
 
@@ -800,33 +822,32 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
   },
 
   syncActiveSession: async (nowMs?: number) => {
+    if (sessionOperationInProgress) return;
     return withSessionLock(async () => {
       const timer = get().timer;
       if (!timer.activeSessionId) return;
-      
+
       const activeSession = get().sessions.find((s: StudySession) => s.id === timer.activeSessionId);
       if (!activeSession) return;
-
       if (timer.isPaused || !timer.startedAtMs) return;
 
       const currentMs = nowMs ?? Date.now();
       const elapsed = get().getActiveElapsed(currentMs);
       const clampedElapsed = clampElapsedSeconds(activeSession, elapsed);
 
-      await db.sessions.update(timer.activeSessionId, { 
+      // FIX P1+P2: Removed sortSessions + calculateGamificationStats from 1s tick
+      await db.sessions.update(timer.activeSessionId, {
         actualSeconds: clampedElapsed,
         updatedAt: new Date().toISOString()
       });
-      
-      set((state: AppState) => {
-        const newSessions: StudySession[] = state.sessions.map((session: StudySession) =>
-          session.id === timer.activeSessionId ? { ...session, actualSeconds: clampedElapsed, updatedAt: new Date().toISOString() } : session
-        );
-        return {
-          sessions: sortSessions(newSessions),
-          ...calculateGamificationStats(newSessions)
-        };
-      });
+
+      set((state: AppState) => ({
+        sessions: state.sessions.map((session: StudySession) =>
+          session.id === timer.activeSessionId
+            ? { ...session, actualSeconds: clampedElapsed, updatedAt: new Date().toISOString() }
+            : session
+        ),
+      }));
     });
   },
 
