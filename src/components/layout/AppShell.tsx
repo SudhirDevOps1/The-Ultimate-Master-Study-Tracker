@@ -2,45 +2,50 @@ import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { cn } from "@/utils/cn";
 import { useAppStore, type AppState } from "@/store/useAppStore";
-import {
-  LayoutDashboard,
-  CalendarCheck,
-  Timer,
-  BookOpen,
-  StickyNote,
-  Monitor,
-  Bot,
-  Calendar,
-  BarChart3,
-  Trophy,
-  History,
-  HelpCircle,
-  BookMarked,
-  Settings
+import { 
+  Home, 
+  ClipboardList, 
+  Timer, 
+  Monitor, 
+  Brain, 
+  Calendar as CalendarIcon, 
+  BarChart2, 
+  Award, 
+  History as HistoryIcon, 
+  BookOpen, 
+  Book, 
+  Settings as SettingsIcon,
+  Github,
+  Globe,
+  Target,
+  Clock
 } from "lucide-react";
 
 const links = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/today", label: "Today's Tasks", icon: CalendarCheck },
-  { to: "/timer", label: "Timer", icon: Timer },
-  { to: "/study-workspace", label: "Study Workspace", icon: BookOpen },
-  { to: "/notes-board", label: "Notes Board", icon: StickyNote },
-  { to: "/app-tracking", label: "App Tracking", icon: Monitor },
-  { to: "/ai", label: "AI Assistant", icon: Bot },
-  { to: "/calendar", label: "Calendar", icon: Calendar },
-  { to: "/analytics", label: "Analytics", icon: BarChart3 },
-  { to: "/achievements", label: "Achievements", icon: Trophy },
-  { to: "/history", label: "History", icon: History },
-  { to: "/guide", label: "Guide", icon: HelpCircle },
-  { to: "/subjects", label: "Subjects", icon: BookMarked },
-  { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/dashboard", label: "Dashboard", Icon: Home },
+  { to: "/today", label: "Today", Icon: ClipboardList },
+  { to: "/timer", label: "Timer", Icon: Timer },
+  { to: "/scheduler", label: "AI Scheduler", Icon: Clock },
+  { to: "/flashcards", label: "SRS Flashcards", Icon: Brain },
+  { to: "/study-workspace", label: "Study Workspace (PDF/OCR)", Icon: BookOpen },
+  { to: "/notes-board", label: "Notes Board", Icon: ClipboardList },
+  { to: "/app-tracking", label: "App Tracking", Icon: Monitor },
+  { to: "/ai", label: "AI Assistant", Icon: Brain },
+  { to: "/calendar", label: "Calendar", Icon: CalendarIcon },
+  { to: "/exams", label: "Exam Countdown", Icon: Target },
+  { to: "/analytics", label: "Analytics", Icon: BarChart2 },
+  { to: "/achievements", label: "Achievements", Icon: Award },
+  { to: "/history", label: "History", Icon: HistoryIcon },
+  { to: "/guide", label: "Guide", Icon: BookOpen },
+  { to: "/subjects", label: "Subjects", Icon: Book },
+  { to: "/settings", label: "Settings", Icon: SettingsIcon },
 ];
 
 export function AppShell() {
   const location = useLocation();
   const theme = useAppStore((state: AppState) => state.theme);
-  const activeLink = links.find((link) => link.to === location.pathname) ?? links[0];
-  const CurrentIcon = activeLink.icon;
+  const currentLink = links.find((link) => link.to === location.pathname);
+  const current = currentLink ? currentLink.label : "Dashboard";
 
   const getGradientClass = () => {
     switch (theme) {
@@ -73,6 +78,7 @@ export function AppShell() {
                       <path d="M8 22h8" className="stroke-indigo-500" strokeWidth="1.5" />
                     </svg>
                   </div>
+                  {/* Subtle pulsing green indicator dot */}
                   <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border-2 border-slate-950"></span>
@@ -92,35 +98,54 @@ export function AppShell() {
                 Plan sessions, track actual study time accurately, and review progress with beautiful analytics.
               </p>
             </div>
-            <div className={`soft-card rounded-2xl bg-gradient-to-r ${getGradientClass()} p-[2px]`}>
-              <div className="rounded-2xl bg-slate-900/95 px-4 py-3 flex items-center gap-3">
-                <CurrentIcon className="w-5 h-5 text-cyan-400" />
-                <div>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <a 
+                href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-white/10 hover:text-white transition-all duration-200 active:scale-95 shadow-md"
+                title="View GitHub Repository"
+              >
+                <Github className="w-4 h-4" />
+                <span className="hidden md:inline">GitHub</span>
+              </a>
+              <a 
+                href="https://the-ultimate-master-study-tracker.vercel.app/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-white/10 hover:text-white transition-all duration-200 active:scale-95 shadow-md"
+                title="View Live Web App"
+              >
+                <Globe className="w-4 h-4" />
+                <span className="hidden md:inline">Live Web</span>
+              </a>
+              <div className={`soft-card rounded-2xl bg-gradient-to-r ${getGradientClass()} p-[2px]`}>
+                <div className="rounded-2xl bg-slate-900/95 px-4 py-3">
                   <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Current page</p>
-                  <p className="mt-0.5 text-base font-medium text-white">{activeLink.label}</p>
+                  <p className="mt-1 text-lg font-medium text-white">{current}</p>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <nav className="glass pretty-scrollbar flex gap-2 overflow-x-auto rounded-2xl p-2">
+        <nav className="glass flex gap-1.5 overflow-x-auto rounded-2xl p-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
           {links.map((link) => {
-            const Icon = link.icon;
+            const LinkIcon = link.Icon;
             return (
               <NavLink
                 key={link.to}
                 to={link.to}
                 className={({ isActive }) =>
                   cn(
-                    "flex items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all duration-200",
+                    "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all duration-200 focus:outline-none",
                     isActive
                       ? `bg-gradient-to-r ${getGradientClass()} text-white shadow-lg`
                       : "text-slate-200 hover:bg-white/8 hover:text-white"
                   )
                 }
               >
-                <Icon className="w-4 h-4 opacity-80" />
+                <LinkIcon className="w-4 h-4 shrink-0" />
                 <span>{link.label}</span>
               </NavLink>
             );

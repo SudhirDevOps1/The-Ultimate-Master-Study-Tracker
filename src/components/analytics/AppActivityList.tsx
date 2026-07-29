@@ -1,84 +1,160 @@
-import { useMemo } from "react";
-import { Monitor } from "lucide-react";
+import { useMemo, useState, useEffect } from "react";
 import { Panel } from "@/components/common/Panel";
+import { toDurationLabel } from "@/utils/time";
 import { classifyApplication } from "@/utils/appCategorizer";
 
-interface AppSummary {
+interface ActivityEntry {
   appName: string;
-  totalSeconds: number;
-  sessions: number;
-  category: string;
+  title: string;
+  durationSeconds: number;
+  startTime: string;
+  date: string;
+  hour: number;
   isLive?: boolean;
 }
 
-export function AppActivityList({ activities = [] }: { activities?: any[] }) {
-  const summaries = useMemo(() => {
-    const map = new Map<string, AppSummary>();
-    for (const a of activities) {
-      const app = a.appName || a.app || "Unknown App";
-      const title = a.title || a.windowTitle || "";
-      const secs = a.durationSeconds || a.duration || 0;
-      const cat = classifyApplication(app, title);
-      const existing = map.get(app);
-      if (existing) {
-        existing.totalSeconds += secs;
-        existing.sessions += 1;
-        if (a.isLive) existing.isLive = true;
+const isElectron = typeof window !== "undefined" && !!(window as any).require;
+const getIpc = () => isElectron ? (window as any).require("electron").ipcRenderer : null;
+
+export function AppActivityList() {
+  const [activities, setActivities] = useState<ActivityEntry[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterCategory, setFilterCategory] = useState<"all" | "study" | "browser" | "entertainment" | "social" | "system">("all");
+
+  const fetchLogs = async () => {
+    const ipc = getIpc();
+    if (!ipc) return;
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const logs: ActivityEntry[] = await ipc.invoke("get-activity-log", { date: today });
+      setActivities(logs);
+    } catch { /* ignore */ }
+  };
+
+  useEffect(() => {
+    void fetchLogs();
+    const id = setInterval(() => void fetchLogs(), 5000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Aggregated process statistics
+  const processAggregation = useMemo(() => {
+    const agg: Record<string, {
+      appName: string;
+      windowTitle: string;
+      durationSeconds: number;
+      category: "study" | "browser" | "entertainment" | "social" | "system";
+      hits: number;
+    }> = {};
+
+    activities.forEach((act) => {
+      const app = act.appName || "Unknown App";
+      const title = act.title || "Desktop / Idle";
+      const key = `${app} - ${title}`;
+      const duration = Number(act.durationSeconds || 0);
+
+      const category = classifyApplication(app, title);
+
+      if (agg[key]) {
+        agg[key].durationSeconds += duration;
+        agg[key].hits += 1;
       } else {
-        map.set(app, { appName: app, totalSeconds: secs, sessions: 1, category: cat, isLive: a.isLive });
+        agg[key] = {
+          appName: app,
+          windowTitle: title,
+          durationSeconds: duration,
+          category,
+          hits: 1,
+        };
       }
-    }
-    return Array.from(map.values()).sort((a, b) => b.totalSeconds - a.totalSeconds);
+    });
+
+    return Object.values(agg).sort((a, b) => b.durationSeconds - a.durationSeconds);
   }, [activities]);
 
-  const fmtSecs = (s: number) => {
-    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
-    return h > 0 ? `${h}h ${m}m` : `${m}m`;
-  };
+  const filteredProcesses = useMemo(() => {
+    return processAggregation.filter((item) => {
+      const matchesSearch = item.appName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            item.windowTitle.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCat = filterCategory === "all" || item.category === filterCategory;
+      return matchesSearch && matchesCat;
+    });
+  }, [processAggregation, searchTerm, filterCategory]);
 
-  const getCategoryBadge = (cat: string) => {
-    switch (cat) {
-      case "study": return { label: "💻 STUDY / DEV", color: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" };
-      case "browser": return { label: "🌐 BROWSER", color: "bg-sky-500/20 text-sky-300 border-sky-500/30" };
-      case "social": return { label: "💬 SOCIAL", color: "bg-purple-500/20 text-purple-300 border-purple-500/30" };
-      case "entertainment": return { label: "🎮 ENTERTAINMENT", color: "bg-rose-500/20 text-rose-300 border-rose-500/30" };
-      default: return { label: "⚙️ SYSTEM", color: "bg-slate-800 text-slate-400 border-slate-700" };
-    }
-  };
+  const totalTrackedSeconds = useMemo(() => {
+    return processAggregation.reduce((acc, item) => acc + item.durationSeconds, 0);
+  }, [processAggregation]);
 
   return (
     <Panel className="space-y-4">
-      <h3 className="text-base font-bold text-white flex items-center gap-2">
-        <Monitor className="w-4 h-4 text-cyan-400" /> Active Applications Breakdown (500+ App Auto-Categorizer)
-      </h3>
-
-      {summaries.length === 0 ? (
-        <div className="text-center py-8 text-slate-500 text-xs">
-          No background application activity logged for this period yet.
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center justify-between border-b border-white/10 pb-4">
+        <div>
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            📊 Activity Logs Breakdown
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+              Desktop Native Tracker
+            </span>
+          </h3>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Total Logged Today: <strong className="text-white">{toDurationLabel(Math.round(totalTrackedSeconds / 60))}</strong>
+          </p>
         </div>
-      ) : (
-        <div className="space-y-2">
-          {summaries.map(app => {
-            const badge = getCategoryBadge(app.category);
+
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="text"
+            placeholder="Search app or window title..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="rounded-xl border border-white/10 bg-slate-950 px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:border-cyan-400 focus:outline-none"
+          />
+
+          <select
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value as any)}
+            className="rounded-xl border border-white/10 bg-slate-950 px-3 py-1.5 text-xs text-white focus:border-cyan-400 focus:outline-none"
+          >
+            <option value="all">All Categories</option>
+            <option value="study">💻 Study / Coding</option>
+            <option value="entertainment">🎵 Entertainment</option>
+            <option value="social">💬 Social</option>
+            <option value="system">⚙️ System</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="pretty-scrollbar max-h-96 overflow-y-auto space-y-2 pr-1">
+        {filteredProcesses.length > 0 ? (
+          filteredProcesses.map((proc, index) => {
+            const minutes = Math.round(proc.durationSeconds / 60);
             return (
-              <div key={app.appName} className="flex items-center justify-between p-3 rounded-xl bg-slate-900/40 border border-white/5 text-xs">
-                <div className="flex items-center gap-3">
-                  <span className="font-semibold text-white">{app.appName}</span>
-                  <span className={`px-2 py-0.5 rounded-md border text-[9px] font-bold ${badge.color}`}>
-                    {badge.label}
-                  </span>
-                  {app.isLive && (
-                    <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[9px] font-bold animate-pulse">
-                      LIVE
+              <div
+                key={index}
+                className="flex items-center justify-between rounded-xl border border-white/5 bg-slate-950/40 p-3 hover:bg-white/[0.03] transition-colors"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-bold text-white truncate">{proc.appName}</p>
+                    <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-white/5 text-slate-300">
+                      {proc.category}
                     </span>
-                  )}
+                  </div>
+                  <p className="text-[11px] text-slate-400 truncate mt-0.5">{proc.windowTitle}</p>
                 </div>
-                <span className="font-mono text-cyan-300 font-semibold">{fmtSecs(app.totalSeconds)}</span>
+
+                <div className="ml-4 text-right shrink-0">
+                  <p className="text-xs font-black text-cyan-300">{toDurationLabel(minutes)}</p>
+                  <p className="text-[10px] text-slate-500">{proc.hits} windows</p>
+                </div>
               </div>
             );
-          })}
-        </div>
-      )}
+          })
+        ) : (
+          <div className="py-12 text-center text-xs text-slate-500">
+            No process activity matching filters found for today.
+          </div>
+        )}
+      </div>
     </Panel>
   );
 }

@@ -204,6 +204,81 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-5">
+      {/* 🖥️ Desktop Native Controls & Floating HUD Panel */}
+      <Panel className="border-l-4 border-cyan-400 bg-gradient-to-r from-slate-900 via-cyan-950/20 to-slate-900 space-y-4">
+        <div>
+          <h3 className="text-xl font-bold text-white flex items-center gap-2">
+            🖥️ Desktop Native App Controls
+          </h3>
+          <p className="mt-1 text-xs text-slate-400">
+            Configure system tray behavior, window floating modes, and background launch options.
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
+            <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-white">
+              <input
+                type="checkbox"
+                onChange={(e) => {
+                  const isChecked = e.target.checked;
+                  if (typeof window !== "undefined" && (window as any).electron) {
+                    (window as any).electron.ipcRenderer?.invoke?.("toggle-always-on-top", { flag: isChecked });
+                  }
+                  showMessage(isChecked ? "📌 Always-On-Top Floating Mode Enabled!" : "Always-On-Top Disabled.");
+                }}
+                className="h-5 w-5 rounded border-cyan-400 bg-slate-800 text-cyan-500 focus:ring-0"
+              />
+              📌 Always-On-Top Floating Mode
+            </label>
+            <p className="text-xs text-slate-400 pl-8">
+              Keep FlowTrack window floating above VS Code, Zoom, or PDF lectures.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
+            <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-white">
+              <input
+                type="checkbox"
+                onChange={(e) => {
+                  const isChecked = e.target.checked;
+                  if (typeof window !== "undefined" && (window as any).electron) {
+                    (window as any).electron.ipcRenderer?.invoke?.("set-open-at-login", { openAtLogin: isChecked });
+                  }
+                  showMessage(isChecked ? "🚀 Windows Auto-Launch Enabled!" : "Windows Auto-Launch Disabled.");
+                }}
+                className="h-5 w-5 rounded border-cyan-400 bg-slate-800 text-cyan-500 focus:ring-0"
+              />
+              🚀 Launch on Windows Startup
+            </label>
+            <p className="text-xs text-slate-400 pl-8">
+              Automatically start background tracker in System Tray when PC boots up.
+            </p>
+          </div>
+        </div>
+
+        <div className="p-3 rounded-xl bg-slate-900/60 border border-white/5 flex items-center justify-between text-xs">
+          <span className="text-slate-300 font-mono">⚡ Global System Hotkey: <kbd className="px-2 py-0.5 rounded bg-slate-800 text-cyan-300 font-bold border border-white/10">Ctrl + Alt + P</kbd> (Pause / Resume Study Timer)</span>
+          <button
+            onClick={() => {
+              if (typeof window !== "undefined" && (window as any).electron) {
+                (window as any).electron.ipcRenderer?.invoke?.("send-windows-toast", {
+                  title: "FlowTrack Pro Test Alert",
+                  message: "Windows Native Balloon Toast Notifications are active!"
+                });
+                showMessage("Test Windows Toast sent to System Tray!");
+              }
+            }}
+            className="px-3 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-semibold hover:bg-cyan-500/30 transition-all"
+          >
+            🔔 Test Windows Toast
+          </button>
+        </div>
+
+        {/* 🚀 New Update Checker Card */}
+        <UpdateChecker showMessage={showMessage} />
+      </Panel>
+
       {/* Theme Customization */}
       <Panel>
         <div className="mb-4">
@@ -297,15 +372,31 @@ export function SettingsPage() {
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-          <label className="flex items-center gap-2 text-sm text-slate-300">
-            <input
-              type="checkbox"
-              checked={autoCarryForward}
-              onChange={(e) => setAutoCarryForward(e.target.checked)}
-              className="h-4 w-4 rounded border-white/10 bg-slate-800"
-            />
-            🔄 Auto Carry-Forward subjects to next day
-          </label>
+          <div className="flex flex-col gap-2">
+            <label className="flex items-center gap-2 text-sm text-slate-300">
+              <input
+                type="checkbox"
+                checked={autoCarryForward}
+                onChange={(e) => setAutoCarryForward(e.target.checked)}
+                className="h-4 w-4 rounded border-white/10 bg-slate-800"
+              />
+              🔄 Auto Carry-Forward subjects to next day
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-300">
+              <input
+                type="checkbox"
+                onChange={(e) => {
+                  const isChecked = e.target.checked;
+                  if (typeof window !== "undefined" && (window as any).electron) {
+                    (window as any).electron.ipcRenderer?.invoke?.("toggle-always-on-top", { flag: isChecked });
+                  }
+                  showMessage(isChecked ? "📌 Always-On-Top Floating Mode Enabled!" : "Always-On-Top Floating Mode Disabled.");
+                }}
+                className="h-4 w-4 rounded border-cyan-400 bg-slate-800"
+              />
+              📌 Always-On-Top Floating Mode (Keep app on top of other windows)
+            </label>
+          </div>
           
           <button
             onClick={handleSaveProfile}
@@ -375,6 +466,21 @@ export function SettingsPage() {
                 } catch (e) {
                   console.warn("Backend offline or unreachable, exporting without backend activities", e);
                 }
+
+                // Pack all Local Wellbeing & System App usage lists from localStorage
+                const localWellbeingData: Record<string, any> = {};
+                try {
+                  for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && (key.startsWith("wellbeing_usage_") || key.startsWith("app_activity_") || key === "app_block_rules")) {
+                      const val = localStorage.getItem(key);
+                      if (val) localWellbeingData[key] = JSON.parse(val);
+                    }
+                  }
+                } catch (err) {
+                  console.error("Error reading wellbeing data for backup", err);
+                }
+
                 exportData({
                   app: "FlowTrack",
                   exportedAt: new Date().toISOString(),
@@ -382,6 +488,7 @@ export function SettingsPage() {
                   sessions,
                   settings: settingsList,
                   activities: backendActivities,
+                  wellbeingData: localWellbeingData
                 } as any);
                 showMessage("Backup exported successfully.");
               }}
@@ -397,8 +504,18 @@ export function SettingsPage() {
               onChange={(event) => {
                 const file = event.target.files?.[0];
                 if (!file) return;
-                void importBackup(file).then((payload) => {
+                void importBackup(file).then((payload: any) => {
                   void importAll(payload.subjects, payload.sessions, payload.settings, (payload as any).activities).then(() => {
+                    // Restore Local Wellbeing, App Activity logs and App Blocking Rules
+                    if (payload.wellbeingData) {
+                      try {
+                        Object.entries(payload.wellbeingData).forEach(([key, value]) => {
+                          localStorage.setItem(key, JSON.stringify(value));
+                        });
+                      } catch (err) {
+                        console.error("Error importing wellbeing data", err);
+                      }
+                    }
                     showMessage("Backup imported successfully.");
                     if (fileRef.current) fileRef.current.value = "";
                   });
@@ -624,9 +741,9 @@ export function SettingsPage() {
       <div className="grid gap-5 lg:grid-cols-2">
         <Panel className="space-y-4">
           <div>
-            <h3 className="text-xl font-semibold text-white">📱 FlowTrack PWA</h3>
+            <h3 className="text-xl font-semibold text-white">📱 FlowTrack Pro Desktop App</h3>
             <p className="mt-1 text-sm text-slate-400">
-              This app works offline! Install it on your device for the best experience.
+              100% Offline & Native Electron Desktop Application. Your data stays 100% private on your machine.
             </p>
           </div>
           <div className="flex gap-3">
@@ -639,7 +756,7 @@ export function SettingsPage() {
               <p className="text-xs text-slate-400">Subjects</p>
             </div>
             <div className="rounded-xl bg-white/5 px-4 py-2 text-center">
-              <p className="text-lg font-bold text-purple-400">v3.3.0</p>
+              <p className="text-lg font-bold text-purple-400">v5.0.0</p>
               <p className="text-xs text-slate-400">Version</p>
             </div>
           </div>
@@ -652,98 +769,21 @@ export function SettingsPage() {
               <p className="mt-1 text-xs text-slate-400 font-semibold uppercase tracking-wider">Premium & Private Edition</p>
             </div>
             <div className="flex gap-2">
-              <button
-                onClick={() => showMessage("💖 Thank you for starring! Repos: github.com/antigravity/flowtrack")}
-                className="rounded-xl bg-white/5 border border-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/10 transition-colors"
+              <a
+                href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 rounded-xl bg-white/5 border border-white/10 px-3.5 py-2 text-xs font-semibold text-white hover:bg-white/10 hover:border-cyan-500/50 transition-all duration-200"
               >
-                ⭐ Star Repo
-              </button>
+                <span>⭐ View Repo</span>
+              </a>
             </div>
           </div>
           <p className="text-sm text-slate-400 leading-relaxed">
-            FlowTrack is developed with a strict privacy-first architecture. It features fully offline operations, local AI engines, PWA caching, and anti-cheat strict window analytics.
+            FlowTrack Pro is developed by <strong className="text-white font-semibold">SudhirDevOps1</strong> with a strict privacy-first architecture. It features fully offline operations, ActivityWatch-grade native tracking, and dual-layer hybrid inactivity engines.
           </p>
-          <div className="pt-2 flex flex-wrap items-center justify-between gap-4 border-t border-white/5">
-            <span className="text-xs text-slate-500 font-medium">MIT License • Built with React 19 & Vite 7</span>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400">Buy developer coffee? ☕</span>
-              <button
-                onClick={() => showMessage("☕ Coffee donation simulated! Thank you for supporting open source.")}
-                className="rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-1 text-xs font-bold text-slate-950 hover:scale-105 transition-transform"
-              >
-                Donate
-              </button>
-            </div>
-          </div>
         </Panel>
       </div>
-
-      {/* Local Python Backend Configuration Panel */}
-      <Panel className="space-y-4 border-l-4 border-emerald-500 bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950/10">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-xl font-semibold text-white flex items-center gap-2">🐍 Local Python Tracker Backend</h3>
-            <p className="mt-1 text-sm text-slate-400">
-              Configure connection to the python script running on your PC. Fallback mode is active when disconnected.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 rounded-full bg-white/5 px-3 py-1.5">
-            <span className={`h-2.5 w-2.5 rounded-full ${isBackendConnected ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
-              {isBackendConnected ? "Connected" : "Offline Mode"}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-          <div className="flex-1 space-y-2">
-            <label className="block text-sm text-slate-300">Backend URL (e.g. Local PC IP or localhost)</label>
-            <input
-              type="text"
-              value={inputBackendUrl}
-              onChange={(e) => setInputBackendUrl(e.target.value)}
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white focus:border-emerald-400 focus:outline-none font-mono"
-              placeholder="e.g. http://localhost:5001"
-            />
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={async () => {
-                try {
-                  let testUrl = inputBackendUrl.trim().replace(/\/$/, "");
-                  if (testUrl && !/^https?:\/\//i.test(testUrl)) {
-                    testUrl = "http://" + testUrl;
-                  }
-                  const res = await fetch(`${testUrl}/health`);
-                  if (res.ok) {
-                    const data = await res.json();
-                    showMessage(`Connected successfully! Server version: ${data.version || "Unknown"}`);
-                  } else {
-                    showMessage("❌ Server responded with an error status.");
-                  }
-                } catch (e) {
-                  showMessage("❌ Could not connect to local server. Make sure START.bat is running on your PC.");
-                }
-              }}
-              className="rounded-2xl border border-white/15 px-5 py-3 font-semibold text-white transition-colors hover:bg-white/8 hover:scale-102"
-            >
-              ⚡ Test Connection
-            </button>
-            <button
-              onClick={async () => {
-                await setBackendUrl(inputBackendUrl);
-                showMessage("Backend URL configuration updated successfully.");
-              }}
-              className="rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-3 font-bold text-slate-950 shadow-lg hover:scale-105 transition-transform"
-            >
-              💾 Save Connection
-            </button>
-          </div>
-        </div>
-        <p className="text-xs text-slate-400">
-          💡 <strong>Tip for Vercel:</strong> If you are opening this live Vercel link, keep the URL as <code>http://localhost:5001</code> to connect to your local PC. Or if you want to sync with a network PC, enter its local IP address (e.g., <code>http://192.168.1.15:5001</code>).
-        </p>
-      </Panel>
 
       {/* Danger Zone */}
       <Panel className="space-y-4 border border-red-500/20 bg-red-950/5">
@@ -775,6 +815,104 @@ export function SettingsPage() {
           <p className="text-xs text-slate-500">Deletes all subjects, sessions, settings, and reloads the app fresh.</p>
         </div>
       </Panel>
+    </div>
+  );
+}
+
+// ─── UpdateChecker Helper Component (Queries GitHub Releases) ──────────────────
+function UpdateChecker({ showMessage }: { showMessage: (msg: string) => void }) {
+  const [currentVersion, setCurrentVersion] = useState("3.3.0");
+  const [latestVersion, setLatestVersion] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [updateUrl, setUpdateUrl] = useState("https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases");
+
+  useEffect(() => {
+    const fetchLocalVersion = async () => {
+      if (typeof window !== "undefined" && (window as any).electron) {
+        try {
+          const ver = await (window as any).electron.ipcRenderer?.invoke("get-app-version");
+          if (ver) setCurrentVersion(ver);
+        } catch { /* fallback to default */ }
+      }
+    };
+    void fetchLocalVersion();
+  }, []);
+
+  const handleCheckUpdate = async () => {
+    setChecking(true);
+    try {
+      const res = await fetch("https://api.github.com/repos/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest");
+      if (res.ok) {
+        const data = await res.json();
+        const tag = data.tag_name; // e.g. "v3.2.0"
+        const cleanTag = tag.replace(/^v/, "");
+        setLatestVersion(cleanTag);
+        if (data.html_url) setUpdateUrl(data.html_url);
+
+        if (cleanTag !== currentVersion) {
+          showMessage(`🎁 New Update Available: v${cleanTag}!`);
+        } else {
+          showMessage("✅ FlowTrack is up to date.");
+        }
+      } else {
+        showMessage("❌ Failed to contact update server.");
+      }
+    } catch {
+      showMessage("❌ Network error checking updates.");
+    }
+    setChecking(false);
+  };
+
+  const handleDownload = async () => {
+    if (typeof window !== "undefined" && (window as any).electron) {
+      try {
+        await (window as any).electron.ipcRenderer?.invoke("open-external-link", { url: updateUrl });
+      } catch {
+        window.open(updateUrl, "_blank");
+      }
+    } else {
+      window.open(updateUrl, "_blank");
+    }
+  };
+
+  return (
+    <div className="p-4 mt-2 rounded-2xl bg-slate-950/40 border border-white/5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-xs">
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-white uppercase text-[10px] tracking-wider bg-slate-800 border border-white/10 px-2 py-0.5 rounded-md">
+            Version: v{currentVersion}
+          </span>
+          {latestVersion && latestVersion !== currentVersion && (
+            <span className="animate-pulse bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-md font-bold">
+              🎁 Update Available (v{latestVersion})
+            </span>
+          )}
+        </div>
+        <p className="text-slate-400">
+          {latestVersion && latestVersion !== currentVersion
+            ? "New production release is available on GitHub with performance upgrades."
+            : "Automatic checks verify current release version directly with GitHub."}
+        </p>
+      </div>
+
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          onClick={handleCheckUpdate}
+          disabled={checking}
+          className="px-3 py-1.5 rounded-lg bg-slate-900 text-slate-300 border border-white/10 font-semibold hover:bg-slate-800 transition-all flex items-center gap-1 disabled:opacity-50"
+        >
+          {checking ? "⌛ Checking..." : "🔄 Check for Updates"}
+        </button>
+
+        {latestVersion && latestVersion !== currentVersion && (
+          <button
+            onClick={handleDownload}
+            className="px-3 py-1.5 rounded-lg bg-cyan-500 text-slate-950 font-bold hover:bg-cyan-400 transition-all shadow-md"
+          >
+            📥 Download Update
+          </button>
+        )}
+      </div>
     </div>
   );
 }

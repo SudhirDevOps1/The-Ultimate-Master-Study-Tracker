@@ -9,6 +9,7 @@ import { SubjectRanking } from "@/components/dashboard/SubjectRanking";
 import { DownloadModal } from "@/components/analytics/DownloadModal";
 import { useAppStore, type AppState } from "@/store/useAppStore";
 import type { StudySession, Subject } from "@/types/models";
+import { SubjectHeatmap } from "@/components/analytics/SubjectHeatmap";
 import { getRangeMetrics, type ExtendedRange } from "@/utils/analytics";
 import { useStreak, useYearHeatmap } from "@/hooks/useStreak";
 import { toDurationLabel } from "@/utils/time";
@@ -431,57 +432,7 @@ export function AnalyticsPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <div className="min-w-[800px]">
-            {/* Month labels */}
-            <div className="mb-2 flex">
-              <div className="w-8" />
-              {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((month) => (
-                <div key={month} className="flex-1 text-center text-xs text-slate-400">{month}</div>
-              ))}
-            </div>
-
-            {/* Heatmap grid - 7 rows (days of week) x 53 cols (weeks) */}
-            <div className="flex flex-col gap-0.5">
-              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day, dayIndex) => (
-                <div key={day} className="flex items-center gap-0.5">
-                  <span className="w-8 text-xs text-slate-500">{day}</span>
-                  <div className="flex flex-1 gap-0.5">
-                    {yearHeatmap
-                      .filter((_: { day: string; minutes: number }, i: number) => new Date(yearHeatmap[i].day).getDay() === dayIndex)
-                      .map((item: { day: string, minutes: number }, i: number) => (
-                        <motion.div
-                          key={item.day}
-                          initial={{ opacity: 0, scale: 0.5 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ delay: i * 0.002 }}
-                          title={`${format(new Date(item.day), "MMM d, yyyy")}: ${toDurationLabel(item.minutes)}`}
-                          className="aspect-square flex-1 rounded-sm transition-transform hover:scale-150 hover:z-10"
-                          style={{
-                            backgroundColor: item.minutes === 0
-                              ? "rgba(148,163,184,0.1)"
-                              : `rgba(34, 211, 238, ${Math.min(1, item.minutes / 180)})`,
-                            maxWidth: "16px",
-                          }}
-                        />
-                      ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Legend */}
-        <div className="mt-4 flex items-center justify-end gap-2 text-xs text-slate-400">
-          <span>Less</span>
-          <div className="flex gap-1">
-            <div className="h-3 w-3 rounded-sm bg-white/10" />
-            <div className="h-3 w-3 rounded-sm bg-cyan-500/25" />
-            <div className="h-3 w-3 rounded-sm bg-cyan-500/50" />
-            <div className="h-3 w-3 rounded-sm bg-cyan-500/75" />
-            <div className="h-3 w-3 rounded-sm bg-cyan-500" />
-          </div>
-          <span>More</span>
+          <SubjectHeatmap />
         </div>
       </Panel>
 

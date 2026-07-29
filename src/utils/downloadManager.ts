@@ -1,6 +1,6 @@
 import type { StudySession, Subject } from "@/types/models";
 import { format } from "date-fns";
-import { downloadThrottler } from "@/utils/downloadOptimization";
+import { DownloadOptimizer, downloadThrottler } from "@/utils/downloadOptimization";
 
 export type DownloadFormat = "pdf" | "csv" | "json" | "html";
 
@@ -48,8 +48,8 @@ export class DownloadManager {
   }
 
   private static async downloadPDF(
-    _sessions: StudySession[],
-    _subjects: Subject[],
+    sessions: StudySession[],
+    subjects: Subject[],
     onProgress?: (progress: DownloadProgress) => void
   ): Promise<void> {
     onProgress?.({ isLoading: true, progress: 20, message: "Generating PDF..." });

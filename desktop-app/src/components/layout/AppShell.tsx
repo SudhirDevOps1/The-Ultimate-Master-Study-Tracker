@@ -17,13 +17,16 @@ import {
   Settings as SettingsIcon,
   Github,
   Globe,
-  Target
+  Target,
+  Clock
 } from "lucide-react";
 
 const links = [
   { to: "/dashboard", label: "Dashboard", Icon: Home },
   { to: "/today", label: "Today", Icon: ClipboardList },
   { to: "/timer", label: "Timer", Icon: Timer },
+  { to: "/scheduler", label: "AI Scheduler", Icon: Clock },
+  { to: "/flashcards", label: "SRS Flashcards", Icon: Brain },
   { to: "/study-workspace", label: "Study Workspace (PDF/OCR)", Icon: BookOpen },
   { to: "/notes-board", label: "Notes Board", Icon: ClipboardList },
   { to: "/app-tracking", label: "App Tracking", Icon: Monitor },

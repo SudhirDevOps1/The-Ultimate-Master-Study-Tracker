@@ -10,6 +10,7 @@ import { PomodoroTimer } from "@/components/timer/PomodoroTimer";
 import { AmbiencePlayer } from "@/components/timer/AmbiencePlayer";
 import { MediaSandbox } from "@/components/timer/MediaSandbox";
 import { useTimer } from "@/hooks/useTimer";
+import { useInactivityDetector } from "@/hooks/useInactivityDetector";
 import { useAppStore, type AppState } from "@/store/useAppStore";
 import { formatDate12Hour, formatTimeRange12Hour, toDurationLabel } from "@/utils/time";
 import type { StudySession, Subject } from "@/types/models";
@@ -31,6 +32,7 @@ export function TimerPage() {
   const moveSessionToNextDay = useAppStore((state: AppState) => state.moveSessionToNextDay);
 
   const { activeSession, elapsedSeconds, remainingSeconds, progress } = useTimer();
+  useInactivityDetector(); // Enable 10-minute auto-pause when Strict Focus Mode is on
   const [editingSession, setEditingSession] = useState<StudySession | null>(null);
   const [filter, setFilter] = useState<"all" | "planned" | "completed" | "in_progress">("all");
   const [actionMessage, setActionMessage] = useState<string | null>(null);

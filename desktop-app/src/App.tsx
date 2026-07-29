@@ -20,6 +20,8 @@ import { AppTrackingPage } from "@/pages/AppTrackingPage";
 import { StudyNotesPage } from "@/pages/StudyNotesPage";
 import { StudyNotesBoardPage } from "@/pages/StudyNotesBoardPage";
 import { ExamCountdownPage } from "@/pages/ExamCountdownPage";
+import { SchedulerPage } from "@/pages/SchedulerPage";
+import { FlashcardsPage } from "@/pages/FlashcardsPage";
 import { useTimer } from "@/hooks/useTimer";
 import { useScheduleReminder } from "@/hooks/useScheduleReminder";
 
@@ -201,6 +203,34 @@ function AnimatedRoutes() {
                 className="w-full"
               >
                 <StudyNotesBoardPage />
+              </motion.div>
+            }
+          />
+          <Route
+            path="/scheduler"
+            element={
+              <motion.div
+                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
+                transition={{ duration: 0.3, ease: "circOut" }}
+                className="w-full"
+              >
+                <SchedulerPage />
+              </motion.div>
+            }
+          />
+          <Route
+            path="/flashcards"
+            element={
+              <motion.div
+                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
+                transition={{ duration: 0.3, ease: "circOut" }}
+                className="w-full"
+              >
+                <FlashcardsPage />
               </motion.div>
             }
           />

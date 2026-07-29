@@ -12,6 +12,7 @@ import { useStreak } from "@/hooks/useStreak";
 import { toDurationLabel, formatTime12Hour } from "@/utils/time";
 import { PDFStudyReader } from "@/components/common/PDFStudyReader";
 import { GamifiedFocusQuest } from "@/components/goals/GamifiedFocusQuest";
+import { WeeklyReviewModal } from "@/components/dashboard/WeeklyReviewModal";
 
 // Progress Ring Component
 function ProgressRing({ progress, size = 180, strokeWidth = 12, color = "cyan", children }: { progress: number; size?: number; strokeWidth?: number; color?: string; children?: React.ReactNode }) {
@@ -716,6 +717,7 @@ export function DashboardPage() {
           <p className="text-xs text-slate-400">Showing last 90 days activity</p>
         </div>
       </Panel>
+      <WeeklyReviewModal />
     </div>
   );
 }
@@ -726,14 +728,14 @@ function WelcomeChangelogModal() {
 
   useEffect(() => {
     // Show only once per major release version update
-    const seenVersion = localStorage.getItem("flowtrack_changelog_v3.3.2");
+    const seenVersion = localStorage.getItem("flowtrack_changelog_v5.0.0");
     if (!seenVersion) {
       setIsOpen(true);
     }
   }, []);
 
   const handleClose = () => {
-    localStorage.setItem("flowtrack_changelog_v3.3.2", "true");
+    localStorage.setItem("flowtrack_changelog_v5.0.0", "true");
     setIsOpen(false);
   };
 
@@ -749,7 +751,7 @@ function WelcomeChangelogModal() {
           >
             <div className="space-y-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">
-                🚀 Shipped: v3.3.2
+                🚀 Shipped: v5.0.0
               </span>
               <h3 className="text-2xl font-black text-white">
                 What&apos;s New in FlowTrack Pro!

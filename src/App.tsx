@@ -16,11 +16,16 @@ import { AchievementsPage } from "@/pages/AchievementsPage";
 import { GuidePage } from "@/pages/GuidePage";
 import { AIAssistantPage } from "@/pages/AIAssistantPage";
 import { TodayTasksPage } from "@/pages/TodayTasksPage";
+import { AppTrackingPage } from "@/pages/AppTrackingPage";
 import { StudyNotesPage } from "@/pages/StudyNotesPage";
 import { StudyNotesBoardPage } from "@/pages/StudyNotesBoardPage";
-import { AppTrackingPage } from "@/pages/AppTrackingPage";
+import { ExamCountdownPage } from "@/pages/ExamCountdownPage";
+import { SchedulerPage } from "@/pages/SchedulerPage";
+import { FlashcardsPage } from "@/pages/FlashcardsPage";
 import { useTimer } from "@/hooks/useTimer";
 import { useScheduleReminder } from "@/hooks/useScheduleReminder";
+
+import { VideoRestBreak } from "@/components/timer/VideoRestBreak";
 
 export function App() {
   useScheduleReminder();
@@ -42,9 +47,47 @@ export function App() {
 
   useEffect(() => {
     void initApp();
+
+    if (typeof window !== "undefined" && (window as any).electron?.ipcRenderer) {
+      const handleToggleTimer = () => {
+        const state = useAppStore.getState();
+        if (state.timer.activeSessionId) {
+          if (state.timer.isPaused) {
+            void state.resumeSession();
+          } else {
+            void state.pauseSession();
+          }
+        }
+      };
+      const handleQuitSync = () => {
+        const state = useAppStore.getState();
+        if (state.timer.activeSessionId && !state.timer.isPaused) {
+          void state.pauseSession();
+        }
+      };
+      (window as any).electron.ipcRenderer.on("global-shortcut-toggle-timer", handleToggleTimer);
+      (window as any).electron.ipcRenderer.on("save-session-state-sync", handleQuitSync);
+      return () => {
+        (window as any).electron.ipcRenderer.off("global-shortcut-toggle-timer", handleToggleTimer);
+        (window as any).electron.ipcRenderer.off("save-session-state-sync", handleQuitSync);
+      };
+    }
   }, [initApp]);
 
   useEffect(() => {
+    const plannedSecs = (activeSession as any)?.plannedDurationSeconds || (activeSession as any)?.durationSeconds || 1500;
+    if (activeSession && !timer.isPaused && plannedSecs > 0) {
+      const elapsed = plannedSecs - remainingSeconds;
+      const progress = Math.max(0, Math.min(1, elapsed / plannedSecs));
+      if (typeof window !== "undefined" && (window as any).electron) {
+        (window as any).electron.ipcRenderer?.invoke?.("set-taskbar-progress", { progress });
+      }
+    } else {
+      if (typeof window !== "undefined" && (window as any).electron) {
+        (window as any).electron.ipcRenderer?.invoke?.("set-taskbar-progress", { progress: -1 });
+      }
+    }
+
     if (activeSession && !timer.isPaused) {
       const pad = (n: number) => String(n).padStart(2, "0");
       const hrs = Math.floor(remainingSeconds / 3600);
@@ -79,6 +122,7 @@ export function App() {
       <HashRouter>
         <AnimatedRoutes />
         <AppGuide />
+        <VideoRestBreak />
       </HashRouter>
     </ErrorBoundary>
   );
@@ -163,6 +207,34 @@ function AnimatedRoutes() {
             }
           />
           <Route
+            path="/scheduler"
+            element={
+              <motion.div
+                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
+                transition={{ duration: 0.3, ease: "circOut" }}
+                className="w-full"
+              >
+                <SchedulerPage />
+              </motion.div>
+            }
+          />
+          <Route
+            path="/flashcards"
+            element={
+              <motion.div
+                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
+                transition={{ duration: 0.3, ease: "circOut" }}
+                className="w-full"
+              >
+                <FlashcardsPage />
+              </motion.div>
+            }
+          />
+          <Route
             path="/app-tracking"
             element={
               <motion.div
@@ -229,6 +301,20 @@ function AnimatedRoutes() {
                 className="w-full"
               >
                 <SettingsPage />
+              </motion.div>
+            }
+          />
+          <Route
+            path="/exams"
+            element={
+              <motion.div
+                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
+                transition={{ duration: 0.3, ease: "circOut" }}
+                className="w-full"
+              >
+                <ExamCountdownPage />
               </motion.div>
             }
           />

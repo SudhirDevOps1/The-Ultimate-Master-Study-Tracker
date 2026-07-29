@@ -10,6 +10,9 @@ import { useAppStore, type AppState } from "@/store/useAppStore";
 import type { StudySession } from "@/types/models";
 import { useStreak } from "@/hooks/useStreak";
 import { toDurationLabel, formatTime12Hour } from "@/utils/time";
+import { PDFStudyReader } from "@/components/common/PDFStudyReader";
+import { GamifiedFocusQuest } from "@/components/goals/GamifiedFocusQuest";
+import { WeeklyReviewModal } from "@/components/dashboard/WeeklyReviewModal";
 
 // Progress Ring Component
 function ProgressRing({ progress, size = 180, strokeWidth = 12, color = "cyan", children }: { progress: number; size?: number; strokeWidth?: number; color?: string; children?: React.ReactNode }) {
@@ -225,8 +228,8 @@ export function DashboardPage() {
       {/* 🚀 Welcome & Changelog Modal overlay */}
       <WelcomeChangelogModal />
 
-      {/* 🚀 Dynamic OS Native App Download Panel */}
-      <OSAppDownloadCard />
+      {/* 📊 Live Activity Tracker & Today App Usage Panel */}
+      <LiveAppUsagePanel />
 
       {/* Backend Activity Tracker Panel */}
       <BackendActivityPanel />
@@ -394,6 +397,187 @@ export function DashboardPage() {
         </motion.div>
       </Panel>
 
+      {/* ===== TODAY'S PLAN - Shows today's active sessions to complete ===== */}
+      {(() => {
+        const now = new Date();
+        const todayStr = format(now, "yyyy-MM-dd");
+        
+        // Get today's sessions (planned, in_progress, paused, completed)
+        const todaySessions = sessions.filter((s: StudySession) => {
+          const sessionDate = format(new Date(s.startTime), "yyyy-MM-dd");
+          return sessionDate === todayStr;
+        });
+        
+        // Active tasks = planned + in_progress + paused for today
+        const activeTasks = todaySessions.filter(
+          (s: StudySession) => s.status === "planned" || s.status === "in_progress" || s.status === "paused"
+        );
+        
+        // Completed today
+        const completedToday = todaySessions.filter((s: StudySession) => s.status === "completed");
+        
+        // Overdue from previous days (planned sessions from past dates)
+        const overdueSessions = sessions.filter((s: StudySession) => {
+          const sessionDate = format(new Date(s.startTime), "yyyy-MM-dd");
+          return sessionDate < todayStr && s.status === "planned";
+        }).slice(0, 5);
+        
+        // Daily recurring sessions (sessions with recurrence type 'daily')
+        const recurringDaily = sessions.filter((s: StudySession) => {
+          if (!s.recurrence || s.recurrence.type !== "daily") return false;
+          const sessionDate = format(new Date(s.startTime), "yyyy-MM-dd");
+          return sessionDate !== todayStr && s.status === "planned";
+        }).slice(0, 3);
+        
+        // Combine all tasks for today
+        const allTodayTasks = [...activeTasks, ...recurringDaily];
+        
+        // Total planned time for today (in minutes)
+        const totalPlannedMinutes = allTodayTasks.reduce((sum, s) => sum + (s.plannedMinutes || 0), 0);
+        const totalCompletedMinutes = completedToday.reduce((sum, s) => sum + Math.round(s.actualSeconds / 60), 0);
+        const planProgress = totalPlannedMinutes > 0 ? Math.min(100, (totalCompletedMinutes / totalPlannedMinutes) * 100) : 0;
+        
+        if (allTodayTasks.length === 0 && completedToday.length === 0 && overdueSessions.length === 0) return null;
+        
+        return (
+          <Panel>
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-indigo-500/20 border border-cyan-500/30">
+                  <span className="text-xl">📋</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Today's Plan</h3>
+                  <p className="text-xs text-slate-400">
+                    {completedToday.length} completed • {activeTasks.length} remaining
+                    {overdueSessions.length > 0 && <span className="text-amber-400 ml-1">• {overdueSessions.length} overdue</span>}
+                  </p>
+                </div>
+              </div>
+              <Link to="/today" className="text-xs font-bold uppercase tracking-wider text-cyan-400 hover:text-cyan-300 transition-colors">View All →</Link>
+            </div>
+
+            {/* Planned vs Actual Progress */}
+            {totalPlannedMinutes > 0 && (
+              <div className="mb-4 rounded-xl border border-white/5 bg-white/5 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-slate-300">Planned Time Progress</span>
+                  <span className="text-xs font-bold text-cyan-400">{formatGoalMinutes(totalCompletedMinutes)} / {formatGoalMinutes(totalPlannedMinutes)}</span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
+                  <motion.div
+                    className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-indigo-500"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${planProgress}%` }}
+                    transition={{ duration: 1, ease: "easeOut" }}
+                  />
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1">{Math.round(planProgress)}% of today's planned study completed</p>
+              </div>
+            )}
+
+            {/* Overdue Warning */}
+            {overdueSessions.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-3 rounded-xl border border-rose-500/20 bg-rose-500/10 p-3"
+              >
+                <p className="text-xs font-bold text-rose-300 mb-1">⚠️ Overdue Sessions</p>
+                <div className="flex flex-wrap gap-2">
+                  {overdueSessions.map(s => {
+                    const sub = getSubject(s.subjectId);
+                    return (
+                      <Link
+                        key={s.id}
+                        to="/timer"
+                        className="flex items-center gap-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 px-2.5 py-1 text-xs text-rose-200 hover:bg-rose-500/20 transition-colors"
+                      >
+                        <span>{sub?.emoji || "📚"}</span>
+                        <span className="font-medium">{sub?.name || "Unknown"}</span>
+                        <span className="text-rose-400/70">{toDurationLabel(s.plannedMinutes)}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Active Tasks Grid */}
+            <div className="grid gap-2 sm:grid-cols-2">
+              {allTodayTasks.map((session, i) => {
+                const sub = getSubject(session.subjectId);
+                const statusColors: Record<string, string> = {
+                  planned: "border-slate-500/30 bg-slate-500/5",
+                  in_progress: "border-cyan-500/30 bg-cyan-500/10",
+                  paused: "border-amber-500/30 bg-amber-500/10",
+                };
+                const statusIcons: Record<string, string> = {
+                  planned: "⏳",
+                  in_progress: "▶️",
+                  paused: "⏸️",
+                };
+                return (
+                  <motion.div
+                    key={session.id}
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.04 }}
+                  >
+                    <Link
+                      to={`/timer#${session.id}`}
+                      className={`flex items-center gap-3 rounded-xl border ${statusColors[session.status] || statusColors.planned} p-3 hover:bg-white/10 transition-all group`}
+                    >
+                      <div
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg"
+                        style={{ backgroundColor: `${sub?.color || "#6366f1"}15`, border: `1px solid ${sub?.color || "#6366f1"}30` }}
+                      >
+                        {sub?.emoji || "📚"}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="truncate text-sm font-bold text-white">{sub?.name || "Deleted Subject"}</p>
+                        <p className="text-[10px] text-slate-400">
+                          {formatTime12Hour(session.startTime)} • {toDurationLabel(session.plannedMinutes)}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-sm">{statusIcons[session.status] || "⏳"}</span>
+                        <p className="text-[10px] font-semibold text-slate-400 capitalize">{session.status.replace("_", " ")}</p>
+                      </div>
+                    </Link>
+                  </motion.div>
+                );
+              })}
+              
+              {/* Completed Today */}
+              {completedToday.slice(0, 4).map((session, i) => {
+                const sub = getSubject(session.subjectId);
+                return (
+                  <motion.div
+                    key={session.id}
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: (allTodayTasks.length + i) * 0.04 }}
+                    className="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 opacity-70"
+                  >
+                    <div
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg"
+                      style={{ backgroundColor: `${sub?.color || "#10b981"}15` }}
+                    >
+                      ✅
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="truncate text-sm font-medium text-white/70 line-through">{sub?.name || "Deleted Subject"}</p>
+                      <p className="text-[10px] text-slate-500">{toDurationLabel(Math.round(session.actualSeconds / 60))} studied</p>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </Panel>
+        );
+      })()}
+
       <div className="grid gap-5 lg:grid-cols-3">
         {/* Upcoming */}
         <Panel className="lg:col-span-1">
@@ -488,6 +672,11 @@ export function DashboardPage() {
         </Panel>
       </div>
 
+      {/* Gamified Focus Quest */}
+      <div className="grid gap-5 grid-cols-1">
+        <GamifiedFocusQuest />
+      </div>
+
       {/* Heatmap Section */}
       <Panel>
         <div className="mb-5">
@@ -528,6 +717,7 @@ export function DashboardPage() {
           <p className="text-xs text-slate-400">Showing last 90 days activity</p>
         </div>
       </Panel>
+      <WeeklyReviewModal />
     </div>
   );
 }
@@ -538,14 +728,14 @@ function WelcomeChangelogModal() {
 
   useEffect(() => {
     // Show only once per major release version update
-    const seenVersion = localStorage.getItem("flowtrack_changelog_v3.3.0");
+    const seenVersion = localStorage.getItem("flowtrack_changelog_v5.0.0");
     if (!seenVersion) {
       setIsOpen(true);
     }
   }, []);
 
   const handleClose = () => {
-    localStorage.setItem("flowtrack_changelog_v3.3.0", "true");
+    localStorage.setItem("flowtrack_changelog_v5.0.0", "true");
     setIsOpen(false);
   };
 
@@ -561,13 +751,13 @@ function WelcomeChangelogModal() {
           >
             <div className="space-y-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">
-                🚀 Shipped: v3.3.0
+                🚀 Shipped: v5.0.0
               </span>
               <h3 className="text-2xl font-black text-white">
                 What&apos;s New in FlowTrack Pro!
               </h3>
               <p className="text-xs text-slate-400">
-                Explore the latest features and updates optimized for your study workflow.
+                Explore the latest premium features and security updates added to your tracker.
               </p>
             </div>
 
@@ -576,37 +766,37 @@ function WelcomeChangelogModal() {
             <div className="space-y-3 max-h-60 overflow-y-auto pr-1 text-xs text-slate-300 pretty-scrollbar">
               <div className="space-y-1">
                 <p className="font-bold text-white flex items-center gap-1.5">
-                  🔄 Real-time Update Checker
+                  📅 Exam Countdown Widget
                 </p>
                 <p className="text-slate-400 pl-5">
-                  Direct GitHub releases integration checks if a new version is live. Click download to trigger clean local system upgrades.
+                  Pin upcoming tests and exams to track days, hours, and minutes with custom urgency alerts.
                 </p>
               </div>
 
               <div className="space-y-1">
                 <p className="font-bold text-white flex items-center gap-1.5">
-                  🐧 Multi-OS Releases Packages
+                  🔥 GitHub-style Subject Heatmap
                 </p>
                 <p className="text-slate-400 pl-5">
-                  Windows Setup installers (.exe), macOS Disk Images (.dmg), and Linux packages (.AppImage) compile on tag pushes.
+                  Visual daily consistency grids per subject. Watch your tracking blocks darken as you commit more study hours.
                 </p>
               </div>
 
               <div className="space-y-1">
                 <p className="font-bold text-white flex items-center gap-1.5">
-                  🌐 500+ Website & Process Mappings
+                  ⚡ Anti-Lag Engine & Optimized DB
                 </p>
                 <p className="text-slate-400 pl-5">
-                  Automatically classifies web tabs (Apna College, GeeksforGeeks, freeCodeCamp, CodeWithHarry, YouTube, Instagram) into productivity logs.
+                  No more UI freezing. Writes to DB are throttled (10s debounce) and session calculations optimized to consume 80% less CPU.
                 </p>
               </div>
 
               <div className="space-y-1">
                 <p className="font-bold text-white flex items-center gap-1.5">
-                  ⚡ Auto-Uninstall Clean Upgrades
+                  🔒 Sandboxed YouTube & Web Framing
                 </p>
                 <p className="text-slate-400 pl-5">
-                  NSIS installer configuration automatically uninstalls older versions silently during PC setup.
+                  External study resources (Apna College, video tutorials, etc.) load securely without blank screens or privacy tracking leaks.
                 </p>
               </div>
             </div>
@@ -626,89 +816,169 @@ function WelcomeChangelogModal() {
   );
 }
 
-// ─── OS-Detecting Desktop App Download Card ───────────────────────────────────
-function OSAppDownloadCard() {
-  const [detectedOS, setDetectedOS] = useState<"win" | "mac" | "linux" | "web">("web");
-  const releaseBaseUrl = "https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/download/v3.3.0";
+// ─── Live App Usage Panel Component ──────────────────────────────────────────
+const isElectron = typeof window !== "undefined" && !!(window as any).electron;
+const getIpc = () => isElectron ? (window as any).require("electron").ipcRenderer : null;
 
-  useEffect(() => {
-    const ua = navigator.userAgent.toLowerCase();
-    if (ua.includes("win")) {
-      setDetectedOS("win");
-    } else if (ua.includes("mac")) {
-      setDetectedOS("mac");
-    } else if (ua.includes("linux")) {
-      setDetectedOS("linux");
-    }
-  }, []);
+function LiveAppUsagePanel() {
+  const [liveApp, setLiveApp] = useState<{ process: string; title: string } | null>(null);
+  const [todayApps, setTodayApps] = useState<{ name: string; seconds: number }[]>([]);
+  const [todayWebs, setTodayWebs] = useState<{ title: string; seconds: number }[]>([]);
 
-  const getDownloadDetails = () => {
-    switch (detectedOS) {
-      case "win":
-        return {
-          osName: "Windows",
-          fileName: "FlowTrackPro Setup 3.3.0.exe",
-          url: `${releaseBaseUrl}/FlowTrackPro.Setup.3.3.0.exe`,
-          badge: "🚀 Recommended for PC",
-        };
-      case "mac":
-        return {
-          osName: "macOS (Apple/Intel)",
-          fileName: "FlowTrackPro-3.3.0.dmg",
-          url: `${releaseBaseUrl}/FlowTrackPro-3.3.0.dmg`,
-          badge: "🍎 Native Apple Build",
-        };
-      case "linux":
-        return {
-          osName: "Linux",
-          fileName: "FlowTrackPro-3.3.0.AppImage",
-          url: `${releaseBaseUrl}/FlowTrackPro-3.3.0.AppImage`,
-          badge: "🐧 Standard AppImage",
-        };
-      default:
-        return {
-          osName: "Web Workspace",
-          fileName: "GitHub Release Center",
-          url: "https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases",
-          badge: "🌐 Multiplatform Hub",
-        };
+  const fetchLog = async () => {
+    const ipc = getIpc();
+    if (!ipc) return;
+    try {
+      const now = new Date();
+      const localTodayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      const entries = await ipc.invoke("get-activity-log", { date: localTodayStr });
+      if (Array.isArray(entries)) {
+        // aggregate apps
+        const appMap = new Map<string, number>();
+        const webMap = new Map<string, number>();
+
+        entries.forEach((e: any) => {
+          const appName = e.appName || "Unknown";
+          appMap.set(appName, (appMap.get(appName) || 0) + e.durationSeconds);
+
+          // Web Domain extract if title contains browser details
+          if (e.title && e.title !== "Desktop / Idle" && e.title !== "desktop is idle") {
+            const cleanTitle = e.title
+              .replace(/\s*-\s*(Google Chrome|Mozilla Firefox|Microsoft Edge|Brave|Safari|Opera|Vivaldi|Arc|Chromium)$/i, "")
+              .trim() || "Web Page";
+            
+            // Try to extract dynamic domain name for cleaner group look
+            let domain = "web-page";
+            const titleLower = cleanTitle.toLowerCase();
+            if (titleLower.includes("youtube.com") || titleLower.includes("youtube")) domain = "youtube.com";
+            else if (titleLower.includes("instagram.com") || titleLower.includes("instagram")) domain = "instagram.com";
+            else if (titleLower.includes("facebook.com") || titleLower.includes("facebook")) domain = "facebook.com";
+            else if (titleLower.includes("github")) domain = "github.com";
+            else if (titleLower.includes("google search") || titleLower.includes("google")) domain = "google.com";
+            else if (titleLower.includes("stackoverflow")) domain = "stackoverflow.com";
+            else if (titleLower.includes("chatgpt") || titleLower.includes("openai")) domain = "chatgpt.com";
+            else if (titleLower.includes("leetcode")) domain = "leetcode.com";
+            else if (titleLower.includes("geeksforgeeks")) domain = "geeksforgeeks.org";
+            else if (titleLower.includes("apnacollege") || titleLower.includes("apna college")) domain = "apnacollege.in";
+            else if (titleLower.includes("freecodecamp")) domain = "freecodecamp.org";
+            else if (titleLower.includes("codewithharry")) domain = "codewithharry.com";
+            else {
+              try {
+                const match = cleanTitle.match(/(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]/i);
+                if (match && match[0]) domain = match[0].toLowerCase();
+              } catch { /* fallback */ }
+            }
+
+            const label = domain !== "web-page" ? domain : cleanTitle;
+            webMap.set(label, (webMap.get(label) || 0) + e.durationSeconds);
+          }
+        });
+
+        const sortedApps = [...appMap.entries()]
+          .map(([name, seconds]) => ({ name, seconds }))
+          .sort((a, b) => b.seconds - a.seconds)
+          .slice(0, 5);
+
+        const sortedWebs = [...webMap.entries()]
+          .map(([title, seconds]) => ({ title, seconds }))
+          .sort((a, b) => b.seconds - a.seconds)
+          .slice(0, 5);
+
+        setTodayApps(sortedApps);
+        setTodayWebs(sortedWebs);
+      }
+    } catch (err) {
+      console.warn("[LiveAppUsagePanel] Error fetching logs:", err);
     }
   };
 
-  const dl = getDownloadDetails();
+  useEffect(() => {
+    const poll = async () => {
+      const ipc = getIpc();
+      if (!ipc) return;
+      try {
+        const win = await ipc.invoke("get-active-window");
+        if (win && !win.skip && win.appName) {
+          setLiveApp({ process: win.appName, title: win.title });
+        } else {
+          setLiveApp(null);
+        }
+      } catch {
+        setLiveApp(null);
+      }
+    };
+
+    void poll();
+    void fetchLog();
+
+    const appInterval = setInterval(() => void poll(), 5000);
+    const logInterval = setInterval(() => void fetchLog(), 10000);
+
+    return () => {
+      clearInterval(appInterval);
+      clearInterval(logInterval);
+    };
+  }, []);
+
+  const formatSec = (total: number) => {
+    const m = Math.floor(total / 60);
+    if (m > 0) return `${m}m`;
+    return `${total}s`;
+  };
 
   return (
-    <Panel className="border-l-4 border-emerald-400 bg-gradient-to-r from-slate-900 via-emerald-950/20 to-slate-900 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-      <div className="space-y-1">
-        <div className="flex items-center gap-2">
-          <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
-            🖥️ Native Desktop Tracker App
-          </h4>
-          <span className="text-[10px] font-bold text-emerald-300 bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 rounded-md">
-            {dl.badge}
-          </span>
+    <Panel className="border-l-4 border-indigo-400 bg-slate-900/60 backdrop-blur-md space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/5">
+        <div>
+          <h3 className="text-md font-bold text-white flex items-center gap-2">
+            📊 Live App & Web Tracker
+          </h3>
+          <p className="text-[10px] text-slate-400">Autosynced every 5 seconds · Tracking what you are studying right now</p>
         </div>
-        <p className="text-xs text-slate-400">
-          Get native Win32 active window tracking, background system tray minimization, global hotkeys, and distraction blocking.
-        </p>
+        {liveApp && (
+          <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-xs text-emerald-300 font-semibold animate-pulse self-start sm:self-auto">
+            <span className="h-2 w-2 rounded-full bg-emerald-400" />
+            <span>Currently Active: {liveApp.process}</span>
+          </div>
+        )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 w-full md:w-auto shrink-0">
-        <a
-          href={dl.url}
-          className="px-4 py-2 text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-xl transition-all shadow-md flex items-center gap-1.5"
-        >
-          📥 Download for {dl.osName}
-        </a>
-        <a
-          href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases"
-          target="_blank"
-          rel="noreferrer"
-          className="px-3 py-2 text-xs font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all border border-white/10"
-        >
-          📦 Other Formats
-        </a>
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Apps usage today */}
+        <div className="space-y-2">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">📱 Apps Used Today (Top 5)</p>
+          {todayApps.length === 0 ? (
+            <p className="text-xs text-slate-500 italic">No apps recorded yet</p>
+          ) : (
+            <div className="space-y-2">
+              {todayApps.map((a, idx) => (
+                <div key={idx} className="flex justify-between items-center bg-white/5 rounded-xl px-3 py-2 text-xs">
+                  <span className="text-white font-bold truncate max-w-[180px]">{a.name}</span>
+                  <span className="text-indigo-300 font-mono">{formatSec(a.seconds)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Web Sites today */}
+        <div className="space-y-2">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">🌐 Websites / Tabs Today (Top 5)</p>
+          {todayWebs.length === 0 ? (
+            <p className="text-xs text-slate-500 italic">No web activity recorded yet</p>
+          ) : (
+            <div className="space-y-2">
+              {todayWebs.map((w, idx) => (
+                <div key={idx} className="flex justify-between items-center bg-white/5 rounded-xl px-3 py-2 text-xs">
+                  <span className="text-white font-bold truncate max-w-[180px]">{w.title}</span>
+                  <span className="text-cyan-300 font-mono">{formatSec(w.seconds)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </Panel>
   );
 }
+

@@ -173,7 +173,8 @@ export function FloatingTimer({ subject, elapsed, remaining, progress, onHeartbe
     video.muted = true;
     video.autoplay = true;
     video.playsInline = true;
-    const stream = canvas.captureStream(1);
+    // ✅ BUG FIX: 30fps stream so PiP canvas updates are captured reliably
+    const stream = canvas.captureStream(30);
     video.srcObject = stream;
     videoRef.current = video;
   }, []);
@@ -221,10 +222,12 @@ export function FloatingTimer({ subject, elapsed, remaining, progress, onHeartbe
           pipWindow.addEventListener(event, handlePipInteraction, { passive: true });
         });
 
-        // Heartbeat: Prevent auto-pause while PiP is open (user is likely looking at it)
+        // ✅ BUG FIX: Heartbeat every 10s (was 30s).
+        // With 30s interval, strict-focus inactivity check could fire between beats
+        // and auto-pause the session even while PiP is open.
         const heartbeat = setInterval(() => {
           useAppStore.getState().markTimerInteraction();
-        }, 30000); // Every 30 seconds
+        }, 10000); // Every 10 seconds
 
         pipWindow.addEventListener("pagehide", () => {
           clearInterval(heartbeat); // Clean up heartbeat on window close

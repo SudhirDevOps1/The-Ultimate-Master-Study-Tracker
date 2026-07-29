@@ -23,7 +23,7 @@ export function InfoTip({
   };
 
   const typeIcon = {
-    info: icon || 'ℹ️',
+    info: '💡',
     success: '✅',
     warning: '⚠️',
     error: '❌',
