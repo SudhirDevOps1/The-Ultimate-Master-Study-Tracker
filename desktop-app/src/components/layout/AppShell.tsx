@@ -18,7 +18,8 @@ import {
   Github,
   Globe,
   Target,
-  Clock
+  Clock,
+  Palette
 } from "lucide-react";
 
 const links = [
@@ -28,6 +29,7 @@ const links = [
   { to: "/scheduler", label: "AI Scheduler", Icon: Clock },
   { to: "/flashcards", label: "SRS Flashcards", Icon: Brain },
   { to: "/study-workspace", label: "Study Workspace (PDF/OCR)", Icon: BookOpen },
+  { to: "/mind-map", label: "Mind Maps Board", Icon: Palette },
   { to: "/notes-board", label: "Notes Board", Icon: ClipboardList },
   { to: "/app-tracking", label: "App Tracking", Icon: Monitor },
   { to: "/ai", label: "AI Assistant", Icon: Brain },

@@ -22,6 +22,7 @@ import { StudyNotesBoardPage } from "@/pages/StudyNotesBoardPage";
 import { ExamCountdownPage } from "@/pages/ExamCountdownPage";
 import { SchedulerPage } from "@/pages/SchedulerPage";
 import { FlashcardsPage } from "@/pages/FlashcardsPage";
+import { MindMapPage } from "@/pages/MindMapPage";
 import { useTimer } from "@/hooks/useTimer";
 import { useScheduleReminder } from "@/hooks/useScheduleReminder";
 
@@ -189,6 +190,20 @@ function AnimatedRoutes() {
                 className="w-full"
               >
                 <StudyNotesPage />
+              </motion.div>
+            }
+          />
+          <Route
+            path="/mind-map"
+            element={
+              <motion.div
+                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
+                transition={{ duration: 0.3, ease: "circOut" }}
+                className="w-full"
+              >
+                <MindMapPage />
               </motion.div>
             }
           />

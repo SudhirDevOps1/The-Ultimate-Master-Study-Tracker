@@ -13,6 +13,7 @@ import { toDurationLabel, formatTime12Hour } from "@/utils/time";
 import { PDFStudyReader } from "@/components/common/PDFStudyReader";
 import { GamifiedFocusQuest } from "@/components/goals/GamifiedFocusQuest";
 import { WeeklyReviewModal } from "@/components/dashboard/WeeklyReviewModal";
+import { PerformanceScorecardModal } from "@/components/dashboard/PerformanceScorecardModal";
 
 // Progress Ring Component
 function ProgressRing({ progress, size = 180, strokeWidth = 12, color = "cyan", children }: { progress: number; size?: number; strokeWidth?: number; color?: string; children?: React.ReactNode }) {
@@ -782,7 +783,10 @@ export function DashboardPage() {
           <p className="text-xs text-slate-400">Showing last 90 days activity</p>
         </div>
       </Panel>
-      <WeeklyReviewModal />
+      <div className="flex gap-4 mt-6">
+        <WeeklyReviewModal />
+        <PerformanceScorecardModal />
+      </div>
     </div>
   );
 }

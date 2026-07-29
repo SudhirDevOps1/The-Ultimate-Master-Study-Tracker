@@ -158,13 +158,17 @@ export function PDFStudyReader() {
   const extractImageText = async (imgUrl: string) => {
     setExtractingText(true);
     try {
-      const worker = await createWorker("eng+hin");
+      const worker = await createWorker("eng+hin", 1, {
+        workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js",
+        corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5",
+        langPath: "https://tessdata.projectnaptha.com/4.0.0",
+      });
       const ret = await worker.recognize(imgUrl);
       setSpeechText(ret.data.text || "[No text detected in image]");
       await worker.terminate();
-    } catch (err) {
+    } catch (err: any) {
       console.error("OCR Image parse failed", err);
-      setSpeechText("[Failed to extract text from image]");
+      setSpeechText(`[Failed to extract text from image: ${err?.message || err || "OCR Engine Error"}]`);
     }
     setExtractingText(false);
   };
@@ -197,14 +201,18 @@ export function PDFStudyReader() {
         await page.render({ canvasContext: context, viewport }).promise;
         const imgDataUrl = canvas.toDataURL("image/png");
         
-        const worker = await createWorker("eng+hin");
+        const worker = await createWorker("eng+hin", 1, {
+          workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js",
+          corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5",
+          langPath: "https://tessdata.projectnaptha.com/4.0.0",
+        });
         const ret = await worker.recognize(imgDataUrl);
         setSpeechText(ret.data.text || "[No text detected on scanned page]");
         await worker.terminate();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Scanned page OCR parser failed", err);
-      setSpeechText(`[Failed to parse page ${pageNum}]`);
+      setSpeechText(`[Failed to parse page ${pageNum}: ${err?.message || err || "OCR Engine Error"}]`);
     }
     setExtractingText(false);
   };
