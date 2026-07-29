@@ -187,7 +187,8 @@ export function FlashcardsPage() {
     let parsedCards: { front: string; back: string }[] = [];
 
     const aiConfig = useAppStore.getState().aiConfig;
-    const { provider, model, apiKey, ollamaUrl, customProviderEndpoint } = aiConfig;
+    const { provider, model, apiKey, ollamaUrl } = aiConfig;
+    const customProviderEndpoint = aiConfig.customProvider?.endpoint ?? "";
 
     // Helper to get endpoint URL
     const getEndpoint = () => {
@@ -202,7 +203,7 @@ export function FlashcardsPage() {
 
     const endpoint = getEndpoint();
 
-    if (provider && provider !== "none" && endpoint) {
+    if (provider && provider !== "local_rules" && endpoint) {
       try {
         const userPrompt = `You are a professional study tool. Analyze the following notes and generate a JSON array of flashcards. Each flashcard should have a clear, concise question "front" and answer "back". Produce ONLY valid JSON inside markdown block or raw text.
 Format:

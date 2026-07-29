@@ -385,12 +385,22 @@ function createWindow() {
     }
   });
 
-  mainWindow.webContents.on("before-input-event", (_e, input) => {
-    if (input.type === "keyDown" && input.control && input.shift && input.key === "I") {
-      if (mainWindow.webContents.isDevToolsOpened()) mainWindow.webContents.closeDevTools();
-      else mainWindow.webContents.openDevTools({ mode: "detach" });
-    }
-  });
+  // ANTI-CHEAT: Block DevTools in production — prevents users from manipulating
+  // IndexedDB session data via the DevTools console to inflate XP or study time.
+  // In development mode only, Ctrl+Shift+I still toggles DevTools.
+  if (isDev) {
+    mainWindow.webContents.on("before-input-event", (_e, input) => {
+      if (input.type === "keyDown" && input.control && input.shift && input.key === "I") {
+        if (mainWindow.webContents.isDevToolsOpened()) mainWindow.webContents.closeDevTools();
+        else mainWindow.webContents.openDevTools({ mode: "detach" });
+      }
+    });
+  } else {
+    // Production: completely disable DevTools open attempts
+    mainWindow.webContents.on("devtools-opened", () => {
+      mainWindow.webContents.closeDevTools();
+    });
+  }
 }
 
 // ─── Single Instance Lock ──────────────────────────────────────────────────

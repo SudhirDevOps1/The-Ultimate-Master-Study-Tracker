@@ -11,6 +11,8 @@ import {
   addMonths,
   subMonths,
   addDays,
+  addWeeks,
+  subWeeks,
   addYears,
   subYears,
   getYear,
@@ -33,11 +35,30 @@ export function CalendarPage() {
   const moveSessionToNextDay = useAppStore((state) => state.moveSessionToNextDay);
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [editingSession, setEditingSession] = useState<StudySession | null>(null);
   const [draggedSession, setDraggedSession] = useState<StudySession | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"month" | "year">("month");
+  const [viewMode, setViewMode] = useState<"month" | "year" | "week">("month");
+
+  // Computed week days for week view
+  const currentWeekDays = useMemo(() => {
+    return eachDayOfInterval({ start: weekStart, end: addDays(weekStart, 6) });
+  }, [weekStart]);
+
+  // Stats for week view
+  const weekStats = useMemo(() => {
+    const weekEnd = addDays(weekStart, 6);
+    const weekSessions = sessions.filter(s => {
+      const d = new Date(s.startTime);
+      return d >= weekStart && d <= weekEnd;
+    });
+    const totalMinutes = Math.round(weekSessions.reduce((sum, s) => sum + s.actualSeconds, 0) / 60);
+    const completedCount = weekSessions.filter(s => s.status === "completed").length;
+    const plannedCount = weekSessions.length;
+    return { totalMinutes, completedCount, plannedCount };
+  }, [weekStart, sessions]);
 
   const showMessage = (msg: string) => {
     setActionMessage(msg);
@@ -240,7 +261,7 @@ export function CalendarPage() {
           <div>
             <p className="text-xs uppercase tracking-[0.24em] text-cyan-200/80">📅 Calendar</p>
             <h2 className="mt-1 text-2xl font-semibold text-white md:text-3xl">
-              {viewMode === "month" ? format(currentMonth, "MMMM yyyy") : getYear(currentMonth)}
+              {viewMode === "month" ? format(currentMonth, "MMMM yyyy") : viewMode === "week" ? `${format(weekStart, "MMM d")} – ${format(addDays(weekStart, 6), "MMM d, yyyy")}` : getYear(currentMonth)}
             </h2>
             <p className="mt-1 text-sm text-slate-400">
               Click day to view • Drag session to reschedule • View past/future months & years
@@ -249,6 +270,12 @@ export function CalendarPage() {
           <div className="flex flex-wrap gap-3">
             {/* View Mode Toggle */}
             <div className="flex gap-1 rounded-xl bg-white/5 p-1">
+              <button
+                onClick={() => setViewMode("week")}
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "week" ? `bg-gradient-to-r ${getThemeGradient()} text-white` : "text-slate-400 hover:text-white"}`}
+              >
+                📋 Week
+              </button>
               <button
                 onClick={() => setViewMode("month")}
                 className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "month" ? `bg-gradient-to-r ${getThemeGradient()} text-white` : "text-slate-400 hover:text-white"}`}
@@ -319,6 +346,33 @@ export function CalendarPage() {
                     +1Y ⏩
                   </motion.button>
                 </>
+              ) : viewMode === "week" ? (
+                <>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setWeekStart(subWeeks(weekStart, 1))}
+                    className="rounded-xl bg-white/5 px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+                  >
+                    ← Prev
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => { setWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 })); setCurrentMonth(new Date()); }}
+                    className={`rounded-xl bg-gradient-to-r ${getThemeGradient()} px-4 py-2 text-sm font-medium text-white shadow-lg`}
+                  >
+                    This Week
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setWeekStart(addWeeks(weekStart, 1))}
+                    className="rounded-xl bg-white/5 px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+                  >
+                    Next →
+                  </motion.button>
+                </>
               ) : (
                 <>
                   <motion.button
@@ -379,6 +433,27 @@ export function CalendarPage() {
               </div>
             </div>
           </div>
+        ) : viewMode === "week" ? (
+          <div className="mt-4 grid grid-cols-3 gap-3">
+            <div className={`rounded-xl bg-gradient-to-br ${getThemeGradient()} p-[2px]`}>
+              <div className="rounded-xl bg-slate-900/90 p-3 text-center">
+                <p className="text-2xl font-bold text-white">{toDurationLabel(weekStats.totalMinutes)}</p>
+                <p className="text-xs text-slate-400">Week Studied</p>
+              </div>
+            </div>
+            <div className="rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 p-[2px]">
+              <div className="rounded-xl bg-slate-900/90 p-3 text-center">
+                <p className="text-2xl font-bold text-white">{weekStats.completedCount}</p>
+                <p className="text-xs text-slate-400">Completed</p>
+              </div>
+            </div>
+            <div className="rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 p-[2px]">
+              <div className="rounded-xl bg-slate-900/90 p-3 text-center">
+                <p className="text-2xl font-bold text-white">{weekStats.plannedCount}</p>
+                <p className="text-xs text-slate-400">Total Sessions</p>
+              </div>
+            </div>
+          </div>
         ) : (
           <div className="mt-4 grid grid-cols-3 gap-3">
             <div className={`rounded-xl bg-gradient-to-br ${getThemeGradient()} p-[2px]`}>
@@ -402,6 +477,57 @@ export function CalendarPage() {
           </div>
         )}
       </Panel>
+
+      {viewMode === "week" && (
+        /* Week View - 7 Day Grid */
+        <Panel>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-white">
+              📋 {format(weekStart, "MMM d")} – {format(addDays(weekStart, 6), "MMM d, yyyy")}
+            </h3>
+            <div className="flex gap-2">
+              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setWeekStart(subWeeks(weekStart, 1))} className="rounded-xl bg-white/5 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/10 hover:text-white transition-colors">← Prev Week</motion.button>
+              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }))} className={`rounded-xl bg-gradient-to-r ${getThemeGradient()} px-4 py-2 text-sm font-medium text-white shadow-lg`}>This Week</motion.button>
+              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setWeekStart(addWeeks(weekStart, 1))} className="rounded-xl bg-white/5 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/10 hover:text-white transition-colors">Next Week →</motion.button>
+            </div>
+          </div>
+          <div className="grid grid-cols-7 gap-2">
+            {currentWeekDays.map((day) => {
+              const dateKey = format(day, "yyyy-MM-dd");
+              const daySessions = sessionsByDate.get(dateKey) ?? [];
+              const isToday = isSameDay(day, new Date());
+              const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
+              const totalMins = Math.round(daySessions.reduce((s, x) => s + x.actualSeconds, 0) / 60);
+              return (
+                <motion.div
+                  key={dateKey}
+                  whileHover={{ scale: 1.02 }}
+                  onClick={() => setSelectedDate(isSelected ? null : day)}
+                  className={`rounded-2xl p-3 cursor-pointer border min-h-[120px] transition-all ${
+                    isSelected ? `bg-gradient-to-br ${getThemeGradient()} border-transparent` :
+                    isToday ? "bg-white/8 border-white/20" : "bg-white/[0.02] border-white/5 hover:bg-white/5"
+                  }`}
+                >
+                  <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${isSelected ? "text-white" : "text-slate-500"}`}>{format(day, "EEE")}</p>
+                  <p className={`text-xl font-black ${isToday ? "text-cyan-400" : isSelected ? "text-white" : "text-white"}`}>{format(day, "d")}</p>
+                  {totalMins > 0 && <p className={`text-[9px] mt-1 font-mono font-bold ${isSelected ? "text-white/80" : "text-cyan-400"}`}>{toDurationLabel(totalMins)}</p>}
+                  <div className="mt-2 space-y-1">
+                    {daySessions.slice(0, 3).map(s => {
+                      const sub = subjects.find(x => x.id === s.subjectId);
+                      return (
+                        <div key={s.id} className="rounded-md px-1.5 py-0.5 text-[8px] font-bold text-white truncate" style={{ backgroundColor: `${sub?.color ?? "#6366f1"}30`, borderLeft: `2px solid ${sub?.color ?? "#6366f1"}` }}>
+                          {sub?.emoji} {sub?.name ?? "Session"}
+                        </div>
+                      );
+                    })}
+                    {daySessions.length > 3 && <p className="text-[8px] text-slate-500">+{daySessions.length - 3} more</p>}
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </Panel>
+      )}
 
       {viewMode === "year" ? (
         /* Year View - Month Grid */

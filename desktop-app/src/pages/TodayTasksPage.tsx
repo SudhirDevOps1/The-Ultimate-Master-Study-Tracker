@@ -274,7 +274,7 @@ export function TodayTasksPage() {
             </h3>
             <div className="space-y-2">
               {today.filter(s => quadrants[s.id] === "Q1").map((session) => (
-                <SessionCardMini key={session.id} session={session} onMove={(q) => handleUpdateQuadrant(session.id, q)} />
+                <SessionCardMini key={session.id} session={session} currentQuadrant={quadrants[session.id] || "Q2"} onMove={(q) => handleUpdateQuadrant(session.id, q)} />
               ))}
               {today.filter(s => quadrants[s.id] === "Q1").length === 0 && (
                 <p className="text-[10px] text-slate-600 italic py-2 text-center">No Q1 tasks prioritized</p>
@@ -290,7 +290,7 @@ export function TodayTasksPage() {
             </h3>
             <div className="space-y-2">
               {today.filter(s => !quadrants[s.id] || quadrants[s.id] === "Q2").map((session) => (
-                <SessionCardMini key={session.id} session={session} onMove={(q) => handleUpdateQuadrant(session.id, q)} />
+                <SessionCardMini key={session.id} session={session} currentQuadrant={quadrants[session.id] || "Q2"} onMove={(q) => handleUpdateQuadrant(session.id, q)} />
               ))}
               {today.filter(s => !quadrants[s.id] || quadrants[s.id] === "Q2").length === 0 && (
                 <p className="text-[10px] text-slate-600 italic py-2 text-center">No Q2 tasks prioritized</p>
@@ -306,7 +306,7 @@ export function TodayTasksPage() {
             </h3>
             <div className="space-y-2">
               {today.filter(s => quadrants[s.id] === "Q3").map((session) => (
-                <SessionCardMini key={session.id} session={session} onMove={(q) => handleUpdateQuadrant(session.id, q)} />
+                <SessionCardMini key={session.id} session={session} currentQuadrant={quadrants[session.id] || "Q2"} onMove={(q) => handleUpdateQuadrant(session.id, q)} />
               ))}
               {today.filter(s => quadrants[s.id] === "Q3").length === 0 && (
                 <p className="text-[10px] text-slate-600 italic py-2 text-center">No Q3 tasks prioritized</p>
@@ -322,7 +322,7 @@ export function TodayTasksPage() {
             </h3>
             <div className="space-y-2">
               {today.filter(s => quadrants[s.id] === "Q4").map((session) => (
-                <SessionCardMini key={session.id} session={session} onMove={(q) => handleUpdateQuadrant(session.id, q)} />
+                <SessionCardMini key={session.id} session={session} currentQuadrant={quadrants[session.id] || "Q2"} onMove={(q) => handleUpdateQuadrant(session.id, q)} />
               ))}
               {today.filter(s => quadrants[s.id] === "Q4").length === 0 && (
                 <p className="text-[10px] text-slate-600 italic py-2 text-center">No Q4 tasks prioritized</p>
@@ -422,13 +422,29 @@ function SessionCard({
   );
 }
 
-function SessionCardMini({ session, onMove }: { session: StudySession; onMove: (q: string) => void }) {
+// BUG FIX: SessionCardMini now receives currentQuadrant as prop instead of reading
+// localStorage directly on every render (stale value, bypasses React state).
+function SessionCardMini({
+  session,
+  currentQuadrant,
+  onMove
+}: {
+  session: StudySession;
+  currentQuadrant: string;
+  onMove: (q: string) => void;
+}) {
   const subjects = useAppStore((state: AppState) => state.subjects);
   const sub = subjects.find(s => s.id === session.subjectId);
   const startTime = format(new Date(session.startTime), "h:mm a");
+  const statusColors: Record<string, string> = {
+    completed: "border-emerald-500/30 bg-emerald-900/10",
+    in_progress: "border-cyan-500/30 bg-cyan-900/10",
+    paused: "border-amber-500/30 bg-amber-900/10",
+    planned: "border-white/5 bg-slate-900/40",
+  };
 
   return (
-    <div className="p-2.5 rounded-xl border border-white/5 bg-slate-900/40 flex items-center justify-between gap-3">
+    <div className={`p-2.5 rounded-xl border flex items-center justify-between gap-3 ${statusColors[session.status] ?? "border-white/5 bg-slate-900/40"}`}>
       <div className="flex items-center gap-2 min-w-0 flex-1">
         <span className="text-lg shrink-0">{sub?.emoji || "📚"}</span>
         <div className="min-w-0 flex-1">
@@ -438,16 +454,16 @@ function SessionCardMini({ session, onMove }: { session: StudySession; onMove: (
       </div>
       <div className="flex items-center gap-1.5 shrink-0">
         <select
-          value={localStorage.getItem("flowtrack_eisenhower_quadrants") ? (JSON.parse(localStorage.getItem("flowtrack_eisenhower_quadrants") || "{}")[session.id] || "Q2") : "Q2"}
+          value={currentQuadrant}
           onChange={(e) => onMove(e.target.value)}
-          className="bg-slate-950 border border-white/10 rounded px-1.5 py-0.5 text-[8px] font-bold text-slate-300 outline-none"
+          className="bg-slate-950 border border-white/10 rounded px-1.5 py-0.5 text-[8px] font-bold text-slate-300 outline-none cursor-pointer"
         >
-          <option value="Q1">Q1: Urgent</option>
-          <option value="Q2">Q2: Normal</option>
-          <option value="Q3">Q3: Urgent/Not</option>
-          <option value="Q4">Q4: Low Priority</option>
+          <option value="Q1">🔥 Q1: Urgent & Important</option>
+          <option value="Q2">📚 Q2: Important, Not Urgent</option>
+          <option value="Q3">⚡ Q3: Urgent, Not Important</option>
+          <option value="Q4">🌱 Q4: Low Priority</option>
         </select>
-        <Link to={`/timer#${session.id}`} className="text-[9px] text-cyan-400 font-bold hover:underline">Start →</Link>
+        <Link to={`/timer#${session.id}`} className="text-[9px] text-cyan-400 font-bold hover:underline whitespace-nowrap">Start →</Link>
       </div>
     </div>
   );

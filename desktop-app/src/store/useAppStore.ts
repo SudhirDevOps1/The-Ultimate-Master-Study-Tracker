@@ -549,6 +549,32 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
   },
 
   createSession: async (input: CreateSessionInput) => {
+    // ANTI-CHEAT / DATA INTEGRITY VALIDATION
+    if (!input.subjectId || !input.startTime || !input.endTime) {
+      console.warn("[createSession] Rejected: missing required fields.");
+      return;
+    }
+    const subjectExists = get().subjects.some((s: Subject) => s.id === input.subjectId);
+    if (!subjectExists) {
+      console.warn("[createSession] Rejected: subject does not exist.");
+      return;
+    }
+    const startMs = new Date(input.startTime).getTime();
+    const endMs = new Date(input.endTime).getTime();
+    if (isNaN(startMs) || isNaN(endMs)) {
+      console.warn("[createSession] Rejected: invalid dates.");
+      return;
+    }
+    if (endMs <= startMs) {
+      console.warn("[createSession] Rejected: end time must be after start time.");
+      return;
+    }
+    const durationMinutes = (endMs - startMs) / 60000;
+    // Cap single session at 16 hours to prevent data inflation
+    if (durationMinutes > 960) {
+      console.warn("[createSession] Rejected: duration exceeds 16-hour cap.");
+      return;
+    }
     const plannedMinutes = calcPlannedMinutes(input.startTime, input.endTime);
     const session: StudySession = {
       id: crypto.randomUUID(),
@@ -576,7 +602,11 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
   },
 
   updateSession: async (session: StudySession) => {
-    const updated = { ...session, updatedAt: new Date().toISOString() };
+    // ANTI-CHEAT: clamp actualSeconds — cannot be negative or exceed session's
+    // planned duration by more than 2x (allows overtime but blocks inflation)
+    const maxAllowed = Math.max(session.plannedMinutes * 60 * 2, 120); // min 2 min cap
+    const safeActualSeconds = Math.min(Math.max(0, session.actualSeconds || 0), maxAllowed);
+    const updated = { ...session, actualSeconds: safeActualSeconds, updatedAt: new Date().toISOString() };
     await db.sessions.put(updated);
 
     const timer = get().timer;
@@ -630,11 +660,23 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
   },
 
   importAll: async (subjects: Subject[], sessions: StudySession[], settings?: { key: string; value: string }[], activities?: any[]) => {
+    // ANTI-CHEAT: Sanitize imported data before writing to DB
+    const subjectIds = new Set(subjects.map(s => s.id));
+    const sanitizedSessions = sessions
+      .filter(s => s.id && subjectIds.has(s.subjectId))
+      .map(s => ({
+        ...s,
+        // Cap actualSeconds to 2x planned duration to prevent XP inflation from crafted backups
+        actualSeconds: Math.min(Math.max(0, s.actualSeconds || 0), Math.max(s.plannedMinutes * 60 * 2, 120)),
+        // Sanitize status
+        status: (["planned", "in_progress", "paused", "completed"].includes(s.status) ? s.status : "planned") as SessionStatus,
+      }));
+
     await (db as any).transaction("rw", [db.subjects, db.sessions, db.settings], async () => {
       await db.subjects.clear();
       await db.sessions.clear();
       await db.subjects.bulkAdd(subjects);
-      await db.sessions.bulkAdd(sessions);
+      await db.sessions.bulkAdd(sanitizedSessions);
       if (settings && settings.length > 0) {
         for (const setting of settings) {
           if (setting.key === "ai_config") {
@@ -689,6 +731,25 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
   },
 
   addManualEntry: async (input: { subjectId: string; date: string; hours: number; notes?: string; tags?: string[] }) => {
+    // ANTI-CHEAT: validate hours range and subject
+    if (!input.subjectId || !input.date) {
+      console.warn("[addManualEntry] Rejected: missing required fields.");
+      return;
+    }
+    const subjectExists = get().subjects.some((s: Subject) => s.id === input.subjectId);
+    if (!subjectExists) {
+      console.warn("[addManualEntry] Rejected: subject does not exist.");
+      return;
+    }
+    if (typeof input.hours !== "number" || isNaN(input.hours) || input.hours <= 0) {
+      console.warn("[addManualEntry] Rejected: hours must be a positive number.");
+      return;
+    }
+    // Hard cap at 16 hours per manual entry — prevents XP/streak inflation
+    if (input.hours > 16) {
+      console.warn("[addManualEntry] Rejected: cannot log more than 16 hours in a single manual entry.");
+      return;
+    }
     const plannedMinutes = input.hours * 60;
     const session: StudySession = {
       id: crypto.randomUUID(),

@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Panel } from "@/components/common/Panel";
-import { Award, TrendingUp, X, Sparkles, AlertTriangle, Calendar, Save } from "lucide-react";
+import { Award, TrendingUp, X, Sparkles, AlertTriangle, Calendar, Save, CheckCircle2 } from "lucide-react";
 import { useAppStore, type AppState } from "@/store/useAppStore";
-import { format, subDays, isSameDay } from "date-fns";
+import { format, subDays } from "date-fns";
 
 export function PerformanceScorecardModal() {
   const [isOpen, setIsOpen] = useState(false);
+  const [saved, setSaved] = useState(false);
   const sessions = useAppStore((state: AppState) => state.sessions);
   const subjects = useAppStore((state: AppState) => state.subjects);
   
@@ -44,6 +45,8 @@ export function PerformanceScorecardModal() {
     });
 
     const completed = past7DaysSessions.filter(s => s.status === "completed");
+    const completedCount = completed.length;
+    const totalCount = past7DaysSessions.length;
     const totalActualSeconds = completed.reduce((sum, s) => sum + s.actualSeconds, 0);
     const totalPlannedMinutes = past7DaysSessions.reduce((sum, s) => sum + (s.plannedMinutes || 0), 0);
 
@@ -51,10 +54,9 @@ export function PerformanceScorecardModal() {
     const plannedHours = Number((totalPlannedMinutes / 60).toFixed(1));
     const completionRate = totalPlannedMinutes > 0 ? Math.round(((totalActualSeconds / 60) / totalPlannedMinutes) * 100) : 0;
 
-    // Distraction score estimation based on mock ratio of logged distraction category
-    const completedCount = completed.length;
-    const totalCount = past7DaysSessions.length;
-    const distractionScore = Math.max(12, Math.min(95, 100 - completionRate - (completedCount * 3)));
+    // Distraction score: incomplete sessions treated as distracted. Clamped 5-90.
+    const incompleteRate = totalCount > 0 ? Math.round(((totalCount - completedCount) / totalCount) * 100) : 0;
+    const distractionScore = Math.min(90, Math.max(5, incompleteRate));
 
     // Detect neglected subject (least studied this week)
     const subjectSeconds: Record<string, number> = {};
@@ -104,8 +106,8 @@ export function PerformanceScorecardModal() {
     const next = [newReflection, ...savedReflections];
     setSavedReflections(next);
     localStorage.setItem("flowtrack_weekly_reflections", JSON.stringify(next));
-    setIsOpen(false);
-    alert("🎉 Weekly Performance Scorecard saved successfully!");
+    setSaved(true);
+    setTimeout(() => { setIsOpen(false); setSaved(false); }, 1800);
   };
 
   return (
@@ -208,10 +210,11 @@ export function PerformanceScorecardModal() {
                 </button>
                 <button
                   onClick={handleSave}
-                  className="flex items-center gap-1.5 rounded-xl bg-cyan-500 text-slate-950 hover:bg-cyan-400 px-5 py-2.5 text-xs font-black transition-all shadow-md active:scale-95"
+                  disabled={saved}
+                  className={`flex items-center gap-1.5 rounded-xl px-5 py-2.5 text-xs font-black transition-all shadow-md active:scale-95 ${saved ? "bg-emerald-500 text-white cursor-default" : "bg-cyan-500 text-slate-950 hover:bg-cyan-400"}`}
                 >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>Save reflections</span>
+                  {saved ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+                  <span>{saved ? "🎉 Saved!" : "Save Scorecard"}</span>
                 </button>
               </div>
             </motion.div>
