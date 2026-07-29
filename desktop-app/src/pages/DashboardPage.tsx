@@ -13,6 +13,7 @@ import { toDurationLabel, formatTime12Hour } from "@/utils/time";
 import { PDFStudyReader } from "@/components/common/PDFStudyReader";
 import { GamifiedFocusQuest } from "@/components/goals/GamifiedFocusQuest";
 import { WeeklyReviewModal } from "@/components/dashboard/WeeklyReviewModal";
+import { useConfirm, useToast } from "@/components/common/Toast";
 import { PerformanceScorecardModal } from "@/components/dashboard/PerformanceScorecardModal";
 
 // Progress Ring Component
@@ -88,6 +89,8 @@ export function DashboardPage() {
   const profile = useAppStore((state: AppState) => state.profile);
   const activeWindow = useAppStore((state: AppState) => state.activeWindow);
   const streakData = useStreak();
+  const { confirm } = useConfirm();
+  const { showToast } = useToast();
 
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>("all");
   const [liveClock, setLiveClock] = useState(() => new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }));
@@ -106,8 +109,12 @@ export function DashboardPage() {
       return sessionDate < todayStr && s.status === "planned";
     });
     if (overdue.length === 0) return;
-    const confirmReschedule = window.confirm(`Reschedule all ${overdue.length} overdue tasks to today?`);
-    if (!confirmReschedule) return;
+    const ok = await confirm({
+      title: "Reschedule Overdue Tasks",
+      message: `Reschedule all ${overdue.length} overdue planned tasks to today's date?`,
+      confirmText: "Reschedule All",
+    });
+    if (!ok) return;
 
     const updateSession = useAppStore.getState().updateSession;
     const initApp = useAppStore.getState().initApp;
@@ -126,6 +133,7 @@ export function DashboardPage() {
       });
     }
     await initApp();
+    showToast(`✅ ${overdue.length} tasks rescheduled to today!`, "success");
   };
 
   const handleClearAllOverdue = async () => {
@@ -135,8 +143,13 @@ export function DashboardPage() {
       return sessionDate < todayStr && s.status === "planned";
     });
     if (overdue.length === 0) return;
-    const confirmClear = window.confirm(`Permanently delete all ${overdue.length} overdue planned tasks?`);
-    if (!confirmClear) return;
+    const ok = await confirm({
+      title: "Delete Overdue Tasks",
+      message: `Permanently delete all ${overdue.length} overdue planned tasks? This cannot be undone.`,
+      confirmText: "Delete All",
+      danger: true,
+    });
+    if (!ok) return;
 
     const deleteSession = useAppStore.getState().deleteSession;
     const initApp = useAppStore.getState().initApp;
@@ -145,6 +158,7 @@ export function DashboardPage() {
       await deleteSession(session.id);
     }
     await initApp();
+    showToast(`🗑️ ${overdue.length} overdue tasks deleted.`, "warning");
   };
 
   const today = useMemo(() => sessions.filter((session: StudySession) => isSameDay(new Date(session.startTime), new Date())), [sessions]);

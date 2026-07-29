@@ -8,6 +8,7 @@ import { usePomodoro } from "@/hooks/usePomodoro";
 import { exportData, importBackup } from "@/utils/exportImport";
 import { exportSessionsToCSV, exportSubjectStatsToCSV, exportAllDataToCSV } from "@/utils/dataExport";
 import { db } from "@/lib/db";
+import { useConfirm } from "@/components/common/Toast";
 
 import type { ThemeName } from "@/types/models";
 
@@ -130,6 +131,7 @@ export function SettingsPage() {
   const sessions = useAppStore((state: AppState) => state.sessions);
   const importAll = useAppStore((state: AppState) => state.importAll);
   const addManualEntry = useAppStore((state: AppState) => state.addManualEntry);
+  const { confirm } = useConfirm();
   const setDailyGoalHours = useAppStore((state: AppState) => state.setDailyGoalHours);
   const dailyGoalHours = useAppStore((state: AppState) => state.dailyGoalHours);
   const weeklyTargetHours = useAppStore((state: AppState) => state.weeklyTargetHours);
@@ -794,10 +796,13 @@ export function SettingsPage() {
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={async () => {
-              const first = confirm("⚠️ Are you sure you want to delete ALL data? This includes all subjects, sessions, settings, and AI config. This action CANNOT be undone.");
-              if (!first) return;
-              const second = confirm("🛑 FINAL WARNING: Click OK to permanently erase everything and restart fresh.");
-              if (!second) return;
+              const ok = await confirm({
+                title: "⚠️ Reset ALL Data",
+                message: "This will permanently delete ALL subjects, sessions, settings, and AI config. This action CANNOT be undone.",
+                confirmText: "🗑️ Delete Everything",
+                danger: true,
+              });
+              if (!ok) return;
               try {
                 await db.subjects.clear();
                 await db.sessions.clear();
