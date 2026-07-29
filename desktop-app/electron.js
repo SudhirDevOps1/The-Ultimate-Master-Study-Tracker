@@ -311,6 +311,26 @@ function createWindow() {
     },
   });
 
+  // Intercept new window creations and redirections to open external links in system default browser
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith("http:") || url.startsWith("https:")) {
+      shell.openExternal(url);
+      return { action: "deny" };
+    }
+    return { action: "allow" };
+  });
+
+  mainWindow.webContents.on("will-navigate", (event, url) => {
+    if (url.startsWith("http:") || url.startsWith("https:")) {
+      // Allow localhost dev server reloading
+      if (url.startsWith("http://localhost:5173") || url.startsWith("http://127.0.0.1:5173")) {
+        return;
+      }
+      event.preventDefault();
+      shell.openExternal(url);
+    }
+  });
+
   const { session: electronSession } = require("electron");
 
   // FIX Privacy: Block permission requests from embedded iframes/webviews.

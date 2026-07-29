@@ -257,23 +257,29 @@ function Timeline({ rawLog }: { rawLog: ActivityEntry[] }) {
 }
 
 function Favicon({ domain }: { domain: string }) {
-  const [error, setError] = useState(false);
-  const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+  const [errorCount, setErrorCount] = useState(0);
+  const isFallbackDomain = !domain || domain.endsWith(".site") || domain === "web-page" || domain === "web.site";
 
-  if (error || !domain || domain.endsWith(".site") || domain === "web-page") {
+  if (isFallbackDomain || errorCount >= 2) {
     return (
       <div className="w-7 h-7 rounded-lg bg-slate-800 shrink-0 flex items-center justify-center border border-white/10 text-cyan-400">
-        <Globe className="w-4 h-4" />
+        <Globe className="w-4 h-4 animate-pulse" />
       </div>
     );
   }
 
+  // Engine 1: DuckDuckGo (Faster & supports more parameters)
+  // Engine 2: Google s2 favicons (Backup)
+  const src = errorCount === 0
+    ? `https://icons.duckduckgo.com/ip3/${domain}.ico`
+    : `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+
   return (
     <img
-      src={faviconUrl}
-      alt="icon"
+      src={src}
+      alt=""
       className="w-7 h-7 rounded-lg bg-slate-800 shrink-0 p-1 border border-white/10"
-      onError={() => setError(true)}
+      onError={() => setErrorCount(prev => prev + 1)}
     />
   );
 }
