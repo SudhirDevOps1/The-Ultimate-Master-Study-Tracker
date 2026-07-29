@@ -678,34 +678,36 @@ export function AppTrackingPage() {
             </span>
           </div>
 
-          <div className="flex items-end justify-between gap-2 h-28 pt-2 overflow-x-auto min-w-[280px]">
+          {/* Bar chart — h-32 container, bars grow from bottom */}
+          <div className="relative h-32 flex items-end gap-1.5 overflow-x-auto min-w-[280px] mt-2">
             {weeklyOverview.map((item) => {
               const maxSecs = Math.max(...weeklyOverview.map(w => w.seconds), 1);
-              const heightPct = Math.max(8, (item.seconds / maxSecs) * 100);
+              const heightPct = Math.max(6, (item.seconds / maxSecs) * 100);
               const isSelected = item.date === selectedDate;
               
               return (
-                <div key={item.date} className="flex-1 flex flex-col items-center gap-1.5 group select-none min-w-[32px]">
-                  {/* Hours badge */}
-                  <span className={`text-[10px] font-bold ${isSelected ? "text-cyan-400 font-extraboldScale" : "text-slate-400 group-hover:text-white"} transition-colors`}>
-                    {item.seconds > 0 ? fmt(item.seconds).split(" ")[0] : "0s"}
+                <div key={item.date} className="flex-1 flex flex-col items-center min-w-[36px] h-full justify-end gap-1 group select-none">
+                  {/* Value badge */}
+                  <span className={`text-[10px] font-bold leading-none ${isSelected ? "text-cyan-400" : "text-slate-400 group-hover:text-white"} transition-colors`}>
+                    {item.seconds > 0 ? fmt(item.seconds).split(" ")[0] : "—"}
                   </span>
                   
                   {/* Bar */}
                   <button
                     onClick={() => setSelectedDate(item.date)}
-                    className="w-full relative rounded-t-lg transition-all focus:outline-none"
-                    style={{ height: `${heightPct}%` }}
+                    title={`${item.date}: ${item.seconds > 0 ? fmt(item.seconds) : "No data"}`}
+                    className="w-full focus:outline-none"
+                    style={{ height: `${heightPct}%`, minHeight: "6px" }}
                   >
-                    <div className={`absolute inset-0 rounded-t-lg bg-gradient-to-t transition-all ${
+                    <div className={`h-full w-full rounded-t-lg transition-all duration-200 ${
                       isSelected 
-                        ? "from-cyan-500 to-indigo-500 shadow-[0_0_12px_rgba(34,211,238,0.4)]" 
-                        : "from-slate-700/60 to-slate-500/70 group-hover:from-cyan-600/60 group-hover:to-cyan-400/80"
+                        ? "bg-gradient-to-t from-cyan-500 to-indigo-400 shadow-[0_0_14px_rgba(34,211,238,0.5)]" 
+                        : "bg-gradient-to-t from-slate-600 to-slate-400 group-hover:from-cyan-600/80 group-hover:to-cyan-300/90"
                     }`} />
                   </button>
 
                   {/* Day label */}
-                  <span className={`text-[9px] font-bold tracking-wider ${isSelected ? "text-cyan-300 font-extrabold" : "text-slate-500 group-hover:text-slate-300"} transition-colors`}>
+                  <span className={`text-[9px] font-bold ${isSelected ? "text-cyan-300" : "text-slate-500 group-hover:text-slate-300"} transition-colors`}>
                     {item.date === today ? "Today" : item.date.slice(5)}
                   </span>
                 </div>
