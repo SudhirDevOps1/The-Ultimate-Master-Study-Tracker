@@ -307,9 +307,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration:      !app.isPackaged,
       contextIsolation:     app.isPackaged,
-      preload:              app.isPackaged
-        ? path.join(process.resourcesPath, "app.asar", "preload.js")
-        : undefined,
+      preload:              path.join(__dirname, "preload.js"),
       backgroundThrottling: false,
       webviewTag:           true,
       spellcheck:           false, // FIX Privacy: Disable OS spellcheck (text leaks to system)
