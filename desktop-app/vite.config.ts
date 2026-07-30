@@ -17,18 +17,18 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    // Pre-bundle Excalidraw and its dependencies for faster dev
     include: ["@excalidraw/excalidraw"],
   },
   build: {
-    chunkSizeWarningLimit: 5000, // Excalidraw is large (~3MB), raise limit
+    chunkSizeWarningLimit: 5000,
     rollupOptions: {
       output: {
-        manualChunks(id) {
-          // Keep Excalidraw in its own chunk for optimal caching
-          if (id.includes("@excalidraw")) return "excalidraw";
-          if (id.includes("roughjs") || id.includes("rough")) return "excalidraw";
-          if (id.includes("node_modules")) return "vendor";
+        // Fixed: no circular dependencies — let Rollup decide chunking naturally
+        manualChunks: {
+          // Core React bundle
+          "react-core": ["react", "react-dom", "react-router-dom"],
+          // Excalidraw in its own isolated chunk (lazy loaded)
+          "excalidraw": ["@excalidraw/excalidraw"],
         }
       }
     }
