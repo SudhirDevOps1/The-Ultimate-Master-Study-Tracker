@@ -228,9 +228,10 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
   },
   fetchBackendData: async () => {
     // Check if running inside Electron desktop shell
-    if (typeof window !== "undefined" && (window as any).require) {
+    const hasElectron = typeof window !== "undefined" && (window as any).electron;
+    if (hasElectron) {
       try {
-        const electron = (window as any).require("electron");
+        const electron = (window as any).electron;
         const active = await electron.ipcRenderer.invoke("get-active-window");
         if (active) {
           const title = active.title || "Desktop / Idle";

@@ -171,8 +171,8 @@ function fmt(secs: number): string {
   return `${s}s`;
 }
 
-const isElectron = typeof window !== "undefined" && !!(window as any).require;
-const getIpc = () => isElectron ? (window as any).require("electron").ipcRenderer : null;
+const isElectron = typeof window !== "undefined" && !!(window as any).electron?.ipcRenderer;
+const getIpc = () => isElectron ? (window as any).electron.ipcRenderer : null;
 
 // ─── Timeline Component ───────────────────────────────────────────────────────
 function Timeline({ rawLog }: { rawLog: ActivityEntry[] }) {

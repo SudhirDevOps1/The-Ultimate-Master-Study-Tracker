@@ -899,9 +899,8 @@ function WelcomeChangelogModal() {
   );
 }
 
-// ─── Live App Usage Panel Component ──────────────────────────────────────────
-const isElectron = typeof window !== "undefined" && !!(window as any).electron;
-const getIpc = () => isElectron ? (window as any).require("electron").ipcRenderer : null;
+const isElectron = typeof window !== "undefined" && !!(window as any).electron?.ipcRenderer;
+const getIpc = () => isElectron ? (window as any).electron.ipcRenderer : null;
 
 function LiveAppUsagePanel() {
   const [liveApp, setLiveApp] = useState<{ process: string; title: string } | null>(null);

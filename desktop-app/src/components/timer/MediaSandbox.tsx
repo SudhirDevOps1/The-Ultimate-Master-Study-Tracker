@@ -123,9 +123,9 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
 
   // FIX B1: Replace alert() with Electron IPC toast (non-blocking)
   const showToast = async (message: string) => {
-    if (typeof window !== "undefined" && "require" in window) {
+    if (typeof window !== "undefined" && (window as any).electron?.ipcRenderer) {
       try {
-        const { ipcRenderer } = (window as any).require("electron");
+        const ipcRenderer = (window as any).electron.ipcRenderer;
         await ipcRenderer.invoke("send-windows-toast", {
           title: "FlowTrack",
           message,
@@ -164,9 +164,9 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
       } catch { /* ignore */ }
     }
 
-    if (dataUrl && typeof window !== "undefined" && "require" in window) {
+    if (dataUrl && typeof window !== "undefined" && (window as any).electron?.ipcRenderer) {
       try {
-        const { ipcRenderer } = (window as any).require("electron");
+        const ipcRenderer = (window as any).electron.ipcRenderer;
         const defaultName = `FlowTrack_Screenshot_${activeSubjectName.replace(/\s+/g, "_")}_${Date.now()}.png`;
         const result = await ipcRenderer.invoke("save-image-dialog", {
           base64Data: dataUrl,

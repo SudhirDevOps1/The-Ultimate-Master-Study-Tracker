@@ -126,9 +126,9 @@ export function StudyNotesBoardPage() {
       const defaultFilename = `FlowTrack-StickyNotes-${new Date().toISOString().split("T")[0]}.png`;
 
       // Check if running inside Electron wrapper shell environment
-      if (typeof window !== "undefined" && ((window as any).electron || (window as any).require)) {
+      if (typeof window !== "undefined" && (window as any).electron?.ipcRenderer) {
         try {
-          const invoker = (window as any).electron?.ipcRenderer?.invoke || (window as any).require("electron")?.ipcRenderer?.invoke;
+          const invoker = (window as any).electron.ipcRenderer.invoke;
           if (invoker) {
             const res = await invoker("save-image-dialog", {
               base64Data: dataUrl,

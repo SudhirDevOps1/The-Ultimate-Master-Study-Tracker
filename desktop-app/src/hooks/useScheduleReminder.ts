@@ -58,9 +58,16 @@ export function useScheduleReminder() {
             });
 
             notification.onclick = () => {
-              window.focus();
-              void startSession(session.id);
-              notification.close();
+              try {
+                window.focus();
+                notification.close();
+                // Add a small safety buffer before initiating timer context transition
+                setTimeout(() => {
+                  void startSession(session.id);
+                }, 100);
+              } catch (err) {
+                console.error("Failed to start session via notification trigger:", err);
+              }
             };
           }
         }

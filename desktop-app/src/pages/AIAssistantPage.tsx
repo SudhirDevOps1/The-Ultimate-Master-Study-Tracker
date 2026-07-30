@@ -398,12 +398,8 @@ export function AIAssistantPage() {
   const streakData     = useStreak();
 
   const getIpc = () => {
-    if (typeof window !== "undefined" && (window as any).require) {
-      try {
-        return (window as any).require("electron").ipcRenderer;
-      } catch {
-        return null;
-      }
+    if (typeof window !== "undefined" && (window as any).electron?.ipcRenderer) {
+      return (window as any).electron.ipcRenderer;
     }
     return null;
   };

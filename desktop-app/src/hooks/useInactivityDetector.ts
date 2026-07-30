@@ -66,9 +66,9 @@ export function useInactivityDetector() {
     if (!strictFocusMode || !timer.activeSessionId) return;
 
     let ipcRenderer: any = null;
-    if (isElectron) {
+    if (typeof window !== "undefined" && (window as any).electron?.ipcRenderer) {
       try {
-        ipcRenderer = (window as any).require("electron").ipcRenderer;
+        ipcRenderer = (window as any).electron.ipcRenderer;
       } catch {
         ipcRenderer = null;
       }
