@@ -222,6 +222,8 @@ export function MindMapPage() {
     showToast("🗑️ Canvas cleared.", "info");
   };
 
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
   // ── Open Excalidraw Library website ──────────────────────────────────────
   const handleOpenLibrary = () => {
     const url = "https://libraries.excalidraw.com/?theme=dark";
@@ -234,7 +236,11 @@ export function MindMapPage() {
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-[calc(100vh-110px)] gap-0 -mx-4 -mt-2">
+    <div className={`flex flex-col gap-0 transition-all duration-300 ${
+      isFullscreen 
+        ? "fixed inset-0 z-[9999] w-screen h-screen bg-slate-950 p-0 m-0" 
+        : "h-[calc(100vh-110px)] -mx-4 -mt-2"
+    }`}>
 
       {/* Top toolbar */}
       <div className="flex items-center justify-between gap-2 px-4 py-2 bg-slate-900/80 border-b border-white/5 backdrop-blur-sm shrink-0 flex-wrap">
@@ -243,6 +249,22 @@ export function MindMapPage() {
             🧠 <span className="bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">Mind Map Whiteboard</span>
           </span>
           <span className="text-[9px] text-slate-500 bg-white/5 border border-white/5 px-2 py-0.5 rounded-full font-mono ml-1">Excalidraw</span>
+          
+          {/* Full Screen Toggle Button */}
+          <button 
+            onClick={() => {
+              setIsFullscreen(!isFullscreen);
+              // Trigger resize layout re-calculation for excalidraw canvas
+              setTimeout(() => window.dispatchEvent(new Event("resize")), 100);
+            }}
+            className={`ml-2 px-2.5 py-1 rounded text-[10px] font-bold transition-all ${
+              isFullscreen 
+                ? "bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30" 
+                : "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/30"
+            }`}
+          >
+            {isFullscreen ? "Exit Full Screen" : "📺 Maximize / Full Screen"}
+          </button>
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap">
