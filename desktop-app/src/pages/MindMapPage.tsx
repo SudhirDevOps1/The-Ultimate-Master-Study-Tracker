@@ -63,7 +63,6 @@ export function MindMapPage() {
   useEffect(() => {
     import("@excalidraw/excalidraw")
       .then((mod) => {
-        // The package exports Excalidraw as a named or default export
         const Comp = (mod as any).Excalidraw || (mod as any).default?.Excalidraw || (mod as any).default;
         if (!Comp) throw new Error("Excalidraw component not found in module");
         setExcalidrawComp(() => Comp);
@@ -197,7 +196,6 @@ export function MindMapPage() {
           const items = data.libraryItems || data.library;
           saveLibrary(items);
           
-          // Dynamically import library items into the active session
           const api = excalidrawAPIRef.current;
           if (api && (api as any).importLibrary) {
             await (api as any).importLibrary(items, "merge");
@@ -234,7 +232,6 @@ export function MindMapPage() {
     }
   };
 
-  // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className={`flex flex-col gap-0 transition-all duration-300 ${
       isFullscreen 
@@ -250,11 +247,9 @@ export function MindMapPage() {
           </span>
           <span className="text-[9px] text-slate-500 bg-white/5 border border-white/5 px-2 py-0.5 rounded-full font-mono ml-1">Excalidraw</span>
           
-          {/* Full Screen Toggle Button */}
           <button 
             onClick={() => {
               setIsFullscreen(!isFullscreen);
-              // Trigger resize layout re-calculation for excalidraw canvas
               setTimeout(() => window.dispatchEvent(new Event("resize")), 100);
             }}
             className={`ml-2 px-2.5 py-1 rounded text-[10px] font-bold transition-all ${
@@ -268,12 +263,10 @@ export function MindMapPage() {
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap">
-          {/* Open Library */}
           <button onClick={handleOpenLibrary} title="Browse Excalidraw Libraries"
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-300 hover:bg-purple-500/20 text-[11px] font-semibold transition-all">
             <Library className="w-3 h-3" /> Libraries
           </button>
-          {/* Import Library file */}
           <button onClick={handleImportLibrary} title="Import .excalidrawlib file"
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 text-[11px] font-semibold transition-all">
             <Upload className="w-3 h-3" /> Import Lib
@@ -281,12 +274,10 @@ export function MindMapPage() {
 
           <div className="w-px h-4 bg-white/10" />
 
-          {/* Load file */}
           <button onClick={handleLoadFile} title="Open .excalidraw file"
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 text-[11px] font-semibold transition-all">
             <FolderOpen className="w-3 h-3" /> Open
           </button>
-          {/* Save file */}
           <button onClick={handleSaveFile} title="Save as .excalidraw"
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 text-[11px] font-semibold transition-all">
             <Save className="w-3 h-3" /> Save
@@ -294,12 +285,10 @@ export function MindMapPage() {
 
           <div className="w-px h-4 bg-white/10" />
 
-          {/* Export PNG */}
           <button onClick={handleExportPNG}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 hover:bg-cyan-500/20 text-[11px] font-semibold transition-all">
             <Download className="w-3 h-3" /> PNG
           </button>
-          {/* Export SVG */}
           <button onClick={handleExportSVG}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 hover:bg-cyan-500/20 text-[11px] font-semibold transition-all">
             <FileJson className="w-3 h-3" /> SVG
@@ -307,7 +296,6 @@ export function MindMapPage() {
 
           <div className="w-px h-4 bg-white/10" />
 
-          {/* Clear */}
           <button onClick={handleClear}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 hover:bg-rose-500/20 text-[11px] font-semibold transition-all">
             <Trash2 className="w-3 h-3" /> Clear
@@ -333,7 +321,6 @@ export function MindMapPage() {
               <div className="text-4xl">⚠️</div>
               <h3 className="text-white font-bold text-lg">Failed to load Whiteboard</h3>
               <p className="text-slate-400 text-sm leading-relaxed">{loadError}</p>
-              <p className="text-slate-500 text-xs">Try running: <code className="bg-white/5 px-2 py-1 rounded font-mono">npm install @excalidraw/excalidraw</code> in the desktop-app folder, then restart the dev server.</p>
               <button onClick={() => window.location.reload()}
                 className="px-4 py-2 bg-cyan-500 text-slate-950 rounded-xl font-bold text-sm hover:bg-cyan-400 transition-colors">
                 Retry
@@ -357,8 +344,8 @@ export function MindMapPage() {
             langCode="en"
             UIOptions={{
               canvasActions: {
-                loadScene: false,   // We handle this ourselves
-                saveAsImage: false, // We handle this ourselves
+                loadScene: false,
+                saveAsImage: false,
                 saveToActiveFile: false,
                 export: { saveFileToDisk: false },
               },

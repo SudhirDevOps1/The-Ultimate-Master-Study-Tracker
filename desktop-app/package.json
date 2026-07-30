@@ -16,6 +16,9 @@
   "build": {
     "appId": "com.flowtrack.studytracker",
     "productName": "FlowTrackPro",
+    "electronDownload": {
+      "mirror": "https://npmmirror.com/mirrors/electron/"
+    },
     "win": {
       "target": "nsis",
       "icon": "public/favicon.png"
@@ -46,6 +49,7 @@
     ]
   },
   "dependencies": {
+    "@excalidraw/excalidraw": "^0.18.1",
     "clsx": "2.1.1",
     "date-fns": "^4.1.0",
     "dexie": "^4.3.0",
@@ -63,7 +67,6 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
-    "@excalidraw/excalidraw": "latest",
     "@tailwindcss/vite": "4.1.17",
     "@types/node": "^22.0.0",
     "@types/react": "19.2.7",
@@ -71,10 +74,10 @@
     "@vitejs/plugin-react": "5.1.1",
     "concurrently": "^10.0.3",
     "electron": "^43.1.1",
-    "electron-builder": "^26.15.3",
+    "electron-builder": "^25.1.8",
     "tailwindcss": "4.1.17",
     "typescript": "5.9.3",
-    "vite": "7.2.4",
+    "vite": "^7.3.6",
     "wait-on": "^9.0.10"
   }
 }

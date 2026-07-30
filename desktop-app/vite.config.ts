@@ -23,14 +23,11 @@ export default defineConfig({
     chunkSizeWarningLimit: 5000,
     rollupOptions: {
       output: {
-        // Fixed: no circular dependencies — let Rollup decide chunking naturally
         manualChunks: {
-          // Core React bundle
           "react-core": ["react", "react-dom", "react-router-dom"],
-          // Excalidraw in its own isolated chunk (lazy loaded)
           "excalidraw": ["@excalidraw/excalidraw"],
-        }
-      }
-    }
-  }
+        },
+      },
+    },
+  },
 });

@@ -401,6 +401,13 @@ export function AIAssistantPage() {
     if (typeof window !== "undefined" && (window as any).electron?.ipcRenderer) {
       return (window as any).electron.ipcRenderer;
     }
+    if (typeof window !== "undefined" && (window as any).require) {
+      try {
+        return (window as any).require("electron").ipcRenderer;
+      } catch {
+        return null;
+      }
+    }
     return null;
   };
 
@@ -1081,7 +1088,7 @@ ${studyContext.recentActivity}`;
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto pr-2 space-y-4 pretty-scrollbar">
+        <div className="flex-1 overflow-y-auto max-h-[calc(75vh-180px)] pr-2 space-y-4 pretty-scrollbar">
           {messages.map((msg, i) => (
             <div
               key={i}

@@ -305,17 +305,19 @@ function createWindow() {
       ? path.join(process.resourcesPath, "app.asar", "dist", "favicon.png")
       : path.join(__dirname, "public", "favicon.png"),
     webPreferences: {
-      nodeIntegration:      false,
-      contextIsolation:     true,
+      nodeIntegration:      !app.isPackaged,
+      contextIsolation:     app.isPackaged,
       preload:              app.isPackaged
         ? path.join(process.resourcesPath, "app.asar", "preload.js")
-        : path.resolve(__dirname, "preload.js"),
+        : undefined,
       backgroundThrottling: false,
       webviewTag:           true,
       spellcheck:           false, // FIX Privacy: Disable OS spellcheck (text leaks to system)
       webSecurity:          false, // Allow local file:// pages to fetch external assets/images (favicons)
     },
   });
+
+
 
   // Intercept new window creations and redirections to open external links in system default browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -702,12 +704,30 @@ ipcMain.handle("import-app-data", async () => {
   }
 });
 
-// ─── secure proxy fetch for bypass CORS in Electron Assistant settings ────────
 ipcMain.handle("secure-proxy-fetch", async (_e, { url, method, headers, body }) => {
   return new Promise((resolve) => {
     try {
       const { net } = require("electron");
       const urlObj = new URL(url);
+
+      // Security Whitelist Filter: Protect local data privacy from unauthorized outgoing calls
+      const whitelistedHosts = [
+        "api.groq.com",
+        "generativelanguage.googleapis.com",
+        "api.openai.com",
+        "api.cerebras.ai",
+        "api.mistral.ai",
+        "api.x.ai",
+        "localhost"
+      ];
+
+      const isWhitelisted = whitelistedHosts.some(host => urlObj.hostname === host || urlObj.hostname.endsWith("." + host));
+      if (!isWhitelisted) {
+        return resolve({ 
+          success: false, 
+          error: `Blocked by Security Policy: Outgoing request to ${urlObj.hostname} is restricted.` 
+        });
+      }
       
       const reqHeaders = headers || {};
       if (!reqHeaders["Content-Type"]) {
