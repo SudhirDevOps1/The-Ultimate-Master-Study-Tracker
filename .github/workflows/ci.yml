@@ -28,7 +28,7 @@ jobs:
     - name: Install Desktop App Dependencies
       run: |
         cd desktop-app
-        npm ci
+        npm install --legacy-peer-deps
 
     - name: Run TypeScript Compiler Check
       run: |
@@ -56,7 +56,7 @@ jobs:
     - name: Install Desktop Dependencies
       run: |
         cd desktop-app
-        npm ci
+        npm install --legacy-peer-deps
 
     - name: Build Web Application
       run: |
