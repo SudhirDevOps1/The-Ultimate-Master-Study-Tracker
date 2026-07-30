@@ -309,7 +309,7 @@ function createWindow() {
       contextIsolation:     true,
       preload:              app.isPackaged
         ? path.join(process.resourcesPath, "app.asar", "preload.js")
-        : path.join(__dirname, "preload.js"),
+        : path.resolve(__dirname, "preload.js"),
       backgroundThrottling: false,
       webviewTag:           true,
       spellcheck:           false, // FIX Privacy: Disable OS spellcheck (text leaks to system)
