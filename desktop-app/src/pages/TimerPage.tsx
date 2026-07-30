@@ -151,6 +151,13 @@ export function TimerPage() {
                 </div>
               </div>
               {pomodoroMode && <PomodoroTimer />}
+              
+              {/* Focus Soundscapes Panel */}
+              <div className="border-t border-white/5 pt-4 my-2">
+                <p className="text-[10px] uppercase font-bold text-slate-500 mb-1.5 tracking-wider">🎵 Ambient Focus Soundscapes</p>
+                <AmbiencePlayer />
+              </div>
+
               <div className="flex flex-wrap items-center gap-2">
                 <div className={`rounded-xl border px-3 py-2 text-xs font-medium ${strictFocusMode ? "border-rose-400/30 bg-rose-500/10 text-rose-200" : "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"}`}>
                   {strictFocusMode ? "🔒 Strict timing enabled" : "🟢 Standard timing enabled"}
@@ -214,15 +221,24 @@ export function TimerPage() {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="space-y-4"
+              className="space-y-5"
             >
-              <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-cyan-200/80">⏱️ Strict Timer</p>
-                <h2 className="mt-2 text-2xl font-semibold text-white md:text-3xl">Start a session and stay focused</h2>
-                <p className="mt-2 max-w-2xl text-sm text-slate-300 md:text-base">
-                  FlowTrack counts real study time using timestamps, works across inactive tabs, and supports browser Picture-in-Picture floating mode.
-                </p>
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.24em] text-cyan-200/80">⏱️ Strict Timer</p>
+                  <h2 className="mt-2 text-2xl font-semibold text-white md:text-3xl">Start a session and stay focused</h2>
+                  <p className="mt-2 max-w-2xl text-sm text-slate-300 md:text-base">
+                    FlowTrack counts real study time using timestamps, works across inactive tabs, and supports browser Picture-in-Picture floating mode.
+                  </p>
+                </div>
+                
+                {/* Ambience player directly accessible on main state before starting session */}
+                <div className="w-full md:w-auto p-3 rounded-2xl bg-white/[0.02] border border-white/5">
+                  <p className="text-[9px] uppercase font-bold text-slate-500 mb-1.5">🎵 Ambient Soundscapes</p>
+                  <AmbiencePlayer />
+                </div>
               </div>
+              
               <div className="grid gap-3 sm:grid-cols-3">
                 <motion.div
                   whileHover={{ scale: 1.03 }}

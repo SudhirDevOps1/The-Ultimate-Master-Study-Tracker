@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Panel } from "@/components/common/Panel";
-import { Palette, Download, Edit3, Trash, Plus } from "lucide-react";
+import { Palette, Download, Edit3, Trash, Plus, Search } from "lucide-react";
 import html2canvas from "html2canvas";
+import { useToast } from "@/components/common/Toast";
 
 interface StickyNote {
   id: string;
@@ -65,6 +66,8 @@ export function StudyNotesBoardPage() {
   const [newNoteFont, setNewNoteFont] = useState(NOTE_FONTS[0].class);
   const [noteIsBold, setNoteIsBold] = useState(false);
   const [noteIsHighlighted, setNoteIsHighlighted] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const { showToast } = useToast();
 
   // Edit states
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -96,15 +99,18 @@ export function StudyNotesBoardPage() {
     setNoteSubject("");
     setNoteIsBold(false);
     setNoteIsHighlighted(false);
+    showToast("📌 Sticky note added successfully!", "success");
   };
 
   const handleSaveEdit = (id: string) => {
     setStickyNotes(stickyNotes.map(n => n.id === id ? { ...n, text: editText } : n));
     setEditingNoteId(null);
+    showToast("💾 Sticky note updated!", "success");
   };
 
   const handleDelete = (id: string) => {
     setStickyNotes(stickyNotes.filter(n => n.id !== id));
+    showToast("🗑️ Note deleted from board.", "warning");
   };
 
   const handleDownloadAsPNG = async () => {
@@ -129,7 +135,7 @@ export function StudyNotesBoardPage() {
               defaultFilename: defaultFilename
             });
             if (res && res.success) {
-              alert(`✅ Sticky Notes Board PNG saved to: ${res.path}`);
+              showToast(`✅ Sticky Notes Board PNG saved to: ${res.path}`, "success");
               return;
             }
           }
@@ -144,10 +150,21 @@ export function StudyNotesBoardPage() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      showToast("📥 Stickies board downloaded as image!", "success");
     } catch (err) {
       console.error("Failed to render notes", err);
+      showToast("❌ Failed to export image", "error");
     }
   };
+
+  // Filter notes based on query match
+  const filteredNotes = useMemo(() => {
+    if (!searchQuery.trim()) return stickyNotes;
+    const q = searchQuery.toLowerCase();
+    return stickyNotes.filter(
+      n => n.text.toLowerCase().includes(q) || n.subject.toLowerCase().includes(q)
+    );
+  }, [stickyNotes, searchQuery]);
 
   return (
     <motion.div
@@ -267,20 +284,37 @@ export function StudyNotesBoardPage() {
 
         {/* Board View Panel */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h3 className="text-base font-bold text-white flex items-center gap-1.5">
               <Palette className="w-4 h-4 text-purple-400" />
               <span>Canvas Board</span>
             </h3>
-            {stickyNotes.length > 0 && (
-              <button
-                onClick={handleDownloadAsPNG}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-300 hover:bg-white/10 active:scale-95 transition-transform"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Export Board as PNG</span>
-              </button>
-            )}
+            
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+              {/* Search Bar Input */}
+              {stickyNotes.length > 0 && (
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search notes / subjects..."
+                    className="bg-slate-900 border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-400 w-44"
+                  />
+                  <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" />
+                </div>
+              )}
+
+              {stickyNotes.length > 0 && (
+                <button
+                  onClick={handleDownloadAsPNG}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-300 hover:bg-white/10 active:scale-95 transition-transform"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Export Board as PNG</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {stickyNotes.length === 0 ? (
@@ -294,7 +328,7 @@ export function StudyNotesBoardPage() {
               ref={notesContainerRef} 
               className="grid gap-4 sm:grid-cols-2 p-4 rounded-2xl bg-slate-950 border border-white/5 min-h-[420px]"
             >
-              {stickyNotes.map(note => (
+              {filteredNotes.map(note => (
                 <div 
                   key={note.id} 
                   className={`relative rounded-xl border p-4 space-y-3 flex flex-col justify-between shadow-lg transition-transform hover:-translate-y-0.5 ${note.color}`}

@@ -123,6 +123,9 @@ export function TodayTasksPage() {
           </div>
         </div>
 
+        {/* Backlog Carry Forward Handler */}
+        <BacklogCarryForwardPanel />
+
         {/* Progress Overview */}
         <Panel className="bg-gradient-to-r from-cyan-900/20 to-blue-900/20 border-cyan-500/30">
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -142,9 +145,14 @@ export function TodayTasksPage() {
               <p className="text-xs text-slate-500">of {dailyGoalHours}h goal</p>
             </div>
             <div>
-              <p className="text-xs uppercase text-slate-400">Status</p>
-              <p className="text-2xl font-bold text-purple-400">{stats.inProgress + stats.paused}</p>
-              <p className="text-xs text-slate-500">active/paused</p>
+              <p className="text-xs uppercase text-slate-400">Focus Efficiency</p>
+              <p className="text-2xl font-bold text-purple-400">
+                {stats.plannedMinutes > 0 
+                  ? `${Math.min(100, Math.round((stats.actualMinutes / stats.plannedMinutes) * 100))}%` 
+                  : "0%"
+                }
+              </p>
+              <p className="text-xs text-slate-500">actual vs planned</p>
             </div>
           </div>
 
@@ -157,6 +165,14 @@ export function TodayTasksPage() {
               transition={{ duration: 0.8, ease: "easeOut" }}
             />
           </div>
+
+          {/* Efficiency tip info banner */}
+          {stats.total > 0 && stats.actualMinutes < stats.plannedMinutes * 0.5 && (
+            <div className="mt-3.5 pt-3 border-t border-white/5 flex items-start gap-1.5 text-[10px] text-amber-400/90 leading-relaxed">
+              <span className="shrink-0 mt-0.5">💡</span>
+              <span>Focus tip: Your actual study time is low compared to planned block durations. Keep **Strict Focus Mode** turned on inside the Timer screen to log precise time blocks.</span>
+            </div>
+          )}
         </Panel>
       </motion.div>
 
@@ -466,6 +482,73 @@ function SessionCardMini({
         <Link to={`/timer#${session.id}`} className="text-[9px] text-cyan-400 font-bold hover:underline whitespace-nowrap">Start →</Link>
       </div>
     </div>
+  );
+}
+
+// Backlog carry forward component
+function BacklogCarryForwardPanel() {
+  const sessions = useAppStore((state: AppState) => state.sessions);
+  const updateSession = useAppStore((state: AppState) => state.updateSession);
+  const initApp = useAppStore((state: AppState) => state.initApp);
+  const [isDismissed, setIsDismissed] = useState(false);
+
+  const overdue = useMemo(() => {
+    const todayStr = format(new Date(), "yyyy-MM-dd");
+    return sessions.filter((s: StudySession) => {
+      const sessionDate = format(new Date(s.startTime), "yyyy-MM-dd");
+      return sessionDate < todayStr && s.status === "planned";
+    });
+  }, [sessions]);
+
+  const handleCarryForward = async () => {
+    for (const session of overdue) {
+      const originalDate = new Date(session.startTime);
+      const newDate = new Date();
+      newDate.setHours(originalDate.getHours(), originalDate.getMinutes(), 0, 0);
+      const newEndTime = new Date(session.endTime);
+      newEndTime.setFullYear(newDate.getFullYear(), newDate.getMonth(), newDate.getDate());
+
+      await updateSession({
+        ...session,
+        startTime: newDate.toISOString(),
+        endTime: newEndTime.toISOString()
+      });
+    }
+    await initApp();
+    setIsDismissed(true);
+  };
+
+  if (overdue.length === 0 || isDismissed) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: "auto" }}
+      className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left"
+    >
+      <div className="space-y-1">
+        <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+          <span>⚠️ Pending Backlog Detected</span>
+        </h4>
+        <p className="text-xs text-slate-300">
+          You have <strong className="text-amber-300 font-bold">{overdue.length} unfinished planned sessions</strong> from previous days.
+        </p>
+      </div>
+      <div className="flex gap-2 shrink-0">
+        <button
+          onClick={() => setIsDismissed(true)}
+          className="text-xs text-slate-400 hover:text-white px-3 py-1.5 rounded-xl hover:bg-white/5 transition-all"
+        >
+          Dismiss
+        </button>
+        <button
+          onClick={handleCarryForward}
+          className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl transition-all active:scale-95 shadow-lg shadow-amber-500/10"
+        >
+          Carry Forward →
+        </button>
+      </div>
+    </motion.div>
   );
 }
 

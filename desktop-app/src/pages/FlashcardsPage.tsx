@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Trash2, BookOpen, Brain, Sparkles, AlertCircle, ChevronLeft, ChevronRight, Check, X, RefreshCw } from "lucide-react";
 import { useAppStore, type AppState } from "@/store/useAppStore";
 import { Panel } from "@/components/common/Panel";
+import { useToast } from "@/components/common/Toast";
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 interface Flashcard {
@@ -75,6 +76,7 @@ function calculateNextReview(card: Flashcard, score: "again" | "hard" | "good" |
 export function FlashcardsPage() {
   const subjects = useAppStore((s: AppState) => s.subjects);
   const [cards, setCards] = useState<Flashcard[]>(loadFlashcards);
+  const { showToast } = useToast();
   
   // Creation state
   const [newFront, setNewFront] = useState("");
@@ -140,6 +142,7 @@ export function FlashcardsPage() {
       reviewedCount: 0,
     };
     setCards(prev => [...prev, newCard]);
+    showToast("📝 Flashcard created!", "success");
   };
 
   // Start study session for a subject deck
@@ -147,7 +150,7 @@ export function FlashcardsPage() {
     const now = new Date();
     const filtered = cards.filter(c => c.subjectId === subId && new Date(c.dueDate) <= now);
     if (filtered.length === 0) {
-      alert("No cards due for review in this subject deck right now!");
+      showToast("⚠️ No cards due for review in this subject deck right now!", "info");
       return;
     }
     setStudyCards(filtered);
@@ -172,7 +175,7 @@ export function FlashcardsPage() {
       // Completed current study queue
       setActiveDeckSubjectId(null);
       setStudyCards([]);
-      alert("🎓 Review session complete! Good job keeping your memory fresh.");
+      showToast("🎓 Review session complete! Good job keeping your memory fresh.", "success");
     }
   };
 
