@@ -16,15 +16,19 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src"),
     },
   },
+  optimizeDeps: {
+    // Pre-bundle Excalidraw and its dependencies for faster dev
+    include: ["@excalidraw/excalidraw"],
+  },
   build: {
-    chunkSizeWarningLimit: 2500,
+    chunkSizeWarningLimit: 5000, // Excalidraw is large (~3MB), raise limit
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes("node_modules")) {
-            // Group all node_modules dependencies into a single chunk to prevent circular warnings
-            return "vendor";
-          }
+          // Keep Excalidraw in its own chunk for optimal caching
+          if (id.includes("@excalidraw")) return "excalidraw";
+          if (id.includes("roughjs") || id.includes("rough")) return "excalidraw";
+          if (id.includes("node_modules")) return "vendor";
         }
       }
     }
