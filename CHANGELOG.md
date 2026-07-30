@@ -6,6 +6,7 @@ All notable changes, version updates, feature additions, architectural improveme
 
 ## 🏷️ Version History Summary
 
+- [v5.3.0 (2026-07-30)](#v530---2026-07-30) — 🎨 Excalidraw, Secure Preload contextBridge, Brand Badges & Spam Delays
 - [v5.1.0 (2026-07-29)](#v510---2026-07-29) — 📱 Framework7 v9.1.1 Look, Live Loop & OCR Decks Integration
 - [v3.2.0 (2026-07-21)](#v320---2026-07-21) — 🐛 Critical Tracking Fix, App Data Import/Export, Friendly App Names
 - [v3.1.0 (2026-07-21)](#v310---2026-07-21) — 🖥️ Ultra-Smart Desktop Enhancements (Global OS Hotkeys, Always-On-Top Mini HUD & Windows Toast IPC)
@@ -13,6 +14,28 @@ All notable changes, version updates, feature additions, architectural improveme
 - [v2.1.0 (2026-07-20)](#v210---2026-07-20) — 🐍 Python REST Backend & SQLite WAL Database Integration
 - [v2.0.0 (2026-07-19)](#v200---2026-07-19) — 🖥️ Standalone Electron Desktop App & Win32 C# Tracker Release
 - [v1.0.0 (2026-07-15)](#v100---2026-07-15) — 🌐 Initial Serverless Web App Release
+
+---
+
+## [v5.3.0] — 2026-07-30
+
+### 🎨 Premium Excalidraw Integration & Fullscreen
+- **Real Whiteboard Component:** Integrated official `@excalidraw/excalidraw` React component.
+- **JSON Load/Save & Libraries:** Expose toolbar actions to save `.excalidraw` layouts, import `.excalidrawlib` bundles, and export image graphics (PNG/SVG).
+- **Maximize View Control:** Fullscreen toggle to expand canvas whiteboard to a distraction-free view.
+
+### 🔒 High Security Sandbox Bridge & CORS Bypass
+- **Context Isolated Preloader:** Set `contextIsolation: true` / `nodeIntegration: false` and created `preload.js` to securely expose safe whitelisted IPC methods to the renderer.
+- **Native net.request API Proxy:** Created secure `secure-proxy-fetch` event listener to bypass CORS limit blocks when using AI API connections.
+- **Path Resolution Checks:** Resolved blank black screen freezes by checking packaged state rules.
+
+### 🔔 Non-Blocking Reminders & Spam Triggers Pauser
+- **Custom Global Toasts:** Mapped custom `showToast()` alerts to replace browser blocking dialogs.
+- **Stable References check:** Hooked stable ref checks to prevent duplicate reminder spam loops when background states update.
+- **Transition Delay:** Implemented 100ms safe transition delay to allow window focus before inactivity checks resume.
+
+### 📈 Screen Time App-Usage Branding Badges
+- **Brand Badges:** Replaced categorization emojis with specific color-coded logo text badges (W, X, VS, CHR, EDG, DIS, SPO) for popular productivity apps in tracked lists.
 
 ---
 
