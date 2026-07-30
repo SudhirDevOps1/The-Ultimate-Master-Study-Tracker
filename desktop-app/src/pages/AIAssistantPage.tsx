@@ -397,6 +397,17 @@ export function AIAssistantPage() {
   const setAiConfig    = useAppStore((s: AppState) => s.setAiConfig);
   const streakData     = useStreak();
 
+  const getIpc = () => {
+    if (typeof window !== "undefined" && (window as any).require) {
+      try {
+        return (window as any).require("electron").ipcRenderer;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  };
+
   const [provider, setProvider]     = useState<AiConfig["provider"]>(aiConfig?.provider ?? "local_rules");
   const [windowWidth, setWindowWidth] = useState(typeof window !== "undefined" ? window.innerWidth : 1280);
   const [apiKey, setApiKey]         = useState(aiConfig?.apiKey ?? "");
@@ -545,7 +556,7 @@ export function AIAssistantPage() {
         return;
       }
       
-      const isElectron = typeof window !== "undefined" && (window as any).electron?.ipcRenderer;
+      const ipc = getIpc();
 
       if (provider === "gemini") {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
@@ -554,8 +565,8 @@ export function AIAssistantPage() {
         let ok = false;
         let errMsg = "";
 
-        if (isElectron) {
-          const res = await (window as any).electron.ipcRenderer.invoke("secure-proxy-fetch", { url, body });
+        if (ipc) {
+          const res = await ipc.invoke("secure-proxy-fetch", { url, body });
           ok = res.ok;
           errMsg = res.error || (res.data?.error?.message);
         } else {
@@ -588,8 +599,8 @@ export function AIAssistantPage() {
         let ok = false;
         let errMsg = "";
 
-        if (isElectron) {
-          const res = await (window as any).electron.ipcRenderer.invoke("secure-proxy-fetch", { url: endpoint, headers, body });
+        if (ipc) {
+          const res = await ipc.invoke("secure-proxy-fetch", { url: endpoint, headers, body });
           ok = res.ok;
           errMsg = res.error || (res.data?.error?.message);
         } else {
@@ -795,7 +806,6 @@ ${studyContext.recentActivity}`;
         if (done) break;
 
         const chunk = decoder.decode(value, { stream: true });
-        // Parse SSE lines
         const lines = chunk.split("\n");
         for (const line of lines) {
           const trimmed = line.trim();
@@ -837,13 +847,13 @@ ${studyContext.recentActivity}`;
     const headers  = getProviderHeaders(provider, apiKey);
     const defaultModel = provider === "ollama" ? "llama3" : provider === "groq" ? "llama-3.3-70b-versatile" : provider === "custom" ? model : "gpt-4o-mini";
 
-    const isElectron = typeof window !== "undefined" && (window as any).electron?.ipcRenderer;
+    const ipc = getIpc();
     let data;
     let ok = false;
     let statusText = "";
 
-    if (isElectron) {
-      const proxyRes = await (window as any).electron.ipcRenderer.invoke("secure-proxy-fetch", {
+    if (ipc) {
+      const proxyRes = await ipc.invoke("secure-proxy-fetch", {
         url: endpoint,
         headers,
         body: {
@@ -907,7 +917,7 @@ ${studyContext.recentActivity}`;
 
   // ─── Gemini Fetch ──────────────────────────────────────────────────
   const fetchGemini = async (userMessage: string): Promise<string> => {
-    const isElectron = typeof window !== "undefined" && (window as any).electron?.ipcRenderer;
+    const ipc = getIpc();
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model || "gemini-1.5-flash"}:generateContent?key=${apiKey}`;
     const reqBody = {
       contents: [
@@ -919,8 +929,8 @@ ${studyContext.recentActivity}`;
     let ok = false;
     let statusText = "";
 
-    if (isElectron) {
-      const proxyRes = await (window as any).electron.ipcRenderer.invoke("secure-proxy-fetch", {
+    if (ipc) {
+      const proxyRes = await ipc.invoke("secure-proxy-fetch", {
         url,
         body: reqBody
       });
