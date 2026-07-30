@@ -369,8 +369,14 @@ function createWindow() {
   });
 
   const isDev = !app.isPackaged;
-  if (isDev) mainWindow.loadURL("http://localhost:5173");
-  else        mainWindow.loadFile(path.join(__dirname, "dist/index.html"));
+  if (isDev) {
+    mainWindow.loadURL("http://localhost:5173");
+  } else {
+    const indexPath = path.resolve(__dirname, "dist", "index.html");
+    mainWindow.loadFile(indexPath).catch(err => {
+      console.error("[Window] Failed to load index.html:", err);
+    });
+  }
 
   mainWindow.once("ready-to-show", () => mainWindow.show());
 
