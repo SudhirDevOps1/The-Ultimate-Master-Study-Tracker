@@ -193,11 +193,18 @@ export function MindMapPage() {
       try {
         const text = await file.text();
         const data = JSON.parse(text);
-        // Excalidraw library format has a "libraryItems" array
         if (data.libraryItems || data.library) {
           const items = data.libraryItems || data.library;
           saveLibrary(items);
-          showToast(`✅ Library imported: ${items.length} items! Reload to apply.`, "success");
+          
+          // Dynamically import library items into the active session
+          const api = excalidrawAPIRef.current;
+          if (api && (api as any).importLibrary) {
+            await (api as any).importLibrary(items, "merge");
+            showToast(`✅ Library imported: ${items.length} items added!`, "success");
+          } else {
+            showToast(`✅ Library saved. Reload to apply.`, "success");
+          }
         } else {
           showToast("❌ Invalid library file format", "error");
         }
@@ -218,8 +225,8 @@ export function MindMapPage() {
   // ── Open Excalidraw Library website ──────────────────────────────────────
   const handleOpenLibrary = () => {
     const url = "https://libraries.excalidraw.com/?theme=dark";
-    if ((window as any).electron?.ipcRenderer) {
-      (window as any).electron.ipcRenderer.invoke("open-external-link", { url });
+    if ((window as any).electron?.shell) {
+      (window as any).electron.shell.openExternal(url);
     } else {
       window.open(url, "_blank");
     }
@@ -227,7 +234,7 @@ export function MindMapPage() {
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-[calc(100vh-72px)] gap-0 -mx-4 -mt-2">
+    <div className="flex flex-col h-[calc(100vh-110px)] gap-0 -mx-4 -mt-2">
 
       {/* Top toolbar */}
       <div className="flex items-center justify-between gap-2 px-4 py-2 bg-slate-900/80 border-b border-white/5 backdrop-blur-sm shrink-0 flex-wrap">
