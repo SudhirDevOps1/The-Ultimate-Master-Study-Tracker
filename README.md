@@ -27,7 +27,7 @@ Engineered into **3 distinct operational categories**: Serverless Web App, Web A
 |:---|:---|
 | **Project Name** | FlowTrack Pro — The Ultimate Master Study Tracker |
 | **Creator / Lead Architect** | **Sudhir Singh** ([@SudhirDevOps1](https://github.com/SudhirDevOps1)) |
-| **Version** | v5.3.0 (2026 Edition) |
+| **Version** | v5.4.0 (2026 Edition) |
 | **License** | MIT Open Source License |
 | **Live Web App** | [`https://the-ultimate-master-study-tracker.vercel.app/`](https://the-ultimate-master-study-tracker.vercel.app/) |
 | **Source Repository** | [`https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git`](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git) |

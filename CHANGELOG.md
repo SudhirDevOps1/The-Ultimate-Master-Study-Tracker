@@ -6,6 +6,7 @@ All notable changes, version updates, feature additions, architectural improveme
 
 ## 🏷️ Version History Summary
 
+- [v5.4.0 (2026-07-30)](#v540---2026-07-30) — 🚀 Native AI Chat viewports scrolling optimization, maximum size compression options config
 - [v5.3.0 (2026-07-30)](#v530---2026-07-30) — 🎨 Excalidraw, Secure Preload contextBridge, Brand Badges & Spam Delays
 - [v5.1.0 (2026-07-29)](#v510---2026-07-29) — 📱 Framework7 v9.1.1 Look, Live Loop & OCR Decks Integration
 - [v3.2.0 (2026-07-21)](#v320---2026-07-21) — 🐛 Critical Tracking Fix, App Data Import/Export, Friendly App Names
@@ -14,6 +15,15 @@ All notable changes, version updates, feature additions, architectural improveme
 - [v2.1.0 (2026-07-20)](#v210---2026-07-20) — 🐍 Python REST Backend & SQLite WAL Database Integration
 - [v2.0.0 (2026-07-19)](#v200---2026-07-19) — 🖥️ Standalone Electron Desktop App & Win32 C# Tracker Release
 - [v1.0.0 (2026-07-15)](#v100---2026-07-15) — 🌐 Initial Serverless Web App Release
+
+---
+
+## [v5.4.0] — 2026-07-30
+
+### 🧠 Native AI Chat Viewports Scrolling Optimization
+- **Auto Scrolling Controls**: Enabled scrollbars and constraints on AI Assistant Chat wrapper container to allow scrolling.
+- **Maximum Build Compression**: Added `compression: maximum` and restricted build target to x64 only inside package config definitions to drastically reduce installer package bundle size.
+- **Vite Preloads Fixes**: Bypassed preload contexts isolation in development environments to solve system hot-reload white freeze screen bugs.
 
 ---
 
