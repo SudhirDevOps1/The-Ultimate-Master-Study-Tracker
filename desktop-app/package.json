@@ -19,8 +19,16 @@
     "electronDownload": {
       "mirror": "https://npmmirror.com/mirrors/electron/"
     },
+    "compression": "maximum",
     "win": {
-      "target": "nsis",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "public/favicon.png"
     },
     "nsis": {
