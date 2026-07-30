@@ -11,6 +11,12 @@ export function useScheduleReminder() {
   // Track already notified session IDs to prevent double alerts
   const notifiedSessions = useRef<Set<string>>(new Set());
 
+  // Use refs to avoid effect recreation when arrays update
+  const sessionsRef = useRef(sessions);
+  const subjectsRef = useRef(subjects);
+  sessionsRef.current = sessions;
+  subjectsRef.current = subjects;
+
   useEffect(() => {
     if (typeof window === "undefined" || !("Notification" in window)) return;
     
@@ -25,7 +31,7 @@ export function useScheduleReminder() {
 
     const checkUpcomingSessions = () => {
       const now = new Date().getTime();
-      const planned = sessions.filter((s) => s.status === "planned");
+      const planned = sessionsRef.current.filter((s) => s.status === "planned");
 
       planned.forEach((session: StudySession) => {
         const startTime = new Date(session.startTime).getTime();
@@ -37,7 +43,7 @@ export function useScheduleReminder() {
           if (!notifiedSessions.current.has(session.id)) {
             notifiedSessions.current.add(session.id);
             
-            const subject = subjects.find((s) => s.id === session.subjectId);
+            const subject = subjectsRef.current.find((s) => s.id === session.subjectId);
             const subjectName = subject?.name || "Subject";
             const emoji = subject?.emoji || "📚";
             const url = subject?.url || "";
@@ -52,9 +58,7 @@ export function useScheduleReminder() {
             });
 
             notification.onclick = () => {
-              // Focus the window
               window.focus();
-              // Start this session timer
               void startSession(session.id);
               notification.close();
             };
@@ -63,10 +67,10 @@ export function useScheduleReminder() {
       });
     };
 
-    // Run immediately and then every 30 seconds
+    // Run immediately and then every 30 seconds without triggers dependency loop
     checkUpcomingSessions();
     const interval = setInterval(checkUpcomingSessions, 30000);
 
     return () => clearInterval(interval);
-  }, [sessions, subjects, startSession, notificationsEnabled]);
+  }, [startSession, notificationsEnabled]);
 }

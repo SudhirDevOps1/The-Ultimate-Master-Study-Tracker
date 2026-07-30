@@ -544,33 +544,69 @@ export function AIAssistantPage() {
         setTestingConnection(false);
         return;
       }
+      
+      const isElectron = typeof window !== "undefined" && (window as any).electron?.ipcRenderer;
+
       if (provider === "gemini") {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "ping" }] }] })
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => null);
-          throw new Error(err?.error?.message || `HTTP ${res.status}`);
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        const body = { contents: [{ role: "user", parts: [{ text: "ping" }] }] };
+        
+        let ok = false;
+        let errMsg = "";
+
+        if (isElectron) {
+          const res = await (window as any).electron.ipcRenderer.invoke("secure-proxy-fetch", { url, body });
+          ok = res.ok;
+          errMsg = res.error || (res.data?.error?.message);
+        } else {
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+          });
+          ok = res.ok;
+          if (!ok) {
+            const err = await res.json().catch(() => null);
+            errMsg = err?.error?.message || `HTTP ${res.status}`;
+          }
+        }
+
+        if (!ok) {
+          throw new Error(errMsg || "Verification failed");
         }
         setConnectionResult({ success: true, message: "Successfully connected to Gemini API!" });
       } else {
         const endpoint = getProviderEndpoint(provider, model, ollamaUrl, customProviderEndpoint);
         const headers = getProviderHeaders(provider, apiKey);
         const defaultModel = provider === "ollama" ? "llama3" : provider === "groq" ? "llama-3.3-70b-versatile" : provider === "custom" ? model : "gpt-4o-mini";
-        const res = await fetch(endpoint, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            model: model || defaultModel,
-            messages: [{ role: "user", content: "ping" }],
-            max_tokens: 5
-          })
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => null);
-          throw new Error(err?.error?.message || `HTTP ${res.status}`);
+        const body = {
+          model: model || defaultModel,
+          messages: [{ role: "user", content: "ping" }],
+          max_tokens: 5
+        };
+
+        let ok = false;
+        let errMsg = "";
+
+        if (isElectron) {
+          const res = await (window as any).electron.ipcRenderer.invoke("secure-proxy-fetch", { url: endpoint, headers, body });
+          ok = res.ok;
+          errMsg = res.error || (res.data?.error?.message);
+        } else {
+          const res = await fetch(endpoint, {
+            method: "POST",
+            headers,
+            body: JSON.stringify(body)
+          });
+          ok = res.ok;
+          if (!ok) {
+            const err = await res.json().catch(() => null);
+            errMsg = err?.error?.message || `HTTP ${res.status}`;
+          }
+        }
+
+        if (!ok) {
+          throw new Error(errMsg || "Verification failed");
         }
         setConnectionResult({ success: true, message: `Successfully connected to ${provider === "custom" ? customProviderName : PROVIDERS.find(p => p.id === provider)?.name}!` });
       }
@@ -801,29 +837,29 @@ ${studyContext.recentActivity}`;
     const headers  = getProviderHeaders(provider, apiKey);
     const defaultModel = provider === "ollama" ? "llama3" : provider === "groq" ? "llama-3.3-70b-versatile" : provider === "custom" ? model : "gpt-4o-mini";
 
-    const backendUrl = useAppStore.getState().backendUrl;
-    const isBackendConnected = useAppStore.getState().isBackendConnected;
+    const isElectron = typeof window !== "undefined" && (window as any).electron?.ipcRenderer;
+    let data;
+    let ok = false;
+    let statusText = "";
 
-    let res;
-    if (isBackendConnected && backendUrl) {
-      res = await fetch(`${backendUrl}/api/ai/proxy`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          url: endpoint,
-          headers: headers,
-          body: {
-            model: model || defaultModel,
-            messages: [
-              { role: "system", content: buildSystemPrompt() },
-              { role: "user", content: userMessage }
-            ],
-            temperature: 0.5
-          }
-        })
+    if (isElectron) {
+      const proxyRes = await (window as any).electron.ipcRenderer.invoke("secure-proxy-fetch", {
+        url: endpoint,
+        headers,
+        body: {
+          model: model || defaultModel,
+          messages: [
+            { role: "system", content: buildSystemPrompt() },
+            { role: "user", content: userMessage }
+          ],
+          temperature: 0.5
+        }
       });
+      ok = proxyRes.ok;
+      data = proxyRes.data;
+      statusText = proxyRes.error || `HTTP ${proxyRes.status}`;
     } else {
-      res = await fetch(endpoint, {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -835,12 +871,13 @@ ${studyContext.recentActivity}`;
           temperature: 0.5
         })
       });
+      ok = res.ok;
+      data = await res.json().catch(() => null);
+      statusText = `HTTP ${res.status}`;
     }
 
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data?.error?.message || `HTTP ${res.status}`);
+    if (!ok) {
+      throw new Error(data?.error?.message || statusText);
     }
 
     // Gemini has different response structure
@@ -870,22 +907,41 @@ ${studyContext.recentActivity}`;
 
   // ─── Gemini Fetch ──────────────────────────────────────────────────
   const fetchGemini = async (userMessage: string): Promise<string> => {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model || "gemini-1.5-flash"}:generateContent?key=${apiKey}`,
-      {
+    const isElectron = typeof window !== "undefined" && (window as any).electron?.ipcRenderer;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model || "gemini-1.5-flash"}:generateContent?key=${apiKey}`;
+    const reqBody = {
+      contents: [
+        { role: "user", parts: [{ text: `${buildSystemPrompt()}\n\nUser Question: ${userMessage}` }] }
+      ]
+    };
+
+    let data;
+    let ok = false;
+    let statusText = "";
+
+    if (isElectron) {
+      const proxyRes = await (window as any).electron.ipcRenderer.invoke("secure-proxy-fetch", {
+        url,
+        body: reqBody
+      });
+      ok = proxyRes.ok;
+      data = proxyRes.data;
+      statusText = proxyRes.error || `HTTP ${proxyRes.status}`;
+    } else {
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            { role: "user", parts: [{ text: `${buildSystemPrompt()}\n\nUser Question: ${userMessage}` }] }
-          ]
-        })
-      }
-    );
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data?.error?.message || `HTTP ${res.status}`);
+        body: JSON.stringify(reqBody)
+      });
+      ok = res.ok;
+      data = await res.json().catch(() => null);
+      statusText = `HTTP ${res.status}`;
     }
+
+    if (!ok) {
+      throw new Error(data?.error?.message || statusText);
+    }
+
     const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     if (data.usageMetadata) {
       void recordTokenUsage(data.usageMetadata.promptTokenCount || 0, data.usageMetadata.candidatesTokenCount || 0, data.usageMetadata.totalTokenCount || 0);

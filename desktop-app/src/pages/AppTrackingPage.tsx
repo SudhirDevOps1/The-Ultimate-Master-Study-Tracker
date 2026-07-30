@@ -284,6 +284,74 @@ function Favicon({ domain }: { domain: string }) {
   );
 }
 
+function AppIcon({ appName, category }: { appName: string; category: string }) {
+  const name = appName.toLowerCase();
+  
+  if (name.includes("word") || name.includes("winword")) {
+    return (
+      <div className="w-10 h-10 rounded-xl bg-blue-600/15 border border-blue-500/30 flex items-center justify-center font-bold text-blue-400 text-base shrink-0 select-none">
+        W
+      </div>
+    );
+  }
+  if (name.includes("excel") || name.includes("xls")) {
+    return (
+      <div className="w-10 h-10 rounded-xl bg-emerald-600/15 border border-emerald-500/30 flex items-center justify-center font-bold text-emerald-400 text-base shrink-0 select-none">
+        X
+      </div>
+    );
+  }
+  if (name.includes("powerpnt") || name.includes("powerpoint")) {
+    return (
+      <div className="w-10 h-10 rounded-xl bg-orange-600/15 border border-orange-500/30 flex items-center justify-center font-bold text-orange-400 text-base shrink-0 select-none">
+        P
+      </div>
+    );
+  }
+  if (name.includes("code") || name.includes("vscode") || name.includes("visual studio")) {
+    return (
+      <div className="w-10 h-10 rounded-xl bg-cyan-600/15 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-400 text-base shrink-0 select-none">
+        VS
+      </div>
+    );
+  }
+  if (name.includes("chrome")) {
+    return (
+      <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center font-bold text-amber-400 text-xs shrink-0 select-none">
+        CHR
+      </div>
+    );
+  }
+  if (name.includes("edge") || name.includes("msedge")) {
+    return (
+      <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-400 text-xs shrink-0 select-none">
+        EDG
+      </div>
+    );
+  }
+  if (name.includes("discord")) {
+    return (
+      <div className="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center font-bold text-indigo-400 text-xs shrink-0 select-none">
+        DIS
+      </div>
+    );
+  }
+  if (name.includes("spotify")) {
+    return (
+      <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center font-bold text-emerald-400 text-xs shrink-0 select-none">
+        SPO
+      </div>
+    );
+  }
+
+  // Fallback to Category Icon
+  return (
+    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 border ${CAT_TAG[category]}`}>
+      {CAT_EMOJI[category]}
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export function AppTrackingPage() {
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split("T")[0]);
@@ -809,9 +877,7 @@ export function AppTrackingPage() {
                         return (
                           <motion.div key={app.appName} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.025 }}
                             className="flex items-center gap-3 p-3 rounded-2xl hover:bg-white/[0.03] border border-transparent hover:border-white/5 transition-all group">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 border ${CAT_TAG[app.category]}`}>
-                              {CAT_EMOJI[app.category]}
-                            </div>
+                            <AppIcon appName={app.appName} category={app.category} />
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1.5">
                                 <span className="text-sm font-bold text-white truncate">{app.appName}</span>

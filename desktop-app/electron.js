@@ -301,7 +301,9 @@ function createWindow() {
     width: 1280, height: 860, minWidth: 960, minHeight: 640,
     show:  false,
     title: "FlowTrack – Smart Study Tracker",
-    icon:  path.join(__dirname, "public", "favicon.png"),
+    icon:  app.isPackaged 
+      ? path.join(process.resourcesPath, "app.asar", "dist", "favicon.png")
+      : path.join(__dirname, "public", "favicon.png"),
     webPreferences: {
       nodeIntegration:      true,
       contextIsolation:     false,
@@ -695,6 +697,69 @@ ipcMain.handle("import-app-data", async () => {
   } catch (err) {
     return { success: false, error: err.message };
   }
+});
+
+// ─── secure proxy fetch for bypass CORS in Electron Assistant settings ────────
+ipcMain.handle("secure-proxy-fetch", async (_e, { url, method, headers, body }) => {
+  return new Promise((resolve) => {
+    try {
+      const { net } = require("electron");
+      const urlObj = new URL(url);
+      
+      const reqHeaders = headers || {};
+      if (!reqHeaders["Content-Type"]) {
+        reqHeaders["Content-Type"] = "application/json";
+      }
+
+      const req = net.request({
+        method: method || "POST",
+        protocol: urlObj.protocol,
+        hostname: urlObj.hostname,
+        port: urlObj.port ? Number(urlObj.port) : undefined,
+        path: urlObj.pathname + urlObj.search,
+        headers: reqHeaders
+      });
+
+      let responseBody = "";
+
+      req.on("response", (res) => {
+        res.on("data", (chunk) => {
+          responseBody += chunk.toString();
+        });
+
+        res.on("end", () => {
+          let responseData = responseBody;
+          try {
+            responseData = JSON.parse(responseBody);
+          } catch {}
+
+          resolve({
+            success: true,
+            ok: res.statusCode >= 200 && res.statusCode < 300,
+            status: res.statusCode,
+            data: responseData
+          });
+        });
+
+        res.on("error", (err) => {
+          resolve({ success: false, error: err.message });
+        });
+      });
+
+      req.on("error", (err) => {
+        resolve({ success: false, error: err.message });
+      });
+
+      if (body) {
+        const bodyStr = typeof body === "string" ? body : JSON.stringify(body);
+        req.write(bodyStr);
+      }
+      
+      req.end();
+    } catch (err) {
+      resolve({ success: false, error: err.message });
+    }
+  });
 });
 
 // ─── App Version & External Links (Auto Update triggers) ──────────────────────
