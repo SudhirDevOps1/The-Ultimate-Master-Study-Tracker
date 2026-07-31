@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Globe, Plus, Trash2, RefreshCw, ArrowLeft, ArrowRight,
-  ExternalLink, X, ChevronRight, Search
+  ExternalLink, X, ChevronRight, Search, Maximize2, Minimize2
 } from "lucide-react";
 
 interface PortalSite {
@@ -63,10 +63,20 @@ export function WebPortalsPage() {
   const [newIcon, setNewIcon]           = useState("🌐");
   const [newColor, setNewColor]         = useState("#6366f1");
   const [searchQuery, setSearchQuery]   = useState("");
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const webviewRef = useRef<any>(null);
 
   useEffect(() => {
     void loadCustomSites().then(setCustomSites);
+  }, []);
+
+  // Exit fullscreen on Escape key
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   const allSites = [...DEFAULT_PORTALS, ...customSites];
@@ -128,8 +138,9 @@ export function WebPortalsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5 px-2 py-4">
-      {/* ── Header ── */}
+    <div className={`space-y-4 ${isFullscreen ? "fixed inset-0 z-50 bg-slate-950 p-0 flex flex-col" : "mx-auto max-w-7xl px-2 py-4"}`}>
+      {/* ── Header — hidden in fullscreen ── */}
+      {!isFullscreen && (
       <motion.div
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -229,11 +240,13 @@ export function WebPortalsPage() {
           )}
         </AnimatePresence>
       </motion.div>
+      )} {/* end !isFullscreen header */}
 
       {/* ── Two-column layout: Portal Grid + Browser ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4">
+      <div className={`gap-4 ${isFullscreen ? "flex flex-col flex-1 min-h-0" : "grid grid-cols-1 lg:grid-cols-[320px_1fr]"}`}>
 
-        {/* ── Left: Portal Cards Grid ── */}
+        {/* ── Left: Portal Cards Grid — hidden in fullscreen ── */}
+        {!isFullscreen && (
         <motion.div
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
@@ -294,13 +307,14 @@ export function WebPortalsPage() {
             </div>
           ))}
         </motion.div>
+        )} {/* end !isFullscreen left panel */}
 
         {/* ── Right: In-App Browser ── */}
         <motion.div
           initial={{ opacity: 0, x: 10 }}
           animate={{ opacity: 1, x: 0 }}
-          className="glass rounded-3xl overflow-hidden flex flex-col"
-          style={{ minHeight: "80vh" }}
+          className={`glass rounded-3xl overflow-hidden flex flex-col ${isFullscreen ? "flex-1 min-h-0" : ""}`}
+          style={isFullscreen ? {} : { minHeight: "80vh" }}
         >
           {/* Browser Chrome / Navigation Bar */}
           <div className="flex items-center gap-2 px-4 py-3 border-b border-white/8 bg-slate-900/60 flex-wrap gap-y-2">
@@ -363,6 +377,20 @@ export function WebPortalsPage() {
                 <ExternalLink className="w-4 h-4" />
               </button>
             )}
+
+            {/* Fullscreen Toggle */}
+            <button
+              type="button"
+              onClick={() => setIsFullscreen(f => !f)}
+              className={`p-1.5 rounded-lg transition-all ${
+                isFullscreen
+                  ? "text-cyan-400 bg-cyan-500/20 border border-cyan-500/30 hover:bg-cyan-500/30"
+                  : "text-slate-400 hover:text-white hover:bg-white/10"
+              }`}
+              title={isFullscreen ? "Exit Fullscreen (Esc)" : "Fullscreen Mode — Read / Study"}
+            >
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </button>
             {activeUrl && (
               <button
                 type="button"
