@@ -60,8 +60,9 @@ export function AmbiencePlayer() {
 
   // Playlist state
   const [savedPlaylist, setSavedPlaylist] = useState<Array<{ id: string; name: string; url: string }>>([
-    { id: "p1", name: "1 A.M Study Session (Lofi)", url: "https://www.youtube.com/watch?v=lTRiuFIWV54" },
-    { id: "p2", name: "Deep Focus Music (Static)", url: "https://www.youtube.com/watch?v=wXhTHyIgQ_U" }
+    { id: "p1", name: "Lofi Girl — 24/7 Lofi Beats", url: "https://www.youtube.com/watch?v=jfKfPfyJRdk" },
+    { id: "p2", name: "Lofi Girl — Sleep / Relaxing Beats", url: "https://www.youtube.com/watch?v=rUxyKA_-grg" },
+    { id: "p3", name: "Chillhop Radio — Jazzy Lofi Beats", url: "https://www.youtube.com/watch?v=5qap5aO4i9A" }
   ]);
   const [newTrackName, setNewTrackName] = useState("");
   const [newTrackUrl, setNewTrackUrl] = useState("");

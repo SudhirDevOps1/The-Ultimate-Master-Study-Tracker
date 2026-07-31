@@ -324,11 +324,54 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
     return watchUrl;
   };
 
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      const objectUrl = URL.createObjectURL(file);
+      const isVid = file.type.startsWith("video/") || ["mp4", "mkv", "avi", "webm", "mov"].some(ext => file.name.toLowerCase().endsWith("." + ext));
+      setLocalSourceUrl(objectUrl);
+      setMediaType(isVid ? "video" : "audio");
+      setResourceLoaded(true);
+      setIsPlaying(true);
+      document.title = `🎬 Playing: ${file.name} | ${activeSubjectName} — FlowTrack Pro`;
+      void showToast(`📥 Playing dropped file: ${file.name}`);
+    }
+  };
+
   return (
     <div
       ref={sandboxRef}
-      className="overflow-hidden rounded-2xl border border-white/5 bg-slate-950/70 p-4 shadow-xl"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className="relative overflow-hidden rounded-2xl border border-white/5 bg-slate-950/70 p-4 shadow-xl"
     >
+      {/* Visual Drag and Drop Overlay */}
+      {isDraggingOver && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center rounded-2xl bg-cyan-950/90 backdrop-blur-md border-2 border-dashed border-cyan-400 p-6 text-center shadow-2xl animate-pulse">
+          <Upload className="w-12 h-12 text-cyan-400 mb-3 animate-bounce" />
+          <h3 className="text-lg font-bold text-white">Drop Video / Audio File Here</h3>
+          <p className="text-xs text-cyan-200 mt-1">FlowTrack will instantly stream and play your local study media file!</p>
+        </div>
+      )}
       {/* Hidden local file input for Web Browser Mode */}
       <input
         ref={localFileInputRef}
