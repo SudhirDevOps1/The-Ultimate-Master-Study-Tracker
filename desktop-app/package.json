@@ -18,6 +18,7 @@
     "productName": "FlowTrackPro",
     "compression": "maximum",
     "win": {
+      "verifyUpdateCodeSignature": false,
       "target": [
         {
           "target": "nsis",

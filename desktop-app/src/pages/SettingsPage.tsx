@@ -423,41 +423,7 @@ export function SettingsPage() {
         </div>
       </Panel>
 
-      {/* Cloud Sync & Guest Mode */}
-      <Panel className="space-y-4 border-l-4 border-indigo-500 bg-gradient-to-r from-slate-900 via-indigo-950/20 to-slate-900">
-        <div>
-          <h3 className="text-xl font-semibold text-white flex items-center gap-2">☁️ Cloud Sync</h3>
-          <p className="mt-1 text-sm text-slate-400">You are currently in {user ? "Cloud Mode" : "Guest Mode"}. {user ? "Data is synced across devices safely." : "Data is stored strictly offline on this browser."}</p>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`h-3 w-3 rounded-full ${user ? "bg-emerald-500" : "bg-amber-500"} animate-pulse`} />
-            <span className="text-sm font-semibold text-slate-300">
-              {user ? `Logged in as ${user.email || user.uid}` : "Guest Mode (Offline Only)"}
-            </span>
-          </div>
-          {!user ? (
-            <button
-              onClick={() => showMessage("Please configure Firebase API keys in environment variables and uncomment the Auth logic to enable Cloud Sync.")}
-              className="rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-2.5 font-bold text-white shadow-lg hover:scale-105 transition-transform"
-            >
-              Sign In to Sync
-            </button>
-          ) : (
-            <button
-              onClick={() => showMessage("Logout functionality to be implemented with Firebase Auth.")}
-              className="rounded-2xl border border-white/20 bg-slate-800 px-6 py-2.5 font-bold text-white shadow-lg hover:bg-slate-700 transition-colors"
-            >
-              Sign Out
-            </button>
-          )}
-        </div>
-        {user && (
-          <div className="text-xs text-slate-400 mt-2">
-            Status: <span className="font-mono text-cyan-400">{cloudSyncStatus}</span>
-          </div>
-        )}
-      </Panel>
+
 
       <div className="grid gap-5 lg:grid-cols-2">
         {/* Backup */}
