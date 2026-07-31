@@ -135,13 +135,13 @@ export function AmbiencePlayer() {
         }
 
         audioRef.current?.play().catch(e => {
-          console.log("Network audio blocked/failed, switching to offline synthesizer.", e);
+          console.log("Network audio blocked/failed, switching to offline soundscape synthesizer.", e);
           triggerOfflineSynth();
         });
       }
     } else {
       audioRef.current?.pause();
-      audioEngine.stopAll();
+      audioEngine.toggleNoise(false);
       setIsSynthFallback(false);
     }
   }, [isMusicEnabled, selectedTrack, localUrl, activeUrl]);
@@ -150,7 +150,6 @@ export function AmbiencePlayer() {
     setIsSynthFallback(true);
     setAudioError(null);
     audioEngine.toggleNoise(true);
-    audioEngine.toggleBinaural(true);
   };
 
   useEffect(() => {
@@ -158,7 +157,7 @@ export function AmbiencePlayer() {
       if (localUrl) {
         URL.revokeObjectURL(localUrl);
       }
-      audioEngine.stopAll();
+      audioEngine.toggleNoise(false);
     };
   }, [localUrl]);
 
@@ -433,6 +432,12 @@ export function AmbiencePlayer() {
         onCanPlay={() => {
           setAudioError(null);
           setIsSynthFallback(false);
+          audioEngine.toggleNoise(false);
+        }}
+        onPlay={() => {
+          setAudioError(null);
+          setIsSynthFallback(false);
+          audioEngine.toggleNoise(false);
         }}
       />
 
