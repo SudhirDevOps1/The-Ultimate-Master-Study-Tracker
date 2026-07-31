@@ -111,16 +111,18 @@ export function AppShell() {
               </p>
             </div>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              <a 
-                href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/tag/v6.0.0" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-500 to-indigo-600 border border-purple-400/40 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-purple-500/25 hover:scale-[1.03] transition-all duration-200 active:scale-95"
-                title="Download FlowTrack Pro Desktop App (.exe / mac / linux)"
-              >
-                <Monitor className="w-4 h-4 text-cyan-300" />
-                <span>💻 Download Desktop App (v6.0.0)</span>
-              </a>
+              {!(typeof window !== "undefined" && (window as any).electron) && (
+                <a 
+                  href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-500 to-indigo-600 border border-purple-400/40 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-purple-500/25 hover:scale-[1.03] transition-all duration-200 active:scale-95"
+                  title="Download FlowTrack Pro Desktop App (.exe / mac / linux)"
+                >
+                  <Monitor className="w-4 h-4 text-cyan-300" />
+                  <span>💻 Download Desktop App</span>
+                </a>
+              )}
 
               <a 
                 href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git" 

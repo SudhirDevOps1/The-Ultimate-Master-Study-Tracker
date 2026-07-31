@@ -202,25 +202,41 @@ export function TimerPage() {
                 />
               </div>
 
-              {/* Subject URL → Web Portals Browser (not inline auto-play) */}
+              {/* Subject Media / URL handling */}
               {activeSubject?.url && (
-                <div className="mt-4 flex items-center gap-3 rounded-2xl border border-cyan-500/20 bg-slate-900/60 px-4 py-3">
-                  <div className="h-8 w-8 rounded-xl bg-cyan-500/15 border border-cyan-500/25 flex items-center justify-center shrink-0">
-                    <Globe2 className="w-4 h-4 text-cyan-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-white">Subject Study Link</p>
-                    <p className="text-[10px] text-slate-400 truncate">{activeSubject.url.replace(/^https?:\/\//, "")}</p>
-                  </div>
-                  <motion.button
-                    whileHover={{ scale: 1.04 }}
-                    whileTap={{ scale: 0.96 }}
-                    onClick={() => navigate("/web-portals", { state: { url: activeSubject.url, name: activeSubject.name } })}
-                    className="shrink-0 flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 px-3 py-2 text-[11px] font-bold text-white shadow hover:opacity-90 transition-all"
-                  >
-                    <Globe2 className="w-3.5 h-3.5" />
-                    Open
-                  </motion.button>
+                <div className="mt-4">
+                  {/^[a-zA-Z]:[\\/]/i.test(activeSubject.url.trim().replace(/^["']|["']$/g, "")) ||
+                  activeSubject.url.startsWith("file://") ||
+                  activeSubject.url.startsWith("local-media://") ||
+                  /\.(mp3|mp4|m4a|wav|aac|flac|ogg|mkv|avi|mov|webm|wmv|pdf|txt|epub)$/i.test(activeSubject.url.trim()) ? (
+                    /* Local Video/Audio/PDF File → Inline MediaSandbox Player */
+                    <MediaSandbox
+                      url={activeSubject.url}
+                      activeSubjectName={activeSubject.name}
+                      color={activeSubject.color}
+                      onInteraction={() => void markTimerInteraction(Date.now())}
+                    />
+                  ) : (
+                    /* Web Site / Online Course Portal → Open in Web Portals Browser */
+                    <div className="flex items-center gap-3 rounded-2xl border border-cyan-500/20 bg-slate-900/60 px-4 py-3">
+                      <div className="h-8 w-8 rounded-xl bg-cyan-500/15 border border-cyan-500/25 flex items-center justify-center shrink-0">
+                        <Globe2 className="w-4 h-4 text-cyan-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-white">Subject Web Portal</p>
+                        <p className="text-[10px] text-slate-400 truncate">{activeSubject.url.replace(/^https?:\/\//, "")}</p>
+                      </div>
+                      <motion.button
+                        whileHover={{ scale: 1.04 }}
+                        whileTap={{ scale: 0.96 }}
+                        onClick={() => navigate("/web-portals", { state: { url: activeSubject.url, name: activeSubject.name } })}
+                        className="shrink-0 flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 px-3 py-2 text-[11px] font-bold text-white shadow hover:opacity-90 transition-all"
+                      >
+                        <Globe2 className="w-3.5 h-3.5" />
+                        Open Web Portal
+                      </motion.button>
+                    </div>
+                  )}
                 </div>
               )}
             </motion.div>

@@ -72,16 +72,33 @@ export function WebPortalsPage() {
     void loadCustomSites().then(setCustomSites);
   }, []);
 
+  function normalizePortalUrl(raw: string): string {
+    let clean = raw.trim().replace(/^["']|["']$/g, "");
+    if (!clean) return "";
+    // Check if Windows drive letter e.g. D:\... or C:/...
+    if (/^[a-zA-Z]:[\\/]/i.test(clean) || clean.startsWith("file://") || clean.startsWith("local-media://")) {
+      // Normalize slashes for Electron
+      clean = clean.replace(/\\/g, "/");
+      if (/^[a-zA-Z]:\//i.test(clean)) {
+        return `local-media:///${encodeURI(clean)}`;
+      }
+      return clean;
+    }
+    if (!clean.startsWith("http://") && !clean.startsWith("https://")) {
+      return "https://" + clean;
+    }
+    return clean;
+  }
+
   // ── Auto-load URL passed via router navigation state ──────────────────────────
   // Called from SubjectsPage or TimerPage when a subject has a URL.
   useEffect(() => {
     const state = location.state as { url?: string; name?: string } | null;
     if (state?.url) {
-      let url = state.url.trim();
-      if (!url.startsWith("http://") && !url.startsWith("https://")) url = "https://" + url;
+      const url = normalizePortalUrl(state.url);
       setActiveUrl(url);
-      setActiveName(state.name || url);
-      setInputUrl(url);
+      setActiveName(state.name || state.url);
+      setInputUrl(state.url);
       // Clear state so navigating back doesn't re-trigger
       window.history.replaceState({}, "");
     }
@@ -162,11 +179,10 @@ export function WebPortalsPage() {
 
   function handleGoUrl() {
     if (!inputUrl.trim()) return;
-    let url = inputUrl.trim();
-    if (!url.startsWith("http://") && !url.startsWith("https://")) url = "https://" + url;
+    const url = normalizePortalUrl(inputUrl);
     setActiveUrl(url);
-    setActiveName(url);
-    setInputUrl(url);
+    setActiveName(inputUrl.trim());
+    setInputUrl(inputUrl.trim());
   }
 
   function closeBrowser() {
@@ -181,8 +197,7 @@ export function WebPortalsPage() {
 
   function handleAddCustomSite() {
     if (!newName.trim() || !newUrl.trim()) return;
-    let url = newUrl.trim();
-    if (!url.startsWith("http://") && !url.startsWith("https://")) url = "https://" + url;
+    const url = normalizePortalUrl(newUrl);
     const site: PortalSite = {
       id: crypto.randomUUID(),
       name: newName.trim(),
