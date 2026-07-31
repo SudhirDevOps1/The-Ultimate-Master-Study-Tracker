@@ -76,8 +76,8 @@ class AmbientAudioEngine {
     }
   }
 
-  // ── 2. Pink Noise Generator (Rain / Waterfall Ambience) ─────────────────
-  public toggleNoise(enable: boolean) {
+  // ── 2. Pink Noise & Custom Soundscape Synthesizer ─────────────────
+  public toggleNoise(enable: boolean, mode: string = "rain") {
     const ctx = this.getContext();
     if (!enable) {
       if (this.noiseNodes?.source) {
@@ -88,7 +88,13 @@ class AmbientAudioEngine {
       return;
     }
 
-    if (this.isNoisePlaying) return;
+    if (this.isNoisePlaying) {
+      if (this.noiseNodes?.source) {
+        this.noiseNodes.source.stop();
+        this.noiseNodes = null;
+      }
+      this.isNoisePlaying = false;
+    }
 
     // Generate 5 seconds of pink noise buffer
     const bufferSize = ctx.sampleRate * 5;
@@ -112,10 +118,24 @@ class AmbientAudioEngine {
     source.buffer = buffer;
     source.loop = true;
 
-    // Lowpass filter to simulate gentle rain / soft room hum
+    // Filter frequency tailored per soundscape mode
     const filter = ctx.createBiquadFilter();
-    filter.type = "lowpass";
-    filter.frequency.value = 1000;
+    if (mode === "forest") {
+      filter.type = "bandpass";
+      filter.frequency.value = 2400;
+      filter.Q.value = 1.5;
+    } else if (mode === "lofi" || mode === "coffee") {
+      filter.type = "lowpass";
+      filter.frequency.value = 450;
+    } else if (mode === "white_noise" || mode === "river") {
+      filter.type = "bandpass";
+      filter.frequency.value = 1400;
+      filter.Q.value = 0.8;
+    } else {
+      // Rain default
+      filter.type = "lowpass";
+      filter.frequency.value = 850;
+    }
 
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(this.noiseVol, ctx.currentTime);
@@ -137,7 +157,7 @@ class AmbientAudioEngine {
     }
   }
 
-  // ── 3. Deep Space Ambient Drone (Sub-bass Drone) ────────────────────────
+  // ── 3. Deep Space Ambient Drone ────────────────────────
   public toggleSpaceDrone(enable: boolean) {
     const ctx = this.getContext();
     if (!enable) {
@@ -154,11 +174,11 @@ class AmbientAudioEngine {
 
     const osc = ctx.createOscillator();
     osc.type = "sine";
-    osc.frequency.value = 65; // Deep bass tone
+    osc.frequency.value = 65;
 
     const lfo = ctx.createOscillator();
     lfo.type = "sine";
-    lfo.frequency.value = 0.2; // Slow pulse
+    lfo.frequency.value = 0.2;
 
     const lfoGain = ctx.createGain();
     lfoGain.gain.value = 5;

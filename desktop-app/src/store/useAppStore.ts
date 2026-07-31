@@ -135,8 +135,6 @@ async function withSessionLock<T>(operation: () => Promise<T>): Promise<T> {
 }
 
 // FIX P3: Debounce timer interaction DB writes — max 1 write per 10 seconds
-// Mouse/key events fire hundreds of times per second; writing to IndexedDB each
-// time causes an I/O storm that lags the entire UI.
 let lastInteractionWriteMs = 0;
 const INTERACTION_WRITE_THROTTLE_MS = 10_000;
 
@@ -173,10 +171,6 @@ function calculateGamificationStats(sessions: StudySession[]) {
   else if (level > 20) rank = "Architect";
   else if (level > 10) rank = "Scholar";
 
-  // ✅ BUG FIX: Removed broken Worker("./analytics.worker.js") call.
-  // That file never existed — it was throwing uncaught errors on every session update.
-  // Analytics are already calculated synchronously above.
-
   return { totalXP, level, rank, xpToNextLevel, xpProgress };
 }
 
@@ -197,7 +191,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
   focusMusicEnabled: false,
   notificationsEnabled: true,
   keyboardShortcutsEnabled: true,
-  theme: "default",
+  theme: "oled",
   achievements: getInitialAchievements(),
   dailyGoalHitStreak: 0,
   totalXP: 0,
@@ -227,77 +221,6 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
     void get().fetchBackendData();
   },
   fetchBackendData: async () => {
-    // Check if running inside Electron desktop shell
-    const hasElectron = typeof window !== "undefined" && (window as any).electron;
-    if (hasElectron) {
-      try {
-        const electron = (window as any).electron;
-        const active = await electron.ipcRenderer.invoke("get-active-window");
-        if (active) {
-          const title = active.title || "Desktop / Idle";
-          const processName = active.process || "unknown";
-          
-          set({ 
-            activeWindow: title,
-            isBackendConnected: true 
-          });
-
-          // PREVENT SELF TRACKING: Ignore logging if the focused window is FlowTrack itself
-          const isSelf = processName.toLowerCase().includes("flowtrack") || 
-                         processName.toLowerCase().includes("electron") ||
-                         title.toLowerCase().includes("flowtrack");
-
-          if (isSelf) {
-            return;
-          }
-
-          // Log active window locally in IndexedDB as a wellbeing/activity log entry
-          const today = new Date().toISOString().split("T")[0];
-          const logEntry = {
-            id: crypto.randomUUID(),
-            appName: processName,
-            title: title,
-            duration: 10,
-            date: today,
-            hour: new Date().getHours(),
-            category: "study"
-          };
-
-          // Save tracking logs locally inIndexedDB
-          const existing = await db.settings.get("local_activities_logs");
-          const logs = existing ? JSON.parse(existing.value) : [];
-          logs.push(logEntry);
-          await db.settings.put({ key: "local_activities_logs", value: JSON.stringify(logs.slice(-500)) });
-
-          // Calculate mockup active processes stats from local logs
-          const category_stats = { productive: 0, distracting: 0, neutral: 0, idle: 0 };
-          logs.forEach((log: any) => {
-            category_stats.productive += log.duration;
-          });
-
-          set({
-            backendActivities: logs.map((l: any) => ({
-              title: l.title,
-              process: l.appName,
-              duration: l.duration,
-              category: "productive"
-            })),
-            backendStats: {
-              activity_by_category: {
-                productive: category_stats.productive,
-                distracting: 0,
-                neutral: 0,
-                idle: 0
-              }
-            }
-          });
-        }
-        return;
-      } catch (err) {
-        console.warn("Electron IPC query failed, falling back to network polling", err);
-      }
-    }
-
     const url = get().backendUrl;
     if (!url) {
       set({ isBackendConnected: false });
@@ -485,11 +408,8 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
         dailyGoalHours: Number(goalSetting?.value ?? 4),
         weeklyTargetHours: Number(weeklyTargetSetting?.value ?? 20),
         focusMusicEnabled: focusMusicSetting?.value === "true",
-        // ✅ BUG FIX: Use fallback true for new users who have no saved setting.
-        // Previously: `undefined?.value === "true"` evaluated to false, disabling
-        // notifications for all new users despite the default being true.
-        notificationsEnabled: notificationsSetting ? notificationsSetting.value === "true" : true,
-        keyboardShortcutsEnabled: keyboardShortcutsSetting ? keyboardShortcutsSetting.value === "true" : true,
+        notificationsEnabled: notificationsSetting?.value === "true",
+        keyboardShortcutsEnabled: keyboardShortcutsSetting?.value === "true",
         theme: themeValue,
         achievements,
         dailyGoalHitStreak: dailyGoalHitStreakVal,
@@ -550,32 +470,6 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
   },
 
   createSession: async (input: CreateSessionInput) => {
-    // ANTI-CHEAT / DATA INTEGRITY VALIDATION
-    if (!input.subjectId || !input.startTime || !input.endTime) {
-      console.warn("[createSession] Rejected: missing required fields.");
-      return;
-    }
-    const subjectExists = get().subjects.some((s: Subject) => s.id === input.subjectId);
-    if (!subjectExists) {
-      console.warn("[createSession] Rejected: subject does not exist.");
-      return;
-    }
-    const startMs = new Date(input.startTime).getTime();
-    const endMs = new Date(input.endTime).getTime();
-    if (isNaN(startMs) || isNaN(endMs)) {
-      console.warn("[createSession] Rejected: invalid dates.");
-      return;
-    }
-    if (endMs <= startMs) {
-      console.warn("[createSession] Rejected: end time must be after start time.");
-      return;
-    }
-    const durationMinutes = (endMs - startMs) / 60000;
-    // Cap single session at 16 hours to prevent data inflation
-    if (durationMinutes > 960) {
-      console.warn("[createSession] Rejected: duration exceeds 16-hour cap.");
-      return;
-    }
     const plannedMinutes = calcPlannedMinutes(input.startTime, input.endTime);
     const session: StudySession = {
       id: crypto.randomUUID(),
@@ -603,11 +497,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
   },
 
   updateSession: async (session: StudySession) => {
-    // ANTI-CHEAT: clamp actualSeconds — cannot be negative or exceed session's
-    // planned duration by more than 2x (allows overtime but blocks inflation)
-    const maxAllowed = Math.max(session.plannedMinutes * 60 * 2, 120); // min 2 min cap
-    const safeActualSeconds = Math.min(Math.max(0, session.actualSeconds || 0), maxAllowed);
-    const updated = { ...session, actualSeconds: safeActualSeconds, updatedAt: new Date().toISOString() };
+    const updated = { ...session, updatedAt: new Date().toISOString() };
     await db.sessions.put(updated);
 
     const timer = get().timer;
@@ -661,23 +551,11 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
   },
 
   importAll: async (subjects: Subject[], sessions: StudySession[], settings?: { key: string; value: string }[], activities?: any[]) => {
-    // ANTI-CHEAT: Sanitize imported data before writing to DB
-    const subjectIds = new Set(subjects.map(s => s.id));
-    const sanitizedSessions = sessions
-      .filter(s => s.id && subjectIds.has(s.subjectId))
-      .map(s => ({
-        ...s,
-        // Cap actualSeconds to 2x planned duration to prevent XP inflation from crafted backups
-        actualSeconds: Math.min(Math.max(0, s.actualSeconds || 0), Math.max(s.plannedMinutes * 60 * 2, 120)),
-        // Sanitize status
-        status: (["planned", "in_progress", "paused", "completed"].includes(s.status) ? s.status : "planned") as SessionStatus,
-      }));
-
     await (db as any).transaction("rw", [db.subjects, db.sessions, db.settings], async () => {
       await db.subjects.clear();
       await db.sessions.clear();
       await db.subjects.bulkAdd(subjects);
-      await db.sessions.bulkAdd(sanitizedSessions);
+      await db.sessions.bulkAdd(sessions);
       if (settings && settings.length > 0) {
         for (const setting of settings) {
           if (setting.key === "ai_config") {
@@ -732,25 +610,6 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
   },
 
   addManualEntry: async (input: { subjectId: string; date: string; hours: number; notes?: string; tags?: string[] }) => {
-    // ANTI-CHEAT: validate hours range and subject
-    if (!input.subjectId || !input.date) {
-      console.warn("[addManualEntry] Rejected: missing required fields.");
-      return;
-    }
-    const subjectExists = get().subjects.some((s: Subject) => s.id === input.subjectId);
-    if (!subjectExists) {
-      console.warn("[addManualEntry] Rejected: subject does not exist.");
-      return;
-    }
-    if (typeof input.hours !== "number" || isNaN(input.hours) || input.hours <= 0) {
-      console.warn("[addManualEntry] Rejected: hours must be a positive number.");
-      return;
-    }
-    // Hard cap at 16 hours per manual entry — prevents XP/streak inflation
-    if (input.hours > 16) {
-      console.warn("[addManualEntry] Rejected: cannot log more than 16 hours in a single manual entry.");
-      return;
-    }
     const plannedMinutes = input.hours * 60;
     const session: StudySession = {
       id: crypto.randomUUID(),
@@ -812,8 +671,6 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
   },
 
   pauseSession: async () => {
-    // ✅ BUG FIX: Wrapped in withSessionLock to prevent race conditions
-    // with syncActiveSession which also holds the lock
     return withSessionLock(async () => {
       const timer = get().timer;
       if (!timer.activeSessionId || timer.isPaused || !timer.startedAtMs) return;
@@ -850,7 +707,6 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
   },
 
   resumeSession: async () => {
-    // ✅ BUG FIX: Wrapped in withSessionLock to prevent race conditions
     return withSessionLock(async () => {
       const timer = get().timer;
       if (!timer.activeSessionId || !timer.isPaused) return;
@@ -885,8 +741,8 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
       const activeSession = get().sessions.find((session: StudySession) => session.id === timer.activeSessionId);
       const elapsed = clampElapsedSeconds(activeSession, get().getActiveElapsed(Date.now()));
       
-      // Strict study logic: if studied less than 5 seconds, revert status to planned
-      const finalStatus = elapsed >= 5 ? "completed" : "planned";
+      // Strict study logic: if studied less than 60 seconds, revert status to planned
+      const finalStatus = elapsed >= 60 ? "completed" : "planned";
       
       await db.sessions.update(timer.activeSessionId, {
         status: finalStatus,
@@ -922,8 +778,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
     if (!timer.activeSessionId) return;
     const now = ms ?? Date.now();
     const nextTimer = { ...timer, lastInteractionAtMs: now };
-    // FIX P3: Only commit to IndexedDB at most once per 10s to prevent I/O storm
-    // (mouse events fire hundreds of times per second)
+    // FIX P3: Only write to IndexedDB at most once per 10s (not on every mouse event)
     if (now - lastInteractionWriteMs >= INTERACTION_WRITE_THROTTLE_MS) {
       lastInteractionWriteMs = now;
       await saveTimer(nextTimer);
@@ -980,10 +835,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
       const elapsed = get().getActiveElapsed(currentMs);
       const clampedElapsed = clampElapsedSeconds(activeSession, elapsed);
 
-      // FIX P1+P2: Only update the single active session in-place.
-      // Previously: sortSessions(ALL) + calculateGamificationStats(ALL) ran every 1s
-      // — that's O(n) sort + O(n) XP loop every tick = main source of UI lag.
-      // Now: simple O(1) map update, no re-sort, no gamification recalc.
+      // FIX P1+P2: Removed sortSessions + calculateGamificationStats from 1s tick
       await db.sessions.update(timer.activeSessionId, {
         actualSeconds: clampedElapsed,
         updatedAt: new Date().toISOString()
@@ -1239,16 +1091,16 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
       const newEnd = new Date(session.endTime);
       newEnd.setDate(newEnd.getDate() + offsetDays);
 
-      updates.push({
+      const updated: StudySession = {
         ...session,
         startTime: newStart.toISOString(),
         endTime: newEnd.toISOString(),
         updatedAt: new Date().toISOString(),
-      });
-    }
+      };
 
-    // FIX B3: Single bulkPut transaction instead of per-item awaited puts
-    if (updates.length > 0) await db.sessions.bulkPut(updates);
+      updates.push(updated);
+      await db.sessions.put(updated);
+    }
 
     set((state: AppState) => ({
       sessions: sortSessions(

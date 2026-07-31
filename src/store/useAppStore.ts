@@ -191,7 +191,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
   focusMusicEnabled: false,
   notificationsEnabled: true,
   keyboardShortcutsEnabled: true,
-  theme: "default",
+  theme: "oled",
   achievements: getInitialAchievements(),
   dailyGoalHitStreak: 0,
   totalXP: 0,

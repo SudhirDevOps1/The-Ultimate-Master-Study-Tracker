@@ -9,37 +9,37 @@ const SOUNDS = [
   { 
     id: "rain", 
     name: "Rain Loops", 
-    icon: <CloudRain className="w-4 h-4" />, 
-    url: "https://actions.google.com/sounds/v1/water/rain_on_roof.ogg" 
+    icon: <CloudRain className="w-4 h-4 text-cyan-400" />, 
+    url: "https://assets.mixkit.co/active_storage/sfx/2517/2517-preview.mp3" 
   },
   { 
     id: "forest", 
     name: "Forest Birds", 
-    icon: <TreePine className="w-4 h-4" />, 
-    url: "https://actions.google.com/sounds/v1/nature/forest_birds.ogg" 
+    icon: <TreePine className="w-4 h-4 text-emerald-400" />, 
+    url: "https://assets.mixkit.co/active_storage/sfx/2437/2437-preview.mp3" 
   },
   { 
     id: "lofi", 
     name: "Coffee Shop", 
-    icon: <Coffee className="w-4 h-4" />, 
-    url: "https://actions.google.com/sounds/v1/ambiences/coffee_shop.ogg" 
+    icon: <Coffee className="w-4 h-4 text-amber-400" />, 
+    url: "https://assets.mixkit.co/active_storage/sfx/301/301-preview.mp3" 
   },
   { 
     id: "white_noise", 
     name: "River Streams", 
-    icon: <Hash className="w-4 h-4" />, 
-    url: "https://actions.google.com/sounds/v1/water/river_stream.ogg" 
+    icon: <Hash className="w-4 h-4 text-blue-400" />, 
+    url: "https://assets.mixkit.co/active_storage/sfx/2520/2520-preview.mp3" 
   },
   {
     id: "local",
     name: "Local Audio File",
-    icon: <FolderOpen className="w-4 h-4" />,
+    icon: <FolderOpen className="w-4 h-4 text-purple-400" />,
     url: ""
   },
   {
     id: "youtube",
     name: "YouTube / Link",
-    icon: <Link2 className="w-4 h-4" />,
+    icon: <Link2 className="w-4 h-4 text-rose-400" />,
     url: ""
   }
 ];
@@ -117,39 +117,36 @@ export function AmbiencePlayer() {
         setIsSynthFallback(false);
         setAudioError(null);
 
-        if (selectedTrack.id === "local" && localUrl) {
-          if (audioRef.current && audioRef.current.src !== localUrl) {
-            audioRef.current.src = localUrl;
-            audioRef.current.load();
-          }
-        } else if (selectedTrack.id === "youtube" && activeUrl && !getYoutubeId(activeUrl)) {
-          if (audioRef.current && audioRef.current.src !== activeUrl) {
-            audioRef.current.src = activeUrl;
-            audioRef.current.load();
-          }
-        } else if (selectedTrack.url) {
-          if (audioRef.current && audioRef.current.src !== selectedTrack.url) {
-            audioRef.current.src = selectedTrack.url;
-            audioRef.current.load();
-          }
-        }
+        const targetSrc = selectedTrack.id === "local" ? localUrl : (selectedTrack.id === "youtube" ? activeUrl : selectedTrack.url);
 
-        audioRef.current?.play().catch(e => {
-          console.log("Network audio blocked/failed, switching to offline soundscape synthesizer.", e);
-          triggerOfflineSynth();
-        });
+        if (targetSrc && audioRef.current) {
+          if (audioRef.current.src !== targetSrc) {
+            audioRef.current.src = targetSrc;
+            audioRef.current.load();
+          }
+          audioRef.current.play().then(() => {
+            audioEngine.stopAll();
+          }).catch(e => {
+            console.log("Audio play exception, switching to procedural soundscape", e);
+            triggerOfflineSynth(selectedTrack.id);
+          });
+        } else if (selectedTrack.id === "local" && !localUrl) {
+          fileInputRef.current?.click();
+        } else if (selectedTrack.id !== "youtube" && selectedTrack.url) {
+          triggerOfflineSynth(selectedTrack.id);
+        }
       }
     } else {
       audioRef.current?.pause();
-      audioEngine.toggleNoise(false);
+      audioEngine.stopAll();
       setIsSynthFallback(false);
     }
   }, [isMusicEnabled, selectedTrack, localUrl, activeUrl]);
 
-  const triggerOfflineSynth = () => {
+  const triggerOfflineSynth = (trackId: string = "rain") => {
     setIsSynthFallback(true);
     setAudioError(null);
-    audioEngine.toggleNoise(true);
+    audioEngine.toggleNoise(true, trackId);
   };
 
   useEffect(() => {
@@ -157,7 +154,7 @@ export function AmbiencePlayer() {
       if (localUrl) {
         URL.revokeObjectURL(localUrl);
       }
-      audioEngine.toggleNoise(false);
+      audioEngine.stopAll();
     };
   }, [localUrl]);
 
@@ -218,55 +215,43 @@ export function AmbiencePlayer() {
     <div className="relative flex flex-col items-center">
       {/* Hidden local file input */}
       <input
-        type="file"
         ref={fileInputRef}
-        onChange={handleLocalFileChange}
+        type="file"
         accept="audio/*"
         className="hidden"
+        onChange={handleLocalFileChange}
       />
 
-      <div className="glass flex items-center justify-between gap-2.5 rounded-2xl border border-white/10 px-3 py-2 text-white shadow-xl backdrop-blur-md max-w-full">
-        {/* Play / Pause Toggle Button */}
+      <audio ref={audioRef} loop />
+
+      {/* Main Bar */}
+      <div className="flex items-center gap-2 rounded-2xl bg-slate-900/90 border border-white/10 p-2 shadow-2xl backdrop-blur-xl">
         <button
           type="button"
           onClick={() => setFocusMusicEnabled(!isMusicEnabled)}
-          className={`flex items-center justify-center p-2.5 rounded-xl transition-all shrink-0 ${
+          className={`p-2 rounded-xl transition-all ${
             isMusicEnabled 
-              ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/20" 
-              : "bg-white/5 text-slate-300 hover:bg-white/10"
+              ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-slate-950 shadow-lg shadow-cyan-500/20 font-bold" 
+              : "bg-white/5 text-slate-400 hover:text-white"
           }`}
-          title={isMusicEnabled ? "Pause Ambience" : "Play Ambience"}
+          title={isMusicEnabled ? "Pause Soundscape" : "Play Soundscape"}
         >
-          {isMusicEnabled ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+          {isMusicEnabled ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
         </button>
 
-        {/* Skip Button for YouTube playlist */}
-        {selectedTrack.id === "youtube" && savedPlaylist.length > 1 && (
-          <button
-            type="button"
-            onClick={handleNextTrack}
-            className="flex items-center justify-center p-2 rounded-xl bg-white/5 text-slate-300 hover:bg-white/10 shrink-0"
-            title="Next saved stream"
-          >
-            <SkipForward className="w-3.5 h-3.5" />
-          </button>
-        )}
-
-        {/* Sound Selection Button */}
-        <div className="relative shrink min-w-0">
+        {/* Track Selector Dropdown Trigger */}
+        <div className="relative">
           <button
             type="button"
             onClick={() => setIsOpen(!isOpen)}
-            className="flex items-center gap-1.5 hover:bg-white/5 rounded-xl px-2 py-1.5 transition-colors text-slate-300 hover:text-white max-w-full"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-200 border border-white/5 transition-all max-w-[170px]"
           >
-            <div className="text-cyan-400 shrink-0">
-              {selectedTrack.icon}
-            </div>
-            <span className="text-xs font-semibold truncate max-w-[110px] sm:max-w-[140px]">
-              {selectedTrack.id === "local" && localFileName 
-                ? localFileName 
-                : selectedTrack.id === "youtube" && savedPlaylist[currentPlaylistIndex]
-                  ? savedPlaylist[currentPlaylistIndex].name 
+            {selectedTrack.icon}
+            <span className="truncate">
+              {selectedTrack.id === "local" 
+                ? (localFileName || "Select MP3/WAV") 
+                : selectedTrack.id === "youtube"
+                  ? (savedPlaylist[currentPlaylistIndex]?.name || "Custom Stream")
                   : selectedTrack.name}
             </span>
             <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
@@ -289,6 +274,7 @@ export function AmbiencePlayer() {
                     key={sound.id}
                     onClick={() => {
                       if (sound.id === "local") {
+                        setSelectedTrack(sound);
                         fileInputRef.current?.click();
                       } else if (sound.id === "youtube") {
                         setSelectedTrack(sound);
@@ -305,7 +291,7 @@ export function AmbiencePlayer() {
                         : "text-slate-300 hover:bg-white/5 hover:text-white"
                     }`}
                   >
-                    <div className="text-cyan-400">{sound.icon}</div>
+                    <div>{sound.icon}</div>
                     <span className="truncate">{sound.name}</span>
                   </button>
                 ))}
@@ -331,82 +317,54 @@ export function AmbiencePlayer() {
             step="0.05"
             value={volume}
             onChange={(e) => setVolume(parseFloat(e.target.value))}
-            className="w-14 sm:w-16 accent-cyan-400 h-1 bg-white/10 rounded-lg cursor-pointer"
+            className="w-16 h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400"
           />
         </div>
       </div>
 
-      {/* Floating YouTube Embed Box */}
-      {isMusicEnabled && selectedTrack.id === "youtube" && videoId && (
-        <motion.div 
-          drag
-          dragControls={dragControls}
-          dragMomentum={false}
-          initial={{ opacity: 0, scale: 0.9, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.9, y: 10 }}
-          className="fixed bottom-6 right-6 z-50 w-80 sm:w-96 rounded-2xl border border-cyan-500/30 bg-slate-950/95 p-3 shadow-2xl backdrop-blur-xl space-y-2 pointer-events-auto"
-        >
-          <div 
-            onPointerDown={(e) => dragControls.start(e)}
-            className="flex items-center justify-between cursor-move pb-1"
+      {/* Floating YouTube Player Window */}
+      <AnimatePresence>
+        {isMusicEnabled && videoId && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="fixed bottom-24 right-6 z-50 w-80 rounded-2xl border border-cyan-500/30 bg-slate-950/95 p-3 shadow-2xl backdrop-blur-xl space-y-2 pointer-events-auto"
           >
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
-              <span className="text-xs font-bold text-slate-200 truncate max-w-[200px]">
-                {savedPlaylist[currentPlaylistIndex]?.name || "YouTube Stream"}
+            <div className="flex items-center justify-between pb-2 border-b border-white/10">
+              <span className="text-xs font-bold text-cyan-300 truncate max-w-[200px]">
+                🎵 {savedPlaylist[currentPlaylistIndex]?.name || "YouTube Stream"}
               </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleNextTrack}
+                  className="p-1 rounded-lg hover:bg-white/10 text-slate-300"
+                  title="Next Track"
+                >
+                  <SkipForward className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFocusMusicEnabled(false)}
+                  className="text-xs text-rose-400 font-bold hover:text-rose-300"
+                >
+                  Close
+                </button>
+              </div>
             </div>
-            <button 
-              type="button"
-              onClick={() => setFocusMusicEnabled(false)} 
-              className="text-[10px] text-rose-400 font-bold hover:underline cursor-pointer"
-            >
-              Close
-            </button>
-          </div>
-          <div className="pointer-events-auto border-t border-white/10 pt-1">
-            <iframe
-              width="100%"
-              height="220"
-              src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&loop=1&playlist=${videoId}&controls=1&rel=0`}
-              title="Focus YouTube Stream"
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              className="rounded-xl bg-black"
-            ></iframe>
-          </div>
-        </motion.div>
-      )}
 
-      {/* HTML5 Audio element for standard looping tracks */}
-      <audio
-        ref={audioRef}
-        loop
-        onError={() => triggerOfflineSynth()}
-        onCanPlay={() => {
-          setAudioError(null);
-          setIsSynthFallback(false);
-          audioEngine.toggleNoise(false);
-        }}
-        onPlay={() => {
-          setAudioError(null);
-          setIsSynthFallback(false);
-          audioEngine.toggleNoise(false);
-        }}
-      />
-
-      {/* Offline Synthetic Synthesizer Status Indicator */}
-      {isSynthFallback && isMusicEnabled && (
-        <div className="flex items-center gap-1.5 text-[10px] text-emerald-300 font-medium px-1 mt-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg py-1">
-          <Sparkles className="w-3 h-3 text-emerald-400 animate-pulse shrink-0" />
-          <span>100% Offline AI Focus Synthesizer Active</span>
-        </div>
-      )}
-
-      {audioError && isMusicEnabled && !isSynthFallback && (
-        <p className="text-[10px] text-amber-400 px-1 mt-0.5 max-w-xs">{audioError}</p>
-      )}
+            <div className="aspect-video w-full rounded-xl overflow-hidden bg-black border border-white/10">
+              <iframe
+                src={`https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1`}
+                title="YouTube Audio Stream"
+                className="w-full h-full"
+                allow="autoplay"
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
