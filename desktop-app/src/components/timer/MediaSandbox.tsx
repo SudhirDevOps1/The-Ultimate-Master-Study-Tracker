@@ -517,16 +517,59 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
             </div>
           )}
 
+          {mediaType === "web" && resourceLoaded && (
+            typeof window !== "undefined" && (window as any).electron ? (
+              <webview
+                key={url}
+                src={url}
+                className="absolute inset-0 h-full w-full border-0"
+                allowpopups
+                webpreferences="allowRunningInsecureContent, javascript=true"
+              />
+            ) : (
+              <iframe
+                key={url}
+                src={url}
+                title="Course Web Portal"
+                className="absolute inset-0 h-full w-full border-0"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
+                allow="autoplay; fullscreen"
+              />
+            )
+          )}
+
           {mediaType === "youtube" && resourceLoaded && (
-            <iframe
-              key={url}
-              src={getEmbedUrl(url)}
-              title="YouTube video player"
-              className="absolute inset-0 h-full w-full border-0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
-              allowFullScreen
-              referrerPolicy="strict-origin-when-cross-origin"
-            />
+            <div className="absolute inset-0 h-full w-full flex flex-col">
+              {typeof window !== "undefined" && (window as any).electron ? (
+                <webview
+                  key={url}
+                  src={url.includes("watch?v=") || url.includes("youtu.be/") ? url : getEmbedUrl(url)}
+                  className="w-full flex-1 border-0"
+                  allowpopups
+                  webpreferences="allowRunningInsecureContent, javascript=true"
+                />
+              ) : (
+                <iframe
+                  key={url}
+                  src={getEmbedUrl(url)}
+                  title="YouTube video player"
+                  className="w-full flex-1 border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+                  allowFullScreen
+                  referrerPolicy="strict-origin-when-cross-origin"
+                />
+              )}
+              <div className="flex items-center justify-between px-3 py-1 bg-slate-900 border-t border-white/10 text-[11px] text-slate-400">
+                <span>Apna College / Restricted Video?</span>
+                <button
+                  type="button"
+                  onClick={() => openExternalUrl(url)}
+                  className="text-cyan-400 font-bold hover:underline"
+                >
+                  🌐 Open in External Browser
+                </button>
+              </div>
+            </div>
           )}
 
           {mediaType === "video" && localSourceUrl && (
