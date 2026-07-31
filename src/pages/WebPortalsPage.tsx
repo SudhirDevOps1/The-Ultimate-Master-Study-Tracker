@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Globe, Plus, Trash2, RefreshCw, ArrowLeft, ArrowRight,
@@ -53,6 +54,7 @@ function saveCustomSites(sites: PortalSite[]) {
 }
 
 export function WebPortalsPage() {
+  const location = useLocation();
   const [customSites, setCustomSites]   = useState<PortalSite[]>([]);
   const [activeUrl, setActiveUrl]       = useState<string | null>(null);
   const [activeName, setActiveName]     = useState("");
@@ -68,6 +70,22 @@ export function WebPortalsPage() {
 
   useEffect(() => {
     void loadCustomSites().then(setCustomSites);
+  }, []);
+
+  // ── Auto-load URL passed via router navigation state ──────────────────────────
+  // Called from SubjectsPage or TimerPage when a subject has a URL.
+  useEffect(() => {
+    const state = location.state as { url?: string; name?: string } | null;
+    if (state?.url) {
+      let url = state.url.trim();
+      if (!url.startsWith("http://") && !url.startsWith("https://")) url = "https://" + url;
+      setActiveUrl(url);
+      setActiveName(state.name || url);
+      setInputUrl(url);
+      // Clear state so navigating back doesn't re-trigger
+      window.history.replaceState({}, "");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Exit fullscreen on Escape key

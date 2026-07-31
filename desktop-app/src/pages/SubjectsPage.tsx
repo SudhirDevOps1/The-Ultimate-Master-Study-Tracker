@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Zap } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Zap, Globe2 } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
 import { Panel } from "@/components/common/Panel";
 import { useAppStore } from "@/store/useAppStore";
@@ -10,6 +11,7 @@ import { StudyTemplate } from "@/data/studyTemplates";
 const EMOJIS = ["📚", "💻", "🧠", "🎨", "🧪", "🌍", "✍️", "🧬", "🔢", "⚖️", "🍎", "🎭"];
 
 export function SubjectsPage() {
+  const navigate = useNavigate();
   const subjects = useAppStore((state) => state.subjects);
   const createSubject = useAppStore((state) => state.createSubject);
   const updateSubject = useAppStore((state) => state.updateSubject);
@@ -243,9 +245,15 @@ export function SubjectsPage() {
                           <span className="text-xs text-slate-400 capitalize">Weekly Goal: {goalHours > 0 ? `${goalHours}h` : 'None'}</span>
                         </div>
                         {subject.url && (
-                          <div className="mt-1 text-[10px] text-cyan-400/90 truncate max-w-[180px]" title={subject.url}>
-                            🔗 {subject.url}
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => navigate("/web-portals", { state: { url: subject.url, name: subject.name } })}
+                            className="mt-1 flex items-center gap-1 text-[10px] text-cyan-400/90 hover:text-cyan-300 truncate max-w-[200px] group"
+                            title={`Open ${subject.url} in Web Portals Browser`}
+                          >
+                            <Globe2 className="w-3 h-3 shrink-0" />
+                            <span className="truncate group-hover:underline">{subject.url.replace(/^https?:\/\//, "")}</span>
+                          </button>
                         )}
                       </div>
                     </div>
