@@ -104,38 +104,44 @@ export function AmbiencePlayer() {
   const activeUrl = selectedTrack.id === "youtube" ? savedPlaylist[currentPlaylistIndex]?.url || "" : selectedTrack.url;
 
   useEffect(() => {
+    audioEngine.stopAll();
+
     if (isMusicEnabled) {
       const isYoutubeVideo = selectedTrack.id === "youtube" && activeUrl && getYoutubeId(activeUrl);
 
       if (isYoutubeVideo) {
-        audioRef.current?.pause();
-        audioEngine.stopAll();
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.src = "";
+        }
         setIsSynthFallback(false);
       } else {
         setIsSynthFallback(false);
 
         const targetSrc = selectedTrack.id === "local" ? localUrl : (selectedTrack.id === "youtube" ? activeUrl : selectedTrack.url);
 
+        if (selectedTrack.id === "local" && !localUrl) {
+          fileInputRef.current?.click();
+          return;
+        }
+
         if (targetSrc && audioRef.current) {
           if (audioRef.current.src !== targetSrc) {
             audioRef.current.src = targetSrc;
             audioRef.current.load();
           }
-          audioRef.current.play().then(() => {
-            audioEngine.stopAll();
-          }).catch(e => {
+          audioRef.current.play().catch(e => {
             console.log("Audio play exception, switching to procedural soundscape", e);
-            triggerOfflineSynth(selectedTrack.id);
+            if (selectedTrack.id !== "local" && selectedTrack.id !== "youtube") {
+              triggerOfflineSynth(selectedTrack.id);
+            }
           });
-        } else if (selectedTrack.id === "local" && !localUrl) {
-          fileInputRef.current?.click();
-        } else if (selectedTrack.id !== "youtube" && selectedTrack.url) {
-          triggerOfflineSynth(selectedTrack.id);
         }
       }
     } else {
-      audioRef.current?.pause();
-      audioEngine.stopAll();
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
       setIsSynthFallback(false);
     }
   }, [isMusicEnabled, selectedTrack, localUrl, activeUrl]);

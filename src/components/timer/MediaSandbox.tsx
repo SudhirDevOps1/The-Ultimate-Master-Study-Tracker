@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Play, Pause, Camera, AlertCircle, ExternalLink, Globe, SkipBack, SkipForward, ListVideo, Folder, Upload } from "lucide-react";
+import { Play, Pause, Camera, AlertCircle, ExternalLink, Globe, SkipBack, SkipForward, ListVideo, Folder, Upload, Disc, Radio, Tv } from "lucide-react";
 import html2canvas from "html2canvas";
 
 interface MediaSandboxProps {
@@ -90,6 +90,21 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
     window.open(targetUrl, "_blank", "noopener,noreferrer");
   };
 
+  // Open in VLC Media Player
+  const openInVlc = async () => {
+    onInteraction?.();
+    if (typeof window !== "undefined" && (window as any).electron) {
+      try {
+        const res = await (window as any).electron.ipcRenderer.invoke("open-in-vlc", { filePath: url });
+        showToast(res.message || "Opening in VLC...");
+      } catch (e: any) {
+        showToast("Failed to open VLC: " + e.message);
+      }
+    } else {
+      showToast("VLC Launcher is supported in Desktop App!");
+    }
+  };
+
   // Parse Media Type & Scan Local Folder Playlist
   useEffect(() => {
     if (!url) return;
@@ -119,7 +134,6 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
       const isElectronApp = typeof window !== "undefined" && (window as any).electron?.isElectron;
 
       if (isElectronApp) {
-        // Desktop App Mode -> Use Electron IPC folder scan and local-media:// protocol
         void (window as any).electron.ipcRenderer.invoke("scan-local-folder", { folderPath: cleanUrl })
           .then((res: { success: boolean; files: LocalPlaylistItem[] }) => {
             if (res && res.success && res.files.length > 0) {
@@ -141,16 +155,13 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
               setResourceLoaded(true);
             }
           })
-          .catch((err: any) => {
-            console.error("IPC scan failed:", err);
+          .catch(() => {
             const formatted = formatLocalVideoUrl(cleanUrl);
             setLocalSourceUrl(formatted);
             setMediaType(isVideoExt ? "video" : isAudioExt ? "audio" : "video");
             setResourceLoaded(true);
           });
       } else {
-        // Web Browser Mode -> Browsers block direct file:// paths due to security policies.
-        // Prompt user to pick/drag the local video file for instant blob playback!
         setIsWebBrowserLocalPrompt(true);
         setMediaType(isVideoExt ? "video" : isAudioExt ? "audio" : "video");
       }
@@ -310,12 +321,23 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
       />
 
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/5 pb-3 mb-4">
+      <div className="flex items-center justify-between border-b border-white/5 pb-3 mb-4 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <span className="flex h-2 w-2 rounded-full animate-pulse" style={{ backgroundColor: color }} />
           <h3 className="font-bold text-white text-sm">Study Media Sandbox — {activeSubjectName}</h3>
         </div>
+
         <div className="flex items-center gap-2">
+          {/* VLC Media Player Launcher Button */}
+          <button
+            onClick={openInVlc}
+            className="flex items-center gap-1.5 rounded-lg bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2.5 py-1 text-xs font-bold transition-all hover:bg-orange-500/30 active:scale-95"
+            title="Open Video/Audio in VLC Media Player"
+          >
+            <Tv className="h-3.5 w-3.5" />
+            <span>Open in VLC</span>
+          </button>
+
           {playlist.length > 1 && (
             <button
               onClick={() => setShowPlaylistMenu(!showPlaylistMenu)}
@@ -380,18 +402,26 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
                 <Upload className="w-7 h-7" />
               </div>
               <div>
-                <p className="text-white font-bold text-sm">Local Video Path Detected</p>
+                <p className="text-white font-bold text-sm">Local Media Path Detected</p>
                 <p className="text-slate-400 text-xs mt-0.5 truncate max-w-md">{url}</p>
               </div>
               <p className="text-slate-400 text-xs max-w-xs leading-relaxed">
-                Web browsers block direct disk access due to security policies. Click below to select the file from your PC for instant playback!
+                Click below to select your video/audio file for instant playback or click "Open in VLC"!
               </p>
-              <button
-                onClick={() => localFileInputRef.current?.click()}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 px-6 py-2.5 text-xs font-bold text-white shadow-lg shadow-cyan-500/30 hover:opacity-95 transition-all active:scale-95"
-              >
-                <Upload className="w-4 h-4" /> Pick Video File From PC
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => localFileInputRef.current?.click()}
+                  className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-cyan-500/30 hover:opacity-95 transition-all active:scale-95"
+                >
+                  <Upload className="w-4 h-4" /> Pick File From PC
+                </button>
+                <button
+                  onClick={openInVlc}
+                  className="flex items-center gap-2 rounded-xl bg-orange-500/20 border border-orange-500/30 px-5 py-2.5 text-xs font-bold text-orange-400 hover:bg-orange-500/30 transition-all active:scale-95"
+                >
+                  <Tv className="w-4 h-4" /> Open in VLC
+                </button>
+              </div>
             </div>
           )}
 
@@ -452,20 +482,52 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
             />
           )}
 
+          {/* Premium Audio Player with Dynamic Equalizer Visualizer */}
           {mediaType === "audio" && localSourceUrl && (
-            <div className="flex flex-col items-center justify-center h-full p-4 bg-slate-900/80">
+            <div className="flex flex-col items-center justify-center h-full p-6 bg-slate-950 relative overflow-hidden">
               <audio
                 ref={audioRef}
                 key={localSourceUrl}
                 src={localSourceUrl}
-                className="w-4/5"
-                controls
+                className="hidden"
                 autoPlay
                 onEnded={handleNextTrack}
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}
               />
-              <p className="text-xs text-slate-400 mt-4 truncate max-w-md">Playing Local Audio: {url}</p>
+
+              {/* Vinyl Record Disc Animation */}
+              <div className="relative mb-4">
+                <div className={`w-28 h-28 rounded-full bg-gradient-to-tr from-slate-900 via-slate-800 to-slate-950 border-4 border-cyan-500/40 shadow-2xl flex items-center justify-center ${isPlaying ? 'animate-spin' : ''}`} style={{ animationDuration: '6s' }}>
+                  <Disc className="w-12 h-12 text-cyan-400" />
+                </div>
+                {isPlaying && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-4 w-4 bg-cyan-500"></span>
+                  </span>
+                )}
+              </div>
+
+              {/* Dynamic Neon Audio Frequency Bar Visualizer */}
+              <div className="flex items-end gap-1.5 h-12 mb-4">
+                {[40, 75, 50, 90, 60, 100, 45, 80, 65, 95, 55, 85, 40, 70, 60, 90].map((h, idx) => (
+                  <div
+                    key={idx}
+                    className={`w-1.5 rounded-full bg-gradient-to-t from-cyan-500 to-indigo-500 transition-all duration-300 ${isPlaying ? 'animate-pulse' : 'opacity-40'}`}
+                    style={{
+                      height: isPlaying ? `${Math.max(20, (h * Math.random()) + 20)}%` : "20%",
+                      animationDelay: `${idx * 80}ms`
+                    }}
+                  />
+                ))}
+              </div>
+
+              {/* Track Title */}
+              <p className="text-xs font-bold text-white truncate max-w-md flex items-center gap-1.5">
+                <Radio className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                <span>{playlist.length > 0 ? playlist[playlistIndex]?.name : url}</span>
+              </p>
             </div>
           )}
 

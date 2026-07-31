@@ -18,6 +18,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   "set-open-at-login",
   "send-windows-toast",
   "scan-local-folder",
+  "open-in-vlc",
 ];
 
 const ALLOWED_LISTEN_CHANNELS = [
