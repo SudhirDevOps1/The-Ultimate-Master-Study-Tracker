@@ -79,6 +79,52 @@ export function WebPortalsPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // ── Webview Activity Tracking ─────────────────────────────────────────────
+  // When webview navigates to a site, report domain+title to electron main process.
+  // This makes the Activity Tracker log the actual study site (apnacollege.in,
+  // youtube.com etc.) instead of FlowTrack itself, when Web Portals is active.
+  useEffect(() => {
+    if (!isElectron || !webviewRef.current || !activeUrl) return;
+    const wv = webviewRef.current;
+
+    function reportToMain(url: string, title?: string) {
+      (window as any).electron?.ipcRenderer?.invoke("webview-activity-report", { url, title: title || "" })
+        .catch(() => {});
+    }
+
+    function onNavigate(e: any) {
+      const url = e.url || activeUrl || "";
+      reportToMain(url);
+    }
+    function onTitleUpdate(e: any) {
+      const url = wv.getURL?.() || activeUrl || "";
+      reportToMain(url, e.title || "");
+    }
+
+    // Report immediately when webview first loads
+    reportToMain(activeUrl);
+
+    wv.addEventListener("did-navigate", onNavigate);
+    wv.addEventListener("did-navigate-in-page", onNavigate);
+    wv.addEventListener("page-title-updated", onTitleUpdate);
+
+    return () => {
+      wv.removeEventListener("did-navigate", onNavigate);
+      wv.removeEventListener("did-navigate-in-page", onNavigate);
+      wv.removeEventListener("page-title-updated", onTitleUpdate);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeUrl, isElectron]);
+
+  // Clear tracking when webview is closed
+  useEffect(() => {
+    if (!isElectron) return;
+    if (!activeUrl) {
+      (window as any).electron?.ipcRenderer?.invoke("webview-activity-clear").catch(() => {});
+    }
+  }, [activeUrl, isElectron]);
+
+
   const allSites = [...DEFAULT_PORTALS, ...customSites];
   const filtered = searchQuery.trim()
     ? allSites.filter(s =>
@@ -103,6 +149,16 @@ export function WebPortalsPage() {
     setActiveUrl(url);
     setActiveName(url);
     setInputUrl(url);
+  }
+
+  function closeBrowser() {
+    setActiveUrl(null);
+    setActiveName("");
+    setInputUrl("");
+    // Clear webview tracking in electron main process
+    if (isElectron) {
+      (window as any).electron?.ipcRenderer?.invoke("webview-activity-clear").catch(() => {});
+    }
   }
 
   function handleAddCustomSite() {
@@ -394,7 +450,7 @@ export function WebPortalsPage() {
             {activeUrl && (
               <button
                 type="button"
-                onClick={() => { setActiveUrl(null); setActiveName(""); setInputUrl(""); }}
+                onClick={() => closeBrowser()}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-white/10 transition-all"
                 title="Close"
               >

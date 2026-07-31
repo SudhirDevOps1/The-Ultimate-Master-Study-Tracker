@@ -19,6 +19,11 @@ let activityLog = [];
 let currentActivity = { processName: "", windowTitle: "", startMs: Date.now() };
 // isSelf is defined below (after getForegroundWindow helper)
 
+// ─── Active Webview State (set by IPC from WebPortalsPage) ────────────────────
+// When user opens a site in Web Portals in-app browser, we track THAT domain,
+// NOT the FlowTrack app itself (to avoid fake self-tracking logs).
+let activeWebviewInfo = null; // { url, title, domain } | null
+
 function getLogFile(date) {
   return path.join(dataDir, `${date}.json`);
 }
@@ -82,13 +87,18 @@ function isSelf(processName, windowTitle) {
 function shouldSkip(processName, windowTitle) {
   const p = (processName || "").toLowerCase().trim();
   const t = (windowTitle  || "").toLowerCase().trim();
-  
+
   if (isSelf(p, t)) {
-    // ONLY track FlowTrack Pro self-process IF user is actively playing a video/audio file or in active focus session
+    // FIX WEBVIEW TRACKING: If user has an active webview (Web Portals Browser),
+    // we DO NOT skip — instead we will use the webview domain/title as the tracked activity.
+    // This is handled in startActivityTracker() below by overriding processName + windowTitle.
+    if (activeWebviewInfo) return false;
+
+    // ONLY track self-process if playing local media or in active focus session
     if (t.includes("playing:") || t.includes("active focus session")) {
       return false;
     }
-    // Otherwise, ignore/skip self-app to avoid fake self-tracking logs
+    // Otherwise, skip self-app to avoid fake self-tracking logs
     return true;
   }
 
@@ -129,6 +139,8 @@ const FRIENDLY_NAMES = {
   electron:       "FlowTrack Pro (Study Sandbox)",
   flowtrack:      "FlowTrack Pro (Study Sandbox)",
   "flowtrack pro": "FlowTrack Pro (Study Sandbox)",
+  // FlowTrack In-App Browser (WebPortalsPage webview sessions)
+  "web-portal-browser": "🌐 Web Portals Browser",
   // Browsers
   chrome:         "Google Chrome",
   msedge:         "Microsoft Edge",
@@ -236,13 +248,23 @@ function getSystemIdleMs() {
   });
 }
 
-// ── Background Activity Tracker Loop (Every 2 seconds) ────────────────────────
+// ── Background Activity Tracker Loop (Every 5 seconds) ────────────────────────
 function startActivityTracker() {
   setInterval(async () => {
-    const info = await getForegroundWindow();
-    if (!info || !info.process) return;
+    let rawInfo = await getForegroundWindow();
+    if (!rawInfo || !rawInfo.process) return;
 
-    const { process: processName, title: windowTitle } = info;
+    let processName = rawInfo.process;
+    let windowTitle = rawInfo.title;
+
+    // FIX WEBVIEW TRACKING: If FlowTrack is the focused window AND a webview is active,
+    // substitute the webview domain/title so we log the actual study site, not FlowTrack itself.
+    if (isSelf(processName, windowTitle) && activeWebviewInfo) {
+      processName = "web-portal-browser";
+      windowTitle = activeWebviewInfo.title
+        ? `${activeWebviewInfo.domain} — ${activeWebviewInfo.title}`.substring(0, 80)
+        : activeWebviewInfo.domain;
+    }
     const now = Date.now();
 
     // 🛡️ Real-Time Native App & Browser Tab Blocker Enforcement Hook
@@ -349,8 +371,7 @@ function startActivityTracker() {
         else                    activityLog.push(liveEntry);
       }
     }
-  // FIX P5: Reduced from 2000ms to 5000ms to cut win-tracker.exe spawns by 60%
-  // Each execFile call forks a child process — 30/min was causing background CPU spikes
+  // Polling every 5s — reduces win-tracker.exe spawns by 60% vs 2s
   }, 5000);
 
   // Auto-save to disk every 30 seconds
@@ -792,6 +813,34 @@ ipcMain.handle("get-tracked-dates", async () => {
       .sort()
       .reverse();
   } catch { return []; }
+});
+
+// ─── Webview Activity Reporting ───────────────────────────────────────────────
+// Called by WebPortalsPage when webview navigates to a new page.
+// Enables tracking study sites (apnacollege.in, youtube.com, etc.) instead of FlowTrack itself.
+ipcMain.handle("webview-activity-report", async (_e, { url, title } = {}) => {
+  if (!url) {
+    // Webview closed / URL cleared — stop override
+    activeWebviewInfo = null;
+    return { ok: true };
+  }
+  try {
+    const domain = new URL(url).hostname.replace(/^www\./, "");
+    activeWebviewInfo = { url, title: (title || domain), domain };
+  } catch {
+    activeWebviewInfo = { url, title: title || url, domain: url };
+  }
+  return { ok: true };
+});
+
+ipcMain.handle("webview-activity-clear", async () => {
+  activeWebviewInfo = null;
+  return { ok: true };
+});
+
+// Also expose via get-block-rules extra fields for UI info
+ipcMain.handle("get-active-webview-domain", async () => {
+  return activeWebviewInfo ? activeWebviewInfo.domain : null;
 });
 
 ipcMain.handle("export-activity-csv", async (_e, { date } = {}) => {

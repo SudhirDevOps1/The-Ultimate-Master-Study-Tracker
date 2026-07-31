@@ -4,6 +4,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 const ALLOWED_INVOKE_CHANNELS = [
   "secure-proxy-fetch",
   "get-active-window",
+  "get-foreground-window",
   "get-idle-time-ms",
   "get-activity-log",
   "get-tracked-dates",
@@ -13,12 +14,20 @@ const ALLOWED_INVOKE_CHANNELS = [
   "import-app-data",
   "get-app-version",
   "open-external-link",
+  "open-activity-log-folder",
+  "get-data-directory-path",
   "set-taskbar-progress",
   "toggle-always-on-top",
   "set-open-at-login",
   "send-windows-toast",
   "scan-local-folder",
   "open-in-vlc",
+  "get-block-rules",
+  "save-block-rules",
+  // Webview Activity Tracking (Web Portals Browser page)
+  "webview-activity-report",
+  "webview-activity-clear",
+  "get-active-webview-domain",
 ];
 
 const ALLOWED_LISTEN_CHANNELS = [
