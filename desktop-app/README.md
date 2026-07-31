@@ -1,200 +1,115 @@
-<!-- ╔══════════════════════════════════════════════════════════════════╗ -->
-<!-- ║      FlowTrack Pro — Desktop App Edition README.md               ║ -->
-<!-- ║   github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker   ║ -->
-<!-- ╚══════════════════════════════════════════════════════════════════╝ -->
-
 <div align="center">
 
-# 🖥️ FlowTrack Pro — Standalone Windows Desktop App
+<img src="public/images/flowtrack-banner.png" alt="FlowTrack Pro Banner" width="100%" />
 
-### Production-Grade Native Electron 43 + Win32 Kernel Suite
+# 🚀 FlowTrack Pro (v6.0.0 Master Release)
 
-**The 100% offline, native Windows application edition of FlowTrack Pro.**
-Built with Electron 43, React 19, TypeScript 5.7, and precompiled C# Win32 kernel helper (`win-tracker.exe`).
-Requires zero Python installation, zero cloud servers, and zero subscription fees.
+### The Ultimate Master Study & Productivity Ecosystem — 2026 Edition
 
-<br/>
+**The professional-grade, AI-powered, strict study tracker built for relentless learners.**
+Engineered into **3 distinct operational categories**: Serverless Web App, Web App + Python Backend, and Standalone Windows Desktop App.
 
-[![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#-system--resource-requirements)
-&nbsp;
-[![Electron](https://img.shields.io/badge/Electron-43-47848F?style=for-the-badge&logo=electron&logoColor=white)](#%EF%B8%8F-technology-stack)
-&nbsp;
-[![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](#%EF%B8%8F-technology-stack)
-&nbsp;
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](#%EF%B8%8F-technology-stack)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-19-blue)](https://react.dev/)
+[![Electron](https://img.shields.io/badge/Electron-43-blue)](https://www.electronjs.org/)
 
-<br/>
-
-[![Master Root README](https://img.shields.io/badge/🏠%20Root%20README-README.md-blue?style=for-the-badge&logo=readme)](../README.md)
-&nbsp;&nbsp;
-[![Web App README](https://img.shields.io/badge/🌐%20Web%20App%20README-web--app%2FREADME.md-green?style=for-the-badge&logo=vercel)](../web-app/README.md)
-&nbsp;&nbsp;
-[![Future Roadmap](https://img.shields.io/badge/🗺️%20Future%20Roadmap-docs%2FFUTURE__ROADMAP.md-orange?style=for-the-badge&logo=markdown)](../docs/FUTURE_ROADMAP.md)
-&nbsp;&nbsp;
-[![Live Web App](https://img.shields.io/badge/🌐%20Live%20Web%20Link-Click%20Here-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://the-ultimate-master-study-tracker.vercel.app/)
+[Live Web Demo](https://the-ultimate-master-study-tracker.vercel.app/) • [Setup Guide](#-how-to-run-each-category) • [Changelog](CHANGELOG.md) • [System Architecture](docs/FULL_SYSTEM_GUIDE.md)
 
 </div>
 
 ---
 
-## 📋 Table of Contents
+## 👤 Author & Project Metadata
 
-- [👤 Project Metadata & Author](#-project-metadata--author)
-- [🖥️ System & Resource Requirements](#%EF%B8%8F-system--resource-requirements)
-- [✨ All 14 Desktop Pages Breakdown](#-all-14-desktop-pages-breakdown)
-- [🚀 How to Load, Run & Package Desktop App](#-how-to-load-run--package-desktop-app)
-- [⚙️ Technical Native Win32 Architecture](#%EF%B8%8F-technical-native-win32-architecture)
-- [🛌 Dual-Layer Hybrid Inactivity Detector](#-dual-layer-hybrid-inactivity-detector)
-- [🛠️ Technology Stack](#%EF%B8%8F-technology-stack)
-- [🔒 Data Sovereignty & Storage](#-data-sovereignty--storage)
-
----
-
-## 👤 Project Metadata & Author
-
-| Metadata | Details |
+| Attribute | Specification |
 |:---|:---|
-| **Application Name** | FlowTrack Pro (Desktop Application Edition) |
-| **Creator / Author** | **Sudhir Singh** ([@SudhirDevOps1](https://github.com/SudhirDevOps1)) |
-| **Version** | v6.0.0 Desktop Release |
-| **License** | MIT License — Free & Open Source |
+| **Project Name** | FlowTrack Pro — The Ultimate Master Study Tracker |
+| **Creator / Lead Architect** | **Sudhir Singh** ([@SudhirDevOps1](https://github.com/SudhirDevOps1)) |
+| **Version** | v6.0.0 (2026 Master Edition) |
+| **License** | MIT Open Source License |
+| **Live Web App** | [`https://the-ultimate-master-study-tracker.vercel.app/`](https://the-ultimate-master-study-tracker.vercel.app/) |
 | **Source Repository** | [`https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git`](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git) |
 
 ---
 
-## 🆕 Recent Desktop App Updates & Fixes
+## ✨ Key Features in v6.0.0
 
-| Component / Fix | Technical Detail |
-|:---|:---|
-| 🔒 **Single Instance Lock** | Integrated `app.requestSingleInstanceLock()` in `electron.js` to prevent double-launch process collisions and log file write conflicts |
-| 🪟 **System Tray Taskbar Fix** | Optimized Windows System Tray balloon notifications & taskbar icon disposal on application exit |
+### 🎬 1. Study Media Sandbox & Universal Local Media Engine
+* **Zero-CORS `local-media://` Protocol:** Plays local videos and audio files from **ALL Windows Drive Letters (`C:\` to `Z:\`)**, network shares, and Unicode paths (fullwidth symbols `｜`, `&`, spaces, quotes) with zero security blocks.
+* **Course Folder Auto-Playlists:** Input a folder path (e.g. `D:\Videos`) to auto-scan all video chapters and auto-play the next video on completion (`onEnded`).
+* **VLC Media Player Launcher Fallback:** 1-click `🎬 Open in VLC` integration launching local files directly in `vlc.exe` if installed on PC.
+
+### 🎵 2. Exclusive Single-Source Audio Engine & Studio Equalizer
+* **Exclusive Single-Source Audio:** Playing a local song or YouTube stream automatically silences background soundscapes (Rain, Forest, Coffee, River) so audio never overlaps.
+* **Studio Audio Visualizer & Vinyl Record Spin:** Real-time 16-bar neon frequency equalizer visualizer and 3D spinning vinyl disc for local audio playback.
+* **Scrollable Ambience Selector:** Custom scrollbar (`max-h-64 overflow-y-auto`) prevents soundscape selector overflow on all screen heights.
+
+### 📱 3. Framework7 v9.1.1 UI & Desktop Floating Controls
+* **iOS/Material Hybrid Cards:** Integrated custom `.f7-card` panels and segmented tab bar viewports across the entire application interface.
+* **Enlarged Resizable Floating Player:** Scaled to `w-[440px]` (Medium) and `w-[560px]` (Large) with built-in playlist settings, volume controls, and size toggles.
+
+### 📬 4. Developer Social Profiles & Support Center
+* **Official Social Badges:** Interactive 1-click handles for 🐙 **GitHub**, 💼 **LinkedIn**, 📸 **Instagram**, and ✉️ **Support Email**.
+* **Encrypted Contact Form:** Clean fields for Name, Email, Subject, and Detailed Message with direct Cloudflare Worker backend submission (`apnaform.workers.dev`).
+
+---
+
+## 📅 3-Category Operational Models
+
+```
+                                    ┌─────────────────────────────────────────┐
+                                    │             FLOWTRACK PRO               │
+                                    └────────────────────┬────────────────────┘
+                                                         │
+         ┌───────────────────────────────────────────────┼───────────────────────────────────────────────┐
+         ▼                                               ▼                                               ▼
+┌─────────────────────────────────┐             ┌─────────────────────────────────┐             ┌─────────────────────────────────┐
+│           CATEGORY 1            │             │           CATEGORY 2            │             │           CATEGORY 3            │
+│       Web App (No Backend)      │             │    Web App + Python Backend     │             │     Standalone Desktop App      │
+│  - Live on Vercel CDN           │             │  - Browser UI + backend.py      │             │  - Standalone Electron .exe     │
+│  - 100% In-Browser IndexedDB    │             │  - OS Active Window Tracking    │             │  - Win32 Kernel Tracking        │
+│  - Zero Install & Zero Signup   │             │  - SQLite Database Sync         │             │  - System Tray Minimization     │
+└─────────────────────────────────┘             └─────────────────────────────────┘             └─────────────────────────────────┘
+```
+
+---
 
 ## 🖥️ System & Resource Requirements
 
-| Component | Minimum Requirement | Recommended Specification |
-|:---|:---|:---|
-| **Operating System** | Windows 10 (64-bit) or Windows 11 | Windows 11 (64-bit) |
-| **RAM / Memory** | **2 GB** available system RAM | **4 GB - 8 GB** RAM |
-| **CPU / Processor** | Intel Core i3 / AMD Ryzen 3 (Dual-core 2.0 GHz) | Intel Core i5 / AMD Ryzen 5 (Quad-core 2.5 GHz+) |
-| **Disk Storage** | 300 MB for App Installation | 1 GB (for PDF OCR caching & historical activity logs) |
-| **Display Resolution** | 1280 x 720 pixels | 1920 x 1080 (Full HD) |
-| **Python Requirement** | **NONE** (Zero Python required) | None |
+| Resource / Spec | 🌐 Category 1: Web App (No Backend) | 🐍 Category 2: Web App + Python | 🖥️ Category 3: Desktop App (Electron) |
+|:---|:---|:---|:---|
+| **Target OS** | Any OS (Windows/Mac/Linux/iOS/Android) | Windows 10/11, macOS, Linux | Windows 10 (64-bit) / Windows 11 |
+| **Minimum RAM** | **512 MB** available RAM | **1 GB** RAM | **2 GB** available RAM |
+| **Recommended RAM**| **1 GB - 2 GB** RAM | **2 GB - 4 GB** RAM | **4 GB - 8 GB** RAM |
+| **Disk Storage** | ~20 MB (IndexedDB cache) | ~100 MB (Python + SQLite) | ~300 MB App Installation |
+| **Installation** | Zero Install (Browser / PWA) | Python 3.8+ (`START.bat` / `setup.sh`) | Double-click `.exe` installer |
+| **Python Needed?** | ❌ None | ✅ Required (`backend.py`) | ❌ **NONE** (Embedded C# binary) |
 
 ---
 
-## ✨ All 14 Desktop Pages Breakdown
+## 🚀 How to Run Each Category
 
-Desktop Edition includes **14 full modules**, including 4 Desktop-Exclusive features:
-
-| Page Module | Route | Type | Description |
-|:---|:---|:---:|:---|
-| 🏠 **Dashboard** | `/dashboard` | Standard | Overview, weekly summaries, focus score algorithm, live green process badge |
-| 📅 **Today's Tasks** | `/today` | 🖥️ **Desktop Exclusive** | Daily session planner, status buckets, goal completion progress ring |
-| ⏱️ **Timer Center** | `/timer` | Standard | Precision target timer, Pomodoro engine, window title countdown sync |
-| 📖 **Study Workspace** | `/study-workspace` | 🖥️ **Desktop Exclusive** | PDF reader (`pdfjs-dist`), offline Tesseract.js OCR scanner, Speech synthesis |
-| 📝 **Notes Board** | `/notes-board` | 🖥️ **Desktop Exclusive** | Kanban sticky notes board with Hindi typography (*Rozha One*, *Yatra One*) & PNG export |
-| 🖥️ **App Tracking** | `/app-tracking` | 🖥️ **Desktop Exclusive** | 24-hr Gantt usage timeline, web tab domain extractor, app process blocker |
-| 📊 **Analytics** | `/analytics` | Standard | Recharts multi-axis performance graphs, subject attachment metrics |
-| 🗓️ **History** | `/history` | Standard | Filterable session log, session cloning, date shifting tools |
-| 📚 **Subjects** | `/subjects` | Standard | Subject manager with weekly goal hours and template selector |
-| 🗺️ **Calendar** | `/calendar` | Standard | Visual monthly and yearly drag-and-drop calendar planner |
-| 🏆 **Achievements** | `/achievements` | Standard | Rank titles and milestone badge unlocking system |
-| ⚙️ **Settings** | `/settings` | Standard | App configuration, JSON import/export, CSV logging exports |
-| 📖 **Guide** | `/guide` | Standard | In-app user visual guide |
-| 🤖 **AI Assistant** | `/ai` | Standard | Local AI coach supporting Ollama and WebLLM |
-
----
-
-## 🚀 How to Load, Run & Package Desktop App
-
-### Step 1: Open Desktop App Directory
-```bash
-cd desktop-app
-```
-
-### Step 2: Install Desktop Node Dependencies
+### 🌐 Category 1: Web App (No Backend)
 ```bash
 npm install
+npm run dev
+# Open http://localhost:5173
 ```
 
-### Step 3: Run Live Development Mode (Vite + Electron)
+### 🖥️ Category 3: Standalone Desktop App
 ```bash
+cd desktop-app
+npm install
 npm run electron:dev
-```
-Launches Vite dev server and opens native Electron window with live hot-reloading.
 
-### Step 4: Package Production `.exe` Installer
-```bash
-npm run electron:build
-```
-- **Installer Output**: `desktop-app/dist-electron/FlowTrackPro Setup 1.0.0.exe`
-- **Unpacked Portable Executable**: `desktop-app/dist-electron/win-unpacked/FlowTrackPro.exe`
-
----
-
-## ⚙️ Technical Native Win32 Architecture
-
-Unlike web browsers that run inside security sandboxes, Desktop Edition executes native Win32 calls via `win-tracker.exe` (a precompiled C# helper):
-
-```
-[Electron Main Process (electron.js)]
-         │
-         ├── Spawns win-tracker.exe (C# Win32 Binary)
-         │     ├── GetForegroundWindow()
-         │     ├── GetWindowText()
-         │     └── GetWindowThreadProcessId()  ===> Returns: { title: "VS Code", process: "Code.exe" }
-         │
-         ├── Polls every 2 seconds
-         └── Logs data to %AppData%\FlowTrackPro\activity-log\YYYY-MM-DD.json
+# Build Portable & Installer Executables
+npm run build:win
 ```
 
 ---
 
-## 🛌 Dual-Layer Hybrid Inactivity Detector
+## 📜 License & Credits
 
-- **Layer 1 (Win32 Kernel)**: Queries `GetLastInputInfo` via PowerShell IPC. Detects physical hardware mouse/keyboard movement even when FlowTrack is minimized to the System Tray.
-- **Layer 2 (Instant DOM Listener)**: Monitors in-app user interactions with 0ms response.
-- **Auto-Resume**: Auto-pauses active study session after 10 minutes of idle time and **auto-resumes as soon as you touch your mouse or keyboard**.
-
----
-
-## 🛠️ Technology Stack
-
-| Component | Technology | Version |
-|:---|:---|:---|
-| **Desktop Shell** | Electron | 43.1.1 |
-| **UI Framework** | React | 19.2.3 |
-| **Language** | TypeScript | 5.9.3 |
-| **Bundler** | Vite | 7.2.4 |
-| **Native API** | Win32 Kernel C# (`win-tracker.exe`) | .NET 4.8 / Win32 |
-| **OCR Engine** | Tesseract.js (WASM) | 7.0.0 |
-| **PDF Renderer** | PDF.js (`pdfjs-dist`) | 6.1.200 |
-| **Packaging Tool** | electron-builder | 26.15.3 |
-
----
-
-## 🔒 Data Sovereignty & Storage
-
-- **Storage Path**: `%AppData%\FlowTrackPro\`
-- **Activity Logs**: Saved as daily JSON files inside `%AppData%\FlowTrackPro\activity-log\YYYY-MM-DD.json`.
-- **Privacy Standard**: 100% offline. Zero external network transmission.
-
----
-
-## 📜 Acknowledgments & Third-Party Credits
-
-FlowTrack Pro Desktop Edition gratefully acknowledges the following open-source projects and native frameworks:
-
-- **Electron** ([electronjs.org](https://www.electronjs.org/)): Desktop App Container
-- **Win32 User32 APIs** ([microsoft.com](https://learn.microsoft.com/en-us/windows/win32/)): Native Window & Idle Input Interop (`GetLastInputInfo`, `GetForegroundWindow`)
-- **Tesseract.js** ([tesseract.projectnaptha.com](https://tesseract.projectnaptha.com/)): Pure WebAssembly OCR Engine
-- **PDF.js** ([mozilla.github.io/pdf.js](https://mozilla.github.io/pdf.js/)): Web PDF Renderer
-- **html2canvas** ([html2canvas.hertzen.com](https://html2canvas.hertzen.com/)): Notes Board Image Exporter
-
----
-
-<div align="center">
-
-**[View Master Ecosystem README →](../README.md)** &nbsp;|&nbsp; **[View Web App README →](../web-app/README.md)**
-
-</div>
+Built with ❤️ by **Sudhir Singh** ([@SudhirDevOps1](https://github.com/SudhirDevOps1)).
+Licensed under the [MIT License](LICENSE).

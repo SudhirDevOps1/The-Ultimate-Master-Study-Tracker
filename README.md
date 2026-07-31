@@ -2,7 +2,7 @@
 
 <img src="public/images/flowtrack-banner.png" alt="FlowTrack Pro Banner" width="100%" />
 
-# 🚀 FlowTrack Pro (v6.0.0)
+# 🚀 FlowTrack Pro (v6.0.0 Master Release)
 
 ### The Ultimate Master Study & Productivity Ecosystem — 2026 Edition
 
@@ -10,7 +10,6 @@
 Engineered into **3 distinct operational categories**: Serverless Web App, Web App + Python Backend, and Standalone Windows Desktop App.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Build Status](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/actions)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-19-blue)](https://react.dev/)
 [![Electron](https://img.shields.io/badge/Electron-43-blue)](https://www.electronjs.org/)
@@ -34,25 +33,25 @@ Engineered into **3 distinct operational categories**: Serverless Web App, Web A
 
 ---
 
-## ✨ Key Features
+## ✨ Key Features in v6.0.0
 
-FlowTrack Pro is built to keep your studies organized, completely distraction-free, and synced.
+### 🎬 1. Study Media Sandbox & Universal Local Media Engine
+* **Zero-CORS `local-media://` Protocol:** Plays local videos and audio files from **ALL Windows Drive Letters (`C:\` to `Z:\`)**, network shares, and Unicode paths (fullwidth symbols `｜`, `&`, spaces, quotes) with zero security blocks.
+* **Course Folder Auto-Playlists:** Input a folder path (e.g. `D:\Videos`) to auto-scan all video chapters and auto-play the next video on completion (`onEnded`).
+* **VLC Media Player Launcher Fallback:** 1-click `🎬 Open in VLC` integration launching local files directly in `vlc.exe` if installed on PC.
 
-### 📱 Framework7 v9.1.1 UI Look (Latest July 2026 Stable)
+### 🎵 2. Exclusive Single-Source Audio Engine & Studio Equalizer
+* **Exclusive Single-Source Audio:** Playing a local song or YouTube stream automatically silences background soundscapes (Rain, Forest, Coffee, River) so audio never overlaps.
+* **Studio Audio Visualizer & Vinyl Record Spin:** Real-time 16-bar neon frequency equalizer visualizer and 3D spinning vinyl disc for local audio playback.
+* **Scrollable Ambience Selector:** Custom scrollbar (`max-h-64 overflow-y-auto`) prevents soundscape selector overflow on all screen heights.
+
+### 📱 3. Framework7 v9.1.1 UI & Desktop Floating Controls
 * **iOS/Material Hybrid Cards:** Integrated custom `.f7-card` panels and segmented tab bar viewports across the entire application interface.
-* **Modern Pill Layouts:** Replaced standard button links with responsive, glassmorphic segmented controls.
+* **Enlarged Resizable Floating Player:** Scaled to `w-[440px]` (Medium) and `w-[560px]` (Large) with built-in playlist settings, volume controls, and size toggles.
 
-### ⏱️ Timer Stability & Crash Resilience
-* **Timestamp-Based Recovery:** Tracks and saves study elapsed time using absolute timestamps. If the application closes unexpectedly or crashes, the system computes the exact duration upon reload.
-* **Quit Hook Sync:** Hooks directly into Electron's exit handler to pause and write database status updates before the application shuts down.
-* **Overdue Tasks Clean-Up:** Sunsama-style "Reschedule to Today" and "Clear All" buttons to instantly cleanup pending schedules.
-
-### 🌐 Advanced Website & App Monitoring
-* **Win32 C# Tracker integration:** C-Sharp helper `win-tracker.exe` detects focused application window names natively with 0ms latency.
-* **Browser Tab Dynamic Parsing:** Auto-extracts domains for **YouTube**, **Instagram**, and **Facebook**, classifying them instantly into social, study, or entertainment analytics logs.
-* **Real-time 5s Live Loop:** Highly responsive polling intervals paired with a distraction warning banner (`⚠️ Screen distraction ratio is higher than study focus time`) that advises users dynamically.
-* **Textbook OCR to Flashcards:** Highlight or parse textbook images/PDFs and send the text directly into decks with a one-click integration flow.
-* **500+ App Classifications:** Features an extensive mapping database covering popular Indian EdTech apps, developer IDEs, terminals, and distraction pages.
+### 📬 4. Developer Social Profiles & Support Center
+* **Official Social Badges:** Interactive 1-click handles for 🐙 **GitHub**, 💼 **LinkedIn**, 📸 **Instagram**, and ✉️ **Support Email**.
+* **Encrypted Contact Form:** Clean fields for Name, Email, Subject, and Detailed Message with direct Cloudflare Worker backend submission (`apnaform.workers.dev`).
 
 ---
 
@@ -91,26 +90,11 @@ FlowTrack Pro is built to keep your studies organized, completely distraction-fr
 
 ## 🚀 How to Run Each Category
 
-### ⚡ One-Click Automated Setup (Recommended)
-You can set up dependencies and launch the workspace using the interactive setup batch script:
-```cmd
-setup-and-run.bat
-```
-
 ### 🌐 Category 1: Web App (No Backend)
 ```bash
 npm install
 npm run dev
 # Open http://localhost:5173
-```
-
-### 🐍 Category 2: Web App + Python Backend
-```cmd
-:: Windows One-Click Setup
-Double-click START.bat
-
-:: macOS / Linux Setup
-chmod +x setup.sh && ./setup.sh
 ```
 
 ### 🖥️ Category 3: Standalone Desktop App
@@ -119,27 +103,13 @@ cd desktop-app
 npm install
 npm run electron:dev
 
-# Build Installer
-npm run electron:build
+# Build Portable & Installer Executables
+npm run build:win
 ```
 
 ---
 
-## 📖 Technical Documentation
+## 📜 License & Credits
 
-- 🌐 **Web App Detailed Manual**: [`web-app/README.md`](web-app/README.md)
-- 🖥️ **Desktop App Detailed Manual**: [`desktop-app/README.md`](desktop-app/README.md)
-- 📑 **Full Technical Guide**: [`docs/FULL_SYSTEM_GUIDE.md`](docs/FULL_SYSTEM_GUIDE.md)
-- 🗺️ **Roadmap**: [`docs/FUTURE_ROADMAP.md`](docs/FUTURE_ROADMAP.md)
-
----
-
-## 📜 Acknowledgments & Credits
-
-FlowTrack Pro is built upon React, Electron, Vite, Tailwind CSS, Dexie.js, Tesseract.js, Recharts, and styled in alignment with **Framework7 v9.1.1 (Stable July 2026)** specs. Special credit to **Sudhir Singh** for leading the v6.0.0 release features (Framework7 v9.1.1 styling, Zero-Heat Thermal Optimization, Executive PDF Reports, Web Audio AI Ambient Synthesizer, Interactive Virtual Companion "Aura", Anki SM-2 Spaced Repetition, and Standalone Windows Desktop app).
-
-<div align="center">
-
-**Engineered by Sudhir Singh (@SudhirDevOps1)** · FlowTrack Pro v6.0.0 · MIT License
-
-</div>
+Built with ❤️ by **Sudhir Singh** ([@SudhirDevOps1](https://github.com/SudhirDevOps1)).
+Licensed under the [MIT License](LICENSE).
