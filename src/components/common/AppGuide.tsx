@@ -211,63 +211,6 @@ export function AppGuide() {
                       />
                     </div>
 
-                    {/* User Social Links Inputs */}
-                    <div className="pt-2 border-t border-white/5 space-y-3">
-                      <p className="text-[11px] font-extrabold uppercase tracking-wider text-indigo-300">
-                        Share Your Profiles (Optional)
-                      </p>
-
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="space-y-1">
-                          <label className="block text-[11px] font-bold text-slate-300 flex items-center gap-1">
-                            <Github className="w-3 h-3 text-slate-300" /> GitHub / Website Link
-                          </label>
-                          <input
-                            name="github_link"
-                            type="text"
-                            placeholder="github.com/username"
-                            className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white focus:border-cyan-400 focus:outline-none transition-all placeholder:text-slate-500"
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <label className="block text-[11px] font-bold text-slate-300 flex items-center gap-1">
-                            <Linkedin className="w-3 h-3 text-blue-400" /> LinkedIn Profile
-                          </label>
-                          <input
-                            name="linkedin_link"
-                            type="text"
-                            placeholder="linkedin.com/in/username"
-                            className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white focus:border-cyan-400 focus:outline-none transition-all placeholder:text-slate-500"
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <label className="block text-[11px] font-bold text-slate-300 flex items-center gap-1">
-                            <Instagram className="w-3 h-3 text-rose-400" /> Instagram Handle
-                          </label>
-                          <input
-                            name="instagram"
-                            type="text"
-                            placeholder="@yourusername"
-                            className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white focus:border-cyan-400 focus:outline-none transition-all placeholder:text-slate-500"
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <label className="block text-[11px] font-bold text-slate-300 flex items-center gap-1">
-                            <Globe className="w-3 h-3 text-emerald-400" /> Portfolio Website
-                          </label>
-                          <input
-                            name="portfolio_url"
-                            type="text"
-                            placeholder="yourwebsite.com"
-                            className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white focus:border-cyan-400 focus:outline-none transition-all placeholder:text-slate-500"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
                     {/* Submit Button */}
                     <button
                       type="submit"
