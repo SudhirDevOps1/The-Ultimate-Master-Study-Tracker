@@ -152,6 +152,8 @@ export function StudyNotesBoardPage() {
         backgroundColor: "#090d16",
         scale: 3,
         useCORS: true,
+        allowTaint: true,
+        foreignObjectRendering: false,
         logging: false
       });
       const dataUrl = canvas.toDataURL("image/png");
@@ -177,7 +179,13 @@ export function StudyNotesBoardPage() {
         backgroundColor: "#0b0f19",
         scale: 2,
         useCORS: true,
-        logging: false
+        allowTaint: true,
+        foreignObjectRendering: false,
+        logging: false,
+        onclone: (clonedDoc) => {
+          const imgs = clonedDoc.querySelectorAll("img");
+          imgs.forEach((img) => img.setAttribute("crossOrigin", "anonymous"));
+        }
       });
       const dataUrl = canvas.toDataURL("image/png");
       const defaultFilename = `FlowTrack-StickyNotes-${new Date().toISOString().split("T")[0]}.png`;
