@@ -6,7 +6,7 @@ All notable changes, version updates, feature additions, architectural improveme
 
 ## 🏷️ Version History Summary
 
-- [v5.5.0 (2026-07-31)](#v550---2026-07-31) — 🚀 2026 Master Release: Zero-Heat Thermal Optimization, Executive PDF Reports, AI Focus Audio Synthesizer & Anki SM-2 Spaced Repetition
+- [v6.0.0 (2026-07-31)](#v600---2026-07-31) — 🚀 2026 Master Release: Excalidraw Canvas, Real Notepad, Dual PDF/OCR Engine, Fast Release Pipeline
 - [v5.4.0 (2026-07-31)](#v540---2026-07-31) — 🛠️ Production Blank Screen Resolution & IPC Preload Security Overhaul
 - [v5.3.0 (2026-07-30)](#v530---2026-07-30) — 🎨 Excalidraw, Secure Preload contextBridge, Brand Badges & Spam Delays
 - [v5.1.0 (2026-07-29)](#v510---2026-07-29) — 📱 Framework7 v9.1.1 Look, Live Loop & OCR Decks Integration
@@ -19,7 +19,7 @@ All notable changes, version updates, feature additions, architectural improveme
 
 ---
 
-## [v5.5.0] — 2026-07-31
+## [v6.0.0] — 2026-07-31
 
 ### ❄️ Zero-Heat Laptop Thermal Optimization & Power Saver
 - **Chromium Background Throttling (`backgroundThrottling: true`)**: Throttles CPU rendering when app is minimized or in background, reducing CPU usage to <0.5% and preventing laptop fan spin/heat.

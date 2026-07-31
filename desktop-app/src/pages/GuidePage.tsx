@@ -12,7 +12,7 @@ export function GuidePage() {
 
   const appInfo = {
     name: "FlowTrack Pro – Smart Study & Productivity Tracker",
-    version: "v5.5.0 (Latest 2026 Stable Release)",
+    version: "v6.0.0 (Latest 2026 Stable Release)",
     developer: "Sudhir DevOps (FlowTrack Engineering Team)",
     repo: "SudhirDevOps1/The-Ultimate-Master-Study-Tracker",
     techStack: ["React 18", "TypeScript 5", "Vite 7", "Electron 43", "TailwindCSS", "Dexie.js IndexedDB", "Web Audio API", "Framer Motion"],
@@ -22,7 +22,7 @@ export function GuidePage() {
     { id: "overview", label: "🌟 App Overview", icon: <BookOpen className="w-4 h-4" /> },
     { id: "features", label: "🚀 Feature Matrix", icon: <Zap className="w-4 h-4" /> },
     { id: "tech", label: "🛠️ Tech Architecture", icon: <Cpu className="w-4 h-4" /> },
-    { id: "fixes", label: "🐛 Solved in v5.5.0", icon: <CheckCircle2 className="w-4 h-4 text-emerald-400" /> },
+    { id: "fixes", label: "🐛 Solved in v6.0.0", icon: <CheckCircle2 className="w-4 h-4 text-emerald-400" /> },
     { id: "storage", label: "📂 Data Storage Paths", icon: <HardDrive className="w-4 h-4" /> },
     { id: "limitations", label: "⚠️ System Requirements", icon: <AlertTriangle className="w-4 h-4 text-amber-400" /> },
     { id: "developer", label: "👨‍💻 Developer & Credits", icon: <UserCheck className="w-4 h-4" /> },
@@ -304,11 +304,12 @@ export function GuidePage() {
         </Panel>
       )}
 
-      {/* TAB 4: SOLVED IN V5.5.0 */}
+      {/* TAB 4: SOLVED IN V6.0.0 */}
       {activeTab === "fixes" && (
-        <div className="space-y-4">
-          <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300 flex items-center justify-between">
-            <span className="font-bold">v5.5.0 Master Release Fixes Audit — All reported issues resolved!</span>
+        <div className="space-y-6">
+          <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-sm">
+            <CheckCircle2 className="w-5 h-5 shrink-0" />
+            <span className="font-bold">v6.0.0 Master Release Fixes Audit — All reported issues resolved!</span>
             <span className="font-mono bg-emerald-500/20 px-2 py-0.5 rounded text-[10px]">100% Tested</span>
           </div>
 
@@ -410,7 +411,7 @@ export function GuidePage() {
               <p className="text-xs text-slate-400 mt-0.5">Designed & Developed by Sudhir DevOps</p>
             </div>
             <span className="rounded-full bg-purple-500/20 border border-purple-400/30 px-3 py-1 text-xs font-mono font-bold text-purple-300">
-              v5.5.0 Production
+              v6.0.0 Production
             </span>
           </div>
 

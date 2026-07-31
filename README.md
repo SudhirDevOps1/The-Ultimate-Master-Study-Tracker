@@ -2,7 +2,7 @@
 
 <img src="public/images/flowtrack-banner.png" alt="FlowTrack Pro Banner" width="100%" />
 
-# 🚀 FlowTrack Pro (v5.5.0)
+# 🚀 FlowTrack Pro (v6.0.0)
 
 ### The Ultimate Master Study & Productivity Ecosystem — 2026 Edition
 
@@ -27,7 +27,7 @@ Engineered into **3 distinct operational categories**: Serverless Web App, Web A
 |:---|:---|
 | **Project Name** | FlowTrack Pro — The Ultimate Master Study Tracker |
 | **Creator / Lead Architect** | **Sudhir Singh** ([@SudhirDevOps1](https://github.com/SudhirDevOps1)) |
-| **Version** | v5.5.0 (2026 Master Edition) |
+| **Version** | v6.0.0 (2026 Master Edition) |
 | **License** | MIT Open Source License |
 | **Live Web App** | [`https://the-ultimate-master-study-tracker.vercel.app/`](https://the-ultimate-master-study-tracker.vercel.app/) |
 | **Source Repository** | [`https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git`](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git) |
@@ -136,10 +136,10 @@ npm run electron:build
 
 ## 📜 Acknowledgments & Credits
 
-FlowTrack Pro is built upon React, Electron, Vite, Tailwind CSS, Dexie.js, Tesseract.js, Recharts, and styled in alignment with **Framework7 v9.1.1 (Stable July 2026)** specs. Special credit to **Sudhir Singh** for leading the v5.5.0 release features (Framework7 v9.1.1 styling, Zero-Heat Thermal Optimization, Executive PDF Reports, Web Audio AI Ambient Synthesizer, Interactive Virtual Companion "Aura", Anki SM-2 Spaced Repetition, and Standalone Windows Desktop app).
+FlowTrack Pro is built upon React, Electron, Vite, Tailwind CSS, Dexie.js, Tesseract.js, Recharts, and styled in alignment with **Framework7 v9.1.1 (Stable July 2026)** specs. Special credit to **Sudhir Singh** for leading the v6.0.0 release features (Framework7 v9.1.1 styling, Zero-Heat Thermal Optimization, Executive PDF Reports, Web Audio AI Ambient Synthesizer, Interactive Virtual Companion "Aura", Anki SM-2 Spaced Repetition, and Standalone Windows Desktop app).
 
 <div align="center">
 
-**Engineered by Sudhir Singh (@SudhirDevOps1)** · FlowTrack Pro v5.5.0 · MIT License
+**Engineered by Sudhir Singh (@SudhirDevOps1)** · FlowTrack Pro v6.0.0 · MIT License
 
 </div>

@@ -56,7 +56,7 @@ Requires zero Python installation, zero cloud servers, and zero subscription fee
 |:---|:---|
 | **Application Name** | FlowTrack Pro (Desktop Application Edition) |
 | **Creator / Author** | **Sudhir Singh** ([@SudhirDevOps1](https://github.com/SudhirDevOps1)) |
-| **Version** | v5.5.0 Desktop Release |
+| **Version** | v6.0.0 Desktop Release |
 | **License** | MIT License — Free & Open Source |
 | **Source Repository** | [`https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git`](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git) |
 

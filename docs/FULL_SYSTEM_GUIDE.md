@@ -1,6 +1,6 @@
 # 📖 FlowTrack Pro — Unified Production-Grade Technical Manual & Architecture Guide
 
-Welcome to the definitive master guide for **FlowTrack Pro (v5.5.0)**. This document serves as the single source of truth for developers and end-users, providing a complete line-by-line analysis, system comparison, tracking specification, and step-by-step operational guide structured cleanly into **3 Operational Categories**.
+Welcome to the definitive master guide for **FlowTrack Pro (v6.0.0)**. This document serves as the single source of truth for developers and end-users, providing a complete line-by-line analysis, system comparison, tracking specification, and step-by-step operational guide structured cleanly into **3 Operational Categories**.
 
 ---
 
