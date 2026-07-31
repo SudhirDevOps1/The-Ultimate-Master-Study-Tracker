@@ -180,8 +180,7 @@ export function AnalyticsPage() {
         {/* Right Column: Insights & Summaries */}
         <div className="space-y-5">
           {/* Studied vs Skipped Days Log */}
-          {(() => {
-            // Find all dates from start date (first session or 30 days ago) to today
+          {useMemo(() => {
             const dates: string[] = [];
             const dayMap = new Map<string, number>();
             sessions.forEach(s => {
@@ -191,7 +190,6 @@ export function AnalyticsPage() {
               }
             });
 
-            // Find first study session date
             const studyDates = sessions
               .filter(s => s.actualSeconds > 0)
               .map(s => new Date(s.startTime).getTime())
@@ -200,7 +198,6 @@ export function AnalyticsPage() {
             const minDate = studyDates.length > 0 ? new Date(studyDates[0]) : new Date();
             minDate.setHours(0,0,0,0);
 
-            // Generate dates starting from first study session up to today (max 30 days)
             const cursor = new Date();
             cursor.setHours(0,0,0,0);
             
@@ -259,7 +256,7 @@ export function AnalyticsPage() {
                 </div>
               </Panel>
             );
-          })()}
+          }, [sessions])}
 
           {/* Quick Stats */}
           <Panel>

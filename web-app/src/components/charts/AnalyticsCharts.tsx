@@ -25,8 +25,8 @@ export function AnalyticsCharts({ data }: AnalyticsChartsProps) {
             <XAxis dataKey="label" stroke="#cbd5e1" />
             <YAxis stroke="#cbd5e1" />
             <Tooltip />
-            <Bar dataKey="plannedHours" fill="#6366f1" radius={6} />
-            <Bar dataKey="actualHours" fill="#22d3ee" radius={6} />
+            <Bar dataKey="plannedHours" fill="#6366f1" radius={6} isAnimationActive={false} />
+            <Bar dataKey="actualHours" fill="#22d3ee" radius={6} isAnimationActive={false} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -37,7 +37,7 @@ export function AnalyticsCharts({ data }: AnalyticsChartsProps) {
             <XAxis dataKey="label" stroke="#cbd5e1" />
             <YAxis stroke="#cbd5e1" />
             <Tooltip />
-            <Line type="monotone" dataKey="completionPct" stroke="#34d399" strokeWidth={2} dot={false} />
+            <Line type="monotone" dataKey="completionPct" stroke="#34d399" strokeWidth={2} dot={false} isAnimationActive={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>

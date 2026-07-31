@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Panel } from "@/components/common/Panel";
 import { useAppStore } from "@/store/useAppStore";
@@ -12,9 +12,15 @@ export function AchievementsPage() {
     recalculateAchievements();
   }, [recalculateAchievements]);
 
-  const unlockedCount = achievements.filter((a) => a.unlockedAt).length;
-  const totalProgress = achievements.reduce((sum, a) => sum + Math.min(100, (a.progress / a.maxProgress) * 100), 0);
-  const overallProgress = Math.round(totalProgress / achievements.length);
+  const { unlockedCount, overallProgress } = useMemo(() => {
+    if (!achievements.length) return { unlockedCount: 0, overallProgress: 0 };
+    const unlocked = achievements.filter((a) => a.unlockedAt).length;
+    const totalProgress = achievements.reduce((sum, a) => sum + Math.min(100, (a.progress / a.maxProgress) * 100), 0);
+    return {
+      unlockedCount: unlocked,
+      overallProgress: Math.round(totalProgress / achievements.length),
+    };
+  }, [achievements]);
 
   const getThemeGradient = () => {
     switch (theme) {
