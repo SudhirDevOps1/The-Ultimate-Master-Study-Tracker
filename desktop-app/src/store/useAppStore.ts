@@ -191,7 +191,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
   loading: true,
   pomodoroMode: false,
   strictFocusMode: false,
-  autoPauseOnHidden: true,
+  autoPauseOnHidden: false,
   dailyGoalHours: 4,
   weeklyTargetHours: 20,
   focusMusicEnabled: false,

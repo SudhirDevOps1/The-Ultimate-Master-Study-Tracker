@@ -132,16 +132,16 @@ export function useTimer() {
     const updateVisibility = () => {
       const state = useAppStore.getState();
       const isPipActive = state.isPipActive;
-      // ✅ BUG FIX: Read autoPauseOnHidden from store.
-      // Previously this always paused on minimize regardless of the setting.
       const autoPauseOnHidden = state.autoPauseOnHidden;
+      const strictFocusMode = state.strictFocusMode;
 
       if (document.hidden) {
         void setHiddenAt(Date.now());
         void syncActiveSession(Date.now());
 
-        // Only pause if the user has "auto-pause on minimize" enabled AND not in PiP mode
-        if (autoPauseOnHidden && !isPipActive) {
+        // Standard Timing mode (strictFocusMode: false) NEVER pauses on window switch!
+        // Only pause if strictFocusMode is active AND autoPauseOnHidden is explicitly true AND not in PiP mode
+        if (strictFocusMode && autoPauseOnHidden && !isPipActive) {
           void pauseSession();
         }
         return;
@@ -156,11 +156,7 @@ export function useTimer() {
 
     const syncOnExit = () => {
       const state = useAppStore.getState();
-      if (state.timer.activeSessionId && !state.timer.isPaused) {
-        void state.pauseSession();
-      } else {
-        void syncActiveSession(Date.now());
-      }
+      void syncActiveSession(Date.now());
     };
 
     const syncOnFocus = () => {
