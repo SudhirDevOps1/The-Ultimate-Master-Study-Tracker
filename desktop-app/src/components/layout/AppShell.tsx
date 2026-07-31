@@ -20,27 +20,35 @@ import {
   Globe,
   Target,
   Clock,
-  Palette
+  Palette,
+  FileText
 } from "lucide-react";
 
 const links = [
+  // 1. Core Daily Study
   { to: "/dashboard", label: "Dashboard", Icon: Home },
-  { to: "/today", label: "Today", Icon: ClipboardList },
-  { to: "/timer", label: "Timer", Icon: Timer },
+  { to: "/today", label: "Today Tasks", Icon: ClipboardList },
+  { to: "/timer", label: "Study Timer", Icon: Timer },
   { to: "/scheduler", label: "AI Scheduler", Icon: Clock },
-  { to: "/flashcards", label: "SRS Flashcards", Icon: Brain },
+
+  // 2. Workspaces & Tools
   { to: "/study-workspace", label: "Study Workspace (PDF/OCR)", Icon: BookOpen },
+  { to: "/notes-board", label: "Notes Board", Icon: FileText },
   { to: "/mind-map", label: "Mind Maps Board", Icon: Palette },
-  { to: "/notes-board", label: "Notes Board", Icon: ClipboardList },
-  { to: "/app-tracking", label: "App Tracking", Icon: Monitor },
+  { to: "/flashcards", label: "SRS Flashcards", Icon: Brain },
   { to: "/ai", label: "AI Assistant", Icon: Brain },
-  { to: "/calendar", label: "Calendar", Icon: CalendarIcon },
-  { to: "/exams", label: "Exam Countdown", Icon: Target },
+
+  // 3. Tracking & Performance
+  { to: "/app-tracking", label: "App Tracking", Icon: Monitor },
   { to: "/analytics", label: "Analytics", Icon: BarChart2 },
   { to: "/achievements", label: "Achievements", Icon: Award },
   { to: "/history", label: "History", Icon: HistoryIcon },
-  { to: "/guide", label: "Guide", Icon: BookOpen },
+
+  // 4. Planning & System
+  { to: "/calendar", label: "Calendar", Icon: CalendarIcon },
+  { to: "/exams", label: "Exam Countdown", Icon: Target },
   { to: "/subjects", label: "Subjects", Icon: Book },
+  { to: "/guide", label: "Guide", Icon: BookOpen },
   { to: "/settings", label: "Settings", Icon: SettingsIcon },
 ];
 
