@@ -924,3 +924,34 @@ ipcMain.handle("open-external-link", async (_e, { url }) => {
     return { success: false, error: err.message };
   }
 });
+
+ipcMain.handle("scan-local-folder", async (_e, { folderPath }) => {
+  try {
+    if (!folderPath) return { success: false, files: [] };
+    let cleanPath = folderPath.trim().replace(/^["']|["']$/g, "");
+    cleanPath = path.normalize(cleanPath);
+    if (fs.existsSync(cleanPath)) {
+      const stat = fs.statSync(cleanPath);
+      const targetFolder = stat.isDirectory() ? cleanPath : path.dirname(cleanPath);
+      if (fs.existsSync(targetFolder)) {
+        const files = fs.readdirSync(targetFolder);
+        const mediaExts = [".mp4", ".webm", ".mkv", ".mov", ".avi", ".mp3", ".wav", ".m4a", ".flac"];
+        const mediaFiles = files
+          .filter(f => mediaExts.includes(path.extname(f).toLowerCase()))
+          .map(f => {
+            const fullP = path.join(targetFolder, f);
+            const normalizedP = fullP.replace(/\\/g, "/");
+            return {
+              name: f,
+              path: fullP,
+              url: `file:///${encodeURI(normalizedP)}`
+            };
+          });
+        return { success: true, folder: targetFolder, files: mediaFiles };
+      }
+    }
+  } catch (err) {
+    console.error("Failed to scan local folder:", err);
+  }
+  return { success: false, files: [] };
+});

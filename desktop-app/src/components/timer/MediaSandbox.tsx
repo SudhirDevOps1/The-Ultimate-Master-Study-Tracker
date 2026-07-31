@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Play, Pause, Camera, AlertCircle, ExternalLink, Globe } from "lucide-react";
+import { Play, Pause, Camera, AlertCircle, ExternalLink, Globe, SkipBack, SkipForward, ListVideo, Folder } from "lucide-react";
 import html2canvas from "html2canvas";
 
 interface MediaSandboxProps {
@@ -7,6 +7,12 @@ interface MediaSandboxProps {
   activeSubjectName: string;
   color: string;
   onInteraction?: () => void;
+}
+
+interface LocalPlaylistItem {
+  name: string;
+  path: string;
+  url: string;
 }
 
 function formatLocalVideoUrl(inputUrl: string): string {
@@ -37,6 +43,11 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [resourceLoaded, setResourceLoaded] = useState(false);
 
+  // Local Playlist State
+  const [playlist, setPlaylist] = useState<LocalPlaylistItem[]>([]);
+  const [playlistIndex, setPlaylistIndex] = useState(0);
+  const [showPlaylistMenu, setShowPlaylistMenu] = useState(false);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const sandboxRef = useRef<HTMLDivElement>(null);
@@ -45,6 +56,8 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
   useEffect(() => {
     setResourceLoaded(false);
     setErrorMsg(null);
+    setPlaylist([]);
+    setPlaylistIndex(0);
   }, [url]);
 
   // Helper to open link in external/system browser
@@ -61,7 +74,7 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
     window.open(targetUrl, "_blank", "noopener,noreferrer");
   };
 
-  // Parse Media Type and resolve local files & streaming links
+  // Parse Media Type & Scan Local Folder Playlist
   useEffect(() => {
     if (!url) return;
     setErrorMsg(null);
@@ -82,14 +95,46 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
     const isVideoExt = ["mp4", "webm", "ogg", "mkv", "mov", "avi"].includes(ext || "");
     const isAudioExt = ["mp3", "wav", "ogg", "aac", "m4a", "flac"].includes(ext || "");
 
-    // Check if it's a local file path (Windows drive letters like D:\... or /... or file://...)
+    // Check if it's a local file/folder path (Windows drive letters like D:\... or /... or file://...)
     const isLocalPath = /^[a-zA-Z]:[\\/]/.test(cleanUrl) || cleanUrl.startsWith("/") || cleanUrl.startsWith("file://");
 
     if (isLocalPath) {
-      const formatted = formatLocalVideoUrl(cleanUrl);
-      setLocalSourceUrl(formatted);
-      setMediaType(isVideoExt ? "video" : isAudioExt ? "audio" : "video");
-      setResourceLoaded(true);
+      // Scan local directory for video playlist if inside Electron Desktop App
+      if (typeof window !== "undefined" && (window as any).electron?.ipcRenderer) {
+        void (window as any).electron.ipcRenderer.invoke("scan-local-folder", { folderPath: cleanUrl })
+          .then((res: { success: boolean; files: LocalPlaylistItem[] }) => {
+            if (res && res.success && res.files.length > 0) {
+              setPlaylist(res.files);
+              // Find index matching the specific file passed, or default to 0
+              const foundIdx = res.files.findIndex(f => f.path.toLowerCase() === cleanUrl.toLowerCase());
+              const startIdx = foundIdx !== -1 ? foundIdx : 0;
+              setPlaylistIndex(startIdx);
+              setLocalSourceUrl(res.files[startIdx].url);
+              
+              const currentExt = res.files[startIdx].name.split(".").pop()?.toLowerCase();
+              const isVid = ["mp4", "webm", "ogg", "mkv", "mov", "avi"].includes(currentExt || "");
+              setMediaType(isVid ? "video" : "audio");
+              setResourceLoaded(true);
+            } else {
+              // Single file fallback
+              const formatted = formatLocalVideoUrl(cleanUrl);
+              setLocalSourceUrl(formatted);
+              setMediaType(isVideoExt ? "video" : isAudioExt ? "audio" : "video");
+              setResourceLoaded(true);
+            }
+          })
+          .catch(() => {
+            const formatted = formatLocalVideoUrl(cleanUrl);
+            setLocalSourceUrl(formatted);
+            setMediaType(isVideoExt ? "video" : isAudioExt ? "audio" : "video");
+            setResourceLoaded(true);
+          });
+      } else {
+        const formatted = formatLocalVideoUrl(cleanUrl);
+        setLocalSourceUrl(formatted);
+        setMediaType(isVideoExt ? "video" : isAudioExt ? "audio" : "video");
+        setResourceLoaded(true);
+      }
     } else {
       if (isVideoExt) {
         setMediaType("video");
@@ -104,6 +149,34 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
       }
     }
   }, [url]);
+
+  // Playlist Navigation
+  const playPlaylistItem = (index: number) => {
+    if (index >= 0 && index < playlist.length) {
+      setPlaylistIndex(index);
+      setLocalSourceUrl(playlist[index].url);
+      const ext = playlist[index].name.split(".").pop()?.toLowerCase();
+      const isVid = ["mp4", "webm", "ogg", "mkv", "mov", "avi"].includes(ext || "");
+      setMediaType(isVid ? "video" : "audio");
+      setIsPlaying(true);
+      setTimeout(() => {
+        if (isVid && videoRef.current) void videoRef.current.play();
+        else if (audioRef.current) void audioRef.current.play();
+      }, 100);
+    }
+  };
+
+  const handleNextTrack = () => {
+    if (playlist.length > 0) {
+      playPlaylistItem((playlistIndex + 1) % playlist.length);
+    }
+  };
+
+  const handlePrevTrack = () => {
+    if (playlist.length > 0) {
+      playPlaylistItem((playlistIndex - 1 + playlist.length) % playlist.length);
+    }
+  };
 
   // Handle Play/Pause for local media
   const togglePlay = () => {
@@ -193,12 +266,24 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
       ref={sandboxRef}
       className="overflow-hidden rounded-2xl border border-white/5 bg-slate-950/70 p-4 shadow-xl"
     >
+      {/* Header */}
       <div className="flex items-center justify-between border-b border-white/5 pb-3 mb-4">
         <div className="flex items-center gap-2">
           <span className="flex h-2 w-2 rounded-full animate-pulse" style={{ backgroundColor: color }} />
           <h3 className="font-bold text-white text-sm">Study Media Sandbox — {activeSubjectName}</h3>
         </div>
         <div className="flex items-center gap-2">
+          {playlist.length > 1 && (
+            <button
+              onClick={() => setShowPlaylistMenu(!showPlaylistMenu)}
+              className="flex items-center gap-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2.5 py-1 text-xs font-bold transition-all hover:bg-indigo-500/30"
+              title="Course Playlist Menu"
+            >
+              <ListVideo className="h-3.5 w-3.5" />
+              <span>Playlist ({playlistIndex + 1}/{playlist.length})</span>
+            </button>
+          )}
+
           <button
             onClick={handleScreenshot}
             title="Take Study Screenshot"
@@ -209,6 +294,32 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
           </button>
         </div>
       </div>
+
+      {/* Course Playlist Menu Drawer */}
+      {showPlaylistMenu && playlist.length > 0 && (
+        <div className="mb-3 p-3 rounded-xl bg-slate-900 border border-indigo-500/30 max-h-48 overflow-y-auto space-y-1 shadow-2xl">
+          <div className="flex items-center justify-between pb-1 border-b border-white/5 mb-1">
+            <span className="text-xs font-bold text-indigo-300 flex items-center gap-1">
+              <Folder className="w-3.5 h-3.5" /> Course Folder Playlist ({playlist.length} files)
+            </span>
+            <button onClick={() => setShowPlaylistMenu(false)} className="text-xs text-slate-400">✕</button>
+          </div>
+          {playlist.map((item, idx) => (
+            <button
+              key={idx}
+              onClick={() => { playPlaylistItem(idx); setShowPlaylistMenu(false); }}
+              className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium truncate transition-colors flex items-center justify-between ${
+                idx === playlistIndex 
+                  ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold" 
+                  : "text-slate-300 hover:bg-white/5"
+              }`}
+            >
+              <span className="truncate">{idx + 1}. {item.name}</span>
+              {idx === playlistIndex && <span className="text-[10px] bg-indigo-500 text-white px-1.5 py-0.5 rounded ml-2">Playing</span>}
+            </button>
+          ))}
+        </div>
+      )}
 
       {errorMsg ? (
         <div className="flex flex-col items-center justify-center p-6 text-center text-slate-400 bg-slate-900/50 rounded-xl border border-rose-500/20">
@@ -264,10 +375,12 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
           {mediaType === "video" && localSourceUrl && (
             <video
               ref={videoRef}
+              key={localSourceUrl}
               src={localSourceUrl}
               className="h-full w-full object-contain"
               controls
               autoPlay
+              onEnded={handleNextTrack}
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
             />
@@ -277,10 +390,12 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
             <div className="flex flex-col items-center justify-center h-full p-4 bg-slate-900/80">
               <audio
                 ref={audioRef}
+                key={localSourceUrl}
                 src={localSourceUrl}
                 className="w-4/5"
                 controls
                 autoPlay
+                onEnded={handleNextTrack}
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}
               />
@@ -304,16 +419,42 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
         </div>
       )}
 
+      {/* Local Video/Audio Controls & Course Playlist Navigation */}
       {(mediaType === "video" || mediaType === "audio") && !errorMsg && (
-        <div className="flex items-center justify-center mt-3 gap-2">
-          <button
-            onClick={togglePlay}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-cyan-500 text-slate-950 hover:bg-cyan-600 transition-all active:scale-90"
-          >
-            {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current" />}
-          </button>
-          <span className="text-[10px] text-slate-500 uppercase tracking-wider">
-            {isPlaying ? "Focusing & Tracking study state" : "Player paused"}
+        <div className="flex items-center justify-between mt-3 gap-2 px-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            {playlist.length > 1 && (
+              <button
+                onClick={handlePrevTrack}
+                className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 transition-all active:scale-90"
+                title="Previous Video"
+              >
+                <SkipBack className="h-3.5 w-3.5" />
+              </button>
+            )}
+
+            <button
+              onClick={togglePlay}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-cyan-500 text-slate-950 hover:bg-cyan-600 transition-all active:scale-90"
+            >
+              {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current" />}
+            </button>
+
+            {playlist.length > 1 && (
+              <button
+                onClick={handleNextTrack}
+                className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 transition-all active:scale-90"
+                title="Next Video"
+              >
+                <SkipForward className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          <span className="text-[10px] text-slate-400 font-mono truncate max-w-[280px]">
+            {playlist.length > 1 
+              ? `Video ${playlistIndex + 1}/${playlist.length}: ${playlist[playlistIndex]?.name}` 
+              : (isPlaying ? "Focusing & Tracking study state" : "Player paused")}
           </span>
         </div>
       )}
