@@ -87,6 +87,31 @@ function shouldSkip(processName, windowTitle) {
   return false;
 }
 
+// ── App & Website Blocker Rules State ──────────────────────────────────────────
+let blockRulesData = { globalEnabled: true, rules: [] };
+function getBlockRulesFile() {
+  return path.join(app.getPath("userData"), "block-rules.json");
+}
+
+function loadBlockRules() {
+  try {
+    const file = getBlockRulesFile();
+    if (fs.existsSync(file)) {
+      blockRulesData = JSON.parse(fs.readFileSync(file, "utf8"));
+    }
+  } catch (e) {
+    console.error("[Blocker] Error reading block rules:", e);
+  }
+}
+
+function saveBlockRulesToFile() {
+  try {
+    fs.writeFileSync(getBlockRulesFile(), JSON.stringify(blockRulesData, null, 2), "utf8");
+  } catch (e) {
+    console.error("[Blocker] Error saving block rules:", e);
+  }
+}
+
 // ─── App Name Normalizer ───────────────────────────────────────────────────────
 // Turns raw exe names (msedge, chrome, code) into human-friendly display names.
 const FRIENDLY_NAMES = {
@@ -205,6 +230,44 @@ function startActivityTracker() {
 
     const { process: processName, title: windowTitle } = info;
     const now = Date.now();
+
+    // 🛡️ Real-Time Native App & Browser Tab Blocker Enforcement Hook
+    if (blockRulesData.globalEnabled && blockRulesData.rules && blockRulesData.rules.length > 0) {
+      const activeProc = (processName || "").toLowerCase();
+      const activeTitle = (windowTitle || "").toLowerCase();
+
+      for (const rule of blockRulesData.rules) {
+        if (!rule.blocked) continue;
+        const target = (rule.appName || "").toLowerCase().trim();
+        if (!target) continue;
+
+        const isMatch = activeProc.includes(target) || 
+                        activeProc.replace(/\.exe$/, "") === target ||
+                        activeTitle.includes(target);
+
+        if (isMatch && !isSelf(processName, windowTitle) && activeProc !== "explorer.exe") {
+          if (rule.strictLevel === "hard") {
+            // HARD: Terminate process immediately
+            exec(`taskkill /F /IM "${processName}"`, () => {});
+            if (mainWindow) {
+              mainWindow.webContents.send("toast-message", { message: `🛡️ Hard Blocked: Terminated ${normalizeAppName(processName)}!` });
+            }
+          } else if (rule.strictLevel === "medium") {
+            // MEDIUM: Minimize distracting active window
+            exec(`powershell -command "(new-object -com shell.application).minimizeall()"`, () => {});
+            if (mainWindow) {
+              mainWindow.webContents.send("toast-message", { message: `⚠️ Medium Blocked: Minimized ${normalizeAppName(processName)}!` });
+            }
+          } else {
+            // SOFT: Notification Toast
+            if (mainWindow) {
+              mainWindow.webContents.send("toast-message", { message: `🔔 Soft Warning: Distracting app ${normalizeAppName(processName)} detected!` });
+            }
+          }
+          break;
+        }
+      }
+    }
 
     // Skip self-app and truly invalid readings
     if (shouldSkip(processName, windowTitle)) {
@@ -500,6 +563,17 @@ app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(
 
 // ─── IPC Handlers ─────────────────────────────────────────────────────────────
 ipcMain.handle("get-idle-time-ms", async () => await getSystemIdleMs());
+
+ipcMain.handle("get-block-rules", async () => {
+  return blockRulesData;
+});
+
+ipcMain.handle("save-block-rules", async (_e, { rules, globalEnabled }) => {
+  if (Array.isArray(rules)) blockRulesData.rules = rules;
+  if (typeof globalEnabled === "boolean") blockRulesData.globalEnabled = globalEnabled;
+  saveBlockRulesToFile();
+  return { success: true, blockRulesData };
+});
 
 ipcMain.handle("get-active-window", async () => {
   const info = await getForegroundWindow();
