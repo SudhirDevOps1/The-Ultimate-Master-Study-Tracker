@@ -797,14 +797,14 @@ function WelcomeChangelogModal() {
 
   useEffect(() => {
     // Show only once per major release version update
-    const seenVersion = localStorage.getItem("flowtrack_changelog_v5.0.0");
+    const seenVersion = localStorage.getItem("flowtrack_changelog_v5.5.0");
     if (!seenVersion) {
       setIsOpen(true);
     }
   }, []);
 
   const handleClose = () => {
-    localStorage.setItem("flowtrack_changelog_v5.0.0", "true");
+    localStorage.setItem("flowtrack_changelog_v5.5.0", "true");
     setIsOpen(false);
   };
 
@@ -820,10 +820,10 @@ function WelcomeChangelogModal() {
           >
             <div className="space-y-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">
-                🚀 Shipped: v5.0.0
+                🚀 Shipped: v5.5.0
               </span>
               <h3 className="text-2xl font-black text-white">
-                What&apos;s New in FlowTrack Pro!
+                What&apos;s New in FlowTrack Pro v5.5.0!
               </h3>
               <p className="text-xs text-slate-400">
                 Explore the latest premium features and security updates added to your tracker.
@@ -835,37 +835,37 @@ function WelcomeChangelogModal() {
             <div className="space-y-3 max-h-60 overflow-y-auto pr-1 text-xs text-slate-300 pretty-scrollbar">
               <div className="space-y-1">
                 <p className="font-bold text-white flex items-center gap-1.5">
-                  📅 Exam Countdown Widget
+                  📝 Real Notepad & 1-Click Note PNG Exporter
                 </p>
                 <p className="text-slate-400 pl-5">
-                  Pin upcoming tests and exams to track days, hours, and minutes with custom urgency alerts.
+                  Full-screen lined Notepad mode (.TXT exporter) + single note card PNG image download and image attachments.
                 </p>
               </div>
 
               <div className="space-y-1">
                 <p className="font-bold text-white flex items-center gap-1.5">
-                  🔥 GitHub-style Subject Heatmap
+                  📄 Study Workspace (Dual-Mode PDF / OCR)
                 </p>
                 <p className="text-slate-400 pl-5">
-                  Visual daily consistency grids per subject. Watch your tracking blocks darken as you commit more study hours.
+                  Native PDF vector text layer reader + Canvas high-res OCR engine for scanned PDF textbooks.
                 </p>
               </div>
 
               <div className="space-y-1">
                 <p className="font-bold text-white flex items-center gap-1.5">
-                  ⚡ Anti-Lag Engine & Optimized DB
+                  🎧 Separated Focus Audio & Soundscape Engine
                 </p>
                 <p className="text-slate-400 pl-5">
-                  No more UI freezing. Writes to DB are throttled (10s debounce) and session calculations optimized to consume 80% less CPU.
+                  10Hz Alpha Binaural Beats and Ambience Soundscapes/Local Files play cleanly without background clashing.
                 </p>
               </div>
 
               <div className="space-y-1">
                 <p className="font-bold text-white flex items-center gap-1.5">
-                  🔒 Sandboxed YouTube & Web Framing
+                  ⚡ 0ms Anti-Lag Analytics & Re-ordered Menu
                 </p>
                 <p className="text-slate-400 pl-5">
-                  External study resources (Apna College, video tutorials, etc.) load securely without blank screens or privacy tracking leaks.
+                  Instant memoized analytics charts and top navigation organized by daily study priority.
                 </p>
               </div>
             </div>
