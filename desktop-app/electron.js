@@ -312,6 +312,7 @@ function createWindow() {
       webviewTag:           true,
       spellcheck:           false, // FIX Privacy: Disable OS spellcheck (text leaks to system)
       webSecurity:          false, // Allow local file:// pages to fetch external assets/images (favicons)
+      enableBlinkFeatures:  "DocumentPictureInPicture",
     },
   });
 

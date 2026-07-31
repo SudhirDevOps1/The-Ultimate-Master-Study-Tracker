@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState, type PointerEventHandler } from "
 import { formatSeconds } from "@/utils/time";
 import { useAppStore } from "@/store/useAppStore";
 
+const getIpc = () => (typeof window !== "undefined" ? (window as any).electron : null);
+
 interface FloatingTimerProps {
   subject: string;
   elapsed: number;
@@ -173,7 +175,6 @@ export function FloatingTimer({ subject, elapsed, remaining, progress, onHeartbe
     video.muted = true;
     video.autoplay = true;
     video.playsInline = true;
-    // ✅ BUG FIX: 30fps stream so PiP canvas updates are captured reliably
     const stream = canvas.captureStream(30);
     video.srcObject = stream;
     videoRef.current = video;
@@ -205,6 +206,11 @@ export function FloatingTimer({ subject, elapsed, remaining, progress, onHeartbe
   };
 
   const openPiP = async () => {
+    const ipc = getIpc();
+    if (ipc) {
+      void ipc.invoke("set-always-on-top", { alwaysOnTop: true });
+    }
+
     if (window.documentPictureInPicture) {
       try {
         const pipWindow = await window.documentPictureInPicture.requestWindow({ width: 360, height: 220 });
@@ -214,7 +220,6 @@ export function FloatingTimer({ subject, elapsed, remaining, progress, onHeartbe
         pipWindowRef.current = pipWindow;
         setMode("document");
 
-        // Track real interaction inside PiP window
         const handlePipInteraction = () => {
           useAppStore.getState().markTimerInteraction();
         };
@@ -222,18 +227,18 @@ export function FloatingTimer({ subject, elapsed, remaining, progress, onHeartbe
           pipWindow.addEventListener(event, handlePipInteraction, { passive: true });
         });
 
-        // ✅ BUG FIX: Heartbeat every 10s (was 30s).
-        // With 30s interval, strict-focus inactivity check could fire between beats
-        // and auto-pause the session even while PiP is open.
         const heartbeat = setInterval(() => {
           useAppStore.getState().markTimerInteraction();
-        }, 10000); // Every 10 seconds
+        }, 10000);
 
         pipWindow.addEventListener("pagehide", () => {
-          clearInterval(heartbeat); // Clean up heartbeat on window close
+          clearInterval(heartbeat);
           pipWindowRef.current = null;
           setMode("none");
           useAppStore.getState().setIsPipActive(false);
+          if (ipc) {
+            void ipc.invoke("set-always-on-top", { alwaysOnTop: false });
+          }
         });
 
         useAppStore.getState().setIsPipActive(true);
@@ -247,11 +252,16 @@ export function FloatingTimer({ subject, elapsed, remaining, progress, onHeartbe
   };
 
   const closeFloating = async () => {
+    const ipc = getIpc();
+    if (ipc) {
+      void ipc.invoke("set-always-on-top", { alwaysOnTop: false });
+    }
+
     if (document.pictureInPictureElement) {
       try {
         await document.exitPictureInPicture();
       } catch {
-        // Ignore close errors and continue closing fallback state.
+        // Ignore close errors
       }
     }
 
@@ -259,7 +269,6 @@ export function FloatingTimer({ subject, elapsed, remaining, progress, onHeartbe
       pipWindowRef.current.close();
     }
 
-    pipWindowRef.current = null;
     setMode("none");
     useAppStore.getState().setIsPipActive(false);
   };

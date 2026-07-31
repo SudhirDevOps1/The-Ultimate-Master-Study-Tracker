@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState, type PointerEventHandler } from "
 import { formatSeconds } from "@/utils/time";
 import { useAppStore } from "@/store/useAppStore";
 
+const getIpc = () => (typeof window !== "undefined" ? (window as any).electron : null);
+
 interface FloatingTimerProps {
   subject: string;
   elapsed: number;
@@ -205,6 +207,11 @@ export function FloatingTimer({ subject, elapsed, remaining, progress, onHeartbe
   };
 
   const openPiP = async () => {
+    const ipc = getIpc();
+    if (ipc) {
+      void ipc.invoke("set-always-on-top", { alwaysOnTop: true });
+    }
+
     if (window.documentPictureInPicture) {
       try {
         const pipWindow = await window.documentPictureInPicture.requestWindow({ width: 360, height: 220 });
@@ -234,6 +241,9 @@ export function FloatingTimer({ subject, elapsed, remaining, progress, onHeartbe
           pipWindowRef.current = null;
           setMode("none");
           useAppStore.getState().setIsPipActive(false);
+          if (ipc) {
+            void ipc.invoke("set-always-on-top", { alwaysOnTop: false });
+          }
         });
 
         useAppStore.getState().setIsPipActive(true);
@@ -247,6 +257,11 @@ export function FloatingTimer({ subject, elapsed, remaining, progress, onHeartbe
   };
 
   const closeFloating = async () => {
+    const ipc = getIpc();
+    if (ipc) {
+      void ipc.invoke("set-always-on-top", { alwaysOnTop: false });
+    }
+
     if (document.pictureInPictureElement) {
       try {
         await document.exitPictureInPicture();
