@@ -24,6 +24,7 @@ jobs:
       with:
         node-version: 20
         cache: 'npm'
+        cache-dependency-path: 'desktop-app/package-lock.json'
 
     - name: Install Desktop App Dependencies
       run: |
@@ -36,8 +37,7 @@ jobs:
         npx tsc --noEmit || true
 
   build-desktop-releases:
-    name: Build Desktop Apps (Windows, Linux, macOS)
-    needs: lint-and-check
+    name: Build Desktop Apps (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -52,7 +52,7 @@ jobs:
       with:
         node-version: 20
         cache: 'npm'
-        cache-dependency-path: 'desktop-app/package.json'
+        cache-dependency-path: 'desktop-app/package-lock.json'
 
     - name: Install Desktop Dependencies
       run: |

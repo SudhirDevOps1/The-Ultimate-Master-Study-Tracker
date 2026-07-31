@@ -16,7 +16,7 @@
   "build": {
     "appId": "com.flowtrack.studytracker",
     "productName": "FlowTrackPro",
-    "compression": "maximum",
+    "compression": "store",
     "win": {
       "verifyUpdateCodeSignature": false,
       "target": [
