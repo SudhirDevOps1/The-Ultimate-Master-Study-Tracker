@@ -270,14 +270,14 @@ export function AmbiencePlayer() {
             <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
           </button>
 
-          {/* Dropdown Menu (With max-height scrollable list!) */}
+          {/* Dropdown Menu (Opens downwards cleanly as a sleek popover) */}
           <AnimatePresence>
             {isOpen && (
               <motion.div
-                initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                initial={{ opacity: 0, y: -8, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                className="absolute left-0 bottom-full mb-2 z-50 w-64 rounded-2xl border border-white/10 bg-slate-900/95 p-2 shadow-2xl backdrop-blur-xl space-y-1 max-h-64 overflow-y-auto custom-scrollbar"
+                exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                className="absolute right-0 top-full mt-2 z-50 w-64 rounded-2xl border border-white/10 bg-slate-900/95 p-2 shadow-2xl backdrop-blur-xl space-y-1 max-h-64 overflow-y-auto custom-scrollbar"
               >
                 <p className="px-2.5 py-1 text-[10px] uppercase font-bold text-slate-400 tracking-wider">Select Ambience</p>
 
