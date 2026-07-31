@@ -509,6 +509,7 @@ export function AIAssistantPage() {
         ollama: "",
         local_rules: "",
         custom: "",
+        none: "",
         ...aiConfig.apiKeys
       };
       if (aiConfig.provider && aiConfig.apiKey) {

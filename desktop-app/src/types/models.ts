@@ -1,143 +1,182 @@
-export type SessionStatus = "planned" | "in_progress" | "paused" | "completed";
+// Shared Data Models across FlowTrack Pro Ecosystem
 
-export type RecurrenceType = "none" | "daily" | "weekly" | "monthly" | "custom";
+export type RecurrenceType = "none" | "daily" | "weekly" | "custom_days" | "monthly" | "custom";
 
 export interface RecurrenceConfig {
   type: RecurrenceType;
-  interval: number; // every N days/weeks/months
-  endDate?: string; // optional end date
-  daysOfWeek?: number[]; // for weekly: 0=Sun, 1=Mon, etc.
-  occurrences?: number; // max number of occurrences
+  customDays?: number[]; // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  daysOfWeek?: number[];
+  endDate?: string;      // YYYY-MM-DD string, optional cap
+  interval?: number;
+  occurrences?: number;
 }
 
 export interface Subject {
   id: string;
   name: string;
   color: string;
-  emoji?: string;
+  targetHours?: number;
   weeklyGoalMinutes?: number;
-  createdAt: string;
+  emoji?: string;
   url?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
+
+export type SessionStatus = "planned" | "in_progress" | "paused" | "completed" | "cancelled";
 
 export interface StudySession {
   id: string;
   subjectId: string;
-  startTime: string;
-  endTime: string;
+  startTime: string; // ISO String
+  endTime?: string;   // ISO String
   plannedMinutes: number;
   actualSeconds: number;
-  colorTag: string;
-  notes: string;
-  tags: string[];
+  notes?: string;
+  tags?: string[];
   status: SessionStatus;
-  createdAt: string;
-  updatedAt: string;
-  manualEntry: boolean;
-  // Recurrence fields
+  isOverdue?: boolean;
   recurrence?: RecurrenceConfig;
-  parentSessionId?: string; // if this is a recurring instance
-  seriesId?: string; // to group recurring sessions
+  streakContribution?: boolean;
+  colorTag?: string;
+  manualEntry?: boolean;
+  seriesId?: string;
+  parentSessionId?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-export interface TimerSnapshot {
-  activeSessionId: string | null;
-  startedAtMs: number | null;
-  accumulatedSeconds: number;
-  pausedAtMs: number | null;
-  isPaused: boolean;
-  hiddenAtMs: number | null;
-  lastInteractionAtMs: number | null;
+export interface Goal {
+  id: string;
+  title: string;
+  targetHours: number;
+  currentHours: number;
+  deadline: string;
+  completed: boolean;
 }
 
-export interface AppSettings {
-  key: string;
-  value: string;
+export interface ExamCountdown {
+  id: string;
+  subjectId: string;
+  title: string;
+  examDate: string; // ISO String
+  targetScore?: string;
+  notes?: string;
 }
 
-export type AnalyticsRange = "daily" | "weekly" | "monthly" | "yearly";
-
-export interface AnalyticsMetric {
-  label: string;
-  fullLabel?: string;
-  plannedHours: number;
-  actualHours: number;
-  completionPct: number;
-  focusRatio: number;
-  totalSessions: number;
+export interface Flashcard {
+  id: string;
+  subjectId: string;
+  question: string;
+  answer: string;
+  options?: string[]; // Multiple choice options
+  correctOptionIndex?: number;
+  difficulty?: "easy" | "medium" | "hard";
+  lastReviewed?: string;
+  nextReviewDate?: string;
+  easeFactor?: number;
+  intervalDays?: number;
+  repetitionCount?: number;
 }
 
-export type AchievementType =
-  | "first_session"
-  | "streak_7"
-  | "streak_30"
-  | "streak_100"
-  | "hours_10"
-  | "hours_50"
-  | "hours_100"
-  | "hours_500"
-  | "perfect_week"
-  | "night_owl"
-  | "early_bird"
-  | "weekend_warrior"
-  | "subject_master"
-  | "focused_2h"
-  | "focused_4h"
-  | "daily_goal_7"
-  | "daily_goal_30"
-  | "all_subjects"
-  | "strict_focus_5"
-  | "day_warrior"
-  | "subject_diversity"
-  | "unstoppable"
-  | "early_bird_champion";
-
-export interface Achievement {
-  id: AchievementType;
-  name: string;
-  description: string;
-  icon: string;
-  color: string;
-  unlockedAt: string | null;
-  progress: number;
-  maxProgress: number;
-}
-
-export type ThemeName = "ocean" | "forest" | "sunset" | "galaxy" | "cyber" | "default" | "neon" | "paper";
-
-export interface ThemeConfig {
-  name: ThemeName;
-  primaryColor: string;
-  secondaryColor: string;
-  accentColor: string;
-  gradientFrom: string;
-  gradientTo: string;
-  bgGradient: string;
+export interface Note {
+  id: string;
+  title: string;
+  content: string;
+  subjectId?: string;
+  updatedAt: string;
+  tags?: string[];
 }
 
 export interface UserProfile {
   name: string;
-  age: string;
-  profession: string;
-  goal: string;
+  email?: string;
+  avatarUrl?: string;
+  goal?: string;
+  age?: number | string;
+  profession?: string;
 }
 
-// ========== Custom AI Provider ==========
+export type ThemeName = "ocean" | "forest" | "sunset" | "galaxy" | "cyber" | "default" | "neon" | "paper" | string;
+
+export interface ThemeConfig {
+  mode?: "dark" | "light" | "custom";
+  accentColor?: string;
+  name?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  bgGradient?: string;
+  gradientFrom?: string;
+  gradientTo?: string;
+  borderGlow?: string;
+  textGradient?: string;
+  cardBg?: string;
+  hoverGlow?: string;
+  activeRing?: string;
+}
+
+export type TimerMode = "stopwatch" | "pomodoro" | "countdown";
+
+export interface PomodoroConfig {
+  workMinutes: number;
+  shortBreakMinutes: number;
+  longBreakMinutes: number;
+  longBreakInterval: number; // e.g. every 4 sessions
+}
+
+export interface TimerState {
+  mode: TimerMode;
+  activeSessionId: string | null;
+  elapsedSeconds: number;
+  isPaused: boolean;
+  isBreak: boolean;
+  pomodoroCount: number;
+  lastInteractionAtMs?: number;
+}
+
+export interface TimerSnapshot {
+  activeSessionId: string | null;
+  elapsedSeconds?: number;
+  isPaused: boolean;
+  startedAtMs?: number;
+  pausedAtMs?: number;
+  hiddenAtMs?: number;
+  lastInteractionAtMs?: number;
+  accumulatedSeconds?: number;
+}
+
+export interface Achievement {
+  id: string;
+  title?: string;
+  description: string;
+  icon: string;
+  unlockedAt: string | null;
+  name?: string;
+  color?: string;
+  progress?: number;
+  maxProgress?: number;
+}
+
+export type AchievementType = string;
+
+export type AIProvider = "gemini" | "ollama" | "custom" | "openai" | "groq" | "cerebras" | "mistral" | "grok" | "local_rules" | "none";
+
 export interface CustomAIProvider {
   id: string;
   name: string;
-  baseUrl: string;
-  model: string;
+  endpoint: string;
   apiKey: string;
-  isActive: boolean;
-  createdAt: string;
+  modelName: string;
 }
 
 export interface AiConfig {
-  provider: "gemini" | "cerebras" | "openai" | "mistral" | "grok" | "ollama" | "local_rules" | "groq" | "custom";
-  apiKey: string;
-  model: string;
-  ollamaUrl: string;
+  provider: AIProvider;
+  geminiApiKey?: string;
+  ollamaModel?: string;
+  ollamaUrl?: string;
+  apiKey?: string;
+  model?: string;
+  customProviderEndpoint?: string;
   apiKeys?: Record<string, string>;
   customProvider?: {
     name: string;
@@ -146,6 +185,32 @@ export interface AiConfig {
   };
   customProviders?: CustomAIProvider[];
   activeCustomProviderId?: string;
+}
+
+export interface AppSettings {
+  key?: string;
+  value?: any;
+  theme?: string;
+  dailyGoalHours?: number;
+  notificationsEnabled?: boolean;
+  soundEnabled?: boolean;
+  strictFocusMode?: boolean;
+}
+
+export type AnalyticsRange = "day" | "week" | "month" | "year" | "all" | "last7days" | "last30days" | "last90days" | "last6months" | "last12months" | "alltime" | "daily" | "weekly" | "monthly" | "yearly";
+
+export interface AnalyticsMetric {
+  id?: string;
+  name?: string;
+  value?: number;
+  unit?: string;
+  label?: string;
+  fullLabel?: string;
+  plannedHours?: number;
+  actualHours?: number;
+  completionPct?: number;
+  focusRatio?: number;
+  totalSessions?: number;
 }
 
 export type CloudSyncStatus = "idle" | "syncing" | "synced" | "error";

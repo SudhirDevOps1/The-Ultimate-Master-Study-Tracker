@@ -55,7 +55,7 @@ export function DuplicateSessionWarning({ warning, newSessionTime, onIgnore, onM
           {showDetails && warning.overlappingSessions.length > 0 && (
             <div className="mt-3 space-y-2 text-sm">
               {warning.overlappingSessions.map((session, idx) => {
-                const overlapMinutes = calculateOverlapMinutes(newSessionTime, session);
+                const overlapMinutes = calculateOverlapMinutes(newSessionTime, { startTime: session.startTime, endTime: session.endTime || session.startTime });
                 const subject = useAppStore.getState().subjects.find(s => s.id === session.subjectId);
                 
                 return (
@@ -63,7 +63,7 @@ export function DuplicateSessionWarning({ warning, newSessionTime, onIgnore, onM
                     <div className="flex justify-between items-start gap-2">
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{subject?.name || 'Unknown Subject'}</p>
-                        <p className="text-xs opacity-75">{getTimeRangeString(session.startTime, session.endTime)}</p>
+                        <p className="text-xs opacity-75">{getTimeRangeString(session.startTime, session.endTime || session.startTime)}</p>
                         {overlapMinutes > 0 && (
                           <p className="text-xs opacity-75">Overlap: {Math.round(overlapMinutes)} min</p>
                         )}

@@ -190,7 +190,7 @@ export function SettingsPage() {
   const handleSaveProfile = async () => {
     await setUserProfile({
       name: profileName.trim(),
-      age: profileAge.trim(),
+      age: String(profileAge).trim(),
       profession: profileProfession.trim(),
       goal: profileGoal.trim(),
     });
