@@ -32,44 +32,31 @@ function saveFlashcards(cards: Flashcard[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
 }
 
-// ─── Main Spaced Repetition Logic ─────────────────────────────────────────────
-// Simplified SuperMemo-2 / Anki spacing algorithm
+// ─── Main Spaced Repetition Logic (SuperMemo-2 / Anki SM-2 Algorithm) ─────────
+import { calculateSM2, type ReviewGrade } from "@/utils/spacedRepetition";
+
 function calculateNextReview(card: Flashcard, score: "again" | "hard" | "good" | "easy"): Flashcard {
-  let { intervalDays, easeFactor, reviewedCount } = card;
+  const gradeMap: Record<string, ReviewGrade> = {
+    again: 1,
+    hard: 2,
+    good: 3,
+    easy: 4,
+  };
+  const grade = gradeMap[score] || 3;
 
-  if (score === "again") {
-    intervalDays = 1;
-    reviewedCount = 0;
-    // Lower ease factor slightly for difficult cards
-    easeFactor = Math.max(1.3, easeFactor - 0.2);
-  } else {
-    reviewedCount += 1;
-    if (reviewedCount === 1) {
-      intervalDays = 1;
-    } else if (reviewedCount === 2) {
-      intervalDays = 4;
-    } else {
-      const multiplier = score === "hard" ? 1.2 : score === "good" ? 2.5 : 3.5;
-      intervalDays = Math.ceil(intervalDays * easeFactor * multiplier);
-    }
-
-    if (score === "easy") {
-      easeFactor += 0.15;
-    } else if (score === "hard") {
-      easeFactor = Math.max(1.3, easeFactor - 0.15);
-    }
-  }
-
-  // Calculate new due date
-  const due = new Date();
-  due.setDate(due.getDate() + intervalDays);
+  const sm2Result = calculateSM2(grade, {
+    repetition: card.reviewedCount || 0,
+    easeFactor: card.easeFactor || 2.5,
+    interval: card.intervalDays || 0,
+    nextReviewDate: card.dueDate ? card.dueDate.split("T")[0] : new Date().toISOString().split("T")[0],
+  });
 
   return {
     ...card,
-    intervalDays,
-    easeFactor,
-    reviewedCount,
-    dueDate: due.toISOString(),
+    intervalDays: sm2Result.interval,
+    easeFactor: sm2Result.easeFactor,
+    reviewedCount: sm2Result.repetition,
+    dueDate: new Date(sm2Result.nextReviewDate).toISOString(),
   };
 }
 

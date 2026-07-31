@@ -2,6 +2,7 @@ import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { cn } from "@/utils/cn";
 import { useAppStore, type AppState } from "@/store/useAppStore";
+import { FocusAudioMixer } from "@/components/timer/FocusAudioMixer";
 import { 
   Home, 
   ClipboardList, 
@@ -101,6 +102,7 @@ export function AppShell() {
               </p>
             </div>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <FocusAudioMixer />
               <a 
                 href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git" 
                 target="_blank" 

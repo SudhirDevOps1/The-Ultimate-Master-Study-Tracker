@@ -8,6 +8,7 @@ import { FloatingTimer } from "@/components/timer/FloatingTimer";
 import { TimerDisplay } from "@/components/timer/TimerDisplay";
 import { PomodoroTimer } from "@/components/timer/PomodoroTimer";
 import { AmbiencePlayer } from "@/components/timer/AmbiencePlayer";
+import { VirtualStudyCompanion } from "@/components/timer/VirtualStudyCompanion";
 import { MediaSandbox } from "@/components/timer/MediaSandbox";
 import { useTimer } from "@/hooks/useTimer";
 import { useInactivityDetector } from "@/hooks/useInactivityDetector";
@@ -117,6 +118,7 @@ export function TimerPage() {
       <div className="grid gap-5 xl:grid-cols-[1.15fr_0.95fr]">
         {/* Timer Section */}
         <Panel className="space-y-4">
+          <VirtualStudyCompanion />
           {activeSession ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}

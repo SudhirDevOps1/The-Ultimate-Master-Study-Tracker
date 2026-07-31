@@ -7,6 +7,7 @@ import { StudyReport } from "@/components/analytics/StudyReport";
 import { AppActivityList } from "@/components/analytics/AppActivityList";
 import { SubjectRanking } from "@/components/dashboard/SubjectRanking";
 import { DownloadModal } from "@/components/analytics/DownloadModal";
+import { StudyReportModal } from "@/components/analytics/StudyReportModal";
 import { useAppStore, type AppState } from "@/store/useAppStore";
 import type { StudySession, Subject } from "@/types/models";
 import { SubjectHeatmap } from "@/components/analytics/SubjectHeatmap";
@@ -30,6 +31,7 @@ export function AnalyticsPage() {
   const [range, setRange] = useState<ExtendedRange>("last30days");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
   const data = useMemo(() => getRangeMetrics(sessions, range), [range, sessions]);
   const streakData = useStreak();
@@ -94,14 +96,24 @@ export function AnalyticsPage() {
               Track your progress over time • View streaks • Compare periods
             </p>
           </div>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setIsDownloadModalOpen(true)}
-            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/30 hover:from-blue-500 hover:to-blue-400 transition-all"
-          >
-            <span>📥</span> Download Report
-          </motion.button>
+          <div className="flex flex-wrap items-center gap-2">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setIsPdfModalOpen(true)}
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 px-5 py-3 text-sm font-bold text-slate-950 shadow-lg shadow-cyan-500/20 hover:from-cyan-400 hover:to-teal-400 transition-all"
+            >
+              <span>📄</span> Executive PDF Report
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setIsDownloadModalOpen(true)}
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/30 hover:from-blue-500 hover:to-blue-400 transition-all"
+            >
+              <span>📥</span> Export CSV/JSON
+            </motion.button>
+          </div>
         </div>
 
         {/* Range Selector */}
@@ -502,6 +514,12 @@ export function AnalyticsPage() {
         onClose={() => setIsDownloadModalOpen(false)}
         sessions={sessions}
         subjects={subjects}
+      />
+
+      {/* PDF Executive Study Report Modal */}
+      <StudyReportModal
+        isOpen={isPdfModalOpen}
+        onClose={() => setIsPdfModalOpen(false)}
       />
     </div>
   );
