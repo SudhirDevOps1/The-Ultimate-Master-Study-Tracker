@@ -38,10 +38,43 @@
 }
 
 [data-theme="paper"] {
-  --theme-primary: #94a3b8;
-  --theme-secondary: #e2e8f0;
-  --theme-accent: #f8fafc;
+  --theme-primary: #0f172a;
+  --theme-secondary: #d97706;
+  --theme-accent: #334155;
   color-scheme: light;
+}
+
+[data-theme="paper"] body {
+  color: #0f172a !important;
+  background-color: #fcfbf7 !important;
+}
+
+[data-theme="paper"] .text-white {
+  color: #0f172a !important;
+}
+
+[data-theme="paper"] .text-slate-400,
+[data-theme="paper"] .text-slate-300 {
+  color: #334155 !important;
+}
+
+[data-theme="paper"] .bg-slate-900,
+[data-theme="paper"] .bg-slate-950,
+[data-theme="paper"] .glass {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(203, 213, 225, 0.8) !important;
+  color: #0f172a !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.06) !important;
+}
+
+[data-theme="paper"] .border-white\/10,
+[data-theme="paper"] .border-white\/5 {
+  border-color: rgba(203, 213, 225, 0.8) !important;
+}
+
+[data-theme="paper"] .grid-bg {
+  background-image: linear-gradient(to right, rgba(148, 163, 184, 0.12) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(148, 163, 184, 0.12) 1px, transparent 1px) !important;
 }
 
 * {
