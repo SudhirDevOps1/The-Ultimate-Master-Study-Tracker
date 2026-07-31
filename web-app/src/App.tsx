@@ -126,6 +126,7 @@ export function App() {
           <HashRouter>
             <AnimatedRoutes />
           </HashRouter>
+          <AppGuide />
           <VideoRestBreak />
         </ConfirmProvider>
       </ToastProvider>

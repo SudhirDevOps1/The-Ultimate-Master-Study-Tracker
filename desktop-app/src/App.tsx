@@ -67,15 +67,12 @@ export function App() {
           void state.pauseSession();
         }
       };
-      const ipc = (window as any).electron?.ipcRenderer;
-      if (typeof ipc?.on === "function") {
-        ipc.on("global-shortcut-toggle-timer", handleToggleTimer);
-        ipc.on("save-session-state-sync", handleQuitSync);
-        return () => {
-          ipc.off?.("global-shortcut-toggle-timer", handleToggleTimer);
-          ipc.off?.("save-session-state-sync", handleQuitSync);
-        };
-      }
+      (window as any).electron.ipcRenderer.on("global-shortcut-toggle-timer", handleToggleTimer);
+      (window as any).electron.ipcRenderer.on("save-session-state-sync", handleQuitSync);
+      return () => {
+        (window as any).electron.ipcRenderer.off("global-shortcut-toggle-timer", handleToggleTimer);
+        (window as any).electron.ipcRenderer.off("save-session-state-sync", handleQuitSync);
+      };
     }
   }, [initApp]);
 
@@ -128,9 +125,9 @@ export function App() {
         <ConfirmProvider>
           <HashRouter>
             <AnimatedRoutes />
-            <AppGuide />
-            <VideoRestBreak />
           </HashRouter>
+          <AppGuide />
+          <VideoRestBreak />
         </ConfirmProvider>
       </ToastProvider>
     </ErrorBoundary>
@@ -149,10 +146,10 @@ function AnimatedRoutes() {
             path="/dashboard"
             element={
               <motion.div
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.15, ease: "easeOut" }}
+                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
+                transition={{ duration: 0.3, ease: "circOut" }}
                 className="w-full"
               >
                 <DashboardPage />

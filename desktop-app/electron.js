@@ -238,24 +238,31 @@ function startActivityTracker() {
       const activeTitle = (windowTitle || "").toLowerCase();
 
       for (const rule of blockRulesData.rules) {
-        if (!rule.blocked) continue;
+        if (!rule.blocked && rule.blocked !== undefined) continue;
         const target = (rule.appName || "").toLowerCase().trim();
         if (!target) continue;
 
+        const cleanTarget = target.replace(/\.exe$/i, "");
+        const cleanActive = activeProc.replace(/\.exe$/i, "");
+
         const isMatch = activeProc.includes(target) || 
-                        activeProc.replace(/\.exe$/, "") === target ||
-                        activeTitle.includes(target);
+                        cleanActive === cleanTarget ||
+                        activeProc.includes(cleanTarget) ||
+                        activeTitle.includes(cleanTarget) ||
+                        target.includes(cleanActive);
 
         if (isMatch && !isSelf(processName, windowTitle) && activeProc !== "explorer.exe") {
           if (rule.strictLevel === "hard") {
             // HARD: Terminate process immediately
-            exec(`taskkill /F /IM "${processName}"`, () => {});
+            exec(`taskkill /F /IM "${processName}" /T`, () => {});
             if (mainWindow) {
               mainWindow.webContents.send("toast-message", { message: `🛡️ Hard Blocked: Terminated ${normalizeAppName(processName)}!` });
             }
           } else if (rule.strictLevel === "medium") {
             // MEDIUM: Minimize distracting active window
-            exec(`powershell -command "(new-object -com shell.application).minimizeall()"`, () => {});
+            exec(`powershell -command "(Get-Process -Name '${cleanActive}' -ErrorAction SilentlyContinue) | ForEach-Object { $_.CloseMainWindow() }"`, () => {
+              exec(`powershell -command "(new-object -com shell.application).minimizeall()"`, () => {});
+            });
             if (mainWindow) {
               mainWindow.webContents.send("toast-message", { message: `⚠️ Medium Blocked: Minimized ${normalizeAppName(processName)}!` });
             }
@@ -382,8 +389,22 @@ function createWindow() {
 
 
 
-  // Intercept new window creations and redirections to open external links in system default browser
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+  // Intercept new window creations (allow DocumentPictureInPicture windows)
+  mainWindow.webContents.setWindowOpenHandler(({ url, features }) => {
+    if (features && features.includes("DocumentPictureInPicture")) {
+      return {
+        action: "allow",
+        overrideBrowserWindowOptions: {
+          alwaysOnTop: true,
+          frame: false,
+          resizable: true,
+          webPreferences: {
+            preload: path.join(__dirname, "preload.js"),
+            contextIsolation: true,
+          }
+        }
+      };
+    }
     if (url.startsWith("http:") || url.startsWith("https:")) {
       shell.openExternal(url);
       return { action: "deny" };
