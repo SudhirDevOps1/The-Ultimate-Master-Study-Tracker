@@ -4,6 +4,7 @@ import { useEffect, useMemo } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { AppGuide } from "@/components/common/AppGuide";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
+import { ToastProvider, ConfirmProvider } from "@/components/common/Toast";
 import { useAppStore, type AppState } from "@/store/useAppStore";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { TimerPage } from "@/pages/TimerPage";
@@ -120,11 +121,14 @@ export function App() {
 
   return (
     <ErrorBoundary>
-      <HashRouter>
-        <AnimatedRoutes />
-        <AppGuide />
-        <VideoRestBreak />
-      </HashRouter>
+      <ToastProvider>
+        <ConfirmProvider>
+          <HashRouter>
+            <AnimatedRoutes />
+          </HashRouter>
+          <VideoRestBreak />
+        </ConfirmProvider>
+      </ToastProvider>
     </ErrorBoundary>
   );
 }
