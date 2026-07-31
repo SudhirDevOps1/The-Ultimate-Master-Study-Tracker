@@ -33,7 +33,7 @@ const getIpc = () => isElectron ? (window as any).electron.ipcRenderer : null;
 
 export function BackendActivityPanel() {
   const [rawLog, setRawLog] = useState<ActivityEntry[]>([]);
-  const [liveWin, setLiveWin] = useState<{ process: string; title: string } | null>(null);
+  const [liveWin, setLiveWin] = useState<{ process: string; title: string; appName?: string } | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -45,10 +45,14 @@ export function BackendActivityPanel() {
         const now = new Date();
         const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
         const logs = (await ipc.invoke("get-activity-log", { date: todayStr })) || [];
-        const win = await ipc.invoke("get-foreground-window");
+        let win = null;
+        try {
+          win = (await ipc.invoke("get-active-window")) || (await ipc.invoke("get-foreground-window"));
+        } catch { /* fallback */ }
+        
         if (isMounted) {
           setRawLog(logs);
-          setLiveWin(win);
+          if (win && !win.skip) setLiveWin(win);
         }
       } catch (err) {
         console.warn("[BackendActivityPanel] Error reading IPC logs", err);
@@ -69,11 +73,14 @@ export function BackendActivityPanel() {
   const processUsage = useMemo(() => {
     const map = new Map<string, { appName: string; durationSeconds: number; category: string }>();
     for (const entry of rawLog) {
-      const key = entry.appName.toLowerCase();
+      const appName = entry.appName || (entry as any).name || (entry as any).process || "Unknown";
+      if (!appName || appName === "Unknown") continue;
+      const key = appName.toLowerCase();
+      const secs = entry.durationSeconds || (entry as any).seconds || (entry as any).duration || 0;
       if (!map.has(key)) {
-        map.set(key, { appName: entry.appName, durationSeconds: 0, category: classifyApp(entry.appName) });
+        map.set(key, { appName: appName, durationSeconds: 0, category: classifyApp(appName) });
       }
-      map.get(key)!.durationSeconds += entry.durationSeconds;
+      map.get(key)!.durationSeconds += secs;
     }
 
     return [...map.values()]
@@ -90,12 +97,14 @@ export function BackendActivityPanel() {
   const tabUsage = useMemo(() => {
     const map = new Map<string, { title: string; durationSeconds: number; process: string; category: string }>();
     for (const entry of rawLog) {
-      if (!entry.title || entry.title === "Desktop / Idle") continue;
+      if (!entry.title || entry.title === "Desktop / Idle" || entry.title === "desktop is idle") continue;
       const key = entry.title.trim();
+      const appName = entry.appName || (entry as any).name || (entry as any).process || "Unknown";
+      const secs = entry.durationSeconds || (entry as any).seconds || (entry as any).duration || 0;
       if (!map.has(key)) {
-        map.set(key, { title: key, durationSeconds: 0, process: entry.appName, category: classifyApp(entry.appName) });
+        map.set(key, { title: key, durationSeconds: 0, process: appName, category: classifyApp(appName) });
       }
-      map.get(key)!.durationSeconds += entry.durationSeconds;
+      map.get(key)!.durationSeconds += secs;
     }
 
     return [...map.values()]
@@ -113,10 +122,12 @@ export function BackendActivityPanel() {
   const categoryData = useMemo(() => {
     let prod = 0, dist = 0, neut = 0;
     for (const entry of rawLog) {
-      const cat = classifyApp(entry.appName);
-      if (cat === "productive") prod += entry.durationSeconds;
-      else if (cat === "distracting") dist += entry.durationSeconds;
-      else neut += entry.durationSeconds;
+      const appName = entry.appName || (entry as any).name || (entry as any).process || "Unknown";
+      const secs = entry.durationSeconds || (entry as any).seconds || (entry as any).duration || 0;
+      const cat = classifyApp(appName);
+      if (cat === "productive") prod += secs;
+      else if (cat === "distracting") dist += secs;
+      else neut += secs;
     }
 
     return [
@@ -161,7 +172,11 @@ export function BackendActivityPanel() {
         <div className="space-y-2">
           <p className="text-[10px] uppercase tracking-wider text-slate-400">Current Active Window</p>
           <div className="rounded-xl border border-white/10 bg-slate-950/60 p-3">
-            <p className="text-xs font-bold text-white truncate">{liveWin ? `${liveWin.process} — ${liveWin.title}` : "Desktop / Idle"}</p>
+            <p className="text-xs font-bold text-white truncate">
+              {liveWin && (liveWin.appName || liveWin.process || liveWin.title)
+                ? `${liveWin.appName || liveWin.process} — ${liveWin.title || "Active"}`
+                : "Desktop / Idle"}
+            </p>
           </div>
         </div>
 

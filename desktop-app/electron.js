@@ -513,6 +513,19 @@ ipcMain.handle("get-active-window", async () => {
   };
 });
 
+ipcMain.handle("get-foreground-window", async () => {
+  const info = await getForegroundWindow();
+  if (!info) return { title: "", process: "", appName: "", isSelf: false, skip: true };
+  const skip = shouldSkip(info.process, info.title);
+  return {
+    title:    info.title   || "",
+    process:  info.process || "unknown",
+    appName:  skip ? "" : normalizeAppName(info.process),
+    isSelf:   isSelf(info.process, info.title),
+    skip,
+  };
+});
+
 ipcMain.handle("set-taskbar-progress", async (_e, { progress }) => {
   if (mainWindow) {
     try {
