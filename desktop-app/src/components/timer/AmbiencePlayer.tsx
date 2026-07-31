@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Volume2, VolumeX, CloudRain, TreePine, Coffee, Hash, ChevronDown, Play, Pause, FolderOpen, Link2, SkipForward, Plus, Trash2, Sparkles } from "lucide-react";
+import { Volume2, VolumeX, CloudRain, TreePine, Coffee, Hash, ChevronDown, Play, Pause, FolderOpen, Link2, SkipForward, Plus, Trash2, Settings, Maximize2, Minimize2 } from "lucide-react";
 import { motion, AnimatePresence, useDragControls } from "framer-motion";
 import { useAppStore, type AppState } from "@/store/useAppStore";
 import { db } from "@/lib/db";
@@ -55,9 +55,8 @@ export function AmbiencePlayer() {
   
   const [localUrl, setLocalUrl] = useState<string>("");
   const [localFileName, setLocalFileName] = useState<string>("");
-  const [isUrlInputOpen, setIsUrlInputOpen] = useState(false);
-  const [audioError, setAudioError] = useState<string | null>(null);
-  const dragControls = useDragControls();
+  const [showFloatingSettings, setShowFloatingSettings] = useState(false);
+  const [floatingWindowSize, setFloatingWindowSize] = useState<"normal" | "large">("normal");
 
   // Playlist state
   const [savedPlaylist, setSavedPlaylist] = useState<Array<{ id: string; name: string; url: string }>>([
@@ -112,10 +111,8 @@ export function AmbiencePlayer() {
         audioRef.current?.pause();
         audioEngine.stopAll();
         setIsSynthFallback(false);
-        setAudioError(null);
       } else {
         setIsSynthFallback(false);
-        setAudioError(null);
 
         const targetSrc = selectedTrack.id === "local" ? localUrl : (selectedTrack.id === "youtube" ? activeUrl : selectedTrack.url);
 
@@ -145,7 +142,6 @@ export function AmbiencePlayer() {
 
   const triggerOfflineSynth = (trackId: string = "rain") => {
     setIsSynthFallback(true);
-    setAudioError(null);
     audioEngine.toggleNoise(true, trackId);
   };
 
@@ -169,7 +165,6 @@ export function AmbiencePlayer() {
       setLocalFileName(file.name);
       setSelectedTrack(SOUNDS.find(s => s.id === "local")!);
       setFocusMusicEnabled(true);
-      setAudioError(null);
       setIsSynthFallback(false);
     }
   };
@@ -257,14 +252,14 @@ export function AmbiencePlayer() {
             <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
           </button>
 
-          {/* Dropdown Menu */}
+          {/* Dropdown Menu (With max-height scrollable list!) */}
           <AnimatePresence>
             {isOpen && (
               <motion.div
                 initial={{ opacity: 0, y: 8, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                className="absolute left-0 bottom-full mb-2 z-50 w-64 rounded-2xl border border-white/10 bg-slate-900/95 p-2 shadow-2xl backdrop-blur-xl space-y-1"
+                className="absolute left-0 bottom-full mb-2 z-50 w-64 rounded-2xl border border-white/10 bg-slate-900/95 p-2 shadow-2xl backdrop-blur-xl space-y-1 max-h-64 overflow-y-auto custom-scrollbar"
               >
                 <p className="px-2.5 py-1 text-[10px] uppercase font-bold text-slate-400 tracking-wider">Select Ambience</p>
 
@@ -278,7 +273,6 @@ export function AmbiencePlayer() {
                         fileInputRef.current?.click();
                       } else if (sound.id === "youtube") {
                         setSelectedTrack(sound);
-                        setIsUrlInputOpen(true);
                       } else {
                         setSelectedTrack(sound);
                         setFocusMusicEnabled(true);
@@ -287,7 +281,7 @@ export function AmbiencePlayer() {
                     }}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
                       selectedTrack.id === sound.id 
-                        ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30" 
+                        ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold" 
                         : "text-slate-300 hover:bg-white/5 hover:text-white"
                     }`}
                   >
@@ -322,7 +316,7 @@ export function AmbiencePlayer() {
         </div>
       </div>
 
-      {/* Floating YouTube Player Window */}
+      {/* Floating Large & Resizable YouTube Player Window */}
       <AnimatePresence>
         {isMusicEnabled && videoId && (
           <motion.div
@@ -331,37 +325,122 @@ export function AmbiencePlayer() {
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="fixed bottom-24 right-6 z-50 w-80 rounded-2xl border border-cyan-500/30 bg-slate-950/95 p-3 shadow-2xl backdrop-blur-xl space-y-2 pointer-events-auto cursor-grab active:cursor-grabbing"
+            className={`fixed bottom-24 right-6 z-50 rounded-2xl border border-cyan-500/30 bg-slate-950/95 p-3.5 shadow-2xl backdrop-blur-xl space-y-2.5 pointer-events-auto cursor-grab active:cursor-grabbing transition-all ${
+              floatingWindowSize === "large" ? "w-[560px]" : "w-[440px]"
+            }`}
           >
+            {/* Header Controls */}
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
-              <span className="text-xs font-bold text-cyan-300 truncate max-w-[200px]">
-                🎵 {savedPlaylist[currentPlaylistIndex]?.name || "YouTube Stream"}
-              </span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 truncate max-w-[240px]">
+                <span className="text-xs font-bold text-cyan-300 truncate">
+                  🎵 {savedPlaylist[currentPlaylistIndex]?.name || "YouTube Stream"}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setShowFloatingSettings(!showFloatingSettings)}
+                  className={`p-1.5 rounded-lg transition-colors ${showFloatingSettings ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' : 'hover:bg-white/10 text-slate-300'}`}
+                  title="Playlist & Stream Settings"
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFloatingWindowSize(s => s === "normal" ? "large" : "normal")}
+                  className="p-1.5 rounded-lg hover:bg-white/10 text-slate-300 transition-colors"
+                  title={floatingWindowSize === "normal" ? "Expand Window Size" : "Shrink Window Size"}
+                >
+                  {floatingWindowSize === "normal" ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
+                </button>
+
                 <button
                   type="button"
                   onClick={handleNextTrack}
-                  className="p-1 rounded-lg hover:bg-white/10 text-slate-300"
-                  title="Next Track"
+                  className="p-1.5 rounded-lg hover:bg-white/10 text-slate-300 transition-colors"
+                  title="Next Playlist Video"
                 >
                   <SkipForward className="w-3.5 h-3.5" />
                 </button>
+
                 <button
                   type="button"
                   onClick={() => setFocusMusicEnabled(false)}
-                  className="text-xs text-rose-400 font-bold hover:text-rose-300"
+                  className="px-2 py-1 rounded-lg text-xs bg-rose-500/20 text-rose-300 font-bold hover:bg-rose-500/30 border border-rose-500/30"
                 >
                   Close
                 </button>
               </div>
             </div>
 
-            <div className="aspect-video w-full rounded-xl overflow-hidden bg-black border border-white/10">
+            {/* Quick Playlist & Add Link Settings Panel (If Toggled On) */}
+            {showFloatingSettings && (
+              <div className="p-3 rounded-xl bg-slate-900 border border-cyan-500/20 space-y-2.5 max-h-48 overflow-y-auto custom-scrollbar">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-cyan-300">Playlist Stream Switcher</p>
+                <div className="space-y-1">
+                  {savedPlaylist.map((track, idx) => (
+                    <div
+                      key={track.id}
+                      onClick={() => setCurrentPlaylistIndex(idx)}
+                      className={`flex items-center justify-between p-2 rounded-lg text-xs cursor-pointer transition-colors ${
+                        idx === currentPlaylistIndex 
+                          ? "bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30" 
+                          : "text-slate-300 hover:bg-white/5"
+                      }`}
+                    >
+                      <span className="truncate max-w-[320px]">{track.name}</span>
+                      {savedPlaylist.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeletePlaylistTrack(track.id, e)}
+                          className="p-1 text-slate-500 hover:text-rose-400"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Add New Stream URL */}
+                <div className="pt-2 border-t border-white/5 space-y-1.5">
+                  <p className="text-[10px] font-bold text-slate-400">Add YouTube Video Stream</p>
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      placeholder="Title"
+                      value={newTrackName}
+                      onChange={(e) => setNewTrackName(e.target.value)}
+                      className="w-1/3 px-2 py-1 text-xs rounded-lg bg-slate-950 border border-white/10 text-white placeholder:text-slate-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder="https://youtube.com/watch?v=..."
+                      value={newTrackUrl}
+                      onChange={(e) => setNewTrackUrl(e.target.value)}
+                      className="flex-1 px-2 py-1 text-xs rounded-lg bg-slate-950 border border-white/10 text-white placeholder:text-slate-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddPlaylistTrack}
+                      className="px-2.5 py-1 text-xs font-bold rounded-lg bg-cyan-500 text-slate-950 hover:bg-cyan-400"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Video Iframe Container */}
+            <div className="aspect-video w-full rounded-xl overflow-hidden bg-black border border-white/10 shadow-inner">
               <iframe
                 src={`https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1`}
                 title="YouTube Audio Stream"
                 className="w-full h-full"
-                allow="autoplay"
+                allow="autoplay; fullscreen"
               />
             </div>
           </motion.div>
