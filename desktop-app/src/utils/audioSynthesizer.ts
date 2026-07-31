@@ -190,6 +190,9 @@ class AmbientAudioEngine {
     this.toggleBinaural(false);
     this.toggleNoise(false);
     this.toggleSpaceDrone(false);
+    if (this.ctx && this.ctx.state === "running") {
+      void this.ctx.suspend();
+    }
   }
 
   public getState() {

@@ -28,6 +28,14 @@ export function VirtualStudyCompanion({ compact = false }: VirtualStudyCompanion
   const [dialogText, setDialogText] = useState<string | null>(null);
   const [mood, setMood] = useState<"idle" | "studying" | "paused" | "celebrating">("idle");
 
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    const handleVisibility = () => setIsVisible(!document.hidden);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
+
   useEffect(() => {
     if (isRunning) {
       setMood("studying");
@@ -92,10 +100,10 @@ export function VirtualStudyCompanion({ compact = false }: VirtualStudyCompanion
             onClick={handleCompanionClick}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
-            animate={{
+            animate={isVisible ? {
               y: isRunning ? [0, -6, 0] : [0, -2, 0],
               scale: isRunning ? [1, 1.05, 1] : 1,
-            }}
+            } : { y: 0, scale: 1 }}
             transition={{ repeat: Infinity, duration: isRunning ? 1.5 : 3 }}
             className="relative cursor-pointer text-4xl p-3 rounded-2xl bg-slate-800/80 border border-slate-700/80 shadow-lg flex items-center justify-center select-none"
             title="Click to talk to Aura!"

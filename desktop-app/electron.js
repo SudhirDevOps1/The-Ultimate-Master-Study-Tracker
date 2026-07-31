@@ -308,7 +308,7 @@ function createWindow() {
       nodeIntegration:      false,
       contextIsolation:     true,
       preload:              path.join(__dirname, "preload.js"),
-      backgroundThrottling: false,
+      backgroundThrottling: true, // Thermal Optimization: Throttle CPU rendering when app is background/minimized to prevent heat
       webviewTag:           true,
       spellcheck:           false, // FIX Privacy: Disable OS spellcheck (text leaks to system)
       webSecurity:          false, // Allow local file:// pages to fetch external assets/images (favicons)
