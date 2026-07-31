@@ -2,7 +2,7 @@
 
 <img src="public/images/flowtrack-banner.png" alt="FlowTrack Pro Banner" width="100%" />
 
-# 🚀 FlowTrack Pro (v5.3.0)
+# 🚀 FlowTrack Pro (v5.4.0)
 
 ### The Ultimate Master Study & Productivity Ecosystem — 2026 Edition
 

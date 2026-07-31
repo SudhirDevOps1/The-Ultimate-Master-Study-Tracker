@@ -18,12 +18,14 @@ All notable changes, version updates, feature additions, architectural improveme
 
 ---
 
-## [v5.4.0] — 2026-07-30
+## [v5.4.0] — 2026-07-31
 
-### 🧠 Native AI Chat Viewports Scrolling Optimization
-- **Auto Scrolling Controls**: Enabled scrollbars and constraints on AI Assistant Chat wrapper container to allow scrolling.
-- **Maximum Build Compression**: Added `compression: maximum` and restricted build target to x64 only inside package config definitions to drastically reduce installer package bundle size.
-- **Vite Preloads Fixes**: Bypassed preload contexts isolation in development environments to solve system hot-reload white freeze screen bugs.
+### 🛠️ Production Blank Screen Fix & Electron IPC Bridge Overhaul
+- **Preload.js IPC Overhaul**: Complete rewrite of `preload.js` to safely expose `on`, `off`, `removeListener`, `send`, `invoke`, `shell.openExternal`, and `isElectron: true` flag. Fixes uncaught `TypeError: ipcRenderer.on is not a function` during React boot in packaged apps (`contextIsolation: true`).
+- **Complete Removal of PWA Service Worker in Desktop App**: Removed PWA Service Worker invocation from Electron desktop app (`main.tsx` & `sw-register.ts`). Prevents `file://` protocol security crashes and unhandled Promise rejections.
+- **IPC Whitelist Expansion**: Added missing channels (`set-taskbar-progress`, `toggle-always-on-top`, `set-open-at-login`, `send-windows-toast`) to the preload whitelist.
+- **Native AI Chat Viewport Scroll Fix**: Configured height limits (`max-h-[calc(75vh-180px)]`) on AI Assistant page so chat messages scroll smoothly without overflowing or freezing.
+- **Vite & Electron Parity**: Set `contextIsolation: true` and `base: "./"` consistently across dev and production builds for 100% environment parity.
 
 ---
 
