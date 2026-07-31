@@ -555,6 +555,10 @@ app.whenReady().then(() => {
         return new Response("Error: " + err.message, { status: 500 });
       }
     });
+  } catch (e) {
+    console.error("Protocol handle error:", e);
+  }
+
   // Fix YouTube Embed Error 153 in Electron Desktop App
   try {
     session.defaultSession.webRequest.onBeforeSendHeaders(
