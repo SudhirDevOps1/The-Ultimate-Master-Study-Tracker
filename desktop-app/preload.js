@@ -17,6 +17,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   "toggle-always-on-top",
   "set-open-at-login",
   "send-windows-toast",
+  "scan-local-folder",
 ];
 
 const ALLOWED_LISTEN_CHANNELS = [

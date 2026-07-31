@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Play, Pause, Camera, AlertCircle, ExternalLink, Globe, SkipBack, SkipForward, ListVideo, Folder } from "lucide-react";
+import { Play, Pause, Camera, AlertCircle, ExternalLink, Globe, SkipBack, SkipForward, ListVideo, Folder, Upload } from "lucide-react";
 import html2canvas from "html2canvas";
 
 interface MediaSandboxProps {
@@ -55,6 +55,7 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
   const [isPlaying, setIsPlaying] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [resourceLoaded, setResourceLoaded] = useState(false);
+  const [isWebBrowserLocalPrompt, setIsWebBrowserLocalPrompt] = useState(false);
 
   // Local Playlist State
   const [playlist, setPlaylist] = useState<LocalPlaylistItem[]>([]);
@@ -64,6 +65,7 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const sandboxRef = useRef<HTMLDivElement>(null);
+  const localFileInputRef = useRef<HTMLInputElement>(null);
 
   // Reset loaded state when URL changes
   useEffect(() => {
@@ -71,6 +73,7 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
     setErrorMsg(null);
     setPlaylist([]);
     setPlaylistIndex(0);
+    setIsWebBrowserLocalPrompt(false);
   }, [url]);
 
   // Helper to open link in external/system browser
@@ -92,6 +95,7 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
     if (!url) return;
     setErrorMsg(null);
     setLocalSourceUrl(null);
+    setIsWebBrowserLocalPrompt(false);
 
     const cleanUrl = url.trim().replace(/^["']|["']$/g, "");
 
@@ -105,18 +109,21 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
 
     // Determine extensions
     const ext = cleanUrl.split(".").pop()?.toLowerCase();
-    const isVideoExt = ["mp4", "webm", "ogg", "mkv", "mov", "avi"].includes(ext || "");
+    const isVideoExt = ["mp4", "webm", "ogg", "mkv", "mov", "avi", "wmv", "m4v"].includes(ext || "");
     const isAudioExt = ["mp3", "wav", "ogg", "aac", "m4a", "flac"].includes(ext || "");
 
     // Check if it's a local file/folder path (Windows drive letters like D:\... or /... or file://...)
     const isLocalPath = /^[a-zA-Z]:[\\/]/.test(cleanUrl) || cleanUrl.startsWith("/") || cleanUrl.startsWith("file://");
 
     if (isLocalPath) {
-      // Scan local directory for video playlist if inside Electron Desktop App
-      if (typeof window !== "undefined" && (window as any).electron?.ipcRenderer) {
+      const isElectronApp = typeof window !== "undefined" && (window as any).electron?.isElectron;
+
+      if (isElectronApp) {
+        // Desktop App Mode -> Use Electron IPC folder scan and local-media:// protocol
         void (window as any).electron.ipcRenderer.invoke("scan-local-folder", { folderPath: cleanUrl })
           .then((res: { success: boolean; files: LocalPlaylistItem[] }) => {
             if (res && res.success && res.files.length > 0) {
+              setPlaylist(res.files);
               const normClean = cleanUrl.replace(/\\/g, "/").toLowerCase();
               const foundIdx = res.files.findIndex(f => f.path.replace(/\\/g, "/").toLowerCase() === normClean);
               const startIdx = foundIdx !== -1 ? foundIdx : 0;
@@ -124,28 +131,28 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
               setLocalSourceUrl(res.files[startIdx].url);
               
               const currentExt = res.files[startIdx].name.split(".").pop()?.toLowerCase();
-              const isVid = ["mp4", "webm", "ogg", "mkv", "mov", "avi"].includes(currentExt || "");
+              const isVid = ["mp4", "webm", "ogg", "mkv", "mov", "avi", "wmv", "m4v"].includes(currentExt || "");
               setMediaType(isVid ? "video" : "audio");
               setResourceLoaded(true);
             } else {
-              // Single file fallback
               const formatted = formatLocalVideoUrl(cleanUrl);
               setLocalSourceUrl(formatted);
               setMediaType(isVideoExt ? "video" : isAudioExt ? "audio" : "video");
               setResourceLoaded(true);
             }
           })
-          .catch(() => {
+          .catch((err: any) => {
+            console.error("IPC scan failed:", err);
             const formatted = formatLocalVideoUrl(cleanUrl);
             setLocalSourceUrl(formatted);
             setMediaType(isVideoExt ? "video" : isAudioExt ? "audio" : "video");
             setResourceLoaded(true);
           });
       } else {
-        const formatted = formatLocalVideoUrl(cleanUrl);
-        setLocalSourceUrl(formatted);
+        // Web Browser Mode -> Browsers block direct file:// paths due to security policies.
+        // Prompt user to pick/drag the local video file for instant blob playback!
+        setIsWebBrowserLocalPrompt(true);
         setMediaType(isVideoExt ? "video" : isAudioExt ? "audio" : "video");
-        setResourceLoaded(true);
       }
     } else {
       if (isVideoExt) {
@@ -162,13 +169,28 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
     }
   }, [url]);
 
+  // Web Browser Local File Selection Handler
+  const handleWebLocalFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const blobUrl = URL.createObjectURL(file);
+      setLocalSourceUrl(blobUrl);
+      setIsWebBrowserLocalPrompt(false);
+      setResourceLoaded(true);
+      setIsPlaying(true);
+      const ext = file.name.split(".").pop()?.toLowerCase();
+      const isVid = ["mp4", "webm", "ogg", "mkv", "mov", "avi", "wmv", "m4v"].includes(ext || "");
+      setMediaType(isVid ? "video" : "audio");
+    }
+  };
+
   // Playlist Navigation
   const playPlaylistItem = (index: number) => {
     if (index >= 0 && index < playlist.length) {
       setPlaylistIndex(index);
       setLocalSourceUrl(playlist[index].url);
       const ext = playlist[index].name.split(".").pop()?.toLowerCase();
-      const isVid = ["mp4", "webm", "ogg", "mkv", "mov", "avi"].includes(ext || "");
+      const isVid = ["mp4", "webm", "ogg", "mkv", "mov", "avi", "wmv", "m4v"].includes(ext || "");
       setMediaType(isVid ? "video" : "audio");
       setIsPlaying(true);
       setTimeout(() => {
@@ -278,6 +300,15 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
       ref={sandboxRef}
       className="overflow-hidden rounded-2xl border border-white/5 bg-slate-950/70 p-4 shadow-xl"
     >
+      {/* Hidden local file input for Web Browser Mode */}
+      <input
+        ref={localFileInputRef}
+        type="file"
+        accept="video/*,audio/*"
+        className="hidden"
+        onChange={handleWebLocalFileSelect}
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/5 pb-3 mb-4">
         <div className="flex items-center gap-2">
@@ -341,6 +372,29 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
         </div>
       ) : (
         <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-slate-900 shadow-inner">
+
+          {/* Web Browser Mode Local File Picker Prompt */}
+          {isWebBrowserLocalPrompt && !resourceLoaded && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-slate-900/95 z-10 text-center space-y-3">
+              <div className="h-14 w-14 rounded-2xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center border border-cyan-500/30">
+                <Upload className="w-7 h-7" />
+              </div>
+              <div>
+                <p className="text-white font-bold text-sm">Local Video Path Detected</p>
+                <p className="text-slate-400 text-xs mt-0.5 truncate max-w-md">{url}</p>
+              </div>
+              <p className="text-slate-400 text-xs max-w-xs leading-relaxed">
+                Web browsers block direct disk access due to security policies. Click below to select the file from your PC for instant playback!
+              </p>
+              <button
+                onClick={() => localFileInputRef.current?.click()}
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 px-6 py-2.5 text-xs font-bold text-white shadow-lg shadow-cyan-500/30 hover:opacity-95 transition-all active:scale-95"
+              >
+                <Upload className="w-4 h-4" /> Pick Video File From PC
+              </button>
+            </div>
+          )}
+
           {(mediaType === "youtube" || mediaType === "web") && !resourceLoaded && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-slate-900/95 z-10">
               <div className="h-16 w-16 flex items-center justify-center rounded-2xl bg-white/5 text-4xl">
