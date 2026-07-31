@@ -16,9 +16,6 @@
   "build": {
     "appId": "com.flowtrack.studytracker",
     "productName": "FlowTrackPro",
-    "electronDownload": {
-      "mirror": "https://npmmirror.com/mirrors/electron/"
-    },
     "compression": "maximum",
     "win": {
       "target": [

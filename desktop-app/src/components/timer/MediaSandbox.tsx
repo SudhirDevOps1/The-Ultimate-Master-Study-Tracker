@@ -66,31 +66,14 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
     const isLocalPath = /^[a-zA-Z]:[\\/]/.test(url) || url.startsWith("/") || url.startsWith("file://");
 
     if (isLocalPath) {
-      if (typeof window !== "undefined" && "require" in window) {
-        try {
-          const fs = (window as any).require("fs");
-          const cleanedPath = url.replace(/^file:\/\/\/?/, "");
-          if (fs.existsSync(cleanedPath)) {
-            const fileData = fs.readFileSync(cleanedPath);
-            const mimeType = isVideoExt ? `video/${ext}` : isAudioExt ? `audio/${ext}` : "video/mp4";
-            const blob = new Blob([fileData], { type: mimeType });
-            const localBlobUrl = URL.createObjectURL(blob);
-            setLocalSourceUrl(localBlobUrl);
-            setMediaType(isVideoExt ? "video" : isAudioExt ? "audio" : "video");
-            // Local files auto-load (no external network involved)
-            setResourceLoaded(true);
-          } else {
-            setErrorMsg("Local file path not found. Please double check the directory/file name.");
-            setMediaType("unknown");
-          }
-        } catch (err: any) {
-          setErrorMsg(`Failed to load local file: ${err.message}`);
-          setMediaType("unknown");
-        }
-      } else {
-        setErrorMsg("Local file access is only supported inside the Desktop App environment.");
-        setMediaType("unknown");
+      // Clean up Windows drive path or file:// URL
+      let formattedUrl = url;
+      if (!url.startsWith("file://")) {
+        formattedUrl = `file:///${url.replace(/\\/g, "/")}`;
       }
+      setLocalSourceUrl(formattedUrl);
+      setMediaType(isVideoExt ? "video" : isAudioExt ? "audio" : "video");
+      setResourceLoaded(true);
     } else {
       if (isVideoExt) {
         setMediaType("video");

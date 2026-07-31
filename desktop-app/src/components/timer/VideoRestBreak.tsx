@@ -78,11 +78,16 @@ export function VideoRestBreak() {
           clearInterval(interval);
           setShowOverlay(false);
           // Show focus notification when done
-          if ("Notification" in window && Notification.permission === "granted") {
-            new Notification("Time to focus! 🎯", {
-              body: "Your rest break is complete. Let's resume studying!",
-              tag: "rest-break-end"
-            });
+          const title = "🎯 Time to focus!";
+          const body = "Your rest break is complete. Let's resume studying!";
+          if (typeof window !== "undefined" && (window as any).electron?.ipcRenderer) {
+            try {
+              void (window as any).electron.ipcRenderer.invoke("send-windows-toast", { title, message: body });
+            } catch { /* ignore */ }
+          } else if ("Notification" in window && Notification.permission === "granted") {
+            try {
+              new Notification(title, { body, tag: "rest-break-end" });
+            } catch { /* ignore */ }
           }
           return 0;
         }

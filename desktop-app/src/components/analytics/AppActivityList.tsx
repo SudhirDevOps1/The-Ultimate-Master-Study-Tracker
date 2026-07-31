@@ -21,20 +21,27 @@ export function AppActivityList() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState<"all" | "study" | "browser" | "entertainment" | "social" | "system">("all");
 
-  const fetchLogs = async () => {
-    const ipc = getIpc();
-    if (!ipc) return;
-    try {
-      const today = new Date().toISOString().split("T")[0];
-      const logs: ActivityEntry[] = await ipc.invoke("get-activity-log", { date: today });
-      setActivities(logs);
-    } catch { /* ignore */ }
-  };
-
   useEffect(() => {
+    let isMounted = true;
+
+    const fetchLogs = async () => {
+      const ipc = getIpc();
+      if (!ipc) return;
+      try {
+        const today = new Date().toISOString().split("T")[0];
+        const logs: ActivityEntry[] = await ipc.invoke("get-activity-log", { date: today });
+        if (isMounted) {
+          setActivities(logs);
+        }
+      } catch { /* ignore */ }
+    };
+
     void fetchLogs();
     const id = setInterval(() => void fetchLogs(), 5000);
-    return () => clearInterval(id);
+    return () => {
+      isMounted = false;
+      clearInterval(id);
+    };
   }, []);
 
   // Aggregated process statistics

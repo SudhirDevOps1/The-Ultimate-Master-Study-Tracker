@@ -15,6 +15,8 @@ import { GamifiedFocusQuest } from "@/components/goals/GamifiedFocusQuest";
 import { WeeklyReviewModal } from "@/components/dashboard/WeeklyReviewModal";
 import { useConfirm, useToast } from "@/components/common/Toast";
 import { PerformanceScorecardModal } from "@/components/dashboard/PerformanceScorecardModal";
+import { FocusScorecardModal } from "@/components/dashboard/FocusScorecardModal";
+import { ReflectionJournalModal } from "@/components/dashboard/ReflectionJournalModal";
 
 // Progress Ring Component
 function ProgressRing({ progress, size = 180, strokeWidth = 12, color = "cyan", children }: { progress: number; size?: number; strokeWidth?: number; color?: string; children?: React.ReactNode }) {
@@ -94,6 +96,8 @@ export function DashboardPage() {
 
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>("all");
   const [liveClock, setLiveClock] = useState(() => new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }));
+  const [isFocusScoreModalOpen, setIsFocusScoreModalOpen] = useState(false);
+  const [isJournalModalOpen, setIsJournalModalOpen] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -304,7 +308,7 @@ export function DashboardPage() {
           <select
             value={selectedSubjectId}
             onChange={(e) => setSelectedSubjectId(e.target.value)}
-            className="rounded-xl border border-white/15 bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400 focus:outline-none"
+            className="rounded-xl border border-white/15 bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400 focus:outline-none cursor-pointer"
           >
             <option value="all">📁 All Subjects Combined</option>
             {subjects.map((sub) => (
@@ -313,6 +317,24 @@ export function DashboardPage() {
               </option>
             ))}
           </select>
+
+          <button
+            onClick={() => setIsFocusScoreModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-xs font-bold text-cyan-300 transition-all active:scale-95 shadow-sm"
+            title="View Real-time AI Focus Scorecard (Rize.io equivalent - FREE)"
+          >
+            <span>🎯</span>
+            <span>AI Focus Score</span>
+          </button>
+
+          <button
+            onClick={() => setIsJournalModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-teal-500/15 hover:bg-teal-500/25 border border-teal-500/30 text-xs font-bold text-teal-300 transition-all active:scale-95 shadow-sm"
+            title="Write Daily Reflection Journal (Reflectly equivalent - FREE)"
+          >
+            <span>📖</span>
+            <span>Daily Journal</span>
+          </button>
         </div>
 
         {activeWindow && activeWindow !== "win32gui not installed" && (
@@ -801,6 +823,18 @@ export function DashboardPage() {
         <WeeklyReviewModal />
         <PerformanceScorecardModal />
       </div>
+
+      {/* Focus Scorecard Modal (Rize.io equivalent - FREE) */}
+      <FocusScorecardModal
+        isOpen={isFocusScoreModalOpen}
+        onClose={() => setIsFocusScoreModalOpen(false)}
+      />
+
+      {/* Reflection Journal Modal (Reflectly equivalent - FREE) */}
+      <ReflectionJournalModal
+        isOpen={isJournalModalOpen}
+        onClose={() => setIsJournalModalOpen(false)}
+      />
     </div>
   );
 }

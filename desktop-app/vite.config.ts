@@ -21,11 +21,20 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 5000,
+    minify: "esbuild",
+    cssMinify: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          "react-core": ["react", "react-dom", "react-router-dom"],
-          "excalidraw": ["@excalidraw/excalidraw"],
+        manualChunks(id) {
+          if (id.includes("node_modules/react/") || id.includes("node_modules/react-dom/") || id.includes("node_modules/react-router-dom/")) {
+            return "react-core";
+          }
+          if (id.includes("node_modules/@excalidraw/excalidraw")) {
+            return "excalidraw-core";
+          }
+          if (id.includes("node_modules/recharts") || id.includes("node_modules/d3-")) {
+            return "charts-vendor";
+          }
         },
       },
     },

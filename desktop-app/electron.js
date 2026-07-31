@@ -540,8 +540,17 @@ ipcMain.handle("set-open-at-login", async (_e, { openAtLogin }) => {
 });
 
 ipcMain.handle("send-windows-toast", async (_e, { title, message }) => {
-  if (process.platform === "win32" && tray) {
-    try {
+  try {
+    const { Notification: ElectronNotification } = require("electron");
+    if (ElectronNotification.isSupported()) {
+      const toast = new ElectronNotification({
+        title: title || "FlowTrack Pro Alert",
+        body: message || "Focus session update",
+        silent: false,
+      });
+      toast.show();
+      return { success: true };
+    } else if (process.platform === "win32" && tray) {
       tray.displayBalloon({
         iconType: "info",
         title: title || "FlowTrack Pro Alert",
@@ -549,9 +558,9 @@ ipcMain.handle("send-windows-toast", async (_e, { title, message }) => {
         noSound: false,
       });
       return { success: true };
-    } catch (err) {
-      return { success: false, error: err.message };
     }
+  } catch (err) {
+    return { success: false, error: err.message };
   }
   return { success: false };
 });

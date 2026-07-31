@@ -18,8 +18,11 @@ function playCompletionSound() {
 
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 0.4);
+    setTimeout(() => {
+      void ctx.close();
+    }, 500);
   } catch (e) {
-    console.error("Audio beep failed", e);
+    /* ignore audio error */
   }
 }
 

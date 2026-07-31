@@ -101,12 +101,26 @@ export function useInactivityDetector() {
 
           void state.pauseSession();
 
-          if (notificationsEnabled && typeof Notification !== "undefined" && Notification.permission === "granted") {
-            new Notification("FlowTrack – Session Auto-Paused", {
-              body: `No activity detected for ${mins} minutes.\nSession paused — move mouse or type to resume.`,
-              icon: "/icon-192.png",
-              tag:  "flowtrack-autopause",
-            });
+          if (notificationsEnabled) {
+            const title = "⏸️ FlowTrack – Session Auto-Paused";
+            const body = `No activity detected for ${mins} minutes.\nSession paused — move mouse or type to resume.`;
+            if (typeof window !== "undefined" && (window as any).electron?.ipcRenderer) {
+              try {
+                void (window as any).electron.ipcRenderer.invoke("send-windows-toast", { title, message: body });
+              } catch {
+                /* fallback */
+              }
+            } else if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+              try {
+                new Notification(title, {
+                  body,
+                  icon: "/icon-192.png",
+                  tag: "flowtrack-autopause",
+                });
+              } catch {
+                /* ignore */
+              }
+            }
           }
         }
       } else {

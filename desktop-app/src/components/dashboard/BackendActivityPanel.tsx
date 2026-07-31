@@ -35,31 +35,33 @@ export function BackendActivityPanel() {
   const [rawLog, setRawLog] = useState<ActivityEntry[]>([]);
   const [liveWin, setLiveWin] = useState<{ process: string; title: string } | null>(null);
 
-  const fetchLogs = async () => {
-    const ipc = getIpc();
-    if (!ipc) return;
-    try {
-      const today = new Date().toISOString().split("T")[0];
-      const entries: ActivityEntry[] = await ipc.invoke("get-activity-log", { date: today });
-      setRawLog(entries);
-
-      const win = await ipc.invoke("get-active-window");
-      if (win && !win.isSelf && win.process && win.process !== "unknown") {
-        setLiveWin({ process: win.process, title: win.title });
-      } else {
-        setLiveWin(null);
-      }
-    } catch (err) {
-      console.warn("[BackendActivityPanel] Error reading IPC logs", err);
-    }
-  };
-
   useEffect(() => {
+    let isMounted = true;
+
+    const fetchLogs = async () => {
+      const ipc = getIpc();
+      if (!ipc) return;
+      try {
+        const todayStr = new Date().toISOString().split("T")[0];
+        const logs = (await ipc.invoke("get-activity-log", { date: todayStr })) || [];
+        const win = await ipc.invoke("get-foreground-window");
+        if (isMounted) {
+          setRawLog(logs);
+          setLiveWin(win);
+        }
+      } catch (err) {
+        console.warn("[BackendActivityPanel] Error reading IPC logs", err);
+      }
+    };
+
     void fetchLogs();
     const interval = setInterval(() => {
       void fetchLogs();
     }, 5000);
-    return () => clearInterval(interval);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   // Aggregate top processes
