@@ -326,10 +326,12 @@ export function AmbiencePlayer() {
       <AnimatePresence>
         {isMusicEnabled && videoId && (
           <motion.div
+            drag
+            dragMomentum={false}
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="fixed bottom-24 right-6 z-50 w-80 rounded-2xl border border-cyan-500/30 bg-slate-950/95 p-3 shadow-2xl backdrop-blur-xl space-y-2 pointer-events-auto"
+            className="fixed bottom-24 right-6 z-50 w-80 rounded-2xl border border-cyan-500/30 bg-slate-950/95 p-3 shadow-2xl backdrop-blur-xl space-y-2 pointer-events-auto cursor-grab active:cursor-grabbing"
           >
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
               <span className="text-xs font-bold text-cyan-300 truncate max-w-[200px]">
