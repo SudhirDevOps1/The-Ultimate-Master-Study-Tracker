@@ -136,10 +136,10 @@ npm run electron:build
 
 ## 📜 Acknowledgments & Credits
 
-FlowTrack Pro is built upon React, Electron, Vite, Tailwind CSS, Dexie.js, Tesseract.js, Recharts, and styled in alignment with **Framework7 v9.1.1 (Stable July 2026)** specs. Special credit to **Sudhir Singh** for leading the v5.1.0 release features (Hybrid iOS/Material theme, Live Screen trackers, OCR decks generators, and reschedule planners).
+FlowTrack Pro is built upon React, Electron, Vite, Tailwind CSS, Dexie.js, Tesseract.js, Recharts, and styled in alignment with **Framework7 v9.1.1 (Stable July 2026)** specs. Special credit to **Sudhir Singh** for leading the v5.4.0 release features (Framework7 v9.1.1 styling, Live Screen trackers, Excalidraw whiteboards, AI Assistant chat optimizations, IPC Security Bridge overhaul, and Standalone Windows Desktop app).
 
 <div align="center">
 
-**Engineered by Sudhir Singh (@SudhirDevOps1)** · FlowTrack Pro v5.1.0 · MIT License
+**Engineered by Sudhir Singh (@SudhirDevOps1)** · FlowTrack Pro v5.4.0 · MIT License
 
 </div>
