@@ -126,10 +126,16 @@ export function useTimer() {
 
   // ─── Visibility & focus events ───────────────────────────────────────────
   useEffect(() => {
+    let lastInteractionTime = 0;
     const onVisibleInteraction = () => {
       if (document.hidden) return;
-      void markTimerInteraction(Date.now());
-      setNowMs(Date.now());
+      const now = Date.now();
+      // Throttle updates to at most once per 10 seconds to prevent rendering storms
+      if (now - lastInteractionTime >= 10000) {
+        lastInteractionTime = now;
+        void markTimerInteraction(now);
+        setNowMs(now);
+      }
     };
 
     const updateVisibility = () => {

@@ -178,6 +178,20 @@ export function SettingsPage() {
   const [manualNotes, setManualNotes] = useState("Manual time entry");
   const [manualTags, setManualTags] = useState("manual");
   const [statusMessage, setStatusMessage] = useState("");
+  const [dataPaths, setDataPaths] = useState<{ userData: string; activityLog: string } | null>(null);
+
+  useEffect(() => {
+    const fetchPaths = async () => {
+      if (typeof window !== "undefined" && (window as any).electron) {
+        try {
+          const paths = await (window as any).electron.ipcRenderer?.invoke("get-data-directory-path");
+          if (paths) setDataPaths(paths);
+        } catch { /* ignore */ }
+      }
+    };
+    void fetchPaths();
+  }, []);
+
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -758,10 +772,34 @@ export function SettingsPage() {
               <p className="text-xs text-slate-400">Subjects</p>
             </div>
             <div className="rounded-xl bg-white/5 px-4 py-2 text-center">
-              <p className="text-lg font-bold text-purple-400">v5.0.0</p>
+              <p className="text-lg font-bold text-purple-400">v5.5.0</p>
               <p className="text-xs text-slate-400">Version</p>
             </div>
           </div>
+
+          {dataPaths && (
+            <div className="mt-4 p-3.5 rounded-2xl bg-slate-950/50 border border-white/5 space-y-2.5 text-xs">
+              <p className="font-semibold text-slate-300">📂 Data Storage Locations:</p>
+              <div className="space-y-1.5 font-mono text-[10px] text-slate-400 select-all">
+                <p className="truncate">
+                  <strong className="text-slate-300 font-semibold">App Data:</strong> {dataPaths.userData}
+                </p>
+                <p className="truncate">
+                  <strong className="text-slate-300 font-semibold">Logs:</strong> {dataPaths.activityLog}
+                </p>
+              </div>
+              <button
+                onClick={async () => {
+                  if (typeof window !== "undefined" && (window as any).electron) {
+                    await (window as any).electron.ipcRenderer.invoke("open-activity-log-folder");
+                  }
+                }}
+                className="mt-2 w-full rounded-xl bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-700 hover:to-slate-800 border border-white/10 py-2.5 font-bold text-white transition-all text-center block shadow-md"
+              >
+                📂 Open Logs Folder
+              </button>
+            </div>
+          )}
         </Panel>
 
         <Panel className="space-y-4 border-l-4 border-cyan-400 bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950/20">

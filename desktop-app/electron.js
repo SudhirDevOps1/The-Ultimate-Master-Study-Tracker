@@ -575,6 +575,30 @@ ipcMain.handle("get-activity-log", async (_e, { date } = {}) => {
   return loadLogFromFile(requested);
 });
 
+ipcMain.handle("open-activity-log-folder", async () => {
+  try {
+    const dir = path.join(app.getPath("userData"), "activity-log");
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    shell.openPath(dir);
+    return { success: true, path: dir };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle("get-data-directory-path", async () => {
+  try {
+    return {
+      userData: app.getPath("userData"),
+      activityLog: path.join(app.getPath("userData"), "activity-log"),
+    };
+  } catch {
+    return { userData: "", activityLog: "" };
+  }
+});
+
 ipcMain.handle("get-tracked-dates", async () => {
   try {
     if (!dataDir || !fs.existsSync(dataDir)) return [];

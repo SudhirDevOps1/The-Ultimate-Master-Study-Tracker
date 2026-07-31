@@ -42,7 +42,8 @@ export function BackendActivityPanel() {
       const ipc = getIpc();
       if (!ipc) return;
       try {
-        const todayStr = new Date().toISOString().split("T")[0];
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
         const logs = (await ipc.invoke("get-activity-log", { date: todayStr })) || [];
         const win = await ipc.invoke("get-foreground-window");
         if (isMounted) {

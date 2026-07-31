@@ -885,8 +885,8 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
       const activeSession = get().sessions.find((session: StudySession) => session.id === timer.activeSessionId);
       const elapsed = clampElapsedSeconds(activeSession, get().getActiveElapsed(Date.now()));
       
-      // Strict study logic: if studied less than 60 seconds, revert status to planned
-      const finalStatus = elapsed >= 60 ? "completed" : "planned";
+      // Strict study logic: if studied less than 5 seconds, revert status to planned
+      const finalStatus = elapsed >= 5 ? "completed" : "planned";
       
       await db.sessions.update(timer.activeSessionId, {
         status: finalStatus,
