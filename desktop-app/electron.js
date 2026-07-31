@@ -494,6 +494,7 @@ if (!gotTheLock) {
 }
 
 // ─── App lifecycle ────────────────────────────────────────────────────────────
+app.whenReady().then(() => {
   // Register custom protocol for local media streaming from ANY drive (C:, D:, E:, F:... Z:)
   try {
     protocol.handle("local-media", (request) => {
