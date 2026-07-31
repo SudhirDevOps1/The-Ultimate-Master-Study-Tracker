@@ -77,7 +77,7 @@ export function WeeklyReviewModal() {
   return (
     <>
       {/* Floating Action Button on Dashboard if they want to review manually */}
-      <div className="fixed bottom-4 right-4 z-40">
+      <div className="fixed bottom-6 right-24 z-40">
         <button
           onClick={() => setIsOpen(true)}
           className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-purple-500/30 hover:opacity-95 transition-all"
