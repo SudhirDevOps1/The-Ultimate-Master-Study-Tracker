@@ -315,34 +315,83 @@ export function AmbiencePlayer() {
                   </button>
                 ))}
 
-                {/* Quick Add Custom YouTube Link Input */}
-                <div className="pt-2 border-t border-white/10 space-y-1.5">
-                  <p className="px-1.5 text-[10px] font-bold text-cyan-400 uppercase tracking-wider">➕ Paste Any YouTube Link</p>
-                  <div className="flex gap-1">
+                {/* Save Custom Link Form & Multiple Items Library */}
+                <div className="pt-2 border-t border-white/10 space-y-2">
+                  <p className="px-1.5 text-[10px] font-bold text-cyan-400 uppercase tracking-wider flex items-center justify-between">
+                    <span>⭐ Save Custom Media Link</span>
+                    <span className="text-slate-400 font-normal">({savedPlaylist.length} Saved)</span>
+                  </p>
+                  
+                  <input
+                    type="text"
+                    placeholder="Custom Title (e.g. DSA Lecture 1)"
+                    value={newTrackName}
+                    onChange={(e) => setNewTrackName(e.target.value)}
+                    className="w-full px-2.5 py-1 text-[11px] rounded-lg bg-slate-950 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400"
+                  />
+                  
+                  <div className="flex gap-1.5">
                     <input
                       type="text"
-                      placeholder="https://youtu.be/..."
+                      placeholder="https://youtu.be/... or Local Path"
                       value={newTrackUrl}
                       onChange={(e) => setNewTrackUrl(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           void handleAddPlaylistTrack();
-                          setIsOpen(false);
                         }
                       }}
-                      className="flex-1 px-2 py-1 text-[11px] rounded-lg bg-slate-950 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400"
+                      className="flex-1 px-2.5 py-1 text-[11px] rounded-lg bg-slate-950 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400"
                     />
                     <button
                       type="button"
-                      onClick={() => {
-                        void handleAddPlaylistTrack();
-                        setIsOpen(false);
-                      }}
-                      className="px-2 py-1 text-[11px] font-bold rounded-lg bg-cyan-500 text-slate-950 hover:bg-cyan-400 shrink-0"
+                      onClick={() => void handleAddPlaylistTrack()}
+                      className="px-3 py-1 text-[11px] font-bold rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 text-slate-950 hover:from-cyan-400 hover:to-blue-400 shrink-0 shadow-md"
                     >
-                      Play
+                      Save & Play
                     </button>
                   </div>
+
+                  {/* List of Multiple Saved User Links */}
+                  {savedPlaylist.length > 0 && (
+                    <div className="space-y-1 mt-2 max-h-36 overflow-y-auto custom-scrollbar border-t border-white/5 pt-1.5">
+                      <p className="px-1 text-[9px] uppercase font-bold text-slate-400">My Saved Media Library</p>
+                      {savedPlaylist.map((item, idx) => (
+                        <div
+                          key={item.id}
+                          className={`flex items-center justify-between px-2 py-1.5 rounded-lg text-xs transition-colors ${
+                            currentPlaylistIndex === idx && selectedTrack.id === "youtube"
+                              ? "bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 font-bold"
+                              : "bg-white/5 text-slate-300 hover:bg-white/10"
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCurrentPlaylistIndex(idx);
+                              setSelectedTrack(SOUNDS.find(s => s.id === "youtube")!);
+                              setFocusMusicEnabled(true);
+                              setIsOpen(false);
+                            }}
+                            className="flex-1 text-left truncate mr-2"
+                            title={item.url}
+                          >
+                            <p className="truncate text-[11px] font-semibold">{item.name}</p>
+                            <p className="truncate text-[9px] text-slate-400">{item.url}</p>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => void handleDeletePlaylistTrack(item.id, e)}
+                            className="text-slate-400 hover:text-rose-400 p-1 shrink-0 transition-colors"
+                            title="Delete Saved Link"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
