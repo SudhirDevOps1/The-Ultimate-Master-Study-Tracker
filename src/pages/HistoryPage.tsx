@@ -40,24 +40,41 @@ export function HistoryPage() {
     }
   };
 
-  const filtered = useMemo(
-    () =>
-      [...sessions]
-        .filter((session) => {
-          const ratio = session.plannedMinutes > 0 ? (session.actualSeconds / 60 / session.plannedMinutes) * 100 : 0;
-          const bySubject = subjectId === "all" || session.subjectId === subjectId;
-          const sessionDate = new Date(session.startTime).getTime();
-          const byStart = startDate ? sessionDate >= new Date(`${startDate}T00:00:00`).getTime() : true;
-          const byEnd = endDate ? sessionDate <= new Date(`${endDate}T23:59:59`).getTime() : true;
-          const bySearch = !searchQuery || 
-            session.notes.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            session.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())) ||
-            subjects.find(s => s.id === session.subjectId)?.name.toLowerCase().includes(searchQuery.toLowerCase());
-          return bySubject && ratio >= completion && byStart && byEnd && bySearch;
-        })
-        .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()),
-    [completion, endDate, searchQuery, sessions, startDate, subjectId, subjects]
-  );
+  const subjectMap = useMemo(() => {
+    const map = new Map<string, string>();
+    subjects.forEach((s) => map.set(s.id, s.name.toLowerCase()));
+    return map;
+  }, [subjects]);
+
+  const filtered = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const startMs = startDate ? new Date(`${startDate}T00:00:00`).getTime() : null;
+    const endMs = endDate ? new Date(`${endDate}T23:59:59`).getTime() : null;
+
+    return sessions
+      .filter((session) => {
+        const ratio = session.plannedMinutes > 0 ? (session.actualSeconds / 60 / session.plannedMinutes) * 100 : 0;
+        if (ratio < completion) return false;
+        if (subjectId !== "all" && session.subjectId !== subjectId) return false;
+
+        const sessionDate = new Date(session.startTime).getTime();
+        if (startMs !== null && sessionDate < startMs) return false;
+        if (endMs !== null && sessionDate > endMs) return false;
+
+        if (query) {
+          const notesMatch = session.notes.toLowerCase().includes(query);
+          if (notesMatch) return true;
+          const tagMatch = session.tags.some((tag) => tag.toLowerCase().includes(query));
+          if (tagMatch) return true;
+          const subName = subjectMap.get(session.subjectId);
+          if (subName && subName.includes(query)) return true;
+          return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+  }, [completion, endDate, searchQuery, sessions, startDate, subjectId, subjectMap]);
 
   const handleQuickClone = async (session: StudySession, days: number) => {
     const targetDate = addDays(new Date(session.startTime), days);

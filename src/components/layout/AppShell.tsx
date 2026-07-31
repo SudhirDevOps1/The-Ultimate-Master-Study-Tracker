@@ -19,27 +19,35 @@ import {
   Globe,
   Target,
   Clock,
-  Palette
+  Palette,
+  FileText
 } from "lucide-react";
 
 const links = [
+  // 1. Core Daily Study
   { to: "/dashboard", label: "Dashboard", Icon: Home },
-  { to: "/today", label: "Today", Icon: ClipboardList },
-  { to: "/timer", label: "Timer", Icon: Timer },
+  { to: "/today", label: "Today Tasks", Icon: ClipboardList },
+  { to: "/timer", label: "Study Timer", Icon: Timer },
   { to: "/scheduler", label: "AI Scheduler", Icon: Clock },
-  { to: "/flashcards", label: "SRS Flashcards", Icon: Brain },
+
+  // 2. Workspaces & Tools
   { to: "/study-workspace", label: "Study Workspace (PDF/OCR)", Icon: BookOpen },
+  { to: "/notes-board", label: "Notes Board", Icon: FileText },
   { to: "/mind-map", label: "Mind Maps Board", Icon: Palette },
-  { to: "/notes-board", label: "Notes Board", Icon: ClipboardList },
-  { to: "/app-tracking", label: "App Tracking", Icon: Monitor },
+  { to: "/flashcards", label: "SRS Flashcards", Icon: Brain },
   { to: "/ai", label: "AI Assistant", Icon: Brain },
-  { to: "/calendar", label: "Calendar", Icon: CalendarIcon },
-  { to: "/exams", label: "Exam Countdown", Icon: Target },
+
+  // 3. Tracking & Performance
+  { to: "/app-tracking", label: "App Tracking", Icon: Monitor },
   { to: "/analytics", label: "Analytics", Icon: BarChart2 },
   { to: "/achievements", label: "Achievements", Icon: Award },
   { to: "/history", label: "History", Icon: HistoryIcon },
-  { to: "/guide", label: "Guide", Icon: BookOpen },
+
+  // 4. Planning & System
+  { to: "/calendar", label: "Calendar", Icon: CalendarIcon },
+  { to: "/exams", label: "Exam Countdown", Icon: Target },
   { to: "/subjects", label: "Subjects", Icon: Book },
+  { to: "/guide", label: "Guide", Icon: BookOpen },
   { to: "/settings", label: "Settings", Icon: SettingsIcon },
 ];
 
@@ -101,6 +109,17 @@ export function AppShell() {
               </p>
             </div>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <a 
+                href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/tag/v6.0.0" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-500 to-indigo-600 border border-purple-400/40 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-purple-500/25 hover:scale-[1.03] transition-all duration-200 active:scale-95"
+                title="Download FlowTrack Pro Desktop App (.exe / mac / linux)"
+              >
+                <Monitor className="w-4 h-4 text-cyan-300" />
+                <span>💻 Download Desktop App (v6.0.0)</span>
+              </a>
+
               <a 
                 href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git" 
                 target="_blank" 

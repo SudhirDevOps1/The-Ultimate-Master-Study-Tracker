@@ -4,6 +4,7 @@ import { useEffect, useMemo } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { AppGuide } from "@/components/common/AppGuide";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
+import { ToastProvider, ConfirmProvider } from "@/components/common/Toast";
 import { useAppStore, type AppState } from "@/store/useAppStore";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { TimerPage } from "@/pages/TimerPage";
@@ -120,11 +121,14 @@ export function App() {
 
   return (
     <ErrorBoundary>
-      <HashRouter>
-        <AnimatedRoutes />
-        <AppGuide />
-        <VideoRestBreak />
-      </HashRouter>
+      <ToastProvider>
+        <ConfirmProvider>
+          <HashRouter>
+            <AnimatedRoutes />
+          </HashRouter>
+          <VideoRestBreak />
+        </ConfirmProvider>
+      </ToastProvider>
     </ErrorBoundary>
   );
 }
@@ -155,10 +159,10 @@ function AnimatedRoutes() {
             path="/today"
             element={
               <motion.div
-                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
-                transition={{ duration: 0.3, ease: "circOut" }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
                 className="w-full"
               >
                 <TodayTasksPage />
@@ -169,10 +173,10 @@ function AnimatedRoutes() {
             path="/timer"
             element={
               <motion.div
-                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
-                transition={{ duration: 0.3, ease: "circOut" }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
                 className="w-full"
               >
                 <TimerPage />
@@ -183,10 +187,10 @@ function AnimatedRoutes() {
             path="/study-workspace"
             element={
               <motion.div
-                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
-                transition={{ duration: 0.3, ease: "circOut" }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
                 className="w-full"
               >
                 <StudyNotesPage />
@@ -197,10 +201,10 @@ function AnimatedRoutes() {
             path="/mind-map"
             element={
               <motion.div
-                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
-                transition={{ duration: 0.3, ease: "circOut" }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
                 className="w-full"
               >
                 <MindMapPage />
@@ -211,10 +215,10 @@ function AnimatedRoutes() {
             path="/notes-board"
             element={
               <motion.div
-                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
-                transition={{ duration: 0.3, ease: "circOut" }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
                 className="w-full"
               >
                 <StudyNotesBoardPage />
@@ -225,10 +229,10 @@ function AnimatedRoutes() {
             path="/scheduler"
             element={
               <motion.div
-                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
-                transition={{ duration: 0.3, ease: "circOut" }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
                 className="w-full"
               >
                 <SchedulerPage />
@@ -239,10 +243,10 @@ function AnimatedRoutes() {
             path="/flashcards"
             element={
               <motion.div
-                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
-                transition={{ duration: 0.3, ease: "circOut" }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
                 className="w-full"
               >
                 <FlashcardsPage />
@@ -253,10 +257,10 @@ function AnimatedRoutes() {
             path="/app-tracking"
             element={
               <motion.div
-                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
-                transition={{ duration: 0.3, ease: "circOut" }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
                 className="w-full"
               >
                 <AppTrackingPage />
@@ -267,10 +271,10 @@ function AnimatedRoutes() {
             path="/analytics"
             element={
               <motion.div
-                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
-                transition={{ duration: 0.3, ease: "circOut" }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
                 className="w-full"
               >
                 <AnalyticsPage />
@@ -281,10 +285,10 @@ function AnimatedRoutes() {
             path="/history"
             element={
               <motion.div
-                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
-                transition={{ duration: 0.3, ease: "circOut" }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
                 className="w-full"
               >
                 <HistoryPage />
@@ -295,10 +299,10 @@ function AnimatedRoutes() {
             path="/subjects"
             element={
               <motion.div
-                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
-                transition={{ duration: 0.3, ease: "circOut" }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
                 className="w-full"
               >
                 <SubjectsPage />
@@ -309,10 +313,10 @@ function AnimatedRoutes() {
             path="/settings"
             element={
               <motion.div
-                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
-                transition={{ duration: 0.3, ease: "circOut" }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
                 className="w-full"
               >
                 <SettingsPage />
@@ -323,10 +327,10 @@ function AnimatedRoutes() {
             path="/exams"
             element={
               <motion.div
-                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
-                transition={{ duration: 0.3, ease: "circOut" }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
                 className="w-full"
               >
                 <ExamCountdownPage />
@@ -337,10 +341,10 @@ function AnimatedRoutes() {
             path="/calendar"
             element={
               <motion.div
-                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
-                transition={{ duration: 0.3, ease: "circOut" }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
                 className="w-full"
               >
                 <CalendarPage />
@@ -351,10 +355,10 @@ function AnimatedRoutes() {
             path="/achievements"
             element={
               <motion.div
-                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
-                transition={{ duration: 0.3, ease: "circOut" }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
                 className="w-full"
               >
                 <AchievementsPage />
@@ -365,10 +369,10 @@ function AnimatedRoutes() {
             path="/guide"
             element={
               <motion.div
-                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
-                transition={{ duration: 0.3, ease: "circOut" }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
                 className="w-full"
               >
                 <GuidePage />
@@ -379,10 +383,10 @@ function AnimatedRoutes() {
             path="/ai"
             element={
               <motion.div
-                initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
-                transition={{ duration: 0.3, ease: "circOut" }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
                 className="w-full"
               >
                 <AIAssistantPage />

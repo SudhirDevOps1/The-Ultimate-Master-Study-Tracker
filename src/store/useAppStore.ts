@@ -185,7 +185,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
   loading: true,
   pomodoroMode: false,
   strictFocusMode: false,
-  autoPauseOnHidden: true,
+  autoPauseOnHidden: false,
   dailyGoalHours: 4,
   weeklyTargetHours: 20,
   focusMusicEnabled: false,
@@ -835,8 +835,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
       const elapsed = get().getActiveElapsed(currentMs);
       const clampedElapsed = clampElapsedSeconds(activeSession, elapsed);
 
-      // FIX P1+P2: Removed sortSessions + calculateGamificationStats from every 1s tick.
-      // Now only updates the single session in-place — no O(n) sort or XP recalc per second.
+      // FIX P1+P2: Removed sortSessions + calculateGamificationStats from 1s tick
       await db.sessions.update(timer.activeSessionId, {
         actualSeconds: clampedElapsed,
         updatedAt: new Date().toISOString()

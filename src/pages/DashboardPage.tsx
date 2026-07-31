@@ -309,6 +309,33 @@ export function DashboardPage() {
         )}
       </div>
 
+      {/* Desktop App Download Promo Banner */}
+      <div className="rounded-2xl border border-purple-500/30 bg-gradient-to-r from-purple-950/40 via-indigo-950/40 to-slate-900/60 p-4 shadow-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-purple-300 bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 rounded">
+              💻 Native Desktop App Available
+            </span>
+            <span className="text-[10px] font-mono text-cyan-400 font-bold">v6.0.0</span>
+          </div>
+          <p className="text-sm font-bold text-white">
+            Want Native App & Browser Tab Blocker + PiP Floating Timer?
+          </p>
+          <p className="text-xs text-slate-400">
+            Download FlowTrack Pro for Windows, Mac & Linux for 100% offline background activity tracking.
+          </p>
+        </div>
+
+        <a
+          href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/tag/v6.0.0"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white text-xs font-bold shadow-lg shadow-purple-500/25 active:scale-95 transition-all text-center shrink-0"
+        >
+          📥 Download Desktop App (.exe)
+        </a>
+      </div>
+
       {/* Hero Section with Progress Rings */}
       <Panel>
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-8 xl:flex-row xl:items-center">
@@ -797,14 +824,14 @@ function WelcomeChangelogModal() {
 
   useEffect(() => {
     // Show only once per major release version update
-    const seenVersion = localStorage.getItem("flowtrack_changelog_v5.0.0");
+    const seenVersion = localStorage.getItem("flowtrack_changelog_v6.0.0");
     if (!seenVersion) {
       setIsOpen(true);
     }
   }, []);
 
   const handleClose = () => {
-    localStorage.setItem("flowtrack_changelog_v5.0.0", "true");
+    localStorage.setItem("flowtrack_changelog_v6.0.0", "true");
     setIsOpen(false);
   };
 
@@ -820,10 +847,10 @@ function WelcomeChangelogModal() {
           >
             <div className="space-y-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">
-                🚀 Shipped: v5.0.0
+                🚀 Shipped: v6.0.0
               </span>
               <h3 className="text-2xl font-black text-white">
-                What&apos;s New in FlowTrack Pro!
+                What&apos;s New in FlowTrack Pro v6.0.0!
               </h3>
               <p className="text-xs text-slate-400">
                 Explore the latest premium features and security updates added to your tracker.
@@ -835,37 +862,37 @@ function WelcomeChangelogModal() {
             <div className="space-y-3 max-h-60 overflow-y-auto pr-1 text-xs text-slate-300 pretty-scrollbar">
               <div className="space-y-1">
                 <p className="font-bold text-white flex items-center gap-1.5">
-                  📅 Exam Countdown Widget
+                  📝 Real Notepad & 1-Click Note PNG Exporter
                 </p>
                 <p className="text-slate-400 pl-5">
-                  Pin upcoming tests and exams to track days, hours, and minutes with custom urgency alerts.
+                  Full-screen lined Notepad mode (.TXT exporter) + single note card PNG image download and image attachments.
                 </p>
               </div>
 
               <div className="space-y-1">
                 <p className="font-bold text-white flex items-center gap-1.5">
-                  🔥 GitHub-style Subject Heatmap
+                  📄 Study Workspace (Dual-Mode PDF / OCR)
                 </p>
                 <p className="text-slate-400 pl-5">
-                  Visual daily consistency grids per subject. Watch your tracking blocks darken as you commit more study hours.
+                  Native PDF vector text layer reader + Canvas high-res OCR engine for scanned PDF textbooks.
                 </p>
               </div>
 
               <div className="space-y-1">
                 <p className="font-bold text-white flex items-center gap-1.5">
-                  ⚡ Anti-Lag Engine & Optimized DB
+                  🎧 Separated Focus Audio & Soundscape Engine
                 </p>
                 <p className="text-slate-400 pl-5">
-                  No more UI freezing. Writes to DB are throttled (10s debounce) and session calculations optimized to consume 80% less CPU.
+                  10Hz Alpha Binaural Beats and Ambience Soundscapes/Local Files play cleanly without background clashing.
                 </p>
               </div>
 
               <div className="space-y-1">
                 <p className="font-bold text-white flex items-center gap-1.5">
-                  🔒 Sandboxed YouTube & Web Framing
+                  ⚡ 0ms Anti-Lag Analytics & Re-ordered Menu
                 </p>
                 <p className="text-slate-400 pl-5">
-                  External study resources (Apna College, video tutorials, etc.) load securely without blank screens or privacy tracking leaks.
+                  Instant memoized analytics charts and top navigation organized by daily study priority.
                 </p>
               </div>
             </div>

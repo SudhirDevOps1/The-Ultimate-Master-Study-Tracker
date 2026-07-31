@@ -16,33 +16,25 @@ export function AppBlockingPanel() {
   const [schedule, setSchedule] = useState<"always" | "study_hours">("study_hours");
   const [loading, setLoading] = useState(false);
 
-  // Load block rules from local db/storage and sync with backend
+  const getIpc = () => (typeof window !== "undefined" ? (window as any).electron : null);
+
+  // Load block rules from Electron IPC / local db/storage and sync
   const loadRules = async () => {
     setLoading(true);
     try {
-      const storedRules = localStorage.getItem("app_block_rules");
-      let currentRules: AppBlockRule[] = storedRules ? JSON.parse(storedRules) : [];
-      
-      if (isBackendConnected && backendUrl) {
-        // Fetch rules currently active in Python backend process blocklist
-        const res = await fetch(`${backendUrl}/config`);
-        if (res.ok) {
-          const config = await res.json();
-          // Sync rule structure if backend lists any
-          const backendBlockedProcs = config?.config?.categories?.distracting?.processes || [];
-          if (backendBlockedProcs.length > 0 && currentRules.length === 0) {
-            currentRules = backendBlockedProcs.map((proc: string, idx: number) => ({
-              id: `back-rule-${idx}`,
-              appName: proc,
-              blocked: true,
-              strictLevel: "medium",
-              schedule: "study_hours",
-              category: "distracting",
-              createdAt: new Date().toISOString()
-            }));
-          }
+      const ipc = getIpc();
+      if (ipc) {
+        const res = await ipc.invoke("get-block-rules");
+        if (res && Array.isArray(res.rules)) {
+          setRules(res.rules);
+          if (typeof res.globalEnabled === "boolean") setGlobalEnabled(res.globalEnabled);
+          setLoading(false);
+          return;
         }
       }
+
+      const storedRules = localStorage.getItem("app_block_rules");
+      let currentRules: AppBlockRule[] = storedRules ? JSON.parse(storedRules) : [];
       setRules(currentRules);
     } catch (e) {
       console.error(e);
@@ -54,32 +46,15 @@ export function AppBlockingPanel() {
     void loadRules();
   }, [isBackendConnected]);
 
-  const saveRulesToLocalAndBackend = async (updatedRules: AppBlockRule[]) => {
+  const saveRulesToLocalAndBackend = async (updatedRules: AppBlockRule[], newGlobalEnabled?: boolean) => {
+    const isGlobal = typeof newGlobalEnabled === "boolean" ? newGlobalEnabled : globalEnabled;
     setRules(updatedRules);
+    setGlobalEnabled(isGlobal);
     localStorage.setItem("app_block_rules", JSON.stringify(updatedRules));
 
-    // Try posting block rules update to Python Backend config
-    if (isBackendConnected && backendUrl) {
-      try {
-        const distractingProcesses = updatedRules
-          .filter(r => r.blocked)
-          .map(r => r.appName.toLowerCase());
-
-        await fetch(`${backendUrl}/config`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            categories: {
-              distracting: {
-                processes: distractingProcesses,
-                keywords: ["facebook", "instagram", "tiktok", "twitter", "youtube"]
-              }
-            }
-          })
-        });
-      } catch (err) {
-        console.warn("Could not sync block rules to backend config", err);
-      }
+    const ipc = getIpc();
+    if (ipc) {
+      await ipc.invoke("save-block-rules", { rules: updatedRules, globalEnabled: isGlobal });
     }
   };
 
@@ -120,7 +95,7 @@ export function AppBlockingPanel() {
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-400">Global Blocker Status:</span>
             <button
-              onClick={() => setGlobalEnabled(!globalEnabled)}
+              onClick={() => void saveRulesToLocalAndBackend(rules, !globalEnabled)}
               className={`relative w-11 h-6 rounded-full transition-colors ${
                 globalEnabled ? "bg-rose-500" : "bg-slate-700"
               }`}
@@ -151,10 +126,10 @@ export function AppBlockingPanel() {
             <label className="block text-[10px] uppercase font-bold text-slate-400">Process/App Name</label>
             <input
               type="text"
-              placeholder="e.g., discord.exe, Spotify"
+              placeholder="e.g., discord.exe, Spotify, instagram"
               value={newAppName}
               onChange={(e) => setNewAppName(e.target.value)}
-              className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-rose-400"
+              className="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
             />
           </div>
           <div className="space-y-1">
@@ -162,7 +137,7 @@ export function AppBlockingPanel() {
             <select
               value={strictLevel}
               onChange={(e) => setStrictLevel(e.target.value as BlockStrictLevel)}
-              className="w-full rounded-lg border border-white/10 bg-slate-950 px-2 py-2 text-xs text-white"
+              className="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
             >
               <option value="soft">Soft (Warning)</option>
               <option value="medium">Medium (Minimize)</option>
@@ -171,45 +146,50 @@ export function AppBlockingPanel() {
           </div>
           <button
             onClick={addRule}
-            className="flex items-center justify-center gap-1.5 rounded-lg bg-rose-500 hover:bg-rose-600 px-4 py-2 text-xs font-bold text-white transition-all active:scale-95"
+            className="w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-2 rounded-xl text-xs transition-colors flex items-center justify-center gap-1 shadow-lg shadow-rose-500/20"
           >
-            <Plus className="w-4 h-4" />
-            <span>Add Block</span>
+            <Plus className="w-4 h-4" /> Add Block
           </button>
         </div>
 
-        {/* Blocking list */}
-        <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 pretty-scrollbar">
+        {/* Rules list */}
+        <div className="space-y-2 pt-2">
           {rules.length === 0 ? (
             <p className="text-xs text-slate-500 text-center py-6">No active application block rules defined.</p>
           ) : (
             rules.map((rule) => (
               <div
                 key={rule.id}
-                className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${
+                className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
                   rule.blocked ? "border-rose-500/20 bg-rose-500/5" : "border-white/5 bg-white/[0.01]"
                 }`}
               >
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-white">{rule.appName}</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">
-                    Strictness: <span className="text-rose-400 font-bold capitalize">{rule.strictLevel}</span> • Active {rule.schedule.replace("_", " ")}
-                  </p>
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${rule.blocked ? "bg-rose-500/20 text-rose-400" : "bg-slate-800 text-slate-500"}`}>
+                    <Shield className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-white">{rule.appName}</p>
+                    <p className="text-[10px] text-slate-400">
+                      Level: <span className="text-rose-300 font-semibold uppercase">{rule.strictLevel}</span> • Schedule: {rule.schedule}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+
+                <div className="flex items-center gap-2">
                   <button
                     onClick={() => toggleRuleBlocked(rule.id)}
-                    className={`p-1.5 rounded-lg border transition-colors ${
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
                       rule.blocked 
-                        ? "bg-rose-500/20 border-rose-500/30 text-rose-300 hover:bg-rose-500/30"
-                        : "bg-white/5 border-white/10 text-slate-400 hover:bg-white/10"
+                        ? "bg-rose-500/20 text-rose-300 border border-rose-500/30" 
+                        : "bg-slate-800 text-slate-400 border border-white/5"
                     }`}
                   >
-                    <Check className="w-4 h-4" />
+                    {rule.blocked ? "Blocked" : "Allowed"}
                   </button>
                   <button
                     onClick={() => deleteRule(rule.id)}
-                    className="p-1.5 rounded-lg border border-white/5 bg-white/5 text-slate-400 hover:text-white hover:bg-red-500/20 transition-colors"
+                    className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>

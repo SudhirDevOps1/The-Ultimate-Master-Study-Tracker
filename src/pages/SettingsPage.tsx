@@ -190,7 +190,7 @@ export function SettingsPage() {
   const handleSaveProfile = async () => {
     await setUserProfile({
       name: profileName.trim(),
-      age: profileAge.trim(),
+      age: String(profileAge).trim(),
       profession: profileProfession.trim(),
       goal: profileGoal.trim(),
     });
@@ -756,7 +756,7 @@ export function SettingsPage() {
               <p className="text-xs text-slate-400">Subjects</p>
             </div>
             <div className="rounded-xl bg-white/5 px-4 py-2 text-center">
-              <p className="text-lg font-bold text-purple-400">v5.0.0</p>
+              <p className="text-lg font-bold text-purple-400">v6.0.0</p>
               <p className="text-xs text-slate-400">Version</p>
             </div>
           </div>
@@ -821,7 +821,7 @@ export function SettingsPage() {
 
 // ─── UpdateChecker Helper Component (Queries GitHub Releases) ──────────────────
 function UpdateChecker({ showMessage }: { showMessage: (msg: string) => void }) {
-  const [currentVersion, setCurrentVersion] = useState("3.3.0");
+  const [currentVersion, setCurrentVersion] = useState("6.0.0");
   const [latestVersion, setLatestVersion] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [updateUrl, setUpdateUrl] = useState("https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases");

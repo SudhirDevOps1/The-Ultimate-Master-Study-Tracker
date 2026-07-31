@@ -5,7 +5,7 @@ import * as pdfjsLib from "pdfjs-dist";
 import { createWorker } from "tesseract.js";
 import html2canvas from "html2canvas";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version || "3.11.174"}/build/pdf.worker.min.js`;
 
 interface StickyNote {
   id: string;
@@ -129,22 +129,29 @@ export function PDFStudyReader() {
       setSplitScreen(true);
       setSpeechText("");
 
-      if (file.type === "application/pdf") {
+      if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
         setFileType("pdf");
         try {
           const fileReader = new FileReader();
           fileReader.onload = async (ev) => {
-            const typedarray = new Uint8Array(ev.target?.result as ArrayBuffer);
-            const loadingTask = pdfjsLib.getDocument({ data: typedarray });
-            const pdf = await loadingTask.promise;
-            setPdfDocument(pdf);
-            setTotalPages(pdf.numPages);
-            setCurrentPage(1);
-            void extractPdfPageText(pdf, 1);
+            try {
+              const typedarray = new Uint8Array(ev.target?.result as ArrayBuffer);
+              const loadingTask = pdfjsLib.getDocument({ data: typedarray });
+              const pdf = await loadingTask.promise;
+              setPdfDocument(pdf);
+              setTotalPages(pdf.numPages);
+              setCurrentPage(1);
+              await extractPdfPageText(pdf, 1);
+            } catch (pdfErr: any) {
+              console.error("Failed to load PDF document", pdfErr);
+              setSpeechText(`[Error reading PDF document: ${pdfErr?.message || "Invalid or encrypted PDF file"}]`);
+              setExtractingText(false);
+            }
           };
           fileReader.readAsArrayBuffer(file);
         } catch (err) {
-          console.error("Error loading PDF", err);
+          console.error("Error reading PDF file buffer", err);
+          setExtractingText(false);
         }
       } else {
         setFileType("image");
@@ -178,37 +185,43 @@ export function PDFStudyReader() {
     setExtractingText(true);
     try {
       const page = await pdf.getPage(pageNum);
-      const textContent = await page.getTextContent();
-      const textItems = textContent.items.map((item: any) => item.str).join(" ").trim();
-      
-      if (textItems.length > 20) {
-        setSpeechText(textItems);
+
+      // 1. Try extracting native text layer from PDF
+      let nativeText = "";
+      try {
+        const textContent = await page.getTextContent();
+        nativeText = textContent.items
+          .map((item: any) => (typeof item.str === "string" ? item.str : ""))
+          .filter(Boolean)
+          .join(" ")
+          .replace(/\s+/g, " ")
+          .trim();
+      } catch (textErr) {
+        console.warn("Native PDF text stream error, switching to OCR canvas render", textErr);
+      }
+
+      if (nativeText && nativeText.length > 15) {
+        setSpeechText(nativeText);
         setExtractingText(false);
         return;
       }
 
-      // Fallback to Canvas Render OCR
+      // 2. Fallback to Canvas Render + Tesseract OCR for scanned PDF pages
       const viewport = page.getViewport({ scale: 2.0 });
-      const canvas = canvasRef.current || document.createElement("canvas");
-      canvas.height = viewport.height;
+      const canvas = document.createElement("canvas");
       canvas.width = viewport.width;
+      canvas.height = viewport.height;
       const context = canvas.getContext("2d");
-      
+
       if (context) {
         context.fillStyle = "#ffffff";
         context.fillRect(0, 0, canvas.width, canvas.height);
-        
+
         await page.render({ canvasContext: context, viewport }).promise;
         const imgDataUrl = canvas.toDataURL("image/png");
-        
-        const worker = await createWorker("eng+hin", 1, {
-          workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js",
-          corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5",
-          langPath: "https://tessdata.projectnaptha.com/4.0.0",
-        });
-        const ret = await worker.recognize(imgDataUrl);
-        setSpeechText(ret.data.text || "[No text detected on scanned page]");
-        await worker.terminate();
+
+        await extractImageText(imgDataUrl);
+        return;
       }
     } catch (err: any) {
       console.error("Scanned page OCR parser failed", err);
