@@ -84,10 +84,11 @@ function shouldSkip(processName, windowTitle) {
   const t = (windowTitle  || "").toLowerCase().trim();
   
   if (isSelf(p, t)) {
-    // If playing video/audio or in active study session inside FlowTrack Pro, DO NOT SKIP!
-    if (t.includes("playing:") || t.includes("study") || t.includes("session") || t.includes("flowtrack")) {
+    // ONLY track FlowTrack Pro self-process IF user is actively playing a video/audio file or in active focus session
+    if (t.includes("playing:") || t.includes("active focus session")) {
       return false;
     }
+    // Otherwise, ignore/skip self-app to avoid fake self-tracking logs
     return true;
   }
 
