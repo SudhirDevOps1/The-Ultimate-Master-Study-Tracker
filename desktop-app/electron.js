@@ -467,6 +467,22 @@ function createWindow() {
     }
   });
 
+  // FIX Console Noise: Silently cancel noisy 3rd-party tracking pixels
+  // (Facebook Pixel, Google Analytics, etc.) so they don't produce ERR_CONNECTION_REFUSED
+  const BLOCKED_TRACKERS = [
+    "facebook.com/tr", "connect.facebook.net",
+    "google-analytics.com", "googletagmanager.com",
+    "analytics.twitter.com", "bat.bing.com",
+    "hotjar.com", "clarity.ms",
+  ];
+  electronSession.defaultSession.webRequest.onBeforeRequest((details, callback) => {
+    const u = (details.url || "").toLowerCase();
+    if (BLOCKED_TRACKERS.some(t => u.includes(t))) {
+      return callback({ cancel: true });
+    }
+    callback({});
+  });
+
   const isDev = !app.isPackaged;
   if (isDev) {
     mainWindow.loadURL("http://localhost:5173");

@@ -20,7 +20,8 @@ import {
   Target,
   Clock,
   Palette,
-  FileText
+  FileText,
+  Globe2
 } from "lucide-react";
 
 const links = [
@@ -34,6 +35,7 @@ const links = [
   { to: "/study-workspace", label: "Study Workspace (PDF/OCR)", Icon: BookOpen },
   { to: "/notes-board", label: "Notes Board", Icon: FileText },
   { to: "/mind-map", label: "Mind Maps Board", Icon: Palette },
+  { to: "/web-portals", label: "Web Portals Browser", Icon: Globe2 },
   { to: "/flashcards", label: "SRS Flashcards", Icon: Brain },
   { to: "/ai", label: "AI Assistant", Icon: Brain },
 
