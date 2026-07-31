@@ -1,6 +1,7 @@
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog, shell, protocol, net } = require("electron");
 const path = require("path");
 const fs   = require("fs");
+const { pathToFileURL } = require("url");
 const { execFile, exec } = require("child_process");
 
 let mainWindow;
@@ -493,7 +494,23 @@ if (!gotTheLock) {
 }
 
 // ─── App lifecycle ────────────────────────────────────────────────────────────
-app.whenReady().then(() => {
+  // Register custom protocol for local media streaming from ANY drive (C:, D:, E:, F:... Z:)
+  try {
+    protocol.handle("local-media", (request) => {
+      try {
+        let rawPath = request.url.replace(/^local-media:\/\/\/?/, "");
+        let decodedPath = decodeURIComponent(rawPath);
+        decodedPath = path.normalize(decodedPath);
+        return net.fetch(pathToFileURL(decodedPath).toString());
+      } catch (err) {
+        console.error("Failed to load local media:", err);
+        return new Response("Local media error", { status: 404 });
+      }
+    });
+  } catch (e) {
+    console.error("Protocol handle error:", e);
+  }
+
   dataDir = path.join(app.getPath("userData"), "activity-log");
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 

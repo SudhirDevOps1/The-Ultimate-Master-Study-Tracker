@@ -19,17 +19,30 @@ function formatLocalVideoUrl(inputUrl: string): string {
   if (!inputUrl) return "";
   let clean = inputUrl.trim().replace(/^["']|["']$/g, "");
   
-  if (clean.startsWith("blob:") || clean.startsWith("http://") || clean.startsWith("https://") || clean.startsWith("data:")) {
+  if (clean.startsWith("blob:") || clean.startsWith("http://") || clean.startsWith("https://") || clean.startsWith("data:") || clean.startsWith("local-media://")) {
     return clean;
   }
   
   clean = clean.replace(/\\/g, "/");
   
   if (/^[a-zA-Z]:\//.test(clean)) {
+    if (typeof window !== "undefined" && (window as any).electron) {
+      return `local-media:///${encodeURI(clean)}`;
+    }
     return `file:///${encodeURI(clean)}`;
   }
   
+  if (clean.startsWith("//")) {
+    if (typeof window !== "undefined" && (window as any).electron) {
+      return `local-media://${encodeURI(clean)}`;
+    }
+    return `file:${encodeURI(clean)}`;
+  }
+
   if (clean.startsWith("/")) {
+    if (typeof window !== "undefined" && (window as any).electron) {
+      return `local-media://${encodeURI(clean)}`;
+    }
     return `file://${encodeURI(clean)}`;
   }
   
