@@ -176,16 +176,33 @@ const getIpc = () => isElectron ? (window as any).electron.ipcRenderer : null;
 
 // ─── Timeline Component ───────────────────────────────────────────────────────
 function Timeline({ rawLog }: { rawLog: ActivityEntry[] }) {
-  const activeHours = useMemo(() => {
-    const map = new Map<number, ActivityEntry[]>();
-    for (const entry of rawLog) {
-      if (!map.has(entry.hour)) map.set(entry.hour, []);
-      map.get(entry.hour)!.push(entry);
+  const processedRows = useMemo(() => {
+    if (!rawLog || rawLog.length === 0) return [];
+
+    const map = new Map<string, { totalSec: number; entries: ActivityEntry[] }>();
+    for (let i = 0; i < rawLog.length; i++) {
+      const entry = rawLog[i];
+      if (!entry.appName) continue;
+      let item = map.get(entry.appName);
+      if (!item) {
+        item = { totalSec: 0, entries: [] };
+        map.set(entry.appName, item);
+      }
+      item.totalSec += entry.durationSeconds;
+      item.entries.push(entry);
     }
-    return map;
+
+    return Array.from(map.entries())
+      .sort((a, b) => b[1].totalSec - a[1].totalSec)
+      .slice(0, 15)
+      .map(([appName, item]) => ({
+        appName,
+        totalSec: item.totalSec,
+        appEntries: item.entries,
+      }));
   }, [rawLog]);
 
-  if (activeHours.size === 0) return (
+  if (processedRows.length === 0) return (
     <p className="text-xs text-slate-500 text-center py-6">No timeline data for this day.</p>
   );
 
@@ -193,10 +210,10 @@ function Timeline({ rawLog }: { rawLog: ActivityEntry[] }) {
     <div className="space-y-1">
       {/* Hour axis */}
       <div className="flex gap-1 items-center mb-1">
-        <span className="w-12 shrink-0" />
+        <span className="w-24 shrink-0" />
         {Array.from({ length: 24 }, (_, h) => (
           h % 3 === 0 ? (
-            <span key={h} className="text-[9px] text-slate-600 font-mono" style={{ flex: "0 0 calc((100% - 3rem) / 24 * 3)", textAlign: "left" }}>
+            <span key={h} className="text-[9px] text-slate-600 font-mono" style={{ flex: "0 0 calc((100% - 6rem) / 24 * 3)", textAlign: "left" }}>
               {String(h).padStart(2, "0")}
             </span>
           ) : null
@@ -204,44 +221,35 @@ function Timeline({ rawLog }: { rawLog: ActivityEntry[] }) {
       </div>
 
       {/* One row per app that was active */}
-      {Array.from(
-        rawLog.reduce((m, e) => { m.set(e.appName, (m.get(e.appName) || 0) + e.durationSeconds); return m; }, new Map<string, number>()),
-      ).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([appName]) => {
-        const cat = classifyApp(appName);
-        const appEntries = rawLog.filter(e => e.appName === appName);
-        const totalSec = appEntries.reduce((s, e) => s + e.durationSeconds, 0);
+      {processedRows.map(({ appName, totalSec, appEntries }) => (
+        <div key={appName} className="flex items-center gap-2 group">
+          {/* Label */}
+          <span className="w-24 shrink-0 text-[10px] text-slate-400 truncate text-right font-semibold">
+            {appName}
+          </span>
 
-        return (
-          <div key={appName} className="flex items-center gap-2 group">
-            {/* Label */}
-            <span className="w-24 shrink-0 text-[10px] text-slate-400 truncate text-right font-semibold">
-              {appName}
-            </span>
-
-            {/* 24-hour track */}
-            <div className="relative flex-1 h-5 bg-white/[0.03] rounded overflow-hidden border border-white/5">
-              {appEntries.map((entry, i) => {
-                const startMin = entry.hour * 60 + (entry.minute ?? 0);
-                const leftPct  = (startMin / 1440) * 100;
-                const widthPct = Math.max(0.5, (entry.durationSeconds / 86400) * 100);
-                return (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className={`absolute top-0 h-full rounded-sm ${CAT_SOLID[classifyApp(entry.appName, entry.title)] ?? "bg-slate-500"} ${entry.isLive ? "animate-pulse" : ""}`}
-                    style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                    title={`${appName} @ ${String(entry.hour).padStart(2,"0")}:${String(entry.minute ?? 0).padStart(2,"0")} — ${fmt(entry.durationSeconds)}`}
-                  />
-                );
-              })}
-            </div>
-
-            {/* Duration */}
-            <span className="w-12 shrink-0 text-[10px] text-slate-400 font-mono text-right">{fmt(totalSec)}</span>
+          {/* 24-hour track */}
+          <div className="relative flex-1 h-5 bg-white/[0.03] rounded overflow-hidden border border-white/5">
+            {appEntries.map((entry, i) => {
+              const startMin = entry.hour * 60 + (entry.minute ?? 0);
+              const leftPct  = (startMin / 1440) * 100;
+              const widthPct = Math.max(0.5, (entry.durationSeconds / 86400) * 100);
+              const cat = classifyApp(entry.appName, entry.title);
+              return (
+                <div
+                  key={i}
+                  className={`absolute top-0 h-full rounded-sm ${CAT_SOLID[cat] ?? "bg-slate-500"} ${entry.isLive ? "animate-pulse" : ""}`}
+                  style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+                  title={`${appName} @ ${String(entry.hour).padStart(2,"0")}:${String(entry.minute ?? 0).padStart(2,"0")} — ${fmt(entry.durationSeconds)}`}
+                />
+              );
+            })}
           </div>
-        );
-      })}
+
+          {/* Duration */}
+          <span className="w-12 shrink-0 text-[10px] text-slate-400 font-mono text-right">{fmt(totalSec)}</span>
+        </div>
+      ))}
 
       {/* Legend */}
       <div className="flex items-center gap-3 pt-2 border-t border-white/5 flex-wrap">
