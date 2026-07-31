@@ -401,13 +401,6 @@ export function AIAssistantPage() {
     if (typeof window !== "undefined" && (window as any).electron?.ipcRenderer) {
       return (window as any).electron.ipcRenderer;
     }
-    if (typeof window !== "undefined" && (window as any).require) {
-      try {
-        return (window as any).require("electron").ipcRenderer;
-      } catch {
-        return null;
-      }
-    }
     return null;
   };
 

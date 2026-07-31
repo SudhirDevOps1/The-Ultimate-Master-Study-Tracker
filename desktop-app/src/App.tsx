@@ -67,12 +67,15 @@ export function App() {
           void state.pauseSession();
         }
       };
-      (window as any).electron.ipcRenderer.on("global-shortcut-toggle-timer", handleToggleTimer);
-      (window as any).electron.ipcRenderer.on("save-session-state-sync", handleQuitSync);
-      return () => {
-        (window as any).electron.ipcRenderer.off("global-shortcut-toggle-timer", handleToggleTimer);
-        (window as any).electron.ipcRenderer.off("save-session-state-sync", handleQuitSync);
-      };
+      const ipc = (window as any).electron?.ipcRenderer;
+      if (typeof ipc?.on === "function") {
+        ipc.on("global-shortcut-toggle-timer", handleToggleTimer);
+        ipc.on("save-session-state-sync", handleQuitSync);
+        return () => {
+          ipc.off?.("global-shortcut-toggle-timer", handleToggleTimer);
+          ipc.off?.("save-session-state-sync", handleQuitSync);
+        };
+      }
     }
   }, [initApp]);
 

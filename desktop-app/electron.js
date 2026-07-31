@@ -305,8 +305,8 @@ function createWindow() {
       ? path.join(process.resourcesPath, "app.asar", "dist", "favicon.png")
       : path.join(__dirname, "public", "favicon.png"),
     webPreferences: {
-      nodeIntegration:      !app.isPackaged,
-      contextIsolation:     app.isPackaged,
+      nodeIntegration:      false,
+      contextIsolation:     true,
       preload:              path.join(__dirname, "preload.js"),
       backgroundThrottling: false,
       webviewTag:           true,

@@ -26,7 +26,7 @@ export function useInactivityDetector() {
   const hasAutoPausedRef     = useRef(false);
   const lastInteractionMsRef = useRef<number>(Date.now());
 
-  const isElectron = typeof window !== "undefined" && !!(window as any).require;
+  const isElectron = typeof window !== "undefined" && (!!(window as any).electron?.isElectron || !!(window as any).require);
 
   // ── LAYER 2: Instant In-App DOM Activity Watcher ─────────────────────────
   // FIX P4: Removed redundant IndexedDB write from recordDOMActivity.
