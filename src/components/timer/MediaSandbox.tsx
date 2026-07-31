@@ -76,6 +76,23 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
     setIsWebBrowserLocalPrompt(false);
   }, [url]);
 
+  // Update document title with current playing media name so Electron activity tracker records exact file name!
+  useEffect(() => {
+    if (isPlaying || resourceLoaded) {
+      let currentMediaName = "";
+      if (playlist.length > 0 && playlist[playlistIndex]) {
+        currentMediaName = playlist[playlistIndex].name;
+      } else if (url) {
+        const cleanP = url.trim().replace(/^["']|["']$/g, "");
+        const parts = cleanP.split(/[\\/]/);
+        currentMediaName = parts.pop() || cleanP;
+      }
+      if (currentMediaName) {
+        document.title = `🎬 Playing: ${currentMediaName} | ${activeSubjectName} — FlowTrack Pro`;
+      }
+    }
+  }, [isPlaying, resourceLoaded, playlistIndex, playlist, url, activeSubjectName]);
+
   // Helper to open link in external/system browser
   const openExternalUrl = async (targetUrl: string) => {
     onInteraction?.();

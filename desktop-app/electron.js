@@ -82,7 +82,15 @@ function isSelf(processName, windowTitle) {
 function shouldSkip(processName, windowTitle) {
   const p = (processName || "").toLowerCase().trim();
   const t = (windowTitle  || "").toLowerCase().trim();
-  if (isSelf(p, t)) return true;
+  
+  if (isSelf(p, t)) {
+    // If playing video/audio or in active study session inside FlowTrack Pro, DO NOT SKIP!
+    if (t.includes("playing:") || t.includes("study") || t.includes("session") || t.includes("flowtrack")) {
+      return false;
+    }
+    return true;
+  }
+
   if (!p || p === "unknown" || p === "idle") return true;
   if (t === "desktop / idle" || t === "desktop is idle") return true;
   return false;
@@ -116,6 +124,10 @@ function saveBlockRulesToFile() {
 // ─── App Name Normalizer ───────────────────────────────────────────────────────
 // Turns raw exe names (msedge, chrome, code) into human-friendly display names.
 const FRIENDLY_NAMES = {
+  // FlowTrack Pro Self App
+  electron:       "FlowTrack Pro (Study Sandbox)",
+  flowtrack:      "FlowTrack Pro (Study Sandbox)",
+  "flowtrack pro": "FlowTrack Pro (Study Sandbox)",
   // Browsers
   chrome:         "Google Chrome",
   msedge:         "Microsoft Edge",
