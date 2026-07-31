@@ -117,9 +117,8 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
         void (window as any).electron.ipcRenderer.invoke("scan-local-folder", { folderPath: cleanUrl })
           .then((res: { success: boolean; files: LocalPlaylistItem[] }) => {
             if (res && res.success && res.files.length > 0) {
-              setPlaylist(res.files);
-              // Find index matching the specific file passed, or default to 0
-              const foundIdx = res.files.findIndex(f => f.path.toLowerCase() === cleanUrl.toLowerCase());
+              const normClean = cleanUrl.replace(/\\/g, "/").toLowerCase();
+              const foundIdx = res.files.findIndex(f => f.path.replace(/\\/g, "/").toLowerCase() === normClean);
               const startIdx = foundIdx !== -1 ? foundIdx : 0;
               setPlaylistIndex(startIdx);
               setLocalSourceUrl(res.files[startIdx].url);

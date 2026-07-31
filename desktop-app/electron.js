@@ -497,15 +497,29 @@ if (!gotTheLock) {
 app.whenReady().then(() => {
   // Register custom protocol for local media streaming from ANY drive (C:, D:, E:, F:... Z:)
   try {
-    protocol.handle("local-media", (request) => {
+    protocol.handle("local-media", async (request) => {
       try {
-        let rawPath = request.url.replace(/^local-media:\/\/\/?/, "");
+        let rawUrl = request.url;
+        let rawPath = rawUrl.replace(/^local-media:\/\/\/?/i, "");
         let decodedPath = decodeURIComponent(rawPath);
+        
+        // Remove leading slash on Windows drive letters e.g. "/D:/..." -> "D:/..."
+        if (/^\/[a-zA-Z]:/.test(decodedPath)) {
+          decodedPath = decodedPath.slice(1);
+        }
+        
         decodedPath = path.normalize(decodedPath);
-        return net.fetch(pathToFileURL(decodedPath).toString());
+
+        if (fs.existsSync(decodedPath)) {
+          const fileUrl = pathToFileURL(decodedPath).href;
+          return net.fetch(fileUrl, { bypassCustomProtocolHandlers: true });
+        } else {
+          console.error("[Local Media 404] File not found:", decodedPath);
+          return new Response("File not found: " + decodedPath, { status: 404 });
+        }
       } catch (err) {
-        console.error("Failed to load local media:", err);
-        return new Response("Local media error", { status: 404 });
+        console.error("[Local Media Error]", err);
+        return new Response("Error: " + err.message, { status: 500 });
       }
     });
   } catch (e) {
