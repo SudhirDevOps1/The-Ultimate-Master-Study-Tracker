@@ -67,8 +67,35 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
   const sandboxRef = useRef<HTMLDivElement>(null);
   const localFileInputRef = useRef<HTMLInputElement>(null);
 
+  const [activeInputUrl, setActiveInputUrl] = useState<string>(url || "");
+  const [activeLoadedUrl, setActiveLoadedUrl] = useState<string>(url || "");
+
+  const loadCustomWebUrl = (targetUrl: string) => {
+    onInteraction?.();
+    let cleanUrl = targetUrl.trim();
+    if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://") && !cleanUrl.startsWith("file://") && !cleanUrl.startsWith("local-media://")) {
+      cleanUrl = "https://" + cleanUrl;
+    }
+    setActiveInputUrl(cleanUrl);
+    setActiveLoadedUrl(cleanUrl);
+    
+    const ytRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+    const isYt = ytRegex.test(cleanUrl);
+    
+    if (isYt) {
+      setMediaType("youtube");
+    } else {
+      setMediaType("web");
+    }
+    setResourceLoaded(true);
+    setIsPlaying(true);
+    document.title = `🎬 Playing: ${cleanUrl} | ${activeSubjectName} — FlowTrack Pro`;
+  };
+
   // Reset loaded state when URL changes
   useEffect(() => {
+    setActiveInputUrl(url || "");
+    setActiveLoadedUrl(url || "");
     setResourceLoaded(false);
     setErrorMsg(null);
     setPlaylist([]);
@@ -421,6 +448,47 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
         </div>
       </div>
 
+      {/* 🌐 In-App Desktop Chromium Webview & Course Portal Navigation Bar */}
+      <div className="mb-3 flex items-center gap-2 p-2 rounded-xl bg-slate-900/90 border border-cyan-500/20 flex-wrap">
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Globe className="w-4 h-4 text-cyan-400" />
+          <span className="text-xs font-bold text-white hidden sm:inline">Webview Engine:</span>
+        </div>
+
+        <input
+          type="text"
+          placeholder="Paste course link e.g. www.apnacollege.in or YouTube link..."
+          value={activeInputUrl}
+          onChange={(e) => setActiveInputUrl(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && activeInputUrl.trim()) {
+              loadCustomWebUrl(activeInputUrl.trim());
+            }
+          }}
+          className="flex-1 min-w-[200px] px-3 py-1.5 text-xs rounded-lg bg-slate-950 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400"
+        />
+
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => activeInputUrl.trim() && loadCustomWebUrl(activeInputUrl.trim())}
+            className="px-3 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-r from-cyan-500 to-indigo-500 text-white hover:opacity-95 shadow-md active:scale-95 transition-all"
+          >
+            ▶️ Load Site / Video
+          </button>
+
+          {/* Quick Preset Button */}
+          <button
+            type="button"
+            onClick={() => loadCustomWebUrl("https://www.apnacollege.in")}
+            className="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:text-cyan-300 hover:bg-white/10 transition-all"
+            title="Load Apna College Portal"
+          >
+            Apna College
+          </button>
+        </div>
+      </div>
+
       {/* Course Playlist Menu Drawer */}
       {showPlaylistMenu && playlist.length > 0 && (
         <div className="mb-3 p-3 rounded-xl bg-slate-900 border border-indigo-500/30 max-h-48 overflow-y-auto space-y-1 shadow-2xl">
@@ -495,11 +563,11 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
                 <p className="text-white font-semibold text-sm">
                   {mediaType === "youtube" ? "YouTube Video Embed" : "External Web Resource"}
                 </p>
-                <p className="text-slate-400 text-xs mt-1 truncate max-w-[260px]" title={url}>{url}</p>
+                <p className="text-slate-400 text-xs mt-1 truncate max-w-[260px]" title={activeLoadedUrl}>{activeLoadedUrl}</p>
               </div>
               {mediaType === "web" ? (
                 <button
-                  onClick={() => { openExternalUrl(url); setResourceLoaded(true); }}
+                  onClick={() => { openExternalUrl(activeLoadedUrl); setResourceLoaded(true); }}
                   className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-cyan-500/30 hover:from-cyan-600 hover:to-indigo-600 active:scale-95 transition-all"
                 >
                   <ExternalLink className="h-4 w-4" />
@@ -520,16 +588,16 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
           {mediaType === "web" && resourceLoaded && (
             typeof window !== "undefined" && (window as any).electron ? (
               <webview
-                key={url}
-                src={url}
+                key={activeLoadedUrl}
+                src={activeLoadedUrl}
                 className="absolute inset-0 h-full w-full border-0"
                 allowpopups
                 webpreferences="allowRunningInsecureContent, javascript=true"
               />
             ) : (
               <iframe
-                key={url}
-                src={url}
+                key={activeLoadedUrl}
+                src={activeLoadedUrl}
                 title="Course Web Portal"
                 className="absolute inset-0 h-full w-full border-0"
                 sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
@@ -542,16 +610,16 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
             <div className="absolute inset-0 h-full w-full flex flex-col">
               {typeof window !== "undefined" && (window as any).electron ? (
                 <webview
-                  key={url}
-                  src={url.includes("watch?v=") || url.includes("youtu.be/") ? url : getEmbedUrl(url)}
+                  key={activeLoadedUrl}
+                  src={activeLoadedUrl.includes("watch?v=") || activeLoadedUrl.includes("youtu.be/") ? activeLoadedUrl : getEmbedUrl(activeLoadedUrl)}
                   className="w-full flex-1 border-0"
                   allowpopups
                   webpreferences="allowRunningInsecureContent, javascript=true"
                 />
               ) : (
                 <iframe
-                  key={url}
-                  src={getEmbedUrl(url)}
+                  key={activeLoadedUrl}
+                  src={getEmbedUrl(activeLoadedUrl)}
                   title="YouTube video player"
                   className="w-full flex-1 border-0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
@@ -563,7 +631,7 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
                 <span>Apna College / Restricted Video?</span>
                 <button
                   type="button"
-                  onClick={() => openExternalUrl(url)}
+                  onClick={() => openExternalUrl(activeLoadedUrl)}
                   className="text-cyan-400 font-bold hover:underline"
                 >
                   🌐 Open in External Browser
