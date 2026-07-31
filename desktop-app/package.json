@@ -29,6 +29,10 @@
       ],
       "icon": "public/favicon.png"
     },
+    "mac": {
+      "target": ["zip"],
+      "category": "public.app-category.productivity"
+    },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
