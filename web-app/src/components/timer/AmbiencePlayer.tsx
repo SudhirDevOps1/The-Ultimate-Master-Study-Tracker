@@ -58,12 +58,13 @@ export function AmbiencePlayer() {
   const [showFloatingSettings, setShowFloatingSettings] = useState(false);
   const [floatingWindowSize, setFloatingWindowSize] = useState<"normal" | "large">("normal");
 
-  // Playlist state
-  const [savedPlaylist, setSavedPlaylist] = useState<Array<{ id: string; name: string; url: string }>>([
-    { id: "p1", name: "Lofi Girl — 24/7 Lofi Beats", url: "https://www.youtube.com/watch?v=jfKfPfyJRdk" },
-    { id: "p2", name: "Lofi Girl — Sleep / Relaxing Beats", url: "https://www.youtube.com/watch?v=rUxyKA_-grg" },
-    { id: "p3", name: "Chillhop Radio — Jazzy Lofi Beats", url: "https://www.youtube.com/watch?v=5qap5aO4i9A" }
-  ]);
+  // Playlist state (Curated 100% embeddable YouTube study streams)
+  const DEFAULT_PLAYLIST = [
+    { id: "p1", name: "Chillhop Lofi Beats", url: "https://www.youtube.com/watch?v=5qap5aO4i9A" },
+    { id: "p2", name: "Deep Study Ambient Lofi", url: "https://www.youtube.com/watch?v=TURbeWK2wwg" },
+    { id: "p3", name: "Japanese Garden Relaxation", url: "https://www.youtube.com/watch?v=1fueZCTYkpA" }
+  ];
+  const [savedPlaylist, setSavedPlaylist] = useState<Array<{ id: string; name: string; url: string }>>(DEFAULT_PLAYLIST);
   const [newTrackName, setNewTrackName] = useState("");
   const [newTrackUrl, setNewTrackUrl] = useState("");
   const [currentPlaylistIndex, setCurrentPlaylistIndex] = useState(0);
@@ -71,19 +72,29 @@ export function AmbiencePlayer() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Load playlist from DB
+  // Load playlist from DB and purge any broken cached URLs
   useEffect(() => {
     void db.settings.get("ambience_playlist").then(setting => {
       if (setting && setting.value) {
         try {
           let parsed = JSON.parse(setting.value);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            setSavedPlaylist(parsed);
+            const clean = parsed.filter(item => 
+              !item.url.includes("lTRiuFIWV54") && 
+              !item.url.includes("wXhTHyIgQ_U") &&
+              !item.url.includes("jfKfPfyJRdk")
+            );
+            if (clean.length > 0) {
+              setSavedPlaylist(clean);
+              return;
+            }
           }
         } catch (e) {
           console.error(e);
         }
       }
+      setSavedPlaylist(DEFAULT_PLAYLIST);
+      void db.settings.put({ key: "ambience_playlist", value: JSON.stringify(DEFAULT_PLAYLIST) });
     });
   }, []);
 
@@ -442,14 +453,34 @@ export function AmbiencePlayer() {
             )}
 
             {/* Video Iframe Container */}
-            <div className="aspect-video w-full rounded-xl overflow-hidden bg-black border border-white/10 shadow-inner">
+            <div className="aspect-video w-full rounded-xl overflow-hidden bg-black border border-white/10 shadow-inner flex flex-col justify-between">
               <iframe
                 src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&enablejsapi=1&rel=0&modestbranding=1&origin=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : 'http://localhost')}`}
                 title="YouTube Audio Stream"
-                className="w-full h-full border-0"
+                className="w-full flex-1 border-0"
                 allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
                 referrerPolicy="no-referrer-when-downgrade"
               />
+              <div className="flex items-center justify-between px-3 py-1.5 bg-slate-900/90 border-t border-white/10 text-[11px] text-slate-400">
+                <span>If video shows unavailable:</span>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={savedPlaylist[currentPlaylistIndex]?.url || "#"}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-cyan-400 font-semibold hover:underline flex items-center gap-1"
+                  >
+                    <span>🌐 Open in Browser</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTrack(SOUNDS[0])}
+                    className="text-amber-400 font-semibold hover:underline"
+                  >
+                    🎵 Rain Audio Loop
+                  </button>
+                </div>
+              </div>
             </div>
           </motion.div>
         )}
