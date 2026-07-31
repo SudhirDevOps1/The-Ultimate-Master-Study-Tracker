@@ -8,7 +8,6 @@ import { usePomodoro } from "@/hooks/usePomodoro";
 import { exportData, importBackup } from "@/utils/exportImport";
 import { exportSessionsToCSV, exportSubjectStatsToCSV, exportAllDataToCSV } from "@/utils/dataExport";
 import { db } from "@/lib/db";
-import { useConfirm } from "@/components/common/Toast";
 
 import type { ThemeName } from "@/types/models";
 
@@ -118,12 +117,17 @@ function PomodoroSettingsPanel() {
 
 const themeOptions: { name: ThemeName; label: string; emoji: string; colors: string[] }[] = [
   { name: "default", label: "Default", emoji: "💜", colors: ["#6366f1", "#22d3ee", "#a78bfa"] },
+  { name: "paper", label: "Paper White", emoji: "📜", colors: ["#fcfbf7", "#d97706", "#0f172a"] },
+  { name: "tokyo", label: "Tokyo Night", emoji: "🏙️", colors: ["#7aa2f7", "#bb9af7", "#7dcfff"] },
+  { name: "nordic", label: "Nordic Frost", emoji: "❄️", colors: ["#88c0d0", "#81a1c1", "#8fbcbb"] },
+  { name: "dracula", label: "Dracula", emoji: "🧛", colors: ["#bd93f9", "#ff79c6", "#50fa7b"] },
+  { name: "coffee", label: "Warm Sepia", emoji: "☕", colors: ["#d97706", "#b45309", "#f59e0b"] },
+  { name: "oled", label: "OLED Black", emoji: "🖤", colors: ["#000000", "#38bdf8", "#a78bfa"] },
   { name: "ocean", label: "Ocean", emoji: "🌊", colors: ["#0ea5e9", "#06b6d4", "#38bdf8"] },
   { name: "forest", label: "Forest", emoji: "🌲", colors: ["#22c55e", "#84cc16", "#4ade80"] },
   { name: "sunset", label: "Sunset", emoji: "🌅", colors: ["#f97316", "#f43f5e", "#fb923c"] },
   { name: "galaxy", label: "Galaxy", emoji: "🌌", colors: ["#a855f7", "#ec4899", "#c084fc"] },
-  { name: "neon", label: "Neon Night", emoji: "🧪", colors: ["#00ffc3", "#ff00e5", "#00d4ff"] } as const,
-  { name: "paper", label: "Paper White", emoji: "📄", colors: ["#fefefe", "#e2e8f0", "#94a3b8"] } as const,
+  { name: "neon", label: "Neon Night", emoji: "🧪", colors: ["#00ffc3", "#ff00e5", "#00d4ff"] },
 ];
 
 export function SettingsPage() {
@@ -131,7 +135,6 @@ export function SettingsPage() {
   const sessions = useAppStore((state: AppState) => state.sessions);
   const importAll = useAppStore((state: AppState) => state.importAll);
   const addManualEntry = useAppStore((state: AppState) => state.addManualEntry);
-  const { confirm } = useConfirm();
   const setDailyGoalHours = useAppStore((state: AppState) => state.setDailyGoalHours);
   const dailyGoalHours = useAppStore((state: AppState) => state.dailyGoalHours);
   const weeklyTargetHours = useAppStore((state: AppState) => state.weeklyTargetHours);
@@ -178,20 +181,6 @@ export function SettingsPage() {
   const [manualNotes, setManualNotes] = useState("Manual time entry");
   const [manualTags, setManualTags] = useState("manual");
   const [statusMessage, setStatusMessage] = useState("");
-  const [dataPaths, setDataPaths] = useState<{ userData: string; activityLog: string } | null>(null);
-
-  useEffect(() => {
-    const fetchPaths = async () => {
-      if (typeof window !== "undefined" && (window as any).electron) {
-        try {
-          const paths = await (window as any).electron.ipcRenderer?.invoke("get-data-directory-path");
-          if (paths) setDataPaths(paths);
-        } catch { /* ignore */ }
-      }
-    };
-    void fetchPaths();
-  }, []);
-
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -423,7 +412,41 @@ export function SettingsPage() {
         </div>
       </Panel>
 
-
+      {/* Cloud Sync & Guest Mode */}
+      <Panel className="space-y-4 border-l-4 border-indigo-500 bg-gradient-to-r from-slate-900 via-indigo-950/20 to-slate-900">
+        <div>
+          <h3 className="text-xl font-semibold text-white flex items-center gap-2">☁️ Cloud Sync</h3>
+          <p className="mt-1 text-sm text-slate-400">You are currently in {user ? "Cloud Mode" : "Guest Mode"}. {user ? "Data is synced across devices safely." : "Data is stored strictly offline on this browser."}</p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`h-3 w-3 rounded-full ${user ? "bg-emerald-500" : "bg-amber-500"} animate-pulse`} />
+            <span className="text-sm font-semibold text-slate-300">
+              {user ? `Logged in as ${user.email || user.uid}` : "Guest Mode (Offline Only)"}
+            </span>
+          </div>
+          {!user ? (
+            <button
+              onClick={() => showMessage("Please configure Firebase API keys in environment variables and uncomment the Auth logic to enable Cloud Sync.")}
+              className="rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-2.5 font-bold text-white shadow-lg hover:scale-105 transition-transform"
+            >
+              Sign In to Sync
+            </button>
+          ) : (
+            <button
+              onClick={() => showMessage("Logout functionality to be implemented with Firebase Auth.")}
+              className="rounded-2xl border border-white/20 bg-slate-800 px-6 py-2.5 font-bold text-white shadow-lg hover:bg-slate-700 transition-colors"
+            >
+              Sign Out
+            </button>
+          )}
+        </div>
+        {user && (
+          <div className="text-xs text-slate-400 mt-2">
+            Status: <span className="font-mono text-cyan-400">{cloudSyncStatus}</span>
+          </div>
+        )}
+      </Panel>
 
       <div className="grid gap-5 lg:grid-cols-2">
         {/* Backup */}
@@ -742,30 +765,6 @@ export function SettingsPage() {
               <p className="text-xs text-slate-400">Version</p>
             </div>
           </div>
-
-          {dataPaths && (
-            <div className="mt-4 p-3.5 rounded-2xl bg-slate-950/50 border border-white/5 space-y-2.5 text-xs">
-              <p className="font-semibold text-slate-300">📂 Data Storage Locations:</p>
-              <div className="space-y-1.5 font-mono text-[10px] text-slate-400 select-all">
-                <p className="truncate">
-                  <strong className="text-slate-300 font-semibold">App Data:</strong> {dataPaths.userData}
-                </p>
-                <p className="truncate">
-                  <strong className="text-slate-300 font-semibold">Logs:</strong> {dataPaths.activityLog}
-                </p>
-              </div>
-              <button
-                onClick={async () => {
-                  if (typeof window !== "undefined" && (window as any).electron) {
-                    await (window as any).electron.ipcRenderer.invoke("open-activity-log-folder");
-                  }
-                }}
-                className="mt-2 w-full rounded-xl bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-700 hover:to-slate-800 border border-white/10 py-2.5 font-bold text-white transition-all text-center block shadow-md"
-              >
-                📂 Open Logs Folder
-              </button>
-            </div>
-          )}
         </Panel>
 
         <Panel className="space-y-4 border-l-4 border-cyan-400 bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950/20">
@@ -800,13 +799,10 @@ export function SettingsPage() {
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={async () => {
-              const ok = await confirm({
-                title: "⚠️ Reset ALL Data",
-                message: "This will permanently delete ALL subjects, sessions, settings, and AI config. This action CANNOT be undone.",
-                confirmText: "🗑️ Delete Everything",
-                danger: true,
-              });
-              if (!ok) return;
+              const first = confirm("⚠️ Are you sure you want to delete ALL data? This includes all subjects, sessions, settings, and AI config. This action CANNOT be undone.");
+              if (!first) return;
+              const second = confirm("🛑 FINAL WARNING: Click OK to permanently erase everything and restart fresh.");
+              if (!second) return;
               try {
                 await db.subjects.clear();
                 await db.sessions.clear();

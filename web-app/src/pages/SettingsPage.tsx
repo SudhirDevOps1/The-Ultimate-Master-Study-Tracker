@@ -117,12 +117,17 @@ function PomodoroSettingsPanel() {
 
 const themeOptions: { name: ThemeName; label: string; emoji: string; colors: string[] }[] = [
   { name: "default", label: "Default", emoji: "💜", colors: ["#6366f1", "#22d3ee", "#a78bfa"] },
+  { name: "paper", label: "Paper White", emoji: "📜", colors: ["#fcfbf7", "#d97706", "#0f172a"] },
+  { name: "tokyo", label: "Tokyo Night", emoji: "🏙️", colors: ["#7aa2f7", "#bb9af7", "#7dcfff"] },
+  { name: "nordic", label: "Nordic Frost", emoji: "❄️", colors: ["#88c0d0", "#81a1c1", "#8fbcbb"] },
+  { name: "dracula", label: "Dracula", emoji: "🧛", colors: ["#bd93f9", "#ff79c6", "#50fa7b"] },
+  { name: "coffee", label: "Warm Sepia", emoji: "☕", colors: ["#d97706", "#b45309", "#f59e0b"] },
+  { name: "oled", label: "OLED Black", emoji: "🖤", colors: ["#000000", "#38bdf8", "#a78bfa"] },
   { name: "ocean", label: "Ocean", emoji: "🌊", colors: ["#0ea5e9", "#06b6d4", "#38bdf8"] },
   { name: "forest", label: "Forest", emoji: "🌲", colors: ["#22c55e", "#84cc16", "#4ade80"] },
   { name: "sunset", label: "Sunset", emoji: "🌅", colors: ["#f97316", "#f43f5e", "#fb923c"] },
   { name: "galaxy", label: "Galaxy", emoji: "🌌", colors: ["#a855f7", "#ec4899", "#c084fc"] },
-  { name: "neon", label: "Neon Night", emoji: "🧪", colors: ["#00ffc3", "#ff00e5", "#00d4ff"] } as const,
-  { name: "paper", label: "Paper White", emoji: "📄", colors: ["#fefefe", "#e2e8f0", "#94a3b8"] } as const,
+  { name: "neon", label: "Neon Night", emoji: "🧪", colors: ["#00ffc3", "#ff00e5", "#00d4ff"] },
 ];
 
 export function SettingsPage() {

@@ -27,7 +27,7 @@
           ]
         }
       ],
-      "icon": "public/favicon.png"
+      "icon": "public/icon.png"
     },
     "mac": {
       "target": ["zip"],

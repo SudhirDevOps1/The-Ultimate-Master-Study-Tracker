@@ -364,8 +364,8 @@ function createWindow() {
     width: 1280, height: 860, minWidth: 960, minHeight: 640,
     show:  false,
     title: "FlowTrack – Smart Study Tracker",
-    icon:  app.isPackaged 
-      ? path.join(process.resourcesPath, "app.asar", "dist", "favicon.png")
+    icon: fs.existsSync(path.join(__dirname, "public", "icon.png"))
+      ? path.join(__dirname, "public", "icon.png")
       : path.join(__dirname, "public", "favicon.png"),
     webPreferences: {
       nodeIntegration:      false,

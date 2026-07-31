@@ -78,16 +78,11 @@ export function VideoRestBreak() {
           clearInterval(interval);
           setShowOverlay(false);
           // Show focus notification when done
-          const title = "🎯 Time to focus!";
-          const body = "Your rest break is complete. Let's resume studying!";
-          if (typeof window !== "undefined" && (window as any).electron?.ipcRenderer) {
-            try {
-              void (window as any).electron.ipcRenderer.invoke("send-windows-toast", { title, message: body });
-            } catch { /* ignore */ }
-          } else if ("Notification" in window && Notification.permission === "granted") {
-            try {
-              new Notification(title, { body, tag: "rest-break-end" });
-            } catch { /* ignore */ }
+          if ("Notification" in window && Notification.permission === "granted") {
+            new Notification("Time to focus! 🎯", {
+              body: "Your rest break is complete. Let's resume studying!",
+              tag: "rest-break-end"
+            });
           }
           return 0;
         }
@@ -141,7 +136,7 @@ export function VideoRestBreak() {
   return (
     <>
       {/* Floating Rest mini settings toggle */}
-      <div className="fixed bottom-6 right-64 z-40">
+      <div className="fixed bottom-6 right-72 z-40">
         <button
           onClick={() => setShowSettings(!showSettings)}
           className="p-3 rounded-full bg-slate-900 border border-white/10 hover:border-cyan-400 text-cyan-400 shadow-xl transition-all hover:scale-105 active:scale-95"
@@ -158,7 +153,7 @@ export function VideoRestBreak() {
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-20 right-24 z-40 w-80"
+            className="fixed bottom-20 right-28 z-40 w-80"
           >
             <Panel className="space-y-4 shadow-2xl border border-cyan-500/20 bg-slate-900/95 backdrop-blur-md">
               <div className="flex items-center justify-between pb-2 border-b border-white/5">
