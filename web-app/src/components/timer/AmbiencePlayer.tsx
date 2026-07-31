@@ -188,17 +188,23 @@ export function AmbiencePlayer() {
   };
 
   const handleAddPlaylistTrack = async () => {
-    if (!newTrackName.trim() || !newTrackUrl.trim()) return;
+    if (!newTrackUrl.trim()) return;
+    const rawUrl = newTrackUrl.trim();
+    const extractedId = getYoutubeId(rawUrl);
+    const title = newTrackName.trim() || (extractedId ? `YouTube (${extractedId})` : "Custom Stream");
+
     const newTrack = {
       id: crypto.randomUUID(),
-      name: newTrackName.trim(),
-      url: newTrackUrl.trim()
+      name: title,
+      url: rawUrl
     };
     const nextList = [...savedPlaylist, newTrack];
     await savePlaylistToDb(nextList);
     setNewTrackName("");
     setNewTrackUrl("");
     setCurrentPlaylistIndex(nextList.length - 1);
+    setSelectedTrack(SOUNDS.find(s => s.id === "youtube")!);
+    setFocusMusicEnabled(true);
   };
 
   const handleDeletePlaylistTrack = async (id: string, e: React.MouseEvent) => {
@@ -217,9 +223,10 @@ export function AmbiencePlayer() {
   };
 
   const getYoutubeId = (url: string) => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    if (!url) return null;
+    const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
     const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
+    return match ? match[1] : null;
   };
 
   const videoId = getYoutubeId(activeUrl);
@@ -307,6 +314,36 @@ export function AmbiencePlayer() {
                     <span className="truncate">{sound.name}</span>
                   </button>
                 ))}
+
+                {/* Quick Add Custom YouTube Link Input */}
+                <div className="pt-2 border-t border-white/10 space-y-1.5">
+                  <p className="px-1.5 text-[10px] font-bold text-cyan-400 uppercase tracking-wider">➕ Paste Any YouTube Link</p>
+                  <div className="flex gap-1">
+                    <input
+                      type="text"
+                      placeholder="https://youtu.be/..."
+                      value={newTrackUrl}
+                      onChange={(e) => setNewTrackUrl(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          void handleAddPlaylistTrack();
+                          setIsOpen(false);
+                        }
+                      }}
+                      className="flex-1 px-2 py-1 text-[11px] rounded-lg bg-slate-950 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void handleAddPlaylistTrack();
+                        setIsOpen(false);
+                      }}
+                      className="px-2 py-1 text-[11px] font-bold rounded-lg bg-cyan-500 text-slate-950 hover:bg-cyan-400 shrink-0"
+                    >
+                      Play
+                    </button>
+                  </div>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
