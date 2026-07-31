@@ -443,10 +443,11 @@ export function AmbiencePlayer() {
             {/* Video Iframe Container */}
             <div className="aspect-video w-full rounded-xl overflow-hidden bg-black border border-white/10 shadow-inner">
               <iframe
-                src={`https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1`}
+                src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&enablejsapi=1&rel=0&modestbranding=1&origin=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : 'http://localhost')}`}
                 title="YouTube Audio Stream"
-                className="w-full h-full"
-                allow="autoplay; fullscreen"
+                className="w-full h-full border-0"
+                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                referrerPolicy="no-referrer-when-downgrade"
               />
             </div>
           </motion.div>

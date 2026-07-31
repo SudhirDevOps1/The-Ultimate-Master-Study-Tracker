@@ -301,7 +301,8 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: M
     const ytRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
     const match = watchUrl.match(ytRegex);
     if (match) {
-      return `https://www.youtube-nocookie.com/embed/${match[1]}?rel=0&modestbranding=1&enablejsapi=1`;
+      const origin = typeof window !== 'undefined' ? encodeURIComponent(window.location.origin) : 'http%3A%2F%2Flocalhost';
+      return `https://www.youtube-nocookie.com/embed/${match[1]}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1&origin=${origin}`;
     }
     return watchUrl;
   };

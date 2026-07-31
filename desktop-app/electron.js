@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog, shell, protocol, net } = require("electron");
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog, shell, protocol, net, session } = require("electron");
 const path = require("path");
 const fs   = require("fs");
 const { pathToFileURL } = require("url");
@@ -522,8 +522,18 @@ app.whenReady().then(() => {
         return new Response("Error: " + err.message, { status: 500 });
       }
     });
+  // Fix YouTube Embed Error 153 in Electron Desktop App
+  try {
+    session.defaultSession.webRequest.onBeforeSendHeaders(
+      { urls: ["*://*.youtube.com/*", "*://*.youtube-nocookie.com/*"] },
+      (details, callback) => {
+        details.requestHeaders["Referer"] = "https://www.youtube.com/";
+        details.requestHeaders["Origin"] = "https://www.youtube.com";
+        callback({ cancel: false, requestHeaders: details.requestHeaders });
+      }
+    );
   } catch (e) {
-    console.error("Protocol handle error:", e);
+    console.error("YouTube header interceptor error:", e);
   }
 
   dataDir = path.join(app.getPath("userData"), "activity-log");
