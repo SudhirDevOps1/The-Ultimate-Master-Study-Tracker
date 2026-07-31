@@ -235,8 +235,8 @@ export function TimerPage() {
                 </div>
                 
                 {/* Ambience player directly accessible on main state before starting session */}
-                <div className="w-full md:w-auto p-3 rounded-2xl bg-white/[0.02] border border-white/5">
-                  <p className="text-[9px] uppercase font-bold text-slate-500 mb-1.5">🎵 Ambient Soundscapes</p>
+                <div className="w-full md:w-80 p-2.5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1">
+                  <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">🎵 Ambient Soundscapes</p>
                   <AmbiencePlayer />
                 </div>
               </div>
