@@ -316,7 +316,7 @@ export function DashboardPage() {
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-purple-300 bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 rounded">
               💻 Native Desktop App Available
             </span>
-            <span className="text-[10px] font-mono text-cyan-400 font-bold">v6.0.0</span>
+            <span className="text-[10px] font-mono text-cyan-400 font-bold">v7.3.0</span>
           </div>
           <p className="text-sm font-bold text-white">
             Want Native App & Browser Tab Blocker + PiP Floating Timer?
@@ -327,7 +327,7 @@ export function DashboardPage() {
         </div>
 
         <a
-          href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/tag/v6.0.0"
+          href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/tag/v7.3.0"
           target="_blank"
           rel="noopener noreferrer"
           className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white text-xs font-bold shadow-lg shadow-purple-500/25 active:scale-95 transition-all text-center shrink-0"
