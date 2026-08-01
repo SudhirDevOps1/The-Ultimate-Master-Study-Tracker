@@ -5,7 +5,7 @@ import {
   Palette, Download, Edit3, Trash2, Plus, Search, Camera, FileText, 
   Image as ImageIcon, Copy, Check, Type, Sparkles, Pin, FilePlus, Folder, 
   Clock, Save, Share2, AlignLeft, Bold, Italic, List, CheckSquare, Code, Heading,
-  Eye, Columns, Maximize2, Minimize2, ExternalLink
+  Eye, Columns, Maximize2, Minimize2, ExternalLink, ImageDown
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import { useToast } from "@/components/common/Toast";
@@ -117,7 +117,6 @@ function MarkdownPreview({ content }: { content: string }) {
     // Code block toggle ```
     if (line.trim().startsWith("```")) {
       if (inCodeBlock) {
-        // Close code block
         renderedElements.push(
           <pre key={`code-${index}`} className="my-3 p-3.5 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-purple-300 overflow-x-auto">
             <code>{codeBuffer.join("\n")}</code>
@@ -136,9 +135,8 @@ function MarkdownPreview({ content }: { content: string }) {
       return;
     }
 
-    // Helper for inline bold, italic & code formatting
+    // Inline formatting helper
     const formatInline = (text: string): React.ReactNode => {
-      // Bold **text**
       const parts = text.split(/(\*\*.*?\*\*|\*.*?\*|`.*?`)/g);
       return parts.map((part, pIdx) => {
         if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
@@ -177,7 +175,6 @@ function MarkdownPreview({ content }: { content: string }) {
     // Bullet Lists
     else if (line.trim().startsWith("- ") || line.trim().startsWith("* ")) {
       const itemText = line.trim().slice(2);
-      // Checkbox list item `- [ ]` or `- [x]`
       if (itemText.startsWith("[ ] ") || itemText.startsWith("[x] ")) {
         const checked = itemText.startsWith("[x] ");
         const checkText = itemText.slice(4);
@@ -274,6 +271,7 @@ export function StudyNotesBoardPage() {
   const { showToast } = useToast();
 
   const notesContainerRef = useRef<HTMLDivElement | null>(null);
+  const docPreviewContainerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Sync Sticky Notes
@@ -432,6 +430,49 @@ export function StudyNotesBoardPage() {
     showToast("Document exported as .md file!", "success");
   };
 
+  // High Quality Rendered Markdown PNG Exporter
+  const exportDocAsPNG = async () => {
+    if (!activeDoc) return;
+    try {
+      showToast("Generating high-resolution PNG image...", "info");
+      
+      let targetEl = docPreviewContainerRef.current;
+      if (!targetEl) {
+        targetEl = document.querySelector("#rendered-doc-preview-container") as HTMLDivElement | null;
+      }
+
+      if (!targetEl) {
+        // If user is currently in raw 'edit' mode, temporarily toggle to split to capture
+        setViewMode("split");
+        await new Promise(r => setTimeout(r, 200));
+        targetEl = document.querySelector("#rendered-doc-preview-container") as HTMLDivElement | null;
+      }
+
+      if (!targetEl) {
+        showToast("Unable to capture preview container", "warning");
+        return;
+      }
+
+      const canvas = await html2canvas(targetEl, {
+        backgroundColor: "#0B0F19",
+        scale: 3, // Crisp 3x High Definition quality
+        logging: false,
+        useCORS: true
+      });
+
+      const dataUrl = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      const safeTitle = activeDoc.title.replace(/[^a-z0-9_-]/gi, "_").toLowerCase();
+      link.download = `${safeTitle || "note"}_rendered.png`;
+      link.href = dataUrl;
+      link.click();
+      showToast("High Quality PNG Image Exported!", "success");
+    } catch (err) {
+      console.error("Failed to export doc PNG:", err);
+      showToast("Failed to export PNG image", "warning");
+    }
+  };
+
   const copyDocToClipboard = () => {
     if (!activeDoc) return;
     navigator.clipboard.writeText(activeDoc.content);
@@ -440,7 +481,6 @@ export function StudyNotesBoardPage() {
     setTimeout(() => setCopiedNotepad(false), 2000);
   };
 
-  // Quick formatting toolbar insertion into active notepad textarea
   const insertFormatting = (prefix: string, suffix: string = "") => {
     const textarea = document.getElementById("notepad-editor-textarea") as HTMLTextAreaElement | null;
     if (!textarea || !activeDoc) return;
@@ -484,7 +524,6 @@ export function StudyNotesBoardPage() {
     return [...result].sort((a, b) => Number(b.pinned || 0) - Number(a.pinned || 0));
   }, [notepadDocs, docSearch]);
 
-  // Word & Character count for active doc
   const wordCount = activeDoc ? activeDoc.content.trim().split(/\s+/).filter(Boolean).length : 0;
   const charCount = activeDoc ? activeDoc.content.length : 0;
 
@@ -849,13 +888,21 @@ export function StudyNotesBoardPage() {
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       onClick={copyDocToClipboard}
                       className="px-3 py-1.5 rounded-lg text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1.5"
                     >
                       {copiedNotepad ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                       {copiedNotepad ? "Copied!" : "Copy"}
+                    </button>
+
+                    <button
+                      onClick={exportDocAsPNG}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-200 border border-emerald-500/40 transition flex items-center gap-1.5 shadow-md shadow-emerald-500/10"
+                      title="Export Rendered Preview as High Quality PNG Image"
+                    >
+                      <ImageDown className="w-3.5 h-3.5" /> Export PNG
                     </button>
 
                     <button
@@ -909,9 +956,16 @@ export function StudyNotesBoardPage() {
 
                   {/* Rendered Live Markdown Preview */}
                   {(viewMode === "preview" || viewMode === "split") && (
-                    <div className={`w-full h-full min-h-[440px] bg-slate-950/60 border border-slate-800/80 rounded-2xl p-5 overflow-y-auto max-h-[580px] shadow-inner ${viewMode === "preview" ? "col-span-2" : ""}`}>
-                      <div className="text-[11px] font-bold uppercase tracking-wider text-purple-400 mb-3 flex items-center gap-1.5 border-b border-slate-800 pb-2">
-                        <Eye className="w-3.5 h-3.5" /> Rendered Markdown Live Preview
+                    <div 
+                      ref={docPreviewContainerRef}
+                      id="rendered-doc-preview-container"
+                      className={`w-full h-full min-h-[440px] bg-[#0B0F19] border border-slate-800/80 rounded-2xl p-5 overflow-y-auto max-h-[580px] shadow-inner ${viewMode === "preview" ? "col-span-2" : ""}`}
+                    >
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-purple-400 mb-3 flex items-center justify-between border-b border-slate-800 pb-2">
+                        <span className="flex items-center gap-1.5">
+                          <Eye className="w-3.5 h-3.5" /> Rendered Markdown Live Preview
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-normal">FlowTrack Pro</span>
                       </div>
                       <MarkdownPreview content={activeDoc.content} />
                     </div>
