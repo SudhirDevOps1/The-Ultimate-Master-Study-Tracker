@@ -350,11 +350,15 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
         }
       }
 
+      const themeValue = (themeSetting?.value ?? "oled") as ThemeName;
+      applyTheme(getThemeColors(themeValue));
+
       if (subjects.length === 0 && finalSessions.length === 0) {
         set({ 
           subjects: [], 
           sessions: [], 
           loading: false,
+          theme: themeValue,
           totalXP: 0,
           level: 1,
           rank: "Seeker",
@@ -363,9 +367,6 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
         });
         return;
       }
-
-      const themeValue = (themeSetting?.value ?? "oled") as ThemeName;
-      applyTheme(getThemeColors(themeValue));
 
       const parsedTimer = timerSetting ? (JSON.parse(timerSetting.value) as Partial<TimerSnapshot>) : null;
       let safeTimer: TimerSnapshot = {

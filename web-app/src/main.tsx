@@ -3,6 +3,10 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import { App } from "./App";
 import { registerServiceWorker } from "./sw-register";
+import { applyTheme, getThemeColors } from "@/utils/themes";
+
+// Apply default theme immediately on script load
+applyTheme(getThemeColors("oled"));
 
 // App initialization
 const isDevelopment = import.meta.env.DEV;
