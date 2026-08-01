@@ -212,6 +212,17 @@ function normalizeAppName(rawProcess) {
   return FRIENDLY_NAMES[key] || rawProcess;
 }
 
+function cleanWindowTitle(title) {
+  if (!title) return "";
+  let clean = title.trim();
+  clean = clean
+    .replace(/\s*-\s*(Google Chrome|Mozilla Firefox|Microsoft Edge|Brave|Safari|Opera|Vivaldi|Arc|Chromium)$/i, "")
+    .replace(/\s*-\s*(Work|Personal|Profile \d+|Default)\s*-\s*Microsoft Edge$/i, "")
+    .replace(/\s*-\s*(Visual Studio Code|VS Code|VS Code Insiders)$/i, "")
+    .trim();
+  return clean.substring(0, 80);
+}
+
 
 
 // ── Direct Native Win32 Active Window Fetcher via win-tracker.exe ─────────────
@@ -321,6 +332,7 @@ function startActivityTracker() {
       return;
     }
 
+
     const hasChanged = processName !== currentActivity.processName || windowTitle !== currentActivity.windowTitle;
 
     if (hasChanged) {
@@ -335,9 +347,7 @@ function startActivityTracker() {
         activityLog.push({
           appName:         normalizeAppName(currentActivity.processName),
           rawProcess:      currentActivity.processName,
-          // FIX V2: Truncate title to 60 chars — prevents storing private data
-          // (chat messages, document titles, private URLs, etc.)
-          title:           (currentActivity.windowTitle || "").substring(0, 60),
+          title:           cleanWindowTitle(currentActivity.windowTitle),
           durationSeconds,
           startTime:       startDt.toISOString(),
           date:            startDt.toISOString().split("T")[0],
@@ -358,7 +368,7 @@ function startActivityTracker() {
         const liveEntry = {
           appName:         normalizeAppName(currentActivity.processName),
           rawProcess:      currentActivity.processName,
-          title:           currentActivity.windowTitle,
+          title:           cleanWindowTitle(currentActivity.windowTitle),
           durationSeconds,
           startTime:       new Date(currentActivity.startMs).toISOString(),
           date:            today,
