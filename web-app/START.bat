@@ -51,7 +51,7 @@ if "!PYTHON_OK!"=="1" (
 
     if not exist ".venv" (
         echo        Creating virtual environment...
-        python -m venv .venv >nul 2>&1
+        python -m venv .venv
         if !errorlevel! neq 0 (
             echo [WARN] Failed to create venv. Skipping Python backend.
             goto :skip_backend
@@ -62,7 +62,6 @@ if "!PYTHON_OK!"=="1" (
     echo [4/6] Installing Python packages...
     .venv\Scripts\python.exe -m pip install --quiet --upgrade pip setuptools wheel >nul 2>&1
     .venv\Scripts\pip.exe install --quiet --upgrade pywin32 psutil >nul 2>&1
-    .venv\Scripts\python.exe -m pywin32_postinstall -install >nul 2>&1
 
     :: ----------------------------------------------------------------
     :: STEP 4 — Start Backend Server (localhost:5001)
@@ -74,7 +73,11 @@ if "!PYTHON_OK!"=="1" (
         taskkill /PID %%a /F >nul 2>&1
     )
 
-    start "FlowTrack Python Backend" /MIN .venv\Scripts\python.exe backend.py --poll 2 --idle 300
+    if exist "backend.py" (
+        start "FlowTrack Python Backend" /MIN .venv\Scripts\python.exe backend.py --poll 2 --idle 300
+    ) else if exist "..\backend.py" (
+        start "FlowTrack Python Backend" /MIN .venv\Scripts\python.exe ..\backend.py --poll 2 --idle 300
+    )
     set "BACKEND_READY=1"
     echo [OK] Python backend server launched on http://localhost:%BACKEND_PORT%
 ) else (
