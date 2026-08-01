@@ -431,12 +431,30 @@ function startActivityTracker() {
   setInterval(saveLogToFile, 30_000);
 }
 
+// ─── App Icon Helper ──────────────────────────────────────────────────────────
+function getAppIcon() {
+  const primaryPath = path.join(__dirname, "public", "images", "flowtrack-logo.png");
+  const fallbackPath = path.join(__dirname, "public", "icon.png");
+  if (fs.existsSync(primaryPath)) {
+    return nativeImage.createFromPath(primaryPath);
+  }
+  if (fs.existsSync(fallbackPath)) {
+    return nativeImage.createFromPath(fallbackPath);
+  }
+  return nativeImage.createEmpty();
+}
+
 // ─── Tray ─────────────────────────────────────────────────────────────────────
 function createTray() {
-  const iconPath = path.join(__dirname, "public", "favicon.png");
   let icon;
-  try { icon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 }); }
-  catch { icon = nativeImage.createEmpty(); }
+  try {
+    const primaryPath = path.join(__dirname, "public", "images", "flowtrack-logo.png");
+    if (fs.existsSync(primaryPath)) {
+      icon = nativeImage.createFromPath(primaryPath).resize({ width: 24, height: 24 });
+    } else {
+      icon = nativeImage.createFromPath(path.join(__dirname, "public", "favicon.png")).resize({ width: 24, height: 24 });
+    }
+  } catch { icon = nativeImage.createEmpty(); }
 
   tray = new Tray(icon);
   tray.setToolTip("FlowTrack – Study Tracker");
@@ -459,9 +477,7 @@ function createWindow() {
     width: 1280, height: 860, minWidth: 960, minHeight: 640,
     show:  false,
     title: "FlowTrack – Smart Study Tracker",
-    icon: fs.existsSync(path.join(__dirname, "public", "icon.png"))
-      ? path.join(__dirname, "public", "icon.png")
-      : path.join(__dirname, "public", "favicon.png"),
+    icon: getAppIcon(),
     webPreferences: {
       nodeIntegration:      false,
       contextIsolation:     true,
