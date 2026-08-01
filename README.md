@@ -2,13 +2,13 @@
 
 <img src="public/images/flowtrack-logo.png" alt="FlowTrack Pro Official App Logo" width="140" />
 
-# 🚀 FlowTrack Pro `v7.2.0`
+# 🚀 FlowTrack Pro `v7.3.0`
 
 ### 💎 The Ultimate Master Study & Productivity Ecosystem — 2026 Enterprise Edition
 
 <p align="center">
   <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest">
-    <img src="https://img.shields.io/badge/Release-v7.2.0-10B981?style=for-the-badge&logo=github&logoColor=white" alt="Release v7.2.0" />
+    <img src="https://img.shields.io/badge/Release-v7.3.0-10B981?style=for-the-badge&logo=github&logoColor=white" alt="Release v7.3.0" />
   </a>
   <a href="https://the-ultimate-master-study-tracker.vercel.app/">
     <img src="https://img.shields.io/badge/Vercel-Live_Demo-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Live Demo" />

@@ -1,6 +1,6 @@
 # 🌐 FlowTrack Pro — Serverless Web Application (Browser & Local Hybrid Edition)
 
-> **Version**: `v7.2.0` | **Platform**: Any Modern Web Browser (Desktop / Mobile / Tablet) | **Deployment**: Vercel CDN
+> **Version**: `v7.3.0` | **Platform**: Any Modern Web Browser (Desktop / Mobile / Tablet) | **Deployment**: Vercel CDN
 
 Welcome to the **Web Application** module of FlowTrack Pro. This app operates 100% locally in your browser using IndexedDB for offline data persistence, Progressive Web App (PWA) installation, zero signup requirements, and optional smart auto-connection to the local Python tracker backend.
 

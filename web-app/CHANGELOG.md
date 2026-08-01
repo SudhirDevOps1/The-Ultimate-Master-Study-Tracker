@@ -6,6 +6,7 @@ All notable changes, version updates, feature additions, architectural improveme
 
 ## 🏷️ Version History Summary
 
+- [v7.3.0 (2026-08-01)](#v730---2026-08-01) — ⚡ Repository Categorization & Web-App Hybrid Tracking Engine Release
 - [v7.0.0 (2026-07-31)](#v700---2026-07-31) — 🌐 Web Portals Browser, Fullscreen Study Mode, Webview Activity Tracking, Bug Audit
 - [v6.0.0 (2026-07-31)](#v600---2026-07-31) — 🚀 2026 Master Release: Excalidraw Canvas, Real Notepad, Dual PDF/OCR Engine, Fast Release Pipeline
 - [v5.4.0 (2026-07-31)](#v540---2026-07-31) — 🛠️ Production Blank Screen Resolution & IPC Preload Security Overhaul

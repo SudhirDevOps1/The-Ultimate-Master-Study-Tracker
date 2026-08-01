@@ -1,40 +1,9 @@
 {
-  "name": "flowtrack-pro-web",
+  "name": "ultimate-master-study-tracker",
   "private": true,
-  "version": "7.2.0",
-  "type": "module",
+  "version": "1.0.0",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "@excalidraw/excalidraw": "^0.18.1",
-    "clsx": "2.1.1",
-    "date-fns": "^4.1.0",
-    "dexie": "^4.3.0",
-    "firebase": "^12.15.0",
-    "framer-motion": "^12.35.0",
-    "html2canvas": "^1.4.1",
-    "lucide-react": "^0.474.0",
-    "pdfjs-dist": "^6.1.200",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
-    "react-is": "^19.2.8",
-    "react-router-dom": "^7.13.1",
-    "recharts": "^3.8.0",
-    "tailwind-merge": "3.4.0",
-    "tesseract.js": "^7.0.0",
-    "zustand": "^5.0.11"
-  },
-  "devDependencies": {
-    "@tailwindcss/vite": "4.1.17",
-    "@types/node": "^22.0.0",
-    "@types/react": "19.2.7",
-    "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "5.1.1",
-    "tailwindcss": "4.1.17",
-    "typescript": "5.9.3",
-    "vite": "7.2.4"
+    "build": "cd web-app && npm install && npm run build",
+    "dev": "cd web-app && npm run dev"
   }
 }

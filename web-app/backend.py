@@ -33,7 +33,7 @@ from datetime import datetime, timedelta, date
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
-__version__ = "2.2.1"
+__version__ = "2.3.0"
 SERVICE_NAME = "FlowTrack Pro Backend"
 DEFAULT_PORT = 5001
 
