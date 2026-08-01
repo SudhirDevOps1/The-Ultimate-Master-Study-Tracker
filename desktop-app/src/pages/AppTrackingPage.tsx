@@ -612,6 +612,8 @@ export function AppTrackingPage() {
       alert(`✅ Import successful!\nBacked up on: ${new Date(result.exportedAt).toLocaleString()}\nVersion: ${result.version}`);
     } catch (e: any) { alert(`Import error: ${e.message}`); }
     setExportStatus("idle");
+  };
+
   // ── Clear App Tracking Logs ───────────────────────────────────────────
   const handleClearLogs = async () => {
     const ipc = getIpc();
