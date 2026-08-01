@@ -214,6 +214,7 @@ export function TimerPage() {
                       url={activeSubject.url}
                       activeSubjectName={activeSubject.name}
                       color={activeSubject.color}
+                      isPaused={timer.isPaused || !timer.activeSessionId}
                       onInteraction={() => void markTimerInteraction(Date.now())}
                     />
                   ) : (

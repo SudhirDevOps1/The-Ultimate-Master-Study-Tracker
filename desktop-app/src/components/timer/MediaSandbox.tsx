@@ -7,6 +7,7 @@ interface MediaSandboxProps {
   activeSubjectName: string;
   color: string;
   onInteraction?: () => void;
+  isPaused?: boolean;
 }
 
 interface LocalPlaylistItem {
@@ -49,13 +50,26 @@ function formatLocalVideoUrl(inputUrl: string): string {
   return clean;
 }
 
-export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: MediaSandboxProps) {
+export function MediaSandbox({ url, activeSubjectName, color, onInteraction, isPaused }: MediaSandboxProps) {
   const [mediaType, setMediaType] = useState<"youtube" | "video" | "audio" | "web" | "unknown">("web");
   const [localSourceUrl, setLocalSourceUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [resourceLoaded, setResourceLoaded] = useState(false);
   const [isWebBrowserLocalPrompt, setIsWebBrowserLocalPrompt] = useState(false);
+
+  // Automatically pause video / audio playback when study timer is paused
+  useEffect(() => {
+    if (isPaused) {
+      if (videoRef.current && !videoRef.current.paused) {
+        videoRef.current.pause();
+      }
+      if (audioRef.current && !audioRef.current.paused) {
+        audioRef.current.pause();
+      }
+      setIsPlaying(false);
+    }
+  }, [isPaused]);
 
   // Local Playlist State
   const [playlist, setPlaylist] = useState<LocalPlaylistItem[]>([]);
