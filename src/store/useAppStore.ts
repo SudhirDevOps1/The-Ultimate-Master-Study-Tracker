@@ -335,15 +335,15 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
       }
 
       if (subjects.length === 0 && finalSessions.length === 0) {
-        const seedSubjects = createMockSubjects();
-        const seedSessions = createMockSessions();
-        await db.subjects.bulkPut(seedSubjects);
-        await db.sessions.bulkPut(seedSessions);
         set({ 
-          subjects: seedSubjects, 
-          sessions: sortSessions(seedSessions), 
+          subjects: [], 
+          sessions: [], 
           loading: false,
-          ...calculateGamificationStats(seedSessions)
+          totalXP: 0,
+          level: 1,
+          rank: "Seeker",
+          xpToNextLevel: 1000,
+          xpProgress: 0
         });
         return;
       }
