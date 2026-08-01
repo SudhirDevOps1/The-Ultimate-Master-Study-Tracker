@@ -355,12 +355,12 @@ export function AppTrackingPage() {
   }, [trackedDates, isBackendConnected, backendUrl]);
 
   // ── Fetch activity log ─────────────────────────────────────────────────
-  const fetchLog = useCallback(async (date: string) => {
+  const fetchLog = useCallback(async (dateFilter: string) => {
     const ipc = getIpc();
     if (ipc) {
       setLoading(true);
       try {
-        const entries: ActivityEntry[] = await ipc.invoke("get-activity-log", { date });
+        const entries: ActivityEntry[] = await ipc.invoke("get-activity-log", { date: dateFilter });
         setRawLog(entries);
       } catch (e) { console.warn("[AppTracking]", e); }
       setLoading(false);
@@ -372,11 +372,31 @@ export function AppTrackingPage() {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 2000);
+        // Fetch raw activities from python backend /export
         const res = await fetch(`${backendUrl}/export?type=activities&format=json`, { signal: controller.signal });
         clearTimeout(timeoutId);
         if (res.ok) {
           const data = await res.json();
-          const filtered = (data.activities || []).filter((a: ActivityEntry) => !date || a.date === date);
+          const rawActivities = data.activities || [];
+          
+          const normalized: ActivityEntry[] = rawActivities.map((a: any) => {
+            const dt = a.start_ts ? new Date(a.start_ts * 1000) : new Date();
+            const dateStr = a.date || dt.toISOString().split("T")[0];
+            const hourNum = typeof a.hour === "number" ? a.hour : dt.getHours();
+            const minNum  = typeof a.minute === "number" ? a.minute : dt.getMinutes();
+            return {
+              appName: a.appName || a.process || a.app_name || "Unknown App",
+              title: a.title || "Desktop / Idle",
+              durationSeconds: Math.round(a.durationSeconds || a.duration || a.duration_sec || 0),
+              startTime: a.startTime || dt.toISOString(),
+              date: dateStr,
+              hour: hourNum,
+              minute: minNum,
+              isLive: !!a.isLive || !!a.live,
+            };
+          });
+
+          const filtered = normalized.filter((a) => !dateFilter || a.date === dateFilter);
           setRawLog(filtered);
         }
       } catch {
@@ -401,19 +421,22 @@ export function AppTrackingPage() {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 2000);
-        const res = await fetch(`${backendUrl}/stats?range=all`, { signal: controller.signal });
+        const res = await fetch(`${backendUrl}/app-usage?days=30`, { signal: controller.signal });
         clearTimeout(timeoutId);
         if (res.ok) {
           const data = await res.json();
-          if (data.trackedDates) {
-            setTrackedDates(data.trackedDates);
+          if (data.by_date) {
+            const dates = Object.keys(data.by_date).sort().reverse();
+            if (!dates.includes(today)) dates.unshift(today);
+            setTrackedDates(dates);
           }
         }
       } catch {
         // ignore
       }
     }
-  }, [backendUrl, isBackendConnected]);
+  }, [backendUrl, isBackendConnected, today]);
+
 
   // ── Poll live data every 5 s ───────────────────────────────────────────
   useEffect(() => {

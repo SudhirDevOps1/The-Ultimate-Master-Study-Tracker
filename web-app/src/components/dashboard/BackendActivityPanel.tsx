@@ -68,7 +68,17 @@ export function BackendActivityPanel() {
         clearTimeout(timeoutId);
         if (res.ok) {
           const data = await res.json();
-          setRawLog(data.activities || []);
+          const raw = data.activities || [];
+          const normalized: ActivityEntry[] = raw.map((a: any) => ({
+            appName: a.appName || a.process || a.app_name || "Unknown App",
+            title: a.title || "Desktop / Idle",
+            durationSeconds: Math.round(a.durationSeconds || a.duration || a.duration_sec || 0),
+            startTime: a.startTime || (a.start_ts ? new Date(a.start_ts * 1000).toISOString() : new Date().toISOString()),
+            date: a.date || (a.start_ts ? new Date(a.start_ts * 1000).toISOString().split("T")[0] : new Date().toISOString().split("T")[0]),
+            hour: typeof a.hour === "number" ? a.hour : (a.start_ts ? new Date(a.start_ts * 1000).getHours() : new Date().getHours()),
+            isLive: !!a.isLive || !!a.live
+          }));
+          setRawLog(normalized);
         }
       } catch {
         // Fallback
