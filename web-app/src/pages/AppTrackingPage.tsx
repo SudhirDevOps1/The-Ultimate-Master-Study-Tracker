@@ -309,71 +309,139 @@ export function AppTrackingPage() {
   const initApp = useAppStore(s => s.initApp);
   const importAll = useAppStore(s => s.importAll);
 
+  const isBackendConnected = useAppStore(s => s.isBackendConnected);
+  const backendUrl = useAppStore(s => s.backendUrl);
+  const activeWindow = useAppStore(s => s.activeWindow);
+
   // ── Fetch past 7 days of screen time totals ─────────────────────────────
   useEffect(() => {
     const fetchWeeklyOverview = async () => {
       const ipc = getIpc();
-      if (!ipc || trackedDates.length === 0) return;
-      try {
-        // Take the last 7 tracked dates (newest first in trackedDates, reverse to show left-to-right chrono)
-        const datesToFetch = trackedDates.slice(0, 7).reverse();
-        const totals = await Promise.all(
-          datesToFetch.map(async (d) => {
-            const entries: ActivityEntry[] = await ipc.invoke("get-activity-log", { date: d });
-            const total = entries.reduce((sum, e) => sum + e.durationSeconds, 0);
-            return { date: d, seconds: total };
-          })
-        );
-        setWeeklyOverview(totals);
-      } catch (err) {
-        console.warn("[AppTracking] Error loading weekly overview", err);
+      if (ipc && trackedDates.length > 0) {
+        try {
+          const datesToFetch = trackedDates.slice(0, 7).reverse();
+          const totals = await Promise.all(
+            datesToFetch.map(async (d) => {
+              const entries: ActivityEntry[] = await ipc.invoke("get-activity-log", { date: d });
+              const total = entries.reduce((sum, e) => sum + e.durationSeconds, 0);
+              return { date: d, seconds: total };
+            })
+          );
+          setWeeklyOverview(totals);
+          return;
+        } catch (err) {
+          console.warn("[AppTracking] Error loading weekly overview", err);
+        }
+      }
+
+      if (backendUrl && isBackendConnected) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2000);
+          const res = await fetch(`${backendUrl}/stats?range=week`, { signal: controller.signal });
+          clearTimeout(timeoutId);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.dailyTotals) {
+              setWeeklyOverview(data.dailyTotals.map((d: any) => ({ date: d.date, seconds: d.totalSeconds })));
+            }
+          }
+        } catch {
+          // ignore
+        }
       }
     };
     void fetchWeeklyOverview();
-  }, [trackedDates]);
+  }, [trackedDates, isBackendConnected, backendUrl]);
 
   // ── Fetch activity log ─────────────────────────────────────────────────
   const fetchLog = useCallback(async (date: string) => {
     const ipc = getIpc();
-    if (!ipc) return;
-    setLoading(true);
-    try {
-      const entries: ActivityEntry[] = await ipc.invoke("get-activity-log", { date });
-      setRawLog(entries);
-    } catch (e) { console.warn("[AppTracking]", e); }
-    setLoading(false);
-  }, []);
+    if (ipc) {
+      setLoading(true);
+      try {
+        const entries: ActivityEntry[] = await ipc.invoke("get-activity-log", { date });
+        setRawLog(entries);
+      } catch (e) { console.warn("[AppTracking]", e); }
+      setLoading(false);
+      return;
+    }
+
+    if (backendUrl && isBackendConnected) {
+      setLoading(true);
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const res = await fetch(`${backendUrl}/export?type=activities&format=json`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const data = await res.json();
+          const filtered = (data.activities || []).filter((a: ActivityEntry) => !date || a.date === date);
+          setRawLog(filtered);
+        }
+      } catch {
+        // ignore
+      }
+      setLoading(false);
+    }
+  }, [backendUrl, isBackendConnected]);
 
   // ── Fetch available historical dates ───────────────────────────────────
   const fetchDates = useCallback(async () => {
     const ipc = getIpc();
-    if (!ipc) return;
-    try {
-      const dates: string[] = await ipc.invoke("get-tracked-dates");
-      setTrackedDates(dates);
-    } catch { /* ignore */ }
-  }, []);
+    if (ipc) {
+      try {
+        const dates: string[] = await ipc.invoke("get-tracked-dates");
+        setTrackedDates(dates);
+      } catch { /* ignore */ }
+      return;
+    }
+
+    if (backendUrl && isBackendConnected) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const res = await fetch(`${backendUrl}/stats?range=all`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.trackedDates) {
+            setTrackedDates(data.trackedDates);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, [backendUrl, isBackendConnected]);
 
   // ── Poll live data every 5 s ───────────────────────────────────────────
   useEffect(() => {
     const poll = async () => {
       const ipc = getIpc();
-      if (!ipc) return;
-      try {
-        const [win, idle] = await Promise.all([
-          ipc.invoke("get-active-window"),
-          ipc.invoke("get-idle-time-ms"),
-        ]);
-        // Use the skip flag from main process — handles all filtering centrally
-        const showLive = win && !win.skip && win.appName;
-        setLiveApp(showLive ? { process: win.appName, title: win.title } : null);
-        setLiveIdleMs(idle as number);
-      } catch { /* ignore */ }
+      if (ipc) {
+        try {
+          const [win, idle] = await Promise.all([
+            ipc.invoke("get-active-window"),
+            ipc.invoke("get-idle-time-ms"),
+          ]);
+          const showLive = win && !win.skip && win.appName;
+          setLiveApp(showLive ? { process: win.appName, title: win.title } : null);
+          setLiveIdleMs(idle as number);
+        } catch { /* ignore */ }
+        return;
+      }
+
+      if (activeWindow) {
+        setLiveApp({ process: "Active Browser/Tab", title: activeWindow });
+      } else {
+        setLiveApp(null);
+      }
     };
     void poll();
     pollRef.current = setInterval(() => void poll(), 5000);
     return () => clearInterval(pollRef.current);
-  }, []);
+  }, [activeWindow]);
 
   // ── Auto-refresh today's log every 30 s ───────────────────────────────
   useEffect(() => {
@@ -386,6 +454,7 @@ export function AppTrackingPage() {
     const id = setInterval(() => void fetchLog(today), 5_000);
     return () => clearInterval(id);
   }, [selectedDate, today, fetchLog]);
+
 
   // ── App Aggregations ───────────────────────────────────────────────────
   const appSummaries: AppSummary[] = useMemo(() => {

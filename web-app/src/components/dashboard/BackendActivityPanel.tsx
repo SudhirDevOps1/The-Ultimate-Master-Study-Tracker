@@ -35,24 +35,54 @@ export function BackendActivityPanel() {
   const [rawLog, setRawLog] = useState<ActivityEntry[]>([]);
   const [liveWin, setLiveWin] = useState<{ process: string; title: string } | null>(null);
 
+  const isBackendConnected = useAppStore((state: AppState) => state.isBackendConnected);
+  const backendUrl = useAppStore((state: AppState) => state.backendUrl);
+  const activeWindow = useAppStore((state: AppState) => state.activeWindow);
+
   const fetchLogs = async () => {
     const ipc = getIpc();
-    if (!ipc) return;
-    try {
-      const today = new Date().toISOString().split("T")[0];
-      const entries: ActivityEntry[] = await ipc.invoke("get-activity-log", { date: today });
-      setRawLog(entries);
+    if (ipc) {
+      try {
+        const today = new Date().toISOString().split("T")[0];
+        const entries: ActivityEntry[] = await ipc.invoke("get-activity-log", { date: today });
+        setRawLog(entries);
 
-      const win = await ipc.invoke("get-active-window");
-      if (win && !win.isSelf && win.process && win.process !== "unknown") {
-        setLiveWin({ process: win.process, title: win.title });
-      } else {
-        setLiveWin(null);
+        const win = await ipc.invoke("get-active-window");
+        if (win && !win.isSelf && win.process && win.process !== "unknown") {
+          setLiveWin({ process: win.process, title: win.title });
+        } else {
+          setLiveWin(null);
+        }
+        return;
+      } catch (err) {
+        console.warn("[BackendActivityPanel] Error reading IPC logs", err);
       }
-    } catch (err) {
-      console.warn("[BackendActivityPanel] Error reading IPC logs", err);
+    }
+
+    // Web App Mode: Check Python backend HTTP or browser tracking
+    if (backendUrl && isBackendConnected) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const res = await fetch(`${backendUrl}/export?type=activities&format=json`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const data = await res.json();
+          setRawLog(data.activities || []);
+        }
+      } catch {
+        // Fallback
+      }
     }
   };
+
+  useEffect(() => {
+    if (activeWindow) {
+      setLiveWin({ process: "Active Browser / Process", title: activeWindow });
+    } else if (!isElectron && !isBackendConnected) {
+      setLiveWin(null);
+    }
+  }, [activeWindow, isBackendConnected]);
 
   useEffect(() => {
     void fetchLogs();
@@ -60,85 +90,8 @@ export function BackendActivityPanel() {
       void fetchLogs();
     }, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isBackendConnected, backendUrl]);
 
-  // Aggregate top processes
-  const processUsage = useMemo(() => {
-    const map = new Map<string, { appName: string; durationSeconds: number; category: string }>();
-    for (const entry of rawLog) {
-      const key = entry.appName.toLowerCase();
-      if (!map.has(key)) {
-        map.set(key, { appName: entry.appName, durationSeconds: 0, category: classifyApp(entry.appName) });
-      }
-      map.get(key)!.durationSeconds += entry.durationSeconds;
-    }
-
-    return [...map.values()]
-      .sort((a, b) => b.durationSeconds - a.durationSeconds)
-      .slice(0, 5)
-      .map((item) => ({
-        process: item.appName,
-        minutes: Math.round(item.durationSeconds / 60),
-        category: item.category,
-      }));
-  }, [rawLog]);
-
-  // Aggregate top window titles
-  const tabUsage = useMemo(() => {
-    const map = new Map<string, { title: string; durationSeconds: number; process: string; category: string }>();
-    for (const entry of rawLog) {
-      if (!entry.title || entry.title === "Desktop / Idle") continue;
-      const key = entry.title.trim();
-      if (!map.has(key)) {
-        map.set(key, { title: key, durationSeconds: 0, process: entry.appName, category: classifyApp(entry.appName) });
-      }
-      map.get(key)!.durationSeconds += entry.durationSeconds;
-    }
-
-    return [...map.values()]
-      .sort((a, b) => b.durationSeconds - a.durationSeconds)
-      .slice(0, 5)
-      .map((item) => ({
-        title: item.title,
-        process: item.process,
-        minutes: Math.round(item.durationSeconds / 60),
-        category: item.category,
-      }));
-  }, [rawLog]);
-
-  // Category breakdown for chart
-  const categoryData = useMemo(() => {
-    let prod = 0, dist = 0, neut = 0;
-    for (const entry of rawLog) {
-      const cat = classifyApp(entry.appName);
-      if (cat === "productive") prod += entry.durationSeconds;
-      else if (cat === "distracting") dist += entry.durationSeconds;
-      else neut += entry.durationSeconds;
-    }
-
-    return [
-      { name: "Productive", value: Math.round(prod / 60), color: "#10b981" },
-      { name: "Distracting", value: Math.round(dist / 60), color: "#f43f5e" },
-      { name: "Neutral", value: Math.round(neut / 60), color: "#3b82f6" },
-    ];
-  }, [rawLog]);
-
-  const totalMinutes = useMemo(() => categoryData.reduce((acc, curr) => acc + curr.value, 0), [categoryData]);
-
-  if (!isElectron) {
-    return (
-      <div className="grid gap-5 grid-cols-1">
-        <Panel className="border border-indigo-900/20 bg-indigo-950/20">
-          <div className="space-y-2 text-center py-4">
-            <h4 className="text-sm font-semibold text-indigo-200">🖥️ Desktop App Required for Realtime Activity Tracking</h4>
-            <p className="text-xs text-slate-400">
-              Run FlowTrack Desktop Installer App (.exe) to view live applications and active window activity.
-            </p>
-          </div>
-        </Panel>
-      </div>
-    );
-  }
 
   return (
     <div className="grid gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
