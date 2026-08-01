@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog, shell, protocol, net, session } = require("electron");
+const { autoUpdater } = require("electron-updater");
 const path = require("path");
 const fs   = require("fs");
 const { pathToFileURL } = require("url");
@@ -7,6 +8,48 @@ const { execFile, exec } = require("child_process");
 let mainWindow;
 let tray;
 let isQuitting = false;
+
+// ─── Auto-Updater Configuration (electron-updater) ─────────────────────────
+autoUpdater.autoDownload = true;
+autoUpdater.autoInstallOnAppQuit = true;
+
+function sendUpdateStatusToWindow(status, data = {}) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("update-status-event", { status, ...data });
+  }
+}
+
+autoUpdater.on("checking-for-update", () => {
+  sendUpdateStatusToWindow("checking");
+});
+
+autoUpdater.on("update-available", (info) => {
+  sendUpdateStatusToWindow("available", { version: info.version });
+});
+
+autoUpdater.on("update-not-available", () => {
+  sendUpdateStatusToWindow("not-available");
+});
+
+autoUpdater.on("error", (err) => {
+  sendUpdateStatusToWindow("error", { error: err ? err.message : "Update check failed" });
+});
+
+autoUpdater.on("download-progress", (progressObj) => {
+  sendUpdateStatusToWindow("downloading", {
+    percent: Math.round(progressObj.percent || 0),
+    bytesPerSecond: progressObj.bytesPerSecond || 0,
+    transferred: progressObj.transferred || 0,
+    total: progressObj.total || 0,
+  });
+});
+
+autoUpdater.on("update-downloaded", (info) => {
+  sendUpdateStatusToWindow("downloaded", { version: info.version });
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("toast-message", { message: `🎁 Update v${info.version} downloaded! Ready to install.` });
+  }
+});
 
 // Path to native win-tracker.exe binary (compiled C# Win32 API helper)
 const trackerExePath = app.isPackaged
@@ -524,7 +567,14 @@ function createWindow() {
     });
   }
 
-  mainWindow.once("ready-to-show", () => mainWindow.show());
+  mainWindow.once("ready-to-show", () => {
+    mainWindow.show();
+    if (app.isPackaged) {
+      setTimeout(() => {
+        autoUpdater.checkForUpdatesAndNotify().catch(() => {});
+      }, 10000);
+    }
+  });
 
   mainWindow.on("close", (e) => {
     if (!isQuitting) {
@@ -1085,6 +1135,28 @@ ipcMain.handle("secure-proxy-fetch", async (_e, { url, method, headers, body }) 
 // ─── App Version & External Links (Auto Update triggers) ──────────────────────
 ipcMain.handle("get-app-version", () => {
   return app.getVersion();
+});
+
+ipcMain.handle("check-for-updates", async () => {
+  try {
+    if (!app.isPackaged) {
+      return { success: false, error: "Auto-updater only runs in packaged app" };
+    }
+    const result = await autoUpdater.checkForUpdatesAndNotify();
+    return { success: true, result };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle("restart-and-install-update", () => {
+  try {
+    isQuitting = true;
+    autoUpdater.quitAndInstall(false, true);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 });
 
 ipcMain.handle("open-external-link", async (_e, { url }) => {

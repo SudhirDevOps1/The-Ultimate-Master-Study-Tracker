@@ -30,11 +30,16 @@ const ALLOWED_INVOKE_CHANNELS = [
   "get-active-webview-domain",
   // Clear activity tracking logs
   "clear-activity-log",
+  // Auto-Updater (electron-updater)
+  "check-for-updates",
+  "restart-and-install-update",
 ];
 
 const ALLOWED_LISTEN_CHANNELS = [
   "global-shortcut-toggle-timer",
   "save-session-state-sync",
+  "toast-message",
+  "update-status-event",
 ];
 
 contextBridge.exposeInMainWorld("electron", {
