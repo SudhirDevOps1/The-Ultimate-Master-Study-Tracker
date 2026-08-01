@@ -1,45 +1,36 @@
-# 🌐 FlowTrack Pro — Serverless Web Application (PWA Edition)
+# 🌐 FlowTrack Pro — Serverless Web Application (Browser & Local Hybrid Edition)
 
-> **Version**: `v7.2.0` | **Platform**: Any Modern Web Browser (Desktop / Mobile / Tablet) | **Hosting**: Vercel CDN
+> **Version**: `v7.2.0` | **Platform**: Any Modern Web Browser (Desktop / Mobile / Tablet) | **Deployment**: Vercel CDN
 
-Welcome to the **Serverless Web Application** module of FlowTrack Pro. This edition runs 100% in your browser using IndexedDB for local data persistence, offline Progressive Web App (PWA) caching, and zero cloud sign-up requirements.
-
----
-
-## 📌 Main Navigation & Master Docs
-
-- 🏠 **[Master System README](../README.md)** — Full Ecosystem Guide, System Architecture & Features
-- 📖 **[Full System Architecture Guide](../docs/FULL_SYSTEM_GUIDE.md)**
-- 📊 **[Analytics & Storage Policy](../docs/ANALYTICS_AND_TRACKING_POLICY.md)**
+Welcome to the **Web Application** module of FlowTrack Pro. This app operates 100% locally in your browser using IndexedDB for offline data persistence, Progressive Web App (PWA) installation, zero signup requirements, and optional smart auto-connection to the local Python tracker backend.
 
 ---
 
-## ✨ Key Web App Features in `v7.1.0`
+## 📌 Web App Features
 
-- ⚡ **Zero-Install Instant Access**: Deployed live on Vercel CDN ([the-ultimate-master-study-tracker.vercel.app](https://the-ultimate-master-study-tracker.vercel.app/)).
-- 💾 **100% In-Browser IndexedDB**: Session data, flashcards, mind maps, and settings remain stored strictly on your device.
-- 📱 **Progressive Web App (PWA)**: Install directly to your desktop or mobile home screen for 100% offline flight/travel study mode.
-- 🤖 **Google Gemini AI Assistant**: AI study helper powered by Google Gemini API.
+- ⚡ **Vercel CDN Ready**: Instantly deployed on Vercel or any static web host.
+- 💾 **100% In-Browser IndexedDB**: Sessions, flashcards, mind maps, PDF reader state, and settings stay private in local browser storage.
+- 📱 **Progressive Web App (PWA)**: Install directly to desktop or mobile home screen for offline travel/study mode.
+- 🔄 **Smart Local Python Backend Integration**:
+  - Automatically connects to `http://localhost:5001` when running `START.bat` on your local PC.
+  - Pulls OS active window titles, process screen-time analytics, and browser tab tracking into the web app.
+  - Automatically falls back to offline IndexedDB mode when local backend is not running.
+- 🤖 **Multi-Provider AI Assistant**: Direct browser calls to Gemini, OpenAI, Groq, or local Ollama (via local backend CORS proxy).
 
 ---
 
-## 🚀 Development & Deployment Commands
+## 🚀 One-Click Local Launcher (`START.bat`)
 
-### 1. Install Dependencies
+To run the Web App locally along with the Python Tracker Backend:
+
+1. Double-click `START.bat` (or run `.\START.bat` in terminal).
+2. The script automatically initializes the Python `.venv`, launches `backend.py` on `localhost:5001`, starts Vite dev server (`http://localhost:5173`), and opens your browser.
+
 ```bash
-cd web-app
+# Manual npm commands:
 npm install
-```
-
-### 2. Run Development Server
-```bash
-npm run dev
-# Open http://localhost:5173 in browser
-```
-
-### 3. Production Build
-```bash
-npm run build
+npm run dev      # Start Vite dev server on http://localhost:5173
+npm run build    # Production build for Vercel deployment
 ```
 
 ---
