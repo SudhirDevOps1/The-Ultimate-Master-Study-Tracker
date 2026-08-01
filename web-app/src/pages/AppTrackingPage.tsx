@@ -412,8 +412,8 @@ export function AppTrackingPage() {
     if (ipc) {
       try {
         const dates: string[] = await ipc.invoke("get-tracked-dates");
-        setTrackedDates(dates);
-      } catch { /* ignore */ }
+        setTrackedDates(dates && dates.length > 0 ? dates : [today]);
+      } catch { setTrackedDates([today]); }
       return;
     }
 
@@ -425,15 +425,20 @@ export function AppTrackingPage() {
         clearTimeout(timeoutId);
         if (res.ok) {
           const data = await res.json();
+          let dates: string[] = [];
           if (data.by_date) {
-            const dates = Object.keys(data.by_date).sort().reverse();
-            if (!dates.includes(today)) dates.unshift(today);
-            setTrackedDates(dates);
+            dates = Object.keys(data.by_date).sort().reverse();
           }
+          if (!dates.includes(today)) dates.unshift(today);
+          setTrackedDates(dates);
+        } else {
+          setTrackedDates([today]);
         }
       } catch {
-        // ignore
+        setTrackedDates([today]);
       }
+    } else {
+      setTrackedDates([today]);
     }
   }, [backendUrl, isBackendConnected, today]);
 
