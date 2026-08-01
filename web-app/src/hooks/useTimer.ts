@@ -185,6 +185,7 @@ export function useTimer() {
   // ─── App-tracking: Poll active window via local Python backend ───────────
   // Works when user runs START_BACKEND.bat on their PC + opens web-app in browser.
   // Automatically disables when backend is not running (e.g. Vercel-only access).
+  // ─── App-tracking: Poll active window via local Python backend ───────────
   useEffect(() => {
     let activeInterval: number | undefined;
 
@@ -196,22 +197,24 @@ export function useTimer() {
       }
       try {
         const controller = new AbortController();
-        setTimeout(() => controller.abort(), 1500);
+        setTimeout(() => controller.abort(), 2000);
         const res = await fetch(`${state.backendUrl}/active-window`, { signal: controller.signal });
         const data = await res.json();
-        if (data && typeof data.title === "string") {
-          state.setActiveWindow(data.title);
+        if (data && data.title) {
+          const displayStr = data.process && data.process !== "unknown" ? `${data.process} — ${data.title}` : data.title;
+          state.setActiveWindow(displayStr);
         }
       } catch {
         state.setActiveWindow("");
       }
     };
 
-    activeInterval = window.setInterval(pollActiveWindow, 5000);
+    activeInterval = window.setInterval(pollActiveWindow, 3000);
     void pollActiveWindow();
 
     return () => { if (activeInterval) window.clearInterval(activeInterval); };
   }, []);
+
 
   const activeSession = useMemo(
     () => sessions.find((session) => session.id === timer.activeSessionId) ?? null,
