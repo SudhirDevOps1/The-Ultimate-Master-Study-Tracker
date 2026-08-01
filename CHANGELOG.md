@@ -14,9 +14,11 @@ All notable changes, version updates, feature additions, architectural improveme
 
 ## [v7.2.0] — 2026-08-01
 
-### 🧠 Organic Curved Tree Mind Map Engine
-- **Sleek Organic Branching Engine**: Overhauled Mind Map Page with vibrant pill nodes, smooth Bezier curves, neon glowing accent borders, 1-click child subtopic creation (`+`), drag-and-drop node positioning, inline text editing, and high-res PNG export!
-- **Dual Engine Toggle**: Seamless switching between the new Organic Curved Tree View and Excalidraw Freehand Canvas.
+### 🧠 Organic Curved Tree Mind Map & Excalidraw Controls
+- **➕ Topic Box & Subtopic Creator**: Added 1-click `+ Topic Box` button to spawn independent main topics and `+ Subtopic` to branch off child nodes.
+- **📺 Excalidraw Fullscreen Canvas**: Added 1-click Fullscreen toggle expanding the Excalidraw whiteboard to 100vh height.
+- **🧹 Excalidraw Clear & Download PNG**: Added 1-click `Clear All` reset and high-res `Download PNG` image exporter for Excalidraw drawings.
+- **Sleek Organic Branching Engine**: Overhauled Mind Map Page with vibrant pill nodes, smooth Bezier curves, neon glowing accent borders, drag-and-drop positioning, inline text editing, and high-res PNG export!
 
 ### 🎨 Brand New 3D Glassmorphism Logo & Assets
 - **New Official App Icon**: High-res 3D Glassmorphism squircle app icon updated across Desktop App titlebar, system tray, Taskbar, Web App favicon, and GitHub README docs.

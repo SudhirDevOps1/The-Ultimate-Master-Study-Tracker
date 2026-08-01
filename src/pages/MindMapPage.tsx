@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { 
   Download, Plus, Trash2, Edit3, Sparkles, RefreshCw, ZoomIn, ZoomOut, 
-  Maximize2, Palette, Layers, Eye, Move, Check, CornerDownRight, Share2 
+  Maximize2, Minimize2, Palette, Layers, Eye, Move, Check, CornerDownRight, Share2, RotateCcw
 } from "lucide-react";
 import { useToast } from "@/components/common/Toast";
 import { Panel } from "@/components/common/Panel";
@@ -66,6 +66,7 @@ export function MindMapPage() {
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [engineMode, setEngineMode] = useState<"tree" | "excalidraw">("tree");
+  const [isFullscreen, setIsFullscreen] = useState(false);
   
   // Canvas View transform
   const [zoom, setZoom] = useState(1);
@@ -77,8 +78,9 @@ export function MindMapPage() {
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
-  // Excalidraw Dynamic State
+  // Excalidraw Dynamic State & API
   const [excalidrawComp, setExcalidrawComp] = useState<any>(null);
+  const [excalidrawAPI, setExcalidrawAPI] = useState<any>(null);
   const [isExcalidrawLoading, setIsExcalidrawLoading] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -118,6 +120,25 @@ export function MindMapPage() {
   // ── Node Helper Functions ──────────────────────────────────────────────────
   const selectedNode = nodes.find(n => n.id === selectedNodeId);
 
+  // Add Independent New Topic Box
+  const addIndependentTopic = () => {
+    const newNode: MindNode = {
+      id: crypto.randomUUID(),
+      parentId: null,
+      text: "New Main Topic",
+      x: 350 + Math.random() * 200,
+      y: 200 + Math.random() * 200,
+      color: COLOR_PRESETS[(nodes.length + 1) % COLOR_PRESETS.length].hex
+    };
+
+    setNodes(prev => [...prev, newNode]);
+    setSelectedNodeId(newNode.id);
+    setEditingNodeId(newNode.id);
+    setEditText("New Main Topic");
+    showToast("New Independent Topic added!", "success");
+  };
+
+  // Add Subtopic Child
   const addSubtopic = (parentId: string) => {
     const parent = nodes.find(n => n.id === parentId);
     if (!parent) return;
@@ -132,7 +153,7 @@ export function MindMapPage() {
     const newNode: MindNode = {
       id: crypto.randomUUID(),
       parentId,
-      text: "New Idea",
+      text: "New Subtopic",
       x: parent.x + xOffset,
       y: parent.y + yOffset,
       color: COLOR_PRESETS[(nodes.length + 1) % COLOR_PRESETS.length].hex,
@@ -142,13 +163,13 @@ export function MindMapPage() {
     setNodes(prev => [...prev, newNode]);
     setSelectedNodeId(newNode.id);
     setEditingNodeId(newNode.id);
-    setEditText("New Idea");
+    setEditText("New Subtopic");
     showToast("Subtopic added!", "success");
   };
 
   const deleteNode = (id: string) => {
-    if (id === "root") {
-      showToast("Cannot delete central root node", "warning");
+    if (id === "root" && nodes.length === 1) {
+      showToast("Cannot delete last remaining node", "warning");
       return;
     }
     const getSubtreeIds = (targetId: string): string[] => {
@@ -176,6 +197,15 @@ export function MindMapPage() {
       setNodes(prev => prev.map(n => n.id === editingNodeId ? { ...n, text: editText.trim() } : n));
     }
     setEditingNodeId(null);
+  };
+
+  // Clear Canvas (Reset to Default or Empty)
+  const clearTreeCanvas = () => {
+    setNodes([
+      { id: "root", parentId: null, text: "Central Idea", x: 450, y: 300, color: "#a855f7" }
+    ]);
+    setSelectedNodeId("root");
+    showToast("Canvas Reset to Central Idea", "info");
   };
 
   // Auto Layout Tree around Root
@@ -304,8 +334,41 @@ export function MindMapPage() {
     showToast("Mind Map PNG Exported!", "success");
   };
 
+  // Excalidraw Clear Canvas & Export
+  const clearExcalidrawCanvas = () => {
+    if (excalidrawAPI) {
+      excalidrawAPI.resetScene();
+      showToast("Excalidraw Whiteboard Cleared!", "info");
+    }
+  };
+
+  const exportExcalidrawPNG = async () => {
+    if (excalidrawAPI) {
+      try {
+        const elements = excalidrawAPI.getSceneElements();
+        if (!elements || elements.length === 0) {
+          showToast("Whiteboard is empty!", "warning");
+          return;
+        }
+        const blob = await excalidrawAPI.exportToBlob({
+          mimeType: "image/png",
+          quality: 1,
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.download = `Excalidraw_Whiteboard_${new Date().toISOString().slice(0, 10)}.png`;
+        link.href = url;
+        link.click();
+        URL.revokeObjectURL(url);
+        showToast("Excalidraw Image Exported!", "success");
+      } catch (e) {
+        showToast("Export failed", "warning");
+      }
+    }
+  };
+
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${isFullscreen ? "fixed inset-0 z-50 bg-[#0B0F19] p-6 overflow-hidden" : ""}`}>
       {/* ─── Header Controls Panel ────────────────────────────────────────── */}
       <Panel className="bg-slate-900/90 border-slate-800 backdrop-blur-md p-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -317,7 +380,7 @@ export function MindMapPage() {
               <h1 className="text-xl font-bold text-slate-100 flex items-center gap-2">
                 🧠 Mind Map Whiteboard
                 <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                  {engineMode === "tree" ? "Organic Curved Tree Engine" : "Excalidraw Engine"}
+                  {engineMode === "tree" ? "Organic Curved Tree Engine" : "Excalidraw Freehand Engine"}
                 </span>
               </h1>
               <p className="text-xs text-slate-400">Interactive Visual Topic & Branch Planner</p>
@@ -349,37 +412,79 @@ export function MindMapPage() {
               </button>
             </div>
 
+            {/* Tree Engine Toolbar Actions */}
             {engineMode === "tree" && (
               <>
                 <button
+                  onClick={addIndependentTopic}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 transition flex items-center gap-1"
+                >
+                  <Plus className="w-4 h-4" /> + Topic Box
+                </button>
+
+                <button
                   onClick={() => addSubtopic(selectedNodeId || "root")}
-                  className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 transition flex items-center gap-1.5"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 transition flex items-center gap-1"
                 >
                   <Plus className="w-4 h-4" /> + Subtopic
                 </button>
 
                 <button
                   onClick={autoLayout}
-                  className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 transition flex items-center gap-1.5"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 transition flex items-center gap-1"
                 >
                   <RefreshCw className="w-3.5 h-3.5" /> Auto Align
                 </button>
 
                 <button
                   onClick={exportPNG}
-                  className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1.5"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1"
                 >
                   <Download className="w-3.5 h-3.5" /> Export PNG
+                </button>
+
+                <button
+                  onClick={clearTreeCanvas}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 transition flex items-center gap-1"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" /> Reset
                 </button>
 
                 {selectedNodeId && selectedNodeId !== "root" && (
                   <button
                     onClick={() => deleteNode(selectedNodeId)}
-                    className="px-3 py-2 rounded-lg text-xs font-semibold bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 transition flex items-center gap-1"
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 transition flex items-center gap-1"
                   >
                     <Trash2 className="w-3.5 h-3.5" /> Delete Node
                   </button>
                 )}
+              </>
+            )}
+
+            {/* Excalidraw Engine Toolbar Actions */}
+            {engineMode === "excalidraw" && (
+              <>
+                <button
+                  onClick={exportExcalidrawPNG}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1"
+                >
+                  <Download className="w-3.5 h-3.5" /> Download PNG
+                </button>
+
+                <button
+                  onClick={clearExcalidrawCanvas}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 transition flex items-center gap-1"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Clear All
+                </button>
+
+                <button
+                  onClick={() => setIsFullscreen(!isFullscreen)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 transition flex items-center gap-1"
+                >
+                  {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                  {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+                </button>
               </>
             )}
           </div>
@@ -399,12 +504,13 @@ export function MindMapPage() {
               setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
             }
           }}
-          className="relative w-full h-[720px] rounded-2xl bg-[#0B0F19] border border-slate-800/80 overflow-hidden shadow-2xl select-none cursor-grab active:cursor-grabbing"
+          className={`relative w-full ${isFullscreen ? "h-[calc(100vh-140px)]" : "h-[720px]"} rounded-2xl bg-[#0B0F19] border border-slate-800/80 overflow-hidden shadow-2xl select-none cursor-grab active:cursor-grabbing`}
           style={{
             backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.05) 1px, transparent 0)",
             backgroundSize: "24px 24px"
           }}
         >
+          {/* Zoom Controls */}
           <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 bg-slate-900/90 border border-slate-800 p-1.5 rounded-xl backdrop-blur-md">
             <button onClick={() => setZoom(z => Math.max(0.4, z - 0.1))} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-300">
               <ZoomOut className="w-4 h-4" />
@@ -416,8 +522,12 @@ export function MindMapPage() {
             <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-300" title="Reset View">
               <Maximize2 className="w-4 h-4" />
             </button>
+            <button onClick={() => setIsFullscreen(!isFullscreen)} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-300" title="Toggle Fullscreen">
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4 text-purple-400" />}
+            </button>
           </div>
 
+          {/* Color Palette bar for selected node */}
           {selectedNode && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-slate-900/95 border border-slate-800 px-4 py-2 rounded-2xl backdrop-blur-md shadow-xl">
               <span className="text-xs font-semibold text-slate-400 flex items-center gap-1">
@@ -437,10 +547,12 @@ export function MindMapPage() {
             </div>
           )}
 
+          {/* Canvas SVG Lines & Floating Nodes Container */}
           <div 
             className="w-full h-full transform-gpu origin-top-left transition-transform duration-75"
             style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
           >
+            {/* SVG Connecting Curves */}
             <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
               <defs>
                 <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
@@ -492,6 +604,7 @@ export function MindMapPage() {
               })}
             </svg>
 
+            {/* Mind Map Pill Nodes */}
             {nodes.map(node => {
               const isRoot = node.id === "root";
               const isSelected = selectedNodeId === node.id;
@@ -535,6 +648,7 @@ export function MindMapPage() {
                     </span>
                   )}
 
+                  {/* Add Subtopic (+) Quick Action Button */}
                   {isSelected && (
                     <button
                       onClick={(e) => { e.stopPropagation(); addSubtopic(node.id); }}
@@ -550,19 +664,25 @@ export function MindMapPage() {
           </div>
         </div>
       ) : (
-        <div className="w-full h-[720px] rounded-2xl border border-slate-800 overflow-hidden bg-slate-950">
+        /* ─── Excalidraw Engine Mode ────────────────────────────────────────── */
+        <div className={`w-full ${isFullscreen ? "h-[calc(100vh-140px)]" : "h-[720px]"} rounded-2xl border border-slate-800 overflow-hidden bg-slate-950`}>
           {isExcalidrawLoading ? (
             <div className="w-full h-full flex items-center justify-center text-purple-400 gap-2">
-              <RefreshCw className="w-6 h-6 animate-spin" /> Loading Excalidraw Canvas...
+              <RefreshCw className="w-6 h-6 animate-spin" /> Loading Excalidraw Whiteboard Canvas...
             </div>
           ) : excalidrawComp ? (
             (() => {
               const Comp = excalidrawComp;
-              return <Comp theme="dark" />;
+              return (
+                <Comp 
+                  excalidrawAPI={(api: any) => setExcalidrawAPI(api)} 
+                  theme="dark" 
+                />
+              );
             })()
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-3">
-              <p>Excalidraw engine unavailable.</p>
+              <p>Excalidraw engine loading...</p>
               <button onClick={() => setEngineMode("tree")} className="px-4 py-2 rounded-lg bg-purple-600 text-white text-xs font-semibold">
                 Return to Tree Engine
               </button>
