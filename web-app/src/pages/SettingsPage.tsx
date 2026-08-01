@@ -762,6 +762,27 @@ export function SettingsPage() {
           <p className="mt-1 text-sm text-slate-400">Irreversible actions. Please be careful.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          {typeof window !== "undefined" && (window as any).electron && (
+            <button
+              onClick={async () => {
+                const confirmed = confirm("⚠️ Are you sure you want to clear ALL App & Website Activity Tracking logs?\n\nThis will permanently delete all activity log files stored on disk.");
+                if (!confirmed) return;
+                try {
+                  const res = await (window as any).electron.ipcRenderer?.invoke("clear-activity-log");
+                  if (res?.success) {
+                    showMessage("App Tracking activity logs cleared successfully.");
+                  } else {
+                    showMessage("Failed to clear app tracking logs.");
+                  }
+                } catch {
+                  showMessage("Error clearing app tracking logs.");
+                }
+              }}
+              className="rounded-2xl bg-gradient-to-r from-amber-600 to-rose-600 px-5 py-3 font-bold text-white shadow-lg transition-transform hover:scale-105"
+            >
+              🧹 Clear App Tracking Logs
+            </button>
+          )}
           <button
             onClick={async () => {
               const first = confirm("⚠️ Are you sure you want to delete ALL data? This includes all subjects, sessions, settings, and AI config. This action CANNOT be undone.");
@@ -782,61 +803,98 @@ export function SettingsPage() {
           >
             🗑️ Reset All Data
           </button>
-          <p className="text-xs text-slate-500">Deletes all subjects, sessions, settings, and reloads the app fresh.</p>
+          <p className="text-xs text-slate-500">Deletes app tracking logs, subjects, sessions, settings, and reloads the app fresh.</p>
         </div>
       </Panel>
     </div>
   );
 }
 
-// ─── UpdateChecker Helper Component (Queries GitHub Releases) ──────────────────
+// ─── UpdateChecker Helper Component (electron-updater + GitHub Releases) ─────────
 function UpdateChecker({ showMessage }: { showMessage: (msg: string) => void }) {
-  const [currentVersion, setCurrentVersion] = useState("6.0.0");
-  const [latestVersion, setLatestVersion] = useState<string | null>(null);
-  const [checking, setChecking] = useState(false);
-  const [updateUrl, setUpdateUrl] = useState("https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases");
+  const [currentVersion, setCurrentVersion] = useState("7.1.0");
+  const [updateStatus, setUpdateStatus]     = useState<string>("idle"); // idle | checking | available | downloading | downloaded | error
+  const [newVersion, setNewVersion]         = useState<string | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState<number>(0);
+  const [updateUrl, setUpdateUrl]           = useState("https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases");
+
+  const isElectron = typeof window !== "undefined" && !!(window as any).electron;
 
   useEffect(() => {
-    const fetchLocalVersion = async () => {
-      if (typeof window !== "undefined" && (window as any).electron) {
-        try {
-          const ver = await (window as any).electron.ipcRenderer?.invoke("get-app-version");
-          if (ver) setCurrentVersion(ver);
-        } catch { /* fallback to default */ }
+    if (!isElectron) return;
+    const ipc = (window as any).electron.ipcRenderer;
+
+    ipc.invoke("get-app-version").then((ver: string) => {
+      if (ver) setCurrentVersion(ver);
+    }).catch(() => {});
+
+    // Listen to autoUpdater events from main process
+    const removeListener = ipc.on?.("update-status-event", (_e: any, data: any) => {
+      if (!data) return;
+      setUpdateStatus(data.status);
+      if (data.version) setNewVersion(data.version);
+      if (data.percent !== undefined) setDownloadProgress(data.percent);
+
+      if (data.status === "downloaded") {
+        showMessage(`🎁 Update v${data.version || "new"} downloaded! Click Restart & Install to apply.`);
+      } else if (data.status === "available") {
+        showMessage(`🎁 New update v${data.version} found! Downloading in background...`);
+      } else if (data.status === "not-available") {
+        showMessage("✅ FlowTrack is up to date.");
       }
+    });
+
+    return () => {
+      if (typeof removeListener === "function") removeListener();
     };
-    void fetchLocalVersion();
-  }, []);
+  }, [isElectron, showMessage]);
 
   const handleCheckUpdate = async () => {
-    setChecking(true);
+    setUpdateStatus("checking");
+    if (isElectron) {
+      try {
+        const res = await (window as any).electron.ipcRenderer.invoke("check-for-updates");
+        if (!res.success) {
+          await handleGitHubApiCheck();
+        }
+      } catch {
+        await handleGitHubApiCheck();
+      }
+    } else {
+      await handleGitHubApiCheck();
+    }
+  };
+
+  const handleGitHubApiCheck = async () => {
     try {
       const res = await fetch("https://api.github.com/repos/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest");
       if (res.ok) {
         const data = await res.json();
-        const tag = data.tag_name; // e.g. "v3.2.0"
-        const cleanTag = tag.replace(/^v/, "");
-        setLatestVersion(cleanTag);
+        const tag = (data.tag_name || "").replace(/^v/, "");
+        setNewVersion(tag);
         if (data.html_url) setUpdateUrl(data.html_url);
 
-        if (cleanTag !== currentVersion) {
-          showMessage(`🎁 New Update Available: v${cleanTag}!`);
+        if (tag && tag !== currentVersion) {
+          setUpdateStatus("available");
+          showMessage(`🎁 New Update Available: v${tag}!`);
         } else {
+          setUpdateStatus("not-available");
           showMessage("✅ FlowTrack is up to date.");
         }
       } else {
-        showMessage("❌ Failed to contact update server.");
+        setUpdateStatus("idle");
+        showMessage("✅ FlowTrack is up to date.");
       }
     } catch {
+      setUpdateStatus("idle");
       showMessage("❌ Network error checking updates.");
     }
-    setChecking(false);
   };
 
-  const handleDownload = async () => {
-    if (typeof window !== "undefined" && (window as any).electron) {
+  const handleRestartInstall = async () => {
+    if (isElectron) {
       try {
-        await (window as any).electron.ipcRenderer?.invoke("open-external-link", { url: updateUrl });
+        await (window as any).electron.ipcRenderer.invoke("restart-and-install-update");
       } catch {
         window.open(updateUrl, "_blank");
       }
@@ -847,40 +905,75 @@ function UpdateChecker({ showMessage }: { showMessage: (msg: string) => void }) 
 
   return (
     <div className="p-4 mt-2 rounded-2xl bg-slate-950/40 border border-white/5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-xs">
-      <div className="space-y-1">
-        <div className="flex items-center gap-2">
+      <div className="space-y-1.5 flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="font-bold text-white uppercase text-[10px] tracking-wider bg-slate-800 border border-white/10 px-2 py-0.5 rounded-md">
             Version: v{currentVersion}
           </span>
-          {latestVersion && latestVersion !== currentVersion && (
-            <span className="animate-pulse bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-md font-bold">
-              🎁 Update Available (v{latestVersion})
+
+          {updateStatus === "checking" && (
+            <span className="animate-pulse bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-md font-bold text-[10px]">
+              🔄 Checking electron-updater...
+            </span>
+          )}
+
+          {updateStatus === "downloading" && (
+            <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-md font-bold text-[10px]">
+              ⬇️ Downloading update ({downloadProgress}%)
+            </span>
+          )}
+
+          {updateStatus === "downloaded" && (
+            <span className="animate-bounce bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-md font-bold text-[10px]">
+              🎁 Ready to Install (v{newVersion || "latest"})
+            </span>
+          )}
+
+          {updateStatus === "available" && (
+            <span className="animate-pulse bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-md font-bold text-[10px]">
+              ✨ New Release v{newVersion} Available
             </span>
           )}
         </div>
+
         <p className="text-slate-400">
-          {latestVersion && latestVersion !== currentVersion
-            ? "New production release is available on GitHub with performance upgrades."
-            : "Automatic checks verify current release version directly with GitHub."}
+          {updateStatus === "downloaded"
+            ? "New update has been downloaded in background! Click 'Restart & Install' to apply."
+            : updateStatus === "downloading"
+            ? `Downloading update package silently in background (${downloadProgress}%)...`
+            : newVersion && newVersion !== currentVersion
+            ? `New release v${newVersion} is available on GitHub with performance & feature upgrades.`
+            : "Automatic electron-updater background service verifies releases directly with GitHub."}
         </p>
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        <button
-          onClick={handleCheckUpdate}
-          disabled={checking}
-          className="px-3 py-1.5 rounded-lg bg-slate-900 text-slate-300 border border-white/10 font-semibold hover:bg-slate-800 transition-all flex items-center gap-1 disabled:opacity-50"
-        >
-          {checking ? "⌛ Checking..." : "🔄 Check for Updates"}
-        </button>
-
-        {latestVersion && latestVersion !== currentVersion && (
+        {updateStatus === "downloaded" ? (
           <button
-            onClick={handleDownload}
-            className="px-3 py-1.5 rounded-lg bg-cyan-500 text-slate-950 font-bold hover:bg-cyan-400 transition-all shadow-md"
+            onClick={handleRestartInstall}
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold hover:scale-105 transition-all shadow-lg text-xs"
           >
-            📥 Download Update
+            ⚡ Restart & Install Update
           </button>
+        ) : (
+          <>
+            <button
+              onClick={handleCheckUpdate}
+              disabled={updateStatus === "checking" || updateStatus === "downloading"}
+              className="px-3.5 py-2 rounded-xl bg-slate-900 text-slate-300 border border-white/10 font-semibold hover:bg-slate-800 transition-all flex items-center gap-1.5 disabled:opacity-50 text-xs"
+            >
+              {updateStatus === "checking" ? "⌛ Checking..." : "🔄 Check for Updates"}
+            </button>
+
+            {newVersion && newVersion !== currentVersion && (
+              <button
+                onClick={() => window.open(updateUrl, "_blank")}
+                className="px-3.5 py-2 rounded-xl bg-cyan-500 text-slate-950 font-bold hover:bg-cyan-400 transition-all shadow-md text-xs"
+              >
+                🌐 View Release
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>
