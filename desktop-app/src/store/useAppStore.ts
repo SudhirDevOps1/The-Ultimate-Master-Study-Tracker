@@ -798,8 +798,15 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
     const autoPauseOnHidden = get().autoPauseOnHidden;
     const rawDeltaMs = Math.max(0, nowMs - timer.startedAtMs);
 
+    // System Clock Anti-Tamper Protection:
+    // If system clock was manually jumped forward, cap total session time to plannedMinutes * 60 + 600s max overshoot.
+    const maxAllowedSeconds = (activeSession.plannedMinutes && activeSession.plannedMinutes > 0)
+      ? (activeSession.plannedMinutes * 60) + 600
+      : 86400;
+
     if (!strictFocusMode && !autoPauseOnHidden) {
-      return clampElapsedSeconds(activeSession, timer.accumulatedSeconds + Math.floor(rawDeltaMs / 1000));
+      const computedSecs = timer.accumulatedSeconds + Math.floor(rawDeltaMs / 1000);
+      return clampElapsedSeconds(activeSession, Math.min(computedSecs, maxAllowedSeconds));
     }
 
     const hiddenAtMs = timer.hiddenAtMs;
@@ -818,7 +825,8 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
     }
 
     const approvedDeltaMs = Math.max(0, cutoffMs - timer.startedAtMs);
-    return clampElapsedSeconds(activeSession, timer.accumulatedSeconds + Math.floor(approvedDeltaMs / 1000));
+    const computedSecs = timer.accumulatedSeconds + Math.floor(approvedDeltaMs / 1000);
+    return clampElapsedSeconds(activeSession, Math.min(computedSecs, maxAllowedSeconds));
   },
 
   syncActiveSession: async (nowMs?: number) => {

@@ -1089,8 +1089,14 @@ ipcMain.handle("get-app-version", () => {
 
 ipcMain.handle("open-external-link", async (_e, { url }) => {
   try {
+    if (!url || typeof url !== "string") return { success: false, error: "Invalid URL" };
+    const clean = url.trim();
+    // STRICT SECURITY GUARD: Only allow http://, https://, or mailto: links to be opened externally
+    if (!/^https?:\/\//i.test(clean) && !/^mailto:/i.test(clean)) {
+      return { success: false, error: "Unauthorized URL protocol" };
+    }
     const { shell } = require("electron");
-    await shell.openExternal(url);
+    await shell.openExternal(clean);
     return { success: true };
   } catch (err) {
     return { success: false, error: err.message };
