@@ -3,7 +3,8 @@ import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Globe, Plus, Trash2, RefreshCw, ArrowLeft, ArrowRight,
-  ExternalLink, X, ChevronRight, Search, Maximize2, Minimize2
+  ExternalLink, X, ChevronRight, Search, Maximize2, Minimize2,
+  Key, Lock, Eye, EyeOff, ShieldCheck, Check
 } from "lucide-react";
 
 interface PortalSite {
@@ -40,7 +41,52 @@ function openExternal(url: string) {
   }
 }
 
+interface VaultCredential {
+  id: string;
+  domain: string;
+  label: string;
+  username: string;
+  passwordEnc: string;
+}
+
 const DB_KEY = "web_portals_custom_sites";
+const VAULT_KEY = "web_portals_vault_credentials";
+
+function encryptVal(text: string): string {
+  if (!text) return "";
+  try {
+    const k = "FlowTrackVault2026Key";
+    let res = "";
+    for (let i = 0; i < text.length; i++) {
+      res += String.fromCharCode(text.charCodeAt(i) ^ k.charCodeAt(i % k.length));
+    }
+    return btoa(res);
+  } catch { return btoa(text); }
+}
+
+function decryptVal(encoded: string): string {
+  if (!encoded) return "";
+  try {
+    const text = atob(encoded);
+    const k = "FlowTrackVault2026Key";
+    let res = "";
+    for (let i = 0; i < text.length; i++) {
+      res += String.fromCharCode(text.charCodeAt(i) ^ k.charCodeAt(i % k.length));
+    }
+    return res;
+  } catch { try { return atob(encoded); } catch { return encoded; } }
+}
+
+function loadVaultCredentials(): VaultCredential[] {
+  try {
+    const raw = localStorage.getItem(VAULT_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function saveVaultCredentials(creds: VaultCredential[]) {
+  try { localStorage.setItem(VAULT_KEY, JSON.stringify(creds)); } catch { /**/ }
+}
 
 async function loadCustomSites(): Promise<PortalSite[]> {
   try {
@@ -66,10 +112,23 @@ export function WebPortalsPage() {
   const [newColor, setNewColor]         = useState("#6366f1");
   const [searchQuery, setSearchQuery]   = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // ── Encrypted Credential Vault State ─────────────────────────────────────
+  const [vaultCredentials, setVaultCredentials] = useState<VaultCredential[]>([]);
+  const [showVaultModal, setShowVaultModal]     = useState(false);
+  const [showAddVault, setShowAddVault]         = useState(false);
+  const [vDomain, setVDomain]                   = useState("");
+  const [vLabel, setVLabel]                     = useState("");
+  const [vUsername, setVUsername]               = useState("");
+  const [vPassword, setVPassword]               = useState("");
+  const [showPassMap, setShowPassMap]           = useState<Record<string, boolean>>({});
+  const [fillToast, setFillToast]               = useState<string | null>(null);
+
   const webviewRef = useRef<any>(null);
 
   useEffect(() => {
     void loadCustomSites().then(setCustomSites);
+    setVaultCredentials(loadVaultCredentials());
   }, []);
 
   function normalizePortalUrl(raw: string): string {
@@ -158,6 +217,112 @@ export function WebPortalsPage() {
       (window as any).electron?.ipcRenderer?.invoke("webview-activity-clear").catch(() => {});
     }
   }, [activeUrl, isElectron]);
+
+  // ── Find matching credentials for currently active URL ──────────────────
+  const activeDomain = useMemo(() => {
+    if (!activeUrl) return "";
+    try {
+      return new URL(activeUrl).hostname.replace(/^www\./, "").toLowerCase();
+    } catch {
+      return activeUrl.toLowerCase();
+    }
+  }, [activeUrl]);
+
+  const activeMatchedCred = useMemo(() => {
+    if (!activeDomain) return null;
+    return vaultCredentials.find(c => {
+      const d = (c.domain || "").toLowerCase().replace(/^www\./, "").replace(/^https?:\/\//, "");
+      return activeDomain.includes(d) || d.includes(activeDomain);
+    });
+  }, [activeDomain, vaultCredentials]);
+
+  function handleAddVaultCred() {
+    if (!vUsername.trim() || !vPassword.trim()) return;
+    let dom = vDomain.trim().replace(/^www\./, "").replace(/^https?:\/\//, "");
+    if (!dom && activeDomain) dom = activeDomain;
+    if (!dom) dom = "general";
+
+    const item: VaultCredential = {
+      id: crypto.randomUUID(),
+      domain: dom,
+      label: vLabel.trim() || dom,
+      username: vUsername.trim(),
+      passwordEnc: encryptVal(vPassword),
+    };
+    const updated = [...vaultCredentials, item];
+    setVaultCredentials(updated);
+    saveVaultCredentials(updated);
+    setVDomain(""); setVLabel(""); setVUsername(""); setVPassword("");
+    setShowAddVault(false);
+    setFillToast(`🔐 Credential saved for ${item.domain}!`);
+    setTimeout(() => setFillToast(null), 3000);
+  }
+
+  function handleDeleteVaultCred(id: string) {
+    const updated = vaultCredentials.filter(c => c.id !== id);
+    setVaultCredentials(updated);
+    saveVaultCredentials(updated);
+  }
+
+  function autoFillWebview(cred: VaultCredential) {
+    const wv = webviewRef.current;
+    const username = cred.username;
+    const password = decryptVal(cred.passwordEnc);
+
+    if (!wv || typeof wv.executeJavaScript !== "function") {
+      navigator.clipboard?.writeText(password);
+      setFillToast(`📋 Password copied to clipboard! Paste into login form.`);
+      setTimeout(() => setFillToast(null), 3500);
+      return;
+    }
+
+    const script = `
+      (function() {
+        const u = ${JSON.stringify(username)};
+        const p = ${JSON.stringify(password)};
+        const userInput = document.querySelector('input[type="email"], input[type="text"][name*="user"], input[name*="login"], input[name*="email"], input[id*="email"], input[id*="user"]');
+        const passInput = document.querySelector('input[type="password"]');
+        let filled = 0;
+        if (userInput) {
+          userInput.value = u;
+          userInput.dispatchEvent(new Event('input', { bubbles: true }));
+          userInput.dispatchEvent(new Event('change', { bubbles: true }));
+          userInput.style.border = "2px dashed #10b981";
+          filled++;
+        }
+        if (passInput) {
+          passInput.value = p;
+          passInput.dispatchEvent(new Event('input', { bubbles: true }));
+          passInput.dispatchEvent(new Event('change', { bubbles: true }));
+          passInput.style.border = "2px dashed #10b981";
+          filled++;
+        }
+        return filled;
+      })();
+    `;
+
+    try {
+      wv.executeJavaScript(script)
+        .then((count: number) => {
+          if (count > 0) {
+            setFillToast(`⚡ Auto-filled credentials for ${cred.label || cred.domain}!`);
+          } else {
+            setFillToast(`📋 Password copied to clipboard. Paste into login form.`);
+            navigator.clipboard?.writeText(password);
+          }
+          setTimeout(() => setFillToast(null), 3500);
+        })
+        .catch(() => {
+          setFillToast(`📋 Password copied to clipboard.`);
+          navigator.clipboard?.writeText(password);
+          setTimeout(() => setFillToast(null), 3500);
+        });
+    } catch {
+      navigator.clipboard?.writeText(password);
+      setFillToast(`📋 Password copied to clipboard.`);
+      setTimeout(() => setFillToast(null), 3500);
+    }
+  }
 
 
   const allSites = [...DEFAULT_PORTALS, ...customSites];
@@ -456,6 +621,28 @@ export function WebPortalsPage() {
               <ChevronRight className="w-3.5 h-3.5" /> Go
             </button>
 
+            {/* 🔑 Active Site Auto-Fill Button */}
+            {activeMatchedCred && (
+              <button
+                type="button"
+                onClick={() => autoFillWebview(activeMatchedCred)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs font-bold shadow hover:scale-105 active:scale-95 transition-all shrink-0 animate-pulse"
+                title={`Auto-fill login credentials for ${activeMatchedCred.label || activeMatchedCred.domain}`}
+              >
+                <Key className="w-3.5 h-3.5" /> Fill Login
+              </button>
+            )}
+
+            {/* 🔐 Password Vault Modal Button */}
+            <button
+              type="button"
+              onClick={() => setShowVaultModal(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800 border border-white/10 text-slate-300 hover:text-white hover:bg-slate-700 text-xs font-semibold transition-all shrink-0"
+              title="Encrypted Credential Vault & Auto-Fill Manager"
+            >
+              <Lock className="w-3.5 h-3.5 text-amber-400" /> Vault
+            </button>
+
             {activeUrl && (
               <button
                 type="button"
@@ -566,6 +753,191 @@ export function WebPortalsPage() {
           </div>
         </motion.div>
       </div>
+
+      {/* ── Auto-Fill Toast Notification Alert ── */}
+      <AnimatePresence>
+        {fillToast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className="fixed top-6 left-1/2 -translate-x-1/2 z-50 rounded-2xl bg-slate-900 border border-emerald-500/40 px-5 py-3 text-xs font-semibold text-emerald-300 shadow-2xl backdrop-blur-md flex items-center gap-2"
+          >
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <span>{fillToast}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── 🔐 Password Vault Modal ── */}
+      <AnimatePresence>
+        {showVaultModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="glass w-full max-w-lg rounded-3xl border border-white/10 p-6 space-y-5 shadow-2xl bg-slate-900/95"
+            >
+              <div className="flex items-center justify-between border-b border-white/8 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400">
+                    <Lock className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-white">🔐 Encrypted Password Vault</h3>
+                    <p className="text-xs text-slate-400">Auto-fill logins for Apna College, Coursera, YouTube, PW & course portals</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowVaultModal(false)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Saved Credentials List */}
+              <div className="space-y-3 max-h-[50vh] overflow-y-auto custom-scrollbar pr-1">
+                {vaultCredentials.length === 0 ? (
+                  <div className="p-6 text-center rounded-2xl bg-white/3 border border-white/5 space-y-2">
+                    <Key className="w-8 h-8 text-slate-600 mx-auto" />
+                    <p className="text-xs font-semibold text-slate-400">No credentials saved yet</p>
+                    <p className="text-[10px] text-slate-500">Save logins for your course websites to auto-fill them like Proton Pass!</p>
+                  </div>
+                ) : (
+                  vaultCredentials.map(cred => {
+                    const pass = decryptVal(cred.passwordEnc);
+                    const isShown = Boolean(showPassMap[cred.id]);
+                    return (
+                      <div key={cred.id} className="p-3.5 rounded-2xl bg-white/4 border border-white/8 flex flex-col gap-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-white">{cred.label || cred.domain}</span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                              {cred.domain}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                autoFillWebview(cred);
+                                setShowVaultModal(false);
+                              }}
+                              className="px-2.5 py-1 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold hover:bg-emerald-500/25 transition-all flex items-center gap-1"
+                              title="Auto-fill into active webview"
+                            >
+                              <Key className="w-3 h-3" /> Fill
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteVaultCred(cred.id)}
+                              className="p-1 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                              title="Delete credential"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                          <div className="bg-slate-950/50 p-2 rounded-xl border border-white/5 truncate">
+                            <p className="text-[9px] uppercase font-bold text-slate-500">Username / Email</p>
+                            <p className="text-slate-200 font-mono text-[11px] truncate">{cred.username}</p>
+                          </div>
+                          <div className="bg-slate-950/50 p-2 rounded-xl border border-white/5 relative group">
+                            <p className="text-[9px] uppercase font-bold text-slate-500">Password</p>
+                            <p className="text-slate-200 font-mono text-[11px] truncate">
+                              {isShown ? pass : "••••••••••••"}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => setShowPassMap(m => ({ ...m, [cred.id]: !m[cred.id] }))}
+                              className="absolute top-2 right-2 text-slate-400 hover:text-white"
+                              title={isShown ? "Hide password" : "Show password"}
+                            >
+                              {isShown ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Add Credential Form */}
+              {showAddVault ? (
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+                      <Plus className="w-3.5 h-3.5" /> Add New Login Credential
+                    </p>
+                    <button onClick={() => setShowAddVault(false)} className="text-xs text-slate-400 hover:text-white">Cancel</button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      placeholder="Domain (e.g. apnacollege.in)"
+                      value={vDomain}
+                      onChange={e => setVDomain(e.target.value)}
+                      className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white placeholder:text-slate-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Account Label (e.g. Apna College Student)"
+                      value={vLabel}
+                      onChange={e => setVLabel(e.target.value)}
+                      className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white placeholder:text-slate-500"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      placeholder="Username / Email"
+                      value={vUsername}
+                      onChange={e => setVUsername(e.target.value)}
+                      className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white placeholder:text-slate-500"
+                    />
+                    <input
+                      type="password"
+                      placeholder="Password"
+                      value={vPassword}
+                      onChange={e => setVPassword(e.target.value)}
+                      className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white placeholder:text-slate-500"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddVaultCred}
+                    className="w-full py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 text-xs font-bold shadow hover:opacity-90 transition-all"
+                  >
+                    Save Encrypted Credential
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (activeDomain) setVDomain(activeDomain);
+                    if (activeName) setVLabel(activeName);
+                    setShowAddVault(true);
+                  }}
+                  className="w-full py-2.5 rounded-2xl border border-dashed border-white/20 bg-white/3 text-xs font-bold text-slate-300 hover:bg-white/8 hover:text-white transition-all flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-4 h-4 text-cyan-400" /> Save Credential for Current Site
+                </button>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
