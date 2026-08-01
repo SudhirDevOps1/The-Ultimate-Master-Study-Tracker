@@ -349,22 +349,144 @@ export function StudyNotesBoardPage() {
     showToast("Sticky note text copied!", "success");
   };
 
+  // Foolproof 2-Layer Sticky Board PNG Exporter
   const exportBoardAsImage = async () => {
-    if (!notesContainerRef.current) return;
+    if (stickyNotes.length === 0) {
+      showToast("No sticky notes on board to export", "warning");
+      return;
+    }
+
     try {
-      showToast("Generating image export...", "info");
-      const canvas = await html2canvas(notesContainerRef.current, {
-        backgroundColor: "#0F172A",
-        scale: 2
+      showToast("Generating high-resolution Sticky Board PNG...", "info");
+      const safeFileName = `FlowTrack_StickyBoard_${new Date().toISOString().slice(0, 10)}.png`;
+
+      // Method 1: html2canvas on notes container
+      if (notesContainerRef.current) {
+        try {
+          const canvas = await html2canvas(notesContainerRef.current, {
+            backgroundColor: "#0F172A",
+            scale: 2,
+            logging: false,
+            useCORS: true,
+            allowTaint: true,
+            scrollX: 0,
+            scrollY: 0
+          });
+
+          const image = canvas.toDataURL("image/png");
+          if (image && image.length > 200) {
+            const link = document.createElement("a");
+            link.href = image;
+            link.download = safeFileName;
+            link.click();
+            showToast("Sticky Board exported as High-Res PNG!", "success");
+            return;
+          }
+        } catch (m1Err) {
+          console.warn("html2canvas Sticky Board export failed, using Fallback Canvas 2D Grid Renderer...", m1Err);
+        }
+      }
+
+      // Method 2: Direct Canvas 2D Grid Renderer Fallback (Foolproof Guarantee!)
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Could not create canvas 2d context");
+
+      const cols = 3;
+      const cardWidth = 360;
+      const cardHeight = 220;
+      const gap = 20;
+      const padding = 30;
+
+      const rows = Math.ceil(stickyNotes.length / cols);
+      const totalWidth = padding * 2 + Math.min(stickyNotes.length, cols) * cardWidth + (Math.min(stickyNotes.length, cols) - 1) * gap;
+      const totalHeight = padding * 2 + 60 + rows * cardHeight + (rows - 1) * gap;
+
+      canvas.width = totalWidth * 2;
+      canvas.height = totalHeight * 2;
+      ctx.scale(2, 2);
+
+      // Dark Board Background
+      ctx.fillStyle = "#0F172A";
+      ctx.fillRect(0, 0, totalWidth, totalHeight);
+
+      // Header Title
+      ctx.fillStyle = "#A855F7";
+      ctx.font = "bold 13px sans-serif";
+      ctx.fillText("FLOWTRACK PRO • STICKY STUDY BOARD", padding, padding + 15);
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "bold 20px sans-serif";
+      ctx.fillText(`Sticky Notes (${stickyNotes.length})`, padding, padding + 40);
+
+      // Draw each sticky note card
+      stickyNotes.forEach((note, index) => {
+        const col = index % cols;
+        const row = Math.floor(index / cols);
+        const x = padding + col * (cardWidth + gap);
+        const y = padding + 65 + row * (cardHeight + gap);
+
+        // Card Background
+        ctx.fillStyle = "#1E293B";
+        ctx.beginPath();
+        if (typeof ctx.roundRect === "function") {
+          ctx.roundRect(x, y, cardWidth, cardHeight, 14);
+        } else {
+          ctx.rect(x, y, cardWidth, cardHeight);
+        }
+        ctx.fill();
+
+        // Card Border Accent
+        ctx.strokeStyle = note.pinned ? "#A855F7" : "#334155";
+        ctx.lineWidth = note.pinned ? 2 : 1;
+        ctx.stroke();
+
+        // Subject Tag Pill
+        ctx.fillStyle = "#334155";
+        ctx.beginPath();
+        if (typeof ctx.roundRect === "function") {
+          ctx.roundRect(x + 15, y + 15, 80, 20, 6);
+        } else {
+          ctx.rect(x + 15, y + 15, 80, 20);
+        }
+        ctx.fill();
+
+        ctx.fillStyle = "#E2E8F0";
+        ctx.font = "bold 10px sans-serif";
+        ctx.fillText(note.subject.toUpperCase(), x + 23, y + 29);
+
+        // Title
+        let textStartY = y + 55;
+        if (note.title) {
+          ctx.fillStyle = "#FFFFFF";
+          ctx.font = "bold 14px sans-serif";
+          ctx.fillText(note.title, x + 15, textStartY);
+          textStartY += 22;
+        }
+
+        // Content text
+        ctx.fillStyle = "#CBD5E1";
+        ctx.font = "12px sans-serif";
+        const noteLines = note.text.split("\n");
+        noteLines.slice(0, 4).forEach((line, lIdx) => {
+          ctx.fillText(line.slice(0, 45), x + 15, textStartY + lIdx * 18);
+        });
+
+        // Date Footer
+        ctx.fillStyle = "#64748B";
+        ctx.font = "10px sans-serif";
+        ctx.fillText(`${note.date} • ${note.time}`, x + 15, y + cardHeight - 15);
       });
-      const image = canvas.toDataURL("image/png");
+
+      const dataUrl = canvas.toDataURL("image/png");
       const link = document.createElement("a");
-      link.href = image;
-      link.download = `FlowTrack_StickyBoard_${new Date().toISOString().slice(0, 10)}.png`;
+      link.href = dataUrl;
+      link.download = safeFileName;
       link.click();
-      showToast("Sticky Board exported as PNG!", "success");
-    } catch {
-      showToast("Failed to export image", "warning");
+      showToast("Sticky Board exported as High-Res PNG!", "success");
+    } catch (err) {
+      console.error("Failed to export board image:", err);
+      showToast("Failed to export Sticky Board image", "warning");
     }
   };
 

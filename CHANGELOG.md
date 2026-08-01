@@ -15,6 +15,7 @@ All notable changes, version updates, feature additions, architectural improveme
 ## [v7.2.0] — 2026-08-01
 
 ### 📌 Study Notes & Saved Documents Suite Overhaul
+- **📌 Sticky Board 2-Layer Fail-Proof PNG Exporter**: Fixed `Export Board PNG` failure on Sticky Board tab with a 2-layer rendering engine (html2canvas + Canvas 2D grid drawer), rendering all sticky note cards, subject tags, titles, and dates into high-res PNG images without failing!
 - **🛡️ 2-Layer Fail-Proof PNG Exporter Engine**: Fixed PNG export failure by implementing an `onclone` height un-clamper for `html2canvas` and a secondary direct Canvas 2D fallback renderer, ensuring high-res PNG image download NEVER fails regardless of DOM overflow or browser quirks!
 - **🖼️ High Quality PNG Image Exporter**: Added 1-click `Export PNG` action to render and download crisp 3x HD images of your formatted Markdown documents!
 - **👁️ Live Rendered Markdown Preview & 3-Way Split View**: Added a 3-way view mode switcher allowing users to toggle between `✏️ Edit`, `👁️ Live Preview` (styled HTML rendered markdown), and `⚖️ Split View` (editor + live preview side-by-side as you type).
