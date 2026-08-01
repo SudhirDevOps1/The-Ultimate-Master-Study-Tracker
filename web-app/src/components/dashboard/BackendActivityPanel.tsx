@@ -32,85 +32,33 @@ const isElectron = typeof window !== "undefined" && !!(window as any).require;
 const getIpc = () => isElectron ? (window as any).require("electron").ipcRenderer : null;
 
 export function BackendActivityPanel() {
-  const [rawLog, setRawLog] = useState<ActivityEntry[]>([]);
-  const [liveWin, setLiveWin] = useState<{ process: string; title: string } | null>(null);
-
   const isBackendConnected = useAppStore((state: AppState) => state.isBackendConnected);
-  const backendUrl = useAppStore((state: AppState) => state.backendUrl);
+  const backendStats = useAppStore((state: AppState) => state.backendStats);
+  const backendActivities = useAppStore((state: AppState) => state.backendActivities);
+  const fetchBackendData = useAppStore((state: AppState) => state.fetchBackendData);
   const activeWindow = useAppStore((state: AppState) => state.activeWindow);
 
-  const fetchLogs = async () => {
-    const ipc = getIpc();
-    if (ipc) {
-      try {
-        const today = new Date().toISOString().split("T")[0];
-        const entries: ActivityEntry[] = await ipc.invoke("get-activity-log", { date: today });
-        setRawLog(entries);
-
-        const win = await ipc.invoke("get-active-window");
-        if (win && !win.isSelf && win.process && win.process !== "unknown") {
-          setLiveWin({ process: win.process, title: win.title });
-        } else {
-          setLiveWin(null);
-        }
-        return;
-      } catch (err) {
-        console.warn("[BackendActivityPanel] Error reading IPC logs", err);
-      }
-    }
-
-    // Web App Mode: Check Python backend HTTP or browser tracking
-    if (backendUrl && isBackendConnected) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000);
-        const res = await fetch(`${backendUrl}/export?type=activities&format=json`, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        if (res.ok) {
-          const data = await res.json();
-          const raw = data.activities || [];
-          const normalized: ActivityEntry[] = raw.map((a: any) => ({
-            appName: a.appName || a.process || a.app_name || "Unknown App",
-            title: a.title || "Desktop / Idle",
-            durationSeconds: Math.round(a.durationSeconds || a.duration || a.duration_sec || 0),
-            startTime: a.startTime || (a.start_ts ? new Date(a.start_ts * 1000).toISOString() : new Date().toISOString()),
-            date: a.date || (a.start_ts ? new Date(a.start_ts * 1000).toISOString().split("T")[0] : new Date().toISOString().split("T")[0]),
-            hour: typeof a.hour === "number" ? a.hour : (a.start_ts ? new Date(a.start_ts * 1000).getHours() : new Date().getHours()),
-            isLive: !!a.isLive || !!a.live
-          }));
-          setRawLog(normalized);
-        }
-      } catch {
-        // Fallback
-      }
-    }
-  };
-
   useEffect(() => {
-    if (activeWindow) {
-      setLiveWin({ process: "Active Browser / Process", title: activeWindow });
-    } else if (!isElectron && !isBackendConnected) {
-      setLiveWin(null);
-    }
-  }, [activeWindow, isBackendConnected]);
-
-  useEffect(() => {
-    void fetchLogs();
+    void fetchBackendData();
     const interval = setInterval(() => {
-      void fetchLogs();
+      void fetchBackendData();
     }, 5000);
     return () => clearInterval(interval);
-  }, [isBackendConnected, backendUrl]);
+  }, [fetchBackendData]);
 
   // Aggregate top processes
   const processUsage = useMemo(() => {
+    if (!backendActivities || backendActivities.length === 0) return [];
     const map = new Map<string, { appName: string; durationSeconds: number; category: string }>();
-    for (const entry of rawLog) {
-      const key = entry.appName.toLowerCase();
+    for (const entry of backendActivities) {
+      const app = entry.process || entry.appName || entry.app_name;
+      if (!app) continue;
+      const key = app.toLowerCase();
+      const duration = Number(entry.duration || entry.durationSeconds || entry.duration_sec || 0);
       if (!map.has(key)) {
-        map.set(key, { appName: entry.appName, durationSeconds: 0, category: classifyApp(entry.appName) });
+        map.set(key, { appName: app, durationSeconds: 0, category: classifyApp(app) });
       }
-      map.get(key)!.durationSeconds += entry.durationSeconds;
+      map.get(key)!.durationSeconds += duration;
     }
 
     return [...map.values()]
@@ -121,18 +69,22 @@ export function BackendActivityPanel() {
         minutes: Math.round(item.durationSeconds / 60),
         category: item.category,
       }));
-  }, [rawLog]);
+  }, [backendActivities]);
 
   // Aggregate top window titles
   const tabUsage = useMemo(() => {
+    if (!backendActivities || backendActivities.length === 0) return [];
     const map = new Map<string, { title: string; durationSeconds: number; process: string; category: string }>();
-    for (const entry of rawLog) {
-      if (!entry.title || entry.title === "Desktop / Idle") continue;
-      const key = entry.title.trim();
+    for (const entry of backendActivities) {
+      const title = entry.title || entry.window_title;
+      const app = entry.process || entry.appName || entry.app_name || "App";
+      if (!title || title === "Desktop / Idle") continue;
+      const key = title.trim();
+      const duration = Number(entry.duration || entry.durationSeconds || entry.duration_sec || 0);
       if (!map.has(key)) {
-        map.set(key, { title: key, durationSeconds: 0, process: entry.appName, category: classifyApp(entry.appName) });
+        map.set(key, { title: key, durationSeconds: 0, process: app, category: classifyApp(app) });
       }
-      map.get(key)!.durationSeconds += entry.durationSeconds;
+      map.get(key)!.durationSeconds += duration;
     }
 
     return [...map.values()]
@@ -144,16 +96,20 @@ export function BackendActivityPanel() {
         minutes: Math.round(item.durationSeconds / 60),
         category: item.category,
       }));
-  }, [rawLog]);
+  }, [backendActivities]);
 
   // Category breakdown for chart
   const categoryData = useMemo(() => {
     let prod = 0, dist = 0, neut = 0;
-    for (const entry of rawLog) {
-      const cat = classifyApp(entry.appName);
-      if (cat === "productive") prod += entry.durationSeconds;
-      else if (cat === "distracting") dist += entry.durationSeconds;
-      else neut += entry.durationSeconds;
+    if (backendActivities && backendActivities.length > 0) {
+      for (const entry of backendActivities) {
+        const app = entry.process || entry.appName || entry.app_name || "";
+        const duration = Number(entry.duration || entry.durationSeconds || entry.duration_sec || 0);
+        const cat = classifyApp(app);
+        if (cat === "productive") prod += duration;
+        else if (cat === "distracting") dist += duration;
+        else neut += duration;
+      }
     }
 
     return [
@@ -161,7 +117,7 @@ export function BackendActivityPanel() {
       { name: "Distracting", value: Math.round(dist / 60), color: "#f43f5e" },
       { name: "Neutral", value: Math.round(neut / 60), color: "#3b82f6" },
     ];
-  }, [rawLog]);
+  }, [backendActivities]);
 
   const totalMinutes = useMemo(() => categoryData.reduce((acc, curr) => acc + curr.value, 0), [categoryData]);
 
@@ -183,7 +139,7 @@ export function BackendActivityPanel() {
         <div className="space-y-2">
           <p className="text-[10px] uppercase tracking-wider text-slate-400">Current Active Window</p>
           <div className="rounded-xl border border-white/10 bg-slate-950/60 p-3">
-            <p className="text-xs font-bold text-white truncate">{liveWin ? `${liveWin.process} — ${liveWin.title}` : "Desktop / Idle"}</p>
+            <p className="text-xs font-bold text-white truncate">{activeWindow || "Desktop / Idle"}</p>
           </div>
         </div>
 

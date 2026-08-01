@@ -183,29 +183,30 @@ export function useTimer() {
   }, [markTimerInteraction, pauseSession, setHiddenAt, strictFocusMode, syncActiveSession]);
 
   // ─── App-tracking: Poll active window via local Python backend ───────────
-  // Works when user runs START_BACKEND.bat on their PC + opens web-app in browser.
-  // Automatically disables when backend is not running (e.g. Vercel-only access).
-  // ─── App-tracking: Poll active window via local Python backend ───────────
   useEffect(() => {
     let activeInterval: number | undefined;
 
     const pollActiveWindow = async () => {
       const state = useAppStore.getState();
-      if (!state.isBackendConnected || !state.backendUrl) {
-        state.setActiveWindow("");
-        return;
-      }
+      
+      // Always fetch latest stats and activity logs from Python backend
+      void state.fetchBackendData();
+
+      const url = state.backendUrl || "http://localhost:5001";
       try {
         const controller = new AbortController();
-        setTimeout(() => controller.abort(), 2000);
-        const res = await fetch(`${state.backendUrl}/active-window`, { signal: controller.signal });
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const res = await fetch(`${url}/active-window`, { signal: controller.signal });
+        clearTimeout(timeoutId);
         const data = await res.json();
         if (data && data.title) {
           const displayStr = data.process && data.process !== "unknown" ? `${data.process} — ${data.title}` : data.title;
           state.setActiveWindow(displayStr);
+        } else {
+          state.setActiveWindow("Desktop / Idle");
         }
       } catch {
-        state.setActiveWindow("");
+        state.setActiveWindow("Desktop / Idle");
       }
     };
 
