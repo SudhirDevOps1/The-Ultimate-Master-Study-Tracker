@@ -7,7 +7,7 @@
 ### 💎 The Ultimate Master Study & Productivity Ecosystem — 2026 Enterprise Edition
 
 <p align="center">
-  <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest">
+  <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/tag/v7.3.0">
     <img src="https://img.shields.io/badge/Release-v7.3.0-10B981?style=for-the-badge&logo=github&logoColor=white" alt="Release v7.3.0" />
   </a>
   <a href="https://the-ultimate-master-study-tracker.vercel.app/">
@@ -37,7 +37,7 @@ Engineered into **3 distinct operational tiers**: Serverless PWA Web App, Web Ap
 
 ---
 
-### 🌐 [Live Web App](https://the-ultimate-master-study-tracker.vercel.app/) • 📦 [Download Desktop Installer](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest) • 📖 [Architecture Guide](docs/FULL_SYSTEM_GUIDE.md) • 📊 [Privacy & Security Specs](docs/ANALYTICS_AND_TRACKING_POLICY.md)
+### 🌐 [Live Web App](https://the-ultimate-master-study-tracker.vercel.app/) • 📦 [Download Desktop Installer](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/tag/v7.3.0) • 📖 [Architecture Guide](docs/FULL_SYSTEM_GUIDE.md) • 📊 [Privacy Policy](docs/ANALYTICS_AND_TRACKING_POLICY.md)
 
 </div>
 
@@ -49,7 +49,7 @@ Engineered into **3 distinct operational tiers**: Serverless PWA Web App, Web Ap
 ├── 🗺️ Overview & Quick Links
 ├── 📸 Live Product Interface Showcase
 ├── 👤 Lead Architect & Project Specs
-├── ✨ Highlights in v7.1.0 Release
+├── ✨ Key Features & Innovations in v7.3.0
 ├── 📂 Complete Repository Documentation Index
 ├── 🏛️ System Architecture & Data Flow
 ├── ⚡ Operational Tiers Comparison Matrix
@@ -61,7 +61,7 @@ Engineered into **3 distinct operational tiers**: Serverless PWA Web App, Web Ap
 - [📸 Live Product Interface Showcase](#-live-product-interface-showcase)
 - [👤 Lead Architect & Project Specs](#-lead-architect--project-specs)
 - [🔗 Developer Social & Community Profiles](#-developer-social--community-profiles)
-- [✨ Key Features & Innovations in v7.1.0](#-key-features--innovations-in-v710)
+- [✨ Key Features & Innovations in v7.3.0](#-key-features--innovations-in-v730)
 - [📂 Comprehensive Documentation Directory](#-comprehensive-documentation-directory)
 - [🏛️ System Architecture & Data Flow](#️-system-architecture--data-flow)
 - [📊 Operational Tiers Feature Matrix](#-operational-tiers-feature-matrix)
@@ -79,7 +79,7 @@ Engineered into **3 distinct operational tiers**: Serverless PWA Web App, Web Ap
 
 <div align="center">
   <img src="public/images/flowtrack-screenshot.png" alt="FlowTrack Pro Workspace Interface" width="100%" />
-  <p><i>FlowTrack Pro v7.2.0 — Unified Study Workspace featuring Smart Timer, Encrypted Vault, Chromium Portals & Media Sandbox</i></p>
+  <p><i>FlowTrack Pro v7.3.0 — Unified Study Workspace featuring Smart Timer, True Pitch-Black OLED Engine, Encrypted Vault & MindMap Whiteboard</i></p>
 </div>
 
 ---
@@ -91,11 +91,11 @@ Engineered into **3 distinct operational tiers**: Serverless PWA Web App, Web Ap
 | 🖼️ **Brand Identity** | <img src="public/images/flowtrack-logo.png" width="40" height="40" /> **FlowTrack Pro Official Symbol** ([view logo](public/images/flowtrack-logo.png)) |
 | 👑 **Product Name** | **FlowTrack Pro** — Master Study & Productivity Ecosystem |
 | 🧑‍💻 **Lead Developer** | **Sudhir Singh** ([@SudhirDevOps1](https://github.com/SudhirDevOps1)) |
-| 📦 **Current Version** | `v7.2.0` (Production Release) |
+| 📦 **Current Version** | `v7.3.0` (Production Master Release) |
 | ⚖️ **License** | [MIT License](LICENSE) |
 | 🌐 **Live Production Web** | [`https://the-ultimate-master-study-tracker.vercel.app/`](https://the-ultimate-master-study-tracker.vercel.app/) |
 | 🐙 **GitHub Repository** | [`SudhirDevOps1/The-Ultimate-Master-Study-Tracker`](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker) |
-| 📥 **Official Releases** | [`GitHub Releases`](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest) |
+| 📥 **Official Release Tag** | [`v7.3.0 GitHub Release`](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/tag/v7.3.0) |
 
 ---
 
@@ -120,30 +120,34 @@ Connect with the author & join the FlowTrack Pro study ecosystem:
 
 ---
 
-## ✨ Key Features & Innovations in v7.1.0
+## ✨ Key Features & Innovations in v7.3.0
 
 > [!NOTE]
 > FlowTrack Pro is engineered for zero-distraction, deep-work study sessions with native OS integration.
 
-### 🔐 1. In-App Encrypted Credential Vault & Auto-Fill
+### 🖤 1. True Pitch-Black OLED Dark Theme Engine
+* **0ms Startup Hydration:** Instant OLED Black (`#000000`) theme application at script load (0ms) across Web & Desktop apps.
+* **100% OLED Contrast:** Pure black `#000000` body background, `#050505` glass cards, and high-visibility neon accent themes.
+
+### 🎨 2. Dual-Engine MindMap & Excalidraw 0.18.1 Canvas
+* **Vector Tree Visualizer:** Interactive tree node engine for structuring complex study topics and hierarchies.
+* **Excalidraw 0.18.1 Whiteboard:** Dynamic Excalidraw dynamic loader bundled with complete 145 kB CSS stylesheets and WOFF2 vector font assets for flawless Vercel production rendering.
+
+### 🔐 3. In-App Encrypted Credential Vault & Auto-Fill
 * **Local Vault Security:** Store login credentials for PW, Apna College, Coursera, YouTube, and study portals securely inside `localStorage` using XOR/Base64 obfuscated ciphers.
 * **1-Click DOM Injection Auto-Fill:** Interactive `🔑 Fill Login` button in browser address bar injects DOM scripts directly into embedded Chromium `<webview>` elements.
 
-### 🔄 2. Background Silent Auto-Updater (`electron-updater`)
+### 🔄 4. Background Silent Auto-Updater (`electron-updater`)
 * **Silent Background Updates:** Background polling service automatically checks GitHub Releases 10 seconds post-launch.
 * **1-Click Restart & Install:** Downloads release binaries in background with live progress indicators and a 1-click update installation button.
 
-### 🛡️ 3. Anti-Cheat System Clock Guard & Security Hardening
+### 🛡️ 5. Anti-Cheat System Clock Guard & Security Hardening
 * **Anti-Tamper Time Guard:** Validates system clock deltas to prevent users from artificially shifting Windows time forward to inflate study XP or instantly complete timer blocks.
 * **Strict IPC Protocol Whitelist:** Blocks unauthorized OS protocol link execution, allowing only `http://`, `https://`, and `mailto:` links.
 
-### 🌐 4. Embedded Chromium Web Portals Engine
+### 🌐 6. Embedded Chromium Web Portals Engine & Media Player
 * **In-App Browser Sandbox:** Open course portals directly inside FlowTrack Pro without switching context.
-* **Domain Activity Tracking:** Tracks active study domains (`apnacollege.in`, `youtube.com`) rather than logging FlowTrack itself.
-
-### 🎬 5. Universal Local Media Player Sandbox
 * **Zero-CORS `local-media://` Protocol:** Stream local video and audio lectures directly from any drive letter (`C:\` to `Z:\`).
-* **Timer Auto-Pause Sync:** Video and audio playback automatically pauses when the study timer is paused.
 
 ---
 
@@ -157,7 +161,7 @@ Every component of the FlowTrack Pro ecosystem is thoroughly documented across s
 | 🌐 **Web App Guide** | [`web-app/README.md`](web-app/README.md) | Architectural setup for Serverless Web App on Vercel CDN with PWA offline caching. |
 | 📊 **Analytics & Tracking Policy** | [`docs/ANALYTICS_AND_TRACKING_POLICY.md`](docs/ANALYTICS_AND_TRACKING_POLICY.md) | Data privacy specification, Win32 active window tracking mechanisms, and local storage safety. |
 | 📖 **Full System Architecture** | [`docs/FULL_SYSTEM_GUIDE.md`](docs/FULL_SYSTEM_GUIDE.md) | Complete deep dive into Zustand state stores, IndexedDB schema, and procedural audio synthesis. |
-| 📝 **Changelog & History** | [`CHANGELOG.md`](CHANGELOG.md) | Chronological version release logs from `v1.0.0` to `v7.1.0`. |
+| 📝 **Changelog & History** | [`web-app/CHANGELOG.md`](web-app/CHANGELOG.md) | Chronological version release logs from `v1.0.0` to `v7.3.0`. |
 
 ---
 
@@ -218,6 +222,7 @@ graph TD
 ### 🌐 Category 1: Serverless Web App (Zero Install)
 To launch the lightweight web application locally:
 ```bash
+cd web-app
 npm install
 npm run dev
 # Open http://localhost:5173 in any modern browser
@@ -228,6 +233,7 @@ npm run dev
 To enable OS active window tracking in browser mode:
 ```bash
 # 1. Start the Python tracking service
+cd web-app
 python backend.py
 
 # 2. In a separate terminal, launch the Web UI
