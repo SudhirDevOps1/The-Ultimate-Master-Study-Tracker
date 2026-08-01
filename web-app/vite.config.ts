@@ -10,16 +10,22 @@ const __dirname = path.dirname(__filename);
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  define: {
+    "process.env.NODE_ENV": JSON.stringify(process.env.NODE_ENV || "production"),
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
     },
   },
   build: {
-    chunkSizeWarningLimit: 2500,
+    chunkSizeWarningLimit: 3500,
     rollupOptions: {
       output: {
         manualChunks(id) {
+          if (id.includes("@excalidraw/excalidraw")) {
+            return "excalidraw";
+          }
           if (id.includes("node_modules")) {
             return "vendor";
           }
