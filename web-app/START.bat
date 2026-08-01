@@ -1,11 +1,11 @@
 @echo off
 setlocal enabledelayedexpansion
-title FlowTrack Pro - One Click Launcher
+title FlowTrack Pro - Web App + Local Backend Launcher
 color 0B
 
 echo.
 echo  ============================================================
-echo   FlowTrack Pro ^| ONE CLICK LAUNCHER
+echo   FlowTrack Pro ^| WEB APP + LOCAL BACKEND LAUNCHER
 echo  ============================================================
 echo.
 
@@ -21,112 +21,74 @@ cd /d "%~dp0"
 :: ----------------------------------------------------------------
 :: STEP 1 — Check Node.js
 :: ----------------------------------------------------------------
-echo [1/8] Checking Node.js...
+echo [1/6] Checking Node.js...
 node --version >nul 2>&1
 if %errorlevel% neq 0 (
     echo [ERROR] Node.js is NOT installed!
     echo         Download from: https://nodejs.org/
     pause & exit /b 1
 )
-for /f "delims=." %%a in ('node --version') do set "NODE_VER=%%a"
-set "NODE_VER=!NODE_VER:v=!"
-if !NODE_VER! LSS %NODE_MIN_MAJOR% (
-    echo [WARN] Node.js v!NODE_VER! found. Recommended: v%NODE_MIN_MAJOR%+
-) else (
-    for /f "delims=" %%i in ('node --version') do echo [OK] Node.js %%i
-)
+for /f "delims=" %%i in ('node --version') do echo [OK] Node.js %%i
 
 :: ----------------------------------------------------------------
 :: STEP 2 — Check Python
 :: ----------------------------------------------------------------
-echo [2/8] Checking Python...
+echo [2/6] Checking Python...
 python --version >nul 2>&1
 if %errorlevel% equ 0 (
     set "PYTHON_OK=1"
     for /f "delims=" %%i in ('python --version') do echo [OK] %%i
 ) else (
-    echo [WARN] Python not found. Backend will be skipped.
+    echo [WARN] Python not found. Python tracker backend will be skipped.
     echo        Download from: https://www.python.org/
 )
 
 :: ----------------------------------------------------------------
-:: STEP 3 — Setup Python venv (first time or if missing)
+:: STEP 3 — Setup Python venv + Dependencies
 :: ----------------------------------------------------------------
 if "!PYTHON_OK!"=="1" (
-    echo [3/8] Setting up Python environment...
+    echo [3/6] Setting up Python environment...
 
     if not exist ".venv" (
         echo        Creating virtual environment...
         python -m venv .venv >nul 2>&1
         if !errorlevel! neq 0 (
-            echo [WARN] Failed to create venv. Skipping backend.
+            echo [WARN] Failed to create venv. Skipping Python backend.
             goto :skip_backend
         )
         echo [OK] Virtual environment created.
-    ) else (
-        echo [OK] Virtual environment already exists.
     )
 
-    :: ----------------------------------------------------------------
-    :: STEP 4 — Install/upgrade Python packages
-    :: ----------------------------------------------------------------
-    echo [4/8] Installing Python packages ^(only if needed^)...
+    echo [4/6] Installing Python packages...
     .venv\Scripts\python.exe -m pip install --quiet --upgrade pip setuptools wheel >nul 2>&1
     .venv\Scripts\pip.exe install --quiet --upgrade pywin32 psutil >nul 2>&1
-    if !errorlevel! neq 0 (
-        echo [WARN] Some Python packages may have failed.
-    ) else (
-        echo [OK] Python packages ready ^(pywin32, psutil^)
-    )
-
-    :: Run pywin32 post-install silently
     .venv\Scripts\python.exe -m pywin32_postinstall -install >nul 2>&1
 
     :: ----------------------------------------------------------------
-    :: STEP 5 — Start backend (backend.py = merged file)
+    :: STEP 4 — Start Backend Server (localhost:5001)
     :: ----------------------------------------------------------------
-    echo [5/8] Starting backend server...
+    echo [5/6] Starting local Python tracker backend...
 
-    :: Kill any stale process on the backend port
     for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":%BACKEND_PORT% " ^| findstr "LISTENING" 2^>nul') do (
         echo        Stopping old process on port %BACKEND_PORT%...
         taskkill /PID %%a /F >nul 2>&1
     )
 
-    start "FlowTrack Backend" /MIN .venv\Scripts\python.exe backend.py --poll 2 --idle 300
-
-    :: ----------------------------------------------------------------
-    :: STEP 6 — Wait for backend to be ready (max 15 attempts)
-    :: ----------------------------------------------------------------
-    echo [6/8] Waiting for backend to be ready...
-    set "ATTEMPTS=0"
-    :check_backend
-    set /a ATTEMPTS+=1
-    if !ATTEMPTS! GTR 15 (
-        echo [WARN] Backend did not respond in time. Continuing without it...
-        goto :skip_backend
-    )
-    .venv\Scripts\python.exe -c "import socket; s=socket.socket(); s.settimeout(1); s.connect(('127.0.0.1',%BACKEND_PORT%)); s.close()" >nul 2>&1
-    if !errorlevel! neq 0 (
-        echo        Attempt !ATTEMPTS!/15 — waiting...
-        ping -n 2 127.0.0.1 >nul
-        goto :check_backend
-    )
-    echo [OK] Backend is LIVE on http://localhost:%BACKEND_PORT%
+    start "FlowTrack Python Backend" /MIN .venv\Scripts\python.exe backend.py --poll 2 --idle 300
     set "BACKEND_READY=1"
+    echo [OK] Python backend server launched on http://localhost:%BACKEND_PORT%
 ) else (
-    echo [3/8] Skipping Python setup
-    echo [4/8] Skipping Python packages
-    echo [5/8] Skipping backend
-    echo [6/8] Skipping backend health check
+    echo [3/6] Skipping Python venv setup
+    echo [4/6] Skipping Python packages
+    echo [5/6] Skipping Python backend
 )
 
 :skip_backend
 
 :: ----------------------------------------------------------------
-:: STEP 7 — Install Node.js dependencies (first time only)
+:: STEP 5 — Check Node modules & Launch local web app
 :: ----------------------------------------------------------------
-echo [7/8] Checking Node.js dependencies...
+echo [6/6] Launching local Web App frontend...
 if not exist "node_modules" (
     echo        Running npm install — this may take a minute...
     call npm install
@@ -134,23 +96,17 @@ if not exist "node_modules" (
         echo [ERROR] npm install failed!
         pause & exit /b 1
     )
-    echo [OK] npm packages installed
-) else (
-    echo [OK] node_modules already present
 )
 
-:: ----------------------------------------------------------------
-:: STEP 8 — Launch frontend
-:: ----------------------------------------------------------------
-echo [8/8] Starting frontend dev server...
 echo.
 echo  ============================================================
 if "!BACKEND_READY!"=="1" (
-echo   Backend  : http://localhost:%BACKEND_PORT%  [RUNNING]
+echo   Python Backend : http://localhost:%BACKEND_PORT%  [RUNNING]
 ) else (
-echo   Backend  : OFFLINE
+echo   Python Backend : OFFLINE (IndexedDB Local Mode)
 )
-echo   Frontend : http://localhost:%FRONTEND_PORT%  [STARTING...]
+echo   Local Web App  : http://localhost:%FRONTEND_PORT%  [STARTING...]
+echo.
 echo   Browser will open automatically!
 echo   Press Ctrl+C to stop.
 echo  ============================================================
@@ -158,13 +114,11 @@ echo.
 
 call npm run dev -- --open --port %FRONTEND_PORT%
 
-:: ----------------------------------------------------------------
-:: Cleanup on exit
-:: ----------------------------------------------------------------
+:: Cleanup backend on exit
 echo.
-echo  [INFO] Shutting down backend...
+echo [INFO] Shutting down Python backend...
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":%BACKEND_PORT% " ^| findstr "LISTENING" 2^>nul') do (
     taskkill /PID %%a /F >nul 2>&1
 )
-echo  [INFO] Done. Goodbye!
+echo [INFO] Stopped. Bye!
 pause
