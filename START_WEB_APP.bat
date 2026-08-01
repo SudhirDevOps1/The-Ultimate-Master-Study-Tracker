@@ -1,11 +1,11 @@
 @echo off
 setlocal enabledelayedexpansion
-title FlowTrack Pro - One Click Launcher
+title FlowTrack Pro - Web App + Local Backend Launcher
 color 0B
 
 echo.
 echo  ============================================================
-echo   FlowTrack Pro ^| ONE CLICK LAUNCHER
+echo   FlowTrack Pro ^| WEB APP + LOCAL BACKEND LAUNCHER
 echo  ============================================================
 echo.
 
@@ -39,7 +39,7 @@ if %errorlevel% equ 0 (
     set "PYTHON_OK=1"
     for /f "delims=" %%i in ('python --version') do echo [OK] %%i
 ) else (
-    echo [WARN] Python not found. Backend will be skipped.
+    echo [WARN] Python not found. Python tracker backend will be skipped.
     echo        Download from: https://www.python.org/
 )
 
@@ -53,7 +53,7 @@ if "!PYTHON_OK!"=="1" (
         echo        Creating virtual environment...
         python -m venv .venv >nul 2>&1
         if !errorlevel! neq 0 (
-            echo [WARN] Failed to create venv. Skipping backend.
+            echo [WARN] Failed to create venv. Skipping Python backend.
             goto :skip_backend
         )
         echo [OK] Virtual environment created.
@@ -65,30 +65,30 @@ if "!PYTHON_OK!"=="1" (
     .venv\Scripts\python.exe -m pywin32_postinstall -install >nul 2>&1
 
     :: ----------------------------------------------------------------
-    :: STEP 4 — Start backend
+    :: STEP 4 — Start Backend Server (localhost:5001)
     :: ----------------------------------------------------------------
-    echo [5/6] Starting Python backend server...
+    echo [5/6] Starting local Python tracker backend...
 
     for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":%BACKEND_PORT% " ^| findstr "LISTENING" 2^>nul') do (
         echo        Stopping old process on port %BACKEND_PORT%...
         taskkill /PID %%a /F >nul 2>&1
     )
 
-    start "FlowTrack Backend" /MIN .venv\Scripts\python.exe backend.py --poll 2 --idle 300
+    start "FlowTrack Python Backend" /MIN .venv\Scripts\python.exe backend.py --poll 2 --idle 300
     set "BACKEND_READY=1"
     echo [OK] Python backend server launched on http://localhost:%BACKEND_PORT%
 ) else (
-    echo [3/6] Skipping Python setup
+    echo [3/6] Skipping Python venv setup
     echo [4/6] Skipping Python packages
-    echo [5/6] Skipping backend
+    echo [5/6] Skipping Python backend
 )
 
 :skip_backend
 
 :: ----------------------------------------------------------------
-:: STEP 5 — Check Node modules & Launch frontend
+:: STEP 5 — Check Web App Node modules
 :: ----------------------------------------------------------------
-echo [6/6] Launching web app frontend...
+echo [6/6] Checking web-app dependencies...
 if exist "web-app\node_modules" (
     cd web-app
 ) else if not exist "node_modules" (
@@ -103,11 +103,12 @@ if exist "web-app\node_modules" (
 echo.
 echo  ============================================================
 if "!BACKEND_READY!"=="1" (
-echo   Backend  : http://localhost:%BACKEND_PORT%  [RUNNING]
+echo   Python Backend : http://localhost:%BACKEND_PORT%  [RUNNING]
 ) else (
-echo   Backend  : OFFLINE
+echo   Python Backend : OFFLINE (IndexedDB Local Mode)
 )
-echo   Frontend : http://localhost:%FRONTEND_PORT%  [STARTING...]
+echo   Local Web App  : http://localhost:%FRONTEND_PORT%  [STARTING...]
+echo.
 echo   Browser will open automatically!
 echo   Press Ctrl+C to stop.
 echo  ============================================================
@@ -117,9 +118,9 @@ call npm run dev -- --open --port %FRONTEND_PORT%
 
 :: Cleanup backend on exit
 echo.
-echo [INFO] Shutting down backend...
+echo [INFO] Shutting down Python backend...
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":%BACKEND_PORT% " ^| findstr "LISTENING" 2^>nul') do (
     taskkill /PID %%a /F >nul 2>&1
 )
-echo [INFO] Done. Goodbye!
+echo [INFO] Stopped. Bye!
 pause
