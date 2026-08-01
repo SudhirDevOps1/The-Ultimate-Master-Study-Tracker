@@ -160,16 +160,10 @@ export function SettingsPage() {
   const user = useAppStore((state: AppState) => state.user);
   const cloudSyncStatus = useAppStore((state: AppState) => state.cloudSyncStatus);
 
-  const backendUrl = useAppStore((state: AppState) => state.backendUrl);
-  const setBackendUrl = useAppStore((state: AppState) => state.setBackendUrl);
-  const isBackendConnected = useAppStore((state: AppState) => state.isBackendConnected);
+  // NOTE: backendUrl/setBackendUrl/isBackendConnected removed from web-app.
+  // Python backend is desktop-only; web-app exports local data only.
 
   const [profileName, setProfileName] = useState(profile?.name ?? "");
-  const [inputBackendUrl, setInputBackendUrl] = useState(backendUrl);
-
-  useEffect(() => {
-    setInputBackendUrl(backendUrl);
-  }, [backendUrl]);
   const [profileAge, setProfileAge] = useState(profile?.age ?? "");
   const [profileProfession, setProfileProfession] = useState(profile?.profession ?? "");
   const [profileGoal, setProfileGoal] = useState(profile?.goal ?? "");
@@ -424,18 +418,8 @@ export function SettingsPage() {
             <button
               onClick={async () => {
                 const settingsList = await db.settings.toArray();
-                let backendActivities: any[] = [];
-                try {
-                  if (backendUrl) {
-                    const res = await fetch(`${backendUrl}/export?type=activities&format=json`);
-                    if (res.ok) {
-                      const data = await res.json();
-                      backendActivities = data.activities || [];
-                    }
-                  }
-                } catch (e) {
-                  console.warn("Backend offline or unreachable, exporting without backend activities", e);
-                }
+                // Web-app: backend activities not available (desktop-only feature)
+                const backendActivities: any[] = [];
 
                 // Pack all Local Wellbeing & System App usage lists from localStorage
                 const localWellbeingData: Record<string, any> = {};

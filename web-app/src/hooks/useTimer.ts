@@ -182,52 +182,12 @@ export function useTimer() {
     };
   }, [markTimerInteraction, pauseSession, setHiddenAt, strictFocusMode, syncActiveSession]);
 
-  // ─── App-tracking: poll active window via backend / Electron IPC ─────────
+  // ─── App-tracking: not available in browser (OS-level window tracking
+  //     requires the Python desktop backend). Active window is always empty.
   useEffect(() => {
-    let activeInterval: number | undefined;
-
-    const pollActiveWindow = async () => {
-      const state = useAppStore.getState();
-
-      // FIX P6: Only fetch backend data if user has explicitly configured a backend URL
-      // (not the default localhost:5001 which is almost never running).
-      // This eliminates constant failed network requests that slow down the app.
-      const hasCustomBackend = state.backendUrl && state.backendUrl !== "http://localhost:5001";
-      if (hasCustomBackend || state.isBackendConnected) {
-        void state.fetchBackendData();
-      }
-
-      if (state.timer.activeSessionId && !state.timer.isPaused) {
-        const url = state.backendUrl;
-        if (!url || !hasCustomBackend) {
-          state.setActiveWindow("");
-          return;
-        }
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 1500);
-          const res = await fetch(`${url}/active-window`, { signal: controller.signal });
-          clearTimeout(timeoutId);
-          const data = await res.json();
-          if (data && typeof data.title === "string") {
-            state.setActiveWindow(data.title);
-          }
-        } catch {
-          state.setActiveWindow("");
-        }
-      } else {
-        state.setActiveWindow("");
-      }
-    };
-
-    activeInterval = window.setInterval(pollActiveWindow, 5000);
-    void pollActiveWindow();
-
-    return () => {
-      if (activeInterval) {
-        window.clearInterval(activeInterval);
-      }
-    };
+    // In the web-app, we cannot poll active window via OS APIs.
+    // Set activeWindow to empty string so dependent UI shows gracefully.
+    useAppStore.getState().setActiveWindow("");
   }, []);
 
   const activeSession = useMemo(

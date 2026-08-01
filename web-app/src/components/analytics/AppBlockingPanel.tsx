@@ -1,13 +1,12 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Shield, ShieldAlert, Plus, Trash2, Check, RefreshCw } from "lucide-react";
+import { Shield, ShieldAlert, Plus, Trash2 } from "lucide-react";
 import { Panel } from "@/components/common/Panel";
-import { useAppStore, type AppState } from "@/store/useAppStore";
 import type { AppBlockRule, BlockStrictLevel } from "@/types/models";
 
 export function AppBlockingPanel() {
-  const backendUrl = useAppStore((state: AppState) => state.backendUrl);
-  const isBackendConnected = useAppStore((state: AppState) => state.isBackendConnected);
+  // NOTE: backendUrl / isBackendConnected removed — web-app is browser-only.
+  // App blocking rules are persisted in localStorage only.
 
   const [rules, setRules] = useState<AppBlockRule[]>([]);
   const [globalEnabled, setGlobalEnabled] = useState(true);
@@ -44,7 +43,7 @@ export function AppBlockingPanel() {
 
   useEffect(() => {
     void loadRules();
-  }, [isBackendConnected]);
+  }, []);
 
   const saveRulesToLocalAndBackend = async (updatedRules: AppBlockRule[], newGlobalEnabled?: boolean) => {
     const isGlobal = typeof newGlobalEnabled === "boolean" ? newGlobalEnabled : globalEnabled;

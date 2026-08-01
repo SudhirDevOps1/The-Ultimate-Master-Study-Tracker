@@ -801,41 +801,19 @@ ${studyContext.recentActivity}`;
     const headers  = getProviderHeaders(provider, apiKey);
     const defaultModel = provider === "ollama" ? "llama3" : provider === "groq" ? "llama-3.3-70b-versatile" : provider === "custom" ? model : "gpt-4o-mini";
 
-    const backendUrl = useAppStore.getState().backendUrl;
-    const isBackendConnected = useAppStore.getState().isBackendConnected;
-
-    let res;
-    if (isBackendConnected && backendUrl) {
-      res = await fetch(`${backendUrl}/api/ai/proxy`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          url: endpoint,
-          headers: headers,
-          body: {
-            model: model || defaultModel,
-            messages: [
-              { role: "system", content: buildSystemPrompt() },
-              { role: "user", content: userMessage }
-            ],
-            temperature: 0.5
-          }
-        })
-      });
-    } else {
-      res = await fetch(endpoint, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          model: model || defaultModel,
-          messages: [
-            { role: "system", content: buildSystemPrompt() },
-            { role: "user", content: userMessage }
-          ],
-          temperature: 0.5
-        })
-      });
-    }
+    // NOTE: Python backend AI proxy removed from web-app. Always call provider directly.
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: model || defaultModel,
+        messages: [
+          { role: "system", content: buildSystemPrompt() },
+          { role: "user", content: userMessage }
+        ],
+        temperature: 0.5
+      })
+    });
 
     const data = await res.json();
 
