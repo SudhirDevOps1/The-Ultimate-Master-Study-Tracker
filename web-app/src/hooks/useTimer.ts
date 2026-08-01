@@ -182,12 +182,35 @@ export function useTimer() {
     };
   }, [markTimerInteraction, pauseSession, setHiddenAt, strictFocusMode, syncActiveSession]);
 
-  // ─── App-tracking: not available in browser (OS-level window tracking
-  //     requires the Python desktop backend). Active window is always empty.
+  // ─── App-tracking: Poll active window via local Python backend ───────────
+  // Works when user runs START_BACKEND.bat on their PC + opens web-app in browser.
+  // Automatically disables when backend is not running (e.g. Vercel-only access).
   useEffect(() => {
-    // In the web-app, we cannot poll active window via OS APIs.
-    // Set activeWindow to empty string so dependent UI shows gracefully.
-    useAppStore.getState().setActiveWindow("");
+    let activeInterval: number | undefined;
+
+    const pollActiveWindow = async () => {
+      const state = useAppStore.getState();
+      if (!state.isBackendConnected || !state.backendUrl) {
+        state.setActiveWindow("");
+        return;
+      }
+      try {
+        const controller = new AbortController();
+        setTimeout(() => controller.abort(), 1500);
+        const res = await fetch(`${state.backendUrl}/active-window`, { signal: controller.signal });
+        const data = await res.json();
+        if (data && typeof data.title === "string") {
+          state.setActiveWindow(data.title);
+        }
+      } catch {
+        state.setActiveWindow("");
+      }
+    };
+
+    activeInterval = window.setInterval(pollActiveWindow, 5000);
+    void pollActiveWindow();
+
+    return () => { if (activeInterval) window.clearInterval(activeInterval); };
   }, []);
 
   const activeSession = useMemo(

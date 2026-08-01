@@ -52,9 +52,15 @@ export interface AppState {
   setAutoCarryForward: (enabled: boolean) => void;
   activeWindow: string;
   setActiveWindow: (title: string) => void;
-  // NOTE: backendUrl/fetchBackendData intentionally removed from web-app.
-  // Python backend (port 5001) is desktop-only — OS-level window tracking
-  // is not possible in a browser environment.
+  // Python backend (localhost:5001) — optional auto-connect.
+  // Works when user runs START_BACKEND.bat on their local PC.
+  // Web app on Vercel auto-detects and connects if backend is running.
+  backendStats: any | null;
+  backendActivities: any[];
+  isBackendConnected: boolean;
+  backendUrl: string;
+  setBackendUrl: (url: string) => Promise<void>;
+  fetchBackendData: () => Promise<void>;
   updateDailyGoalStreak: (newSessions: StudySession[]) => Promise<void>;
   initApp: () => Promise<void>;
   createSubject: (name: string, color: string, emoji?: string, weeklyGoalMinutes?: number, url?: string) => Promise<void>;
@@ -205,9 +211,49 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
   autoCarryForward: true,
   activeWindow: "Desktop / Idle",
 
+  // Python backend — optional, auto-detected at startup.
+  // User runs START_BACKEND.bat on local PC; web app auto-connects.
+  backendStats: null,
+  backendActivities: [],
+  isBackendConnected: false,
+  backendUrl: "http://localhost:5001",
+
+  setBackendUrl: async (url: string) => {
+    let cleanUrl = url.trim().replace(/\/$/, "");
+    if (cleanUrl && !/^https?:\/\//i.test(cleanUrl)) {
+      cleanUrl = "http://" + cleanUrl;
+    }
+    await db.settings.put({ key: "backendUrl", value: cleanUrl });
+    set({ backendUrl: cleanUrl });
+    void get().fetchBackendData();
+  },
+
+  fetchBackendData: async () => {
+    const url = get().backendUrl;
+    if (!url) { set({ isBackendConnected: false }); return; }
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      const statsRes = await fetch(`${url}/stats?range=all`, { signal: controller.signal });
+      if (!statsRes.ok) throw new Error("stats failed");
+      const statsData = await statsRes.json();
+      const activitiesRes = await fetch(`${url}/export?type=activities&format=json`, { signal: controller.signal });
+      if (!activitiesRes.ok) throw new Error("activities failed");
+      const activitiesData = await activitiesRes.json();
+      clearTimeout(timeoutId);
+      set({
+        backendStats: statsData,
+        backendActivities: activitiesData.activities || [],
+        isBackendConnected: true,
+      });
+    } catch {
+      set({ isBackendConnected: false });
+    }
+  },
+
   initApp: async () => {
     try {
-      const [subjects, sessions, timerSetting, pomodoroSetting, goalSetting, strictFocusSetting, weeklyTargetSetting, focusMusicSetting, notificationsSetting, keyboardShortcutsSetting, themeSetting, achievementsSetting, dailyGoalHitStreakSetting, autoPauseOnHiddenSetting, profileSetting, aiConfigSetting, autoCarryForwardSetting] = await Promise.all([
+      const [subjects, sessions, timerSetting, pomodoroSetting, goalSetting, strictFocusSetting, weeklyTargetSetting, focusMusicSetting, notificationsSetting, keyboardShortcutsSetting, themeSetting, achievementsSetting, dailyGoalHitStreakSetting, autoPauseOnHiddenSetting, profileSetting, aiConfigSetting, autoCarryForwardSetting, backendUrlSetting] = await Promise.all([
         db.subjects.toArray(),
         db.sessions.toArray(),
         db.settings.get("timer"),
@@ -225,6 +271,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
         db.settings.get("user_profile"),
         db.settings.get("ai_config"),
         db.settings.get("autoCarryForward"),
+        db.settings.get("backendUrl"),
       ]);
 
       let finalSessions = [...sessions];
@@ -372,8 +419,11 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
         profile: profileSetting ? JSON.parse(profileSetting.value) : { name: "", age: "", profession: "", goal: "" },
         aiConfig: aiConfigSetting ? JSON.parse(aiConfigSetting.value) : { provider: "local_rules", apiKey: "", model: "", ollamaUrl: "http://localhost:11434" },
         autoCarryForward: autoCarryEnabled,
+        backendUrl: backendUrlSetting?.value ?? "http://localhost:5001",
         loading: false,
       });
+      // Auto-connect to local Python backend if it's running (e.g. user ran START_BACKEND.bat)
+      void get().fetchBackendData();
     } catch (error) {
       console.error("[initApp] Initialization failed:", error);
       set({ loading: false });
@@ -535,8 +585,24 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
       }
     });
 
-    // NOTE: Python backend /sync call intentionally removed from web-app.
-    // Web-app is browser-only; Python backend (localhost:5001) is desktop-exclusive.
+    // Sync to local Python backend if running (optional — graceful fallback if offline)
+    try {
+      const parsedSettings: Record<string, string> = {};
+      if (settings) settings.forEach(s => { parsedSettings[s.key] = s.value; });
+      const url = get().backendUrl;
+      if (url) {
+        const ctrl = new AbortController();
+        setTimeout(() => ctrl.abort(), 2000);
+        await fetch(`${url}/sync`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subjects, sessions, settings: parsedSettings, activities: activities || [] }),
+          signal: ctrl.signal,
+        });
+      }
+    } catch {
+      // Backend offline — silently skip, local data already saved
+    }
 
     await get().initApp();
   },
