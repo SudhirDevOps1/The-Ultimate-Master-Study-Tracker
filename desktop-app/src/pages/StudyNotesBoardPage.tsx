@@ -4,7 +4,8 @@ import { Panel } from "@/components/common/Panel";
 import { 
   Palette, Download, Edit3, Trash2, Plus, Search, Camera, FileText, 
   Image as ImageIcon, Copy, Check, Type, Sparkles, Pin, FilePlus, Folder, 
-  Clock, Save, Share2, AlignLeft, Bold, Italic, List, CheckSquare, Code, Heading
+  Clock, Save, Share2, AlignLeft, Bold, Italic, List, CheckSquare, Code, Heading,
+  Eye, Columns, Maximize2, Minimize2, ExternalLink
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import { useToast } from "@/components/common/Toast";
@@ -96,6 +97,140 @@ const DEFAULT_NOTEPAD_DOCS: NotepadDoc[] = [
   }
 ];
 
+// ─── Simple Markdown Renderer Component ─────────────────────────────────────
+function MarkdownPreview({ content }: { content: string }) {
+  if (!content.trim()) {
+    return (
+      <div className="py-12 text-center text-slate-500 italic text-sm">
+        (Empty Document Preview)
+      </div>
+    );
+  }
+
+  const lines = content.split("\n");
+  let inCodeBlock = false;
+  let codeBuffer: string[] = [];
+
+  const renderedElements: React.ReactNode[] = [];
+
+  lines.forEach((line, index) => {
+    // Code block toggle ```
+    if (line.trim().startsWith("```")) {
+      if (inCodeBlock) {
+        // Close code block
+        renderedElements.push(
+          <pre key={`code-${index}`} className="my-3 p-3.5 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-purple-300 overflow-x-auto">
+            <code>{codeBuffer.join("\n")}</code>
+          </pre>
+        );
+        codeBuffer = [];
+        inCodeBlock = false;
+      } else {
+        inCodeBlock = true;
+      }
+      return;
+    }
+
+    if (inCodeBlock) {
+      codeBuffer.push(line);
+      return;
+    }
+
+    // Helper for inline bold, italic & code formatting
+    const formatInline = (text: string): React.ReactNode => {
+      // Bold **text**
+      const parts = text.split(/(\*\*.*?\*\*|\*.*?\*|`.*?`)/g);
+      return parts.map((part, pIdx) => {
+        if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+          return <strong key={pIdx} className="font-extrabold text-purple-300">{part.slice(2, -2)}</strong>;
+        }
+        if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
+          return <em key={pIdx} className="italic text-slate-200">{part.slice(1, -1)}</em>;
+        }
+        if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
+          return <code key={pIdx} className="px-1.5 py-0.5 rounded bg-slate-800 text-cyan-300 font-mono text-xs">{part.slice(1, -1)}</code>;
+        }
+        return part;
+      });
+    };
+
+    // Headings
+    if (line.startsWith("# ")) {
+      renderedElements.push(
+        <h1 key={index} className="text-2xl font-black text-white mt-4 mb-2 pb-1 border-b border-slate-800">
+          {formatInline(line.slice(2))}
+        </h1>
+      );
+    } else if (line.startsWith("## ")) {
+      renderedElements.push(
+        <h2 key={index} className="text-lg font-bold text-purple-300 mt-3 mb-1.5">
+          {formatInline(line.slice(3))}
+        </h2>
+      );
+    } else if (line.startsWith("### ")) {
+      renderedElements.push(
+        <h3 key={index} className="text-base font-semibold text-slate-200 mt-2 mb-1">
+          {formatInline(line.slice(4))}
+        </h3>
+      );
+    } 
+    // Bullet Lists
+    else if (line.trim().startsWith("- ") || line.trim().startsWith("* ")) {
+      const itemText = line.trim().slice(2);
+      // Checkbox list item `- [ ]` or `- [x]`
+      if (itemText.startsWith("[ ] ") || itemText.startsWith("[x] ")) {
+        const checked = itemText.startsWith("[x] ");
+        const checkText = itemText.slice(4);
+        renderedElements.push(
+          <div key={index} className="flex items-center gap-2 my-1 text-xs text-slate-200">
+            <input type="checkbox" checked={checked} readOnly className="rounded border-slate-700 bg-slate-900 text-purple-600" />
+            <span className={checked ? "line-through text-slate-500" : ""}>{formatInline(checkText)}</span>
+          </div>
+        );
+      } else {
+        renderedElements.push(
+          <li key={index} className="ml-4 text-xs text-slate-300 list-disc my-0.5">
+            {formatInline(itemText)}
+          </li>
+        );
+      }
+    } 
+    // Numbered List
+    else if (/^\d+\.\s/.test(line.trim())) {
+      const itemText = line.trim().replace(/^\d+\.\s/, "");
+      renderedElements.push(
+        <li key={index} className="ml-4 text-xs text-slate-300 list-decimal my-0.5">
+          {formatInline(itemText)}
+        </li>
+      );
+    } 
+    // Quotes
+    else if (line.trim().startsWith("> ")) {
+      renderedElements.push(
+        <blockquote key={index} className="pl-3 border-l-2 border-purple-500 italic text-slate-400 my-2 text-xs">
+          {formatInline(line.trim().slice(2))}
+        </blockquote>
+      );
+    } 
+    // Empty line / paragraph
+    else if (line.trim() === "") {
+      renderedElements.push(<div key={index} className="h-2" />);
+    } else {
+      renderedElements.push(
+        <p key={index} className="text-xs text-slate-300 leading-relaxed my-1">
+          {formatInline(line)}
+        </p>
+      );
+    }
+  });
+
+  return (
+    <div className="prose prose-invert max-w-none space-y-1 select-text">
+      {renderedElements}
+    </div>
+  );
+}
+
 export function StudyNotesBoardPage() {
   const [activeTab, setActiveTab] = useState<"board" | "notepad">("board");
 
@@ -117,8 +252,6 @@ export function StudyNotesBoardPage() {
   const [newNoteTextColor, setNewNoteTextColor] = useState(NOTE_TEXT_COLORS[5].class);
   const [newNoteFont, setNewNoteFont] = useState(NOTE_FONTS[0].class);
   const [searchQuery, setSearchQuery] = useState("");
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [editText, setEditText] = useState("");
 
   // ─── Real Notepad Multiple Docs State ─────────────────────────────────────
   const [notepadDocs, setNotepadDocs] = useState<NotepadDoc[]>(() => {
@@ -132,6 +265,9 @@ export function StudyNotesBoardPage() {
   const [activeDocId, setActiveDocId] = useState<string>(() => {
     return notepadDocs[0]?.id || "default-doc-1";
   });
+
+  // Notepad View Mode: 'edit' | 'preview' | 'split'
+  const [viewMode, setViewMode] = useState<"edit" | "preview" | "split">("split");
 
   const [docSearch, setDocSearch] = useState("");
   const [copiedNotepad, setCopiedNotepad] = useState(false);
@@ -208,6 +344,11 @@ export function StudyNotesBoardPage() {
   const deleteStickyNote = (id: string) => {
     setStickyNotes(prev => prev.filter(n => n.id !== id));
     showToast("Sticky note deleted", "info");
+  };
+
+  const copyStickyText = (text: string) => {
+    navigator.clipboard.writeText(text);
+    showToast("Sticky note text copied!", "success");
   };
 
   const exportBoardAsImage = async () => {
@@ -330,7 +471,6 @@ export function StudyNotesBoardPage() {
         n.subject.toLowerCase().includes(q)
       );
     }
-    // Sort pinned notes first
     return [...result].sort((a, b) => Number(b.pinned || 0) - Number(a.pinned || 0));
   }, [stickyNotes, searchQuery]);
 
@@ -446,7 +586,6 @@ export function StudyNotesBoardPage() {
               {/* Color & Styling Selectors */}
               <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                 <div className="flex flex-wrap items-center gap-3">
-                  {/* Background Theme */}
                   <div className="flex items-center gap-1">
                     <span className="text-xs text-slate-400 mr-1">Bg:</span>
                     {NOTE_BACKGROUNDS.map((bg) => (
@@ -460,7 +599,6 @@ export function StudyNotesBoardPage() {
                     ))}
                   </div>
 
-                  {/* Image Attachment */}
                   <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
                   <button
                     onClick={() => fileInputRef.current?.click()}
@@ -535,6 +673,14 @@ export function StudyNotesBoardPage() {
 
                         <div className="flex items-center gap-1">
                           <button
+                            onClick={() => copyStickyText(note.text)}
+                            className="p-1.5 rounded-lg hover:bg-white/10 text-slate-300 transition"
+                            title="Copy Note Text"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
                             onClick={() => togglePinSticky(note.id)}
                             className={`p-1.5 rounded-lg transition ${note.pinned ? "bg-purple-600 text-white" : "hover:bg-white/10 text-slate-400"}`}
                             title={note.pinned ? "Unpin Note" : "Pin Note to Top"}
@@ -584,7 +730,7 @@ export function StudyNotesBoardPage() {
           </div>
         </div>
       ) : (
-        /* ─── TAB 2: REAL NOTEPAD MODE (SAVED NAMED DOCUMENTS) ─────────────── */
+        /* ─── TAB 2: REAL NOTEPAD MODE (SAVED NAMED DOCUMENTS + LIVE PREVIEW) ─ */
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 min-h-[680px]">
           {/* Documents Sidebar List */}
           <Panel className="lg:col-span-1 bg-slate-900/90 border-slate-800 p-4 flex flex-col justify-between space-y-4">
@@ -671,7 +817,7 @@ export function StudyNotesBoardPage() {
           <Panel className="lg:col-span-3 bg-slate-900/90 border-slate-800 p-5 flex flex-col justify-between space-y-4">
             {activeDoc ? (
               <>
-                {/* Editor Header & Actions */}
+                {/* Editor Header & View Mode Switcher */}
                 <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800">
                   <input
                     type="text"
@@ -680,6 +826,28 @@ export function StudyNotesBoardPage() {
                     placeholder="Document Title (e.g. Physics Chapter Notes)"
                     className="flex-1 bg-transparent text-lg font-extrabold text-white outline-none border-b border-transparent focus:border-purple-500 py-1"
                   />
+
+                  {/* 3-Way View Mode Switcher */}
+                  <div className="flex items-center p-1 rounded-xl bg-slate-950/90 border border-slate-800">
+                    <button
+                      onClick={() => setViewMode("edit")}
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1 ${viewMode === "edit" ? "bg-purple-600 text-white" : "text-slate-400 hover:text-slate-200"}`}
+                    >
+                      <Edit3 className="w-3.5 h-3.5" /> Edit
+                    </button>
+                    <button
+                      onClick={() => setViewMode("preview")}
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1 ${viewMode === "preview" ? "bg-purple-600 text-white" : "text-slate-400 hover:text-slate-200"}`}
+                    >
+                      <Eye className="w-3.5 h-3.5" /> Live Preview
+                    </button>
+                    <button
+                      onClick={() => setViewMode("split")}
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1 ${viewMode === "split" ? "bg-purple-600 text-white" : "text-slate-400 hover:text-slate-200"}`}
+                    >
+                      <Columns className="w-3.5 h-3.5" /> Split View
+                    </button>
+                  </div>
 
                   <div className="flex items-center gap-2">
                     <button
@@ -699,36 +867,56 @@ export function StudyNotesBoardPage() {
                   </div>
                 </div>
 
-                {/* Quick Formatting Toolbar */}
-                <div className="flex flex-wrap items-center gap-1.5 p-1.5 rounded-xl bg-slate-950/80 border border-slate-800">
-                  <button onClick={() => insertFormatting("**", "**")} className="p-1.5 hover:bg-slate-800 rounded text-slate-300" title="Bold">
-                    <Bold className="w-3.5 h-3.5" />
-                  </button>
-                  <button onClick={() => insertFormatting("*", "*")} className="p-1.5 hover:bg-slate-800 rounded text-slate-300" title="Italic">
-                    <Italic className="w-3.5 h-3.5" />
-                  </button>
-                  <button onClick={() => insertFormatting("# ")} className="p-1.5 hover:bg-slate-800 rounded text-slate-300" title="Heading">
-                    <Heading className="w-3.5 h-3.5" />
-                  </button>
-                  <button onClick={() => insertFormatting("- ")} className="p-1.5 hover:bg-slate-800 rounded text-slate-300" title="Bullet List">
-                    <List className="w-3.5 h-3.5" />
-                  </button>
-                  <button onClick={() => insertFormatting("- [ ] ")} className="p-1.5 hover:bg-slate-800 rounded text-slate-300" title="Checkbox Task">
-                    <CheckSquare className="w-3.5 h-3.5" />
-                  </button>
-                  <button onClick={() => insertFormatting("```\n", "\n```")} className="p-1.5 hover:bg-slate-800 rounded text-slate-300" title="Code Block">
-                    <Code className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                {/* Quick Formatting Toolbar (only in edit or split mode) */}
+                {viewMode !== "preview" && (
+                  <div className="flex flex-wrap items-center gap-1.5 p-1.5 rounded-xl bg-slate-950/80 border border-slate-800">
+                    <button onClick={() => insertFormatting("**", "**")} className="p-1.5 hover:bg-slate-800 rounded text-slate-300" title="Bold">
+                      <Bold className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => insertFormatting("*", "*")} className="p-1.5 hover:bg-slate-800 rounded text-slate-300" title="Italic">
+                      <Italic className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => insertFormatting("# ")} className="p-1.5 hover:bg-slate-800 rounded text-slate-300" title="Heading 1">
+                      <Heading className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => insertFormatting("## ")} className="p-1.5 hover:bg-slate-800 rounded text-slate-300 font-bold text-xs" title="Heading 2">
+                      H2
+                    </button>
+                    <button onClick={() => insertFormatting("- ")} className="p-1.5 hover:bg-slate-800 rounded text-slate-300" title="Bullet List">
+                      <List className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => insertFormatting("- [ ] ")} className="p-1.5 hover:bg-slate-800 rounded text-slate-300" title="Checkbox Task">
+                      <CheckSquare className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => insertFormatting("```\n", "\n```")} className="p-1.5 hover:bg-slate-800 rounded text-slate-300" title="Code Block">
+                      <Code className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
 
-                {/* Main Textarea Document Editor */}
-                <textarea
-                  id="notepad-editor-textarea"
-                  value={activeDoc.content}
-                  onChange={(e) => updateActiveDocContent(e.target.value)}
-                  placeholder="Start typing your study notes, formulas, or journal entries here..."
-                  className="w-full flex-1 min-h-[440px] bg-slate-950/90 border border-slate-800 rounded-2xl p-5 text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-purple-500 font-mono leading-relaxed resize-y shadow-inner"
-                />
+                {/* Main Textarea & Live Rendered Preview Area */}
+                <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-[460px]">
+                  {/* Editor Textarea */}
+                  {(viewMode === "edit" || viewMode === "split") && (
+                    <textarea
+                      id="notepad-editor-textarea"
+                      value={activeDoc.content}
+                      onChange={(e) => updateActiveDocContent(e.target.value)}
+                      placeholder="Start typing your study notes, formulas, or journal entries here (Markdown supported)..."
+                      className={`w-full h-full min-h-[440px] bg-slate-950/90 border border-slate-800 rounded-2xl p-5 text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-purple-500 font-mono leading-relaxed resize-y shadow-inner ${viewMode === "edit" ? "col-span-2" : ""}`}
+                    />
+                  )}
+
+                  {/* Rendered Live Markdown Preview */}
+                  {(viewMode === "preview" || viewMode === "split") && (
+                    <div className={`w-full h-full min-h-[440px] bg-slate-950/60 border border-slate-800/80 rounded-2xl p-5 overflow-y-auto max-h-[580px] shadow-inner ${viewMode === "preview" ? "col-span-2" : ""}`}>
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-purple-400 mb-3 flex items-center gap-1.5 border-b border-slate-800 pb-2">
+                        <Eye className="w-3.5 h-3.5" /> Rendered Markdown Live Preview
+                      </div>
+                      <MarkdownPreview content={activeDoc.content} />
+                    </div>
+                  )}
+                </div>
 
                 {/* Document Stats Footer */}
                 <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-800">

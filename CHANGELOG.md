@@ -15,9 +15,10 @@ All notable changes, version updates, feature additions, architectural improveme
 ## [v7.2.0] — 2026-08-01
 
 ### 📌 Study Notes & Saved Documents Suite Overhaul
+- **👁️ Live Rendered Markdown Preview & 3-Way Split View**: Added a 3-way view mode switcher allowing users to toggle between `✏️ Edit`, `👁️ Live Preview` (styled HTML rendered markdown), and `⚖️ Split View` (editor + live preview side-by-side as you type).
 - **📝 Multiple Saved Named Documents (Google Notes Style)**: Added a document manager sidebar where users can create, title, search, pin, edit, copy, and export multiple named notepad documents (e.g., `📖 Physics Formulas`, `📝 Daily Study Journal`). All documents auto-save in real-time to app database!
 - **⚡ Quick Formatting & Live Stats**: Added quick markdown toolbar (Bold, Italic, Headings, Bullet Lists, Checkbox Tasks, Code blocks) with live word count and character count stats.
-- **📌 Sticky Board (Google Keep Style)**: Preserved visual color-coded sticky notes board with title, subject tag, background themes, image attachments, pin to top, search, and PNG board export.
+- **📌 Sticky Board (Google Keep Style)**: Preserved visual color-coded sticky notes board with title, subject tag, background themes, image attachments, 1-click text copy, pin to top, search, and PNG board export.
 
 ### 🎨 Brand New 3D Glassmorphism Logo & Assets
 - **New Official App Icon**: High-res 3D Glassmorphism squircle app icon updated across Desktop App titlebar, system tray, Taskbar, Web App favicon, and GitHub README docs.
