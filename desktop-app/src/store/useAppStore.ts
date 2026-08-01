@@ -348,7 +348,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
         return;
       }
 
-      const themeValue = (themeSetting?.value ?? "default") as ThemeName;
+      const themeValue = (themeSetting?.value ?? "oled") as ThemeName;
       applyTheme(getThemeColors(themeValue));
 
       const parsedTimer = timerSetting ? (JSON.parse(timerSetting.value) as Partial<TimerSnapshot>) : null;
