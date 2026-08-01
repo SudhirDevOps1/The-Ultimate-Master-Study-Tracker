@@ -98,20 +98,20 @@ export function MindMapPage() {
       if (typeof window !== "undefined") {
         (window as any).EXCALIDRAW_ASSET_PATH = "https://unpkg.com/@excalidraw/excalidraw/dist/";
       }
-      const loadPkg = async () => {
-        try {
-          const pkg = "@excalidraw/excalidraw";
-          const mod = await import(/* @vite-ignore */ pkg);
+      import("@excalidraw/excalidraw")
+        .then((mod) => {
           const Comp = (mod as any).Excalidraw || (mod as any).default?.Excalidraw || (mod as any).default;
+          if (!Comp) throw new Error("Excalidraw component not found");
           setExcalidrawComp(() => Comp);
-        } catch (e) {
-          showToast("Failed to load Excalidraw engine. Returning to Tree engine.", "warning");
+        })
+        .catch((e) => {
+          console.warn("Excalidraw dynamic import notice:", e);
+          showToast("Failed to load Excalidraw engine. Returning to Organic Tree engine.", "warning");
           setEngineMode("tree");
-        } finally {
+        })
+        .finally(() => {
           setIsExcalidrawLoading(false);
-        }
-      };
-      void loadPkg();
+        });
     }
   }, [engineMode, excalidrawComp, showToast]);
 
@@ -325,13 +325,29 @@ export function MindMapPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => setEngineMode(engineMode === "tree" ? "excalidraw" : "tree")}
-              className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 transition flex items-center gap-2"
-            >
-              <Layers className="w-4 h-4" />
-              Switch Engine ({engineMode === "tree" ? "Excalidraw" : "Tree View"})
-            </button>
+            {/* Dual Engine Tabs */}
+            <div className="flex items-center p-1 rounded-xl bg-slate-950/80 border border-slate-800">
+              <button
+                onClick={() => setEngineMode("tree")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                  engineMode === "tree"
+                    ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                🧠 Organic Mind Map
+              </button>
+              <button
+                onClick={() => setEngineMode("excalidraw")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                  engineMode === "excalidraw"
+                    ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                ✏️ Excalidraw Whiteboard
+              </button>
+            </div>
 
             {engineMode === "tree" && (
               <>
