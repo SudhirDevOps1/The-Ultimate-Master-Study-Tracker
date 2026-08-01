@@ -22,14 +22,14 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: 20
+        node-version: 22
         cache: 'npm'
         cache-dependency-path: 'desktop-app/package-lock.json'
 
     - name: Install Desktop App Dependencies
       run: |
         cd desktop-app
-        npm install --legacy-peer-deps
+        npm install --legacy-peer-deps --fetch-retries=5 --fetch-retry-mintimeout=20000
 
     - name: Run TypeScript Compiler Check
       run: |
@@ -50,14 +50,14 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: 20
+        node-version: 22
         cache: 'npm'
         cache-dependency-path: 'desktop-app/package-lock.json'
 
     - name: Install Desktop Dependencies
       run: |
         cd desktop-app
-        npm install --legacy-peer-deps
+        npm install --legacy-peer-deps --fetch-retries=5 --fetch-retry-mintimeout=20000
 
     - name: Build Web Application
       run: |
