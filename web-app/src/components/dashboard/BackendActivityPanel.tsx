@@ -92,6 +92,68 @@ export function BackendActivityPanel() {
     return () => clearInterval(interval);
   }, [isBackendConnected, backendUrl]);
 
+  // Aggregate top processes
+  const processUsage = useMemo(() => {
+    const map = new Map<string, { appName: string; durationSeconds: number; category: string }>();
+    for (const entry of rawLog) {
+      const key = entry.appName.toLowerCase();
+      if (!map.has(key)) {
+        map.set(key, { appName: entry.appName, durationSeconds: 0, category: classifyApp(entry.appName) });
+      }
+      map.get(key)!.durationSeconds += entry.durationSeconds;
+    }
+
+    return [...map.values()]
+      .sort((a, b) => b.durationSeconds - a.durationSeconds)
+      .slice(0, 5)
+      .map((item) => ({
+        process: item.appName,
+        minutes: Math.round(item.durationSeconds / 60),
+        category: item.category,
+      }));
+  }, [rawLog]);
+
+  // Aggregate top window titles
+  const tabUsage = useMemo(() => {
+    const map = new Map<string, { title: string; durationSeconds: number; process: string; category: string }>();
+    for (const entry of rawLog) {
+      if (!entry.title || entry.title === "Desktop / Idle") continue;
+      const key = entry.title.trim();
+      if (!map.has(key)) {
+        map.set(key, { title: key, durationSeconds: 0, process: entry.appName, category: classifyApp(entry.appName) });
+      }
+      map.get(key)!.durationSeconds += entry.durationSeconds;
+    }
+
+    return [...map.values()]
+      .sort((a, b) => b.durationSeconds - a.durationSeconds)
+      .slice(0, 5)
+      .map((item) => ({
+        title: item.title,
+        process: item.process,
+        minutes: Math.round(item.durationSeconds / 60),
+        category: item.category,
+      }));
+  }, [rawLog]);
+
+  // Category breakdown for chart
+  const categoryData = useMemo(() => {
+    let prod = 0, dist = 0, neut = 0;
+    for (const entry of rawLog) {
+      const cat = classifyApp(entry.appName);
+      if (cat === "productive") prod += entry.durationSeconds;
+      else if (cat === "distracting") dist += entry.durationSeconds;
+      else neut += entry.durationSeconds;
+    }
+
+    return [
+      { name: "Productive", value: Math.round(prod / 60), color: "#10b981" },
+      { name: "Distracting", value: Math.round(dist / 60), color: "#f43f5e" },
+      { name: "Neutral", value: Math.round(neut / 60), color: "#3b82f6" },
+    ];
+  }, [rawLog]);
+
+  const totalMinutes = useMemo(() => categoryData.reduce((acc, curr) => acc + curr.value, 0), [categoryData]);
 
   return (
     <div className="grid gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
