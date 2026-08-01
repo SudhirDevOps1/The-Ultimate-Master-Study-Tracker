@@ -6,8 +6,26 @@ All notable changes, version updates, feature additions, architectural improveme
 
 ## 🏷️ Version History Summary
 
+- [v7.2.0 (2026-08-01)](#v720---2026-08-01) — 🎨 New 3D App Icon, 🚀 Repository Optimization (~13MB Cleaned), 🔐 Password Vault & Auto-Updater
 - [v7.1.0 (2026-08-01)](#v710---2026-08-01) — 🔐 Encrypted Password Vault, 🔄 Silent Auto-Updater, 🛡️ Anti-Cheat Clock Guard, 🎨 3D Brand Logo
 - [v7.0.0 (2026-07-31)](#v700---2026-07-31) — 🌐 Web Portals Browser, Fullscreen Study Mode, Webview Activity Tracking, Bug Audit
+
+---
+
+## [v7.2.0] — 2026-08-01
+
+### 🎨 Brand New 3D Glassmorphism Logo & Assets
+- **New Official App Icon**: High-res 3D Glassmorphism squircle app icon updated across Desktop App titlebar, system tray, Taskbar, Web App favicon, and GitHub README docs.
+- **Titlebar Native Scaling**: Added `getAppIcon()` native scaling helper in `electron.js` for 100% crisp titlebar icon rendering on Windows 10/11.
+
+### 🧹 Repository & Build Size Cleanup (~13 MB Saved)
+- **Eliminated Duplicate Image Bloat**: Removed 8 MB of duplicate banner and screenshot images from sub-packages (`desktop-app/public/images/`, `web-app/public/images/`).
+- **Removed Unused Video Files**: Deleted ~5 MB of obsolete sample video files (`video1.mp4`, `video2.mp4`) and redundant root setup scripts.
+- **Dedicated Modular Documentation**: Replaced duplicated full READMEs with specialized sub-package guides for `desktop-app` and `web-app`.
+
+### 🎬 Media Sandbox Auto-Pause Sync
+- **Timer Pause Hook**: Local video and audio playback automatically pauses when the study timer is paused or completed.
+
 - [v6.0.0 (2026-07-31)](#v600---2026-07-31) — 🚀 2026 Master Release: Excalidraw Canvas, Real Notepad, Dual PDF/OCR Engine, Fast Release Pipeline
 - [v5.4.0 (2026-07-31)](#v540---2026-07-31) — 🛠️ Production Blank Screen Resolution & IPC Preload Security Overhaul
 - [v5.3.0 (2026-07-30)](#v530---2026-07-30) — 🎨 Excalidraw, Secure Preload contextBridge, Brand Badges & Spam Delays

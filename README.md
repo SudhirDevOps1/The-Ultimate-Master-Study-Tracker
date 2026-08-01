@@ -2,13 +2,13 @@
 
 <img src="public/images/flowtrack-logo.png" alt="FlowTrack Pro Official App Logo" width="140" />
 
-# 🚀 FlowTrack Pro `v7.1.0`
+# 🚀 FlowTrack Pro `v7.2.0`
 
 ### 💎 The Ultimate Master Study & Productivity Ecosystem — 2026 Enterprise Edition
 
 <p align="center">
   <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest">
-    <img src="https://img.shields.io/badge/Release-v7.1.0-10B981?style=for-the-badge&logo=github&logoColor=white" alt="Release v7.1.0" />
+    <img src="https://img.shields.io/badge/Release-v7.2.0-10B981?style=for-the-badge&logo=github&logoColor=white" alt="Release v7.2.0" />
   </a>
   <a href="https://the-ultimate-master-study-tracker.vercel.app/">
     <img src="https://img.shields.io/badge/Vercel-Live_Demo-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Live Demo" />
@@ -79,7 +79,7 @@ Engineered into **3 distinct operational tiers**: Serverless PWA Web App, Web Ap
 
 <div align="center">
   <img src="public/images/flowtrack-screenshot.png" alt="FlowTrack Pro Workspace Interface" width="100%" />
-  <p><i>FlowTrack Pro v7.1.0 — Unified Study Workspace featuring Smart Timer, Encrypted Vault, Chromium Portals & Media Sandbox</i></p>
+  <p><i>FlowTrack Pro v7.2.0 — Unified Study Workspace featuring Smart Timer, Encrypted Vault, Chromium Portals & Media Sandbox</i></p>
 </div>
 
 ---
@@ -91,7 +91,7 @@ Engineered into **3 distinct operational tiers**: Serverless PWA Web App, Web Ap
 | 🖼️ **Brand Identity** | <img src="public/images/flowtrack-logo.png" width="40" height="40" /> **FlowTrack Pro Official Symbol** ([view logo](public/images/flowtrack-logo.png)) |
 | 👑 **Product Name** | **FlowTrack Pro** — Master Study & Productivity Ecosystem |
 | 🧑‍💻 **Lead Developer** | **Sudhir Singh** ([@SudhirDevOps1](https://github.com/SudhirDevOps1)) |
-| 📦 **Current Version** | `v7.1.0` (Production Release) |
+| 📦 **Current Version** | `v7.2.0` (Production Release) |
 | ⚖️ **License** | [MIT License](LICENSE) |
 | 🌐 **Live Production Web** | [`https://the-ultimate-master-study-tracker.vercel.app/`](https://the-ultimate-master-study-tracker.vercel.app/) |
 | 🐙 **GitHub Repository** | [`SudhirDevOps1/The-Ultimate-Master-Study-Tracker`](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker) |

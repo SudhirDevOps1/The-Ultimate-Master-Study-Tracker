@@ -1,8 +1,8 @@
 # 📖 FlowTrack Pro — Master Technical Architecture & System Guide
 
-> **Version**: 7.1.0 | **Last Updated**: 2026-08-01 (Production Release)
+> **Version**: 7.2.0 | **Last Updated**: 2026-08-01 (v7.2.0 Production Release)
 
-Welcome to the official technical manual for **FlowTrack Pro (v7.1.0)**. This document specifies the exact implementation details, architectural design, data storage mechanisms, and operational modes across **3 Operational Categories**.
+Welcome to the official technical manual for **FlowTrack Pro (v7.2.0)**. This document specifies the exact implementation details, architectural design, data storage mechanisms, and operational modes across **3 Operational Categories**.
 
 ---
 

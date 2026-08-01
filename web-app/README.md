@@ -1,6 +1,6 @@
 # 🌐 FlowTrack Pro — Serverless Web Application (PWA Edition)
 
-> **Version**: `v7.1.0` | **Platform**: Any Modern Web Browser (Desktop / Mobile / Tablet) | **Hosting**: Vercel CDN
+> **Version**: `v7.2.0` | **Platform**: Any Modern Web Browser (Desktop / Mobile / Tablet) | **Hosting**: Vercel CDN
 
 Welcome to the **Serverless Web Application** module of FlowTrack Pro. This edition runs 100% in your browser using IndexedDB for local data persistence, offline Progressive Web App (PWA) caching, and zero cloud sign-up requirements.
 

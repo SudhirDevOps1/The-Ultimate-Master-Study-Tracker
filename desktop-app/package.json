@@ -3,7 +3,7 @@
   "description": "FlowTrack Pro – Smart Study & Productivity Tracker Desktop App",
   "author": "FlowTrack Team",
   "private": true,
-  "version": "7.1.0",
+  "version": "7.2.0",
   "main": "electron.js",
   "type": "commonjs",
   "scripts": {
