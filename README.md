@@ -2,7 +2,7 @@
 
 <img src="public/images/flowtrack-logo.png" alt="FlowTrack Pro Official App Logo" width="128" style="border-radius: 28px; box-shadow: 0 10px 30px rgba(6, 182, 212, 0.4);" />
 
-# 🚀 FlowTrack Pro (v7.0.0 — Web Portals Browser Edition)
+# 🚀 FlowTrack Pro (v7.1.0 — Encrypted Vault & Auto-Updater Edition)
 
 ### 💎 The Ultimate Master Study & Productivity Ecosystem — 2026 Edition
 

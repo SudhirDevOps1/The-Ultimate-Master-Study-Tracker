@@ -2,7 +2,7 @@
 
 <img src="public/images/flowtrack-logo.png" alt="FlowTrack Pro Official App Logo" width="128" style="border-radius: 28px; box-shadow: 0 10px 30px rgba(6, 182, 212, 0.4);" />
 
-# 🚀 FlowTrack Pro (v7.0.0 — Web Portals Browser Edition)
+# 🚀 FlowTrack Pro (v7.1.0 — Encrypted Vault & Auto-Updater Edition)
 
 ### 💎 The Ultimate Master Study & Productivity Ecosystem — 2026 Edition
 
@@ -30,7 +30,7 @@ Engineered into **3 distinct operational categories**: Serverless Web App, Web A
 
 <div align="center">
   <img src="public/images/flowtrack-screenshot.png" alt="FlowTrack Pro Live Interface Showcase" width="100%" style="border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 40px rgba(0,0,0,0.5);" />
-  <p><i>FlowTrack Pro v7.0.0 — Smart Study Timer, In-App Web Browser, Course Media Sandbox & Focus Dashboard</i></p>
+  <p><i>FlowTrack Pro v7.1.0 — Smart Study Timer, Encrypted Password Vault, Auto-Updater & In-App Web Portals Engine</i></p>
 </div>
 
 ---
@@ -42,7 +42,7 @@ Engineered into **3 distinct operational categories**: Serverless Web App, Web A
 | 🖼️ **Official App Icon** | <img src="public/images/flowtrack-logo.png" width="48" height="48" style="border-radius: 10px;" /> **FlowTrack Brand Logo** (`public/images/flowtrack-logo.png`) |
 | 👑 **Project Name** | **FlowTrack Pro** — The Ultimate Master Study Tracker |
 | 🧑‍💻 **Lead Architect** | **Sudhir Singh** ([@SudhirDevOps1](https://github.com/SudhirDevOps1)) |
-| 📦 **Release Version** | `v7.0.0` (2026 Web Portals Edition) |
+| 📦 **Release Version** | `v7.1.0` (2026 Edition) |
 | ⚖️ **License** | [MIT Open Source License](LICENSE) |
 | 🌐 **Live Web Deployment** | [`https://the-ultimate-master-study-tracker.vercel.app/`](https://the-ultimate-master-study-tracker.vercel.app/) |
 | 🐙 **Source Code Repository** | [`https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker`](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker) |

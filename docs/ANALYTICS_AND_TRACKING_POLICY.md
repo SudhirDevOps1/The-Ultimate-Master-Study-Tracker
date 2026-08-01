@@ -1,6 +1,6 @@
 # 📊 FlowTrack Pro — Analytics, Tracking Policy & Limitations
 
-> **Version**: 7.0.0 | **Last Updated**: 2026-07-31
+> **Version**: 7.1.0 | **Last Updated**: 2026-08-01
 
 This document explains **exactly what FlowTrack Pro tracks**, **why**, **where the data lives**, **what it does NOT track**, and all **limitations** of every feature in the app.
 

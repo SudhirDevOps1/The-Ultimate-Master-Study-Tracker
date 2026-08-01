@@ -12,17 +12,17 @@ export function GuidePage() {
 
   const appInfo = {
     name: "FlowTrack Pro – Smart Study & Productivity Tracker",
-    version: "v6.0.0 (Latest 2026 Stable Release)",
+    version: "v7.1.0 (Latest 2026 Release)",
     developer: "Sudhir DevOps (FlowTrack Engineering Team)",
     repo: "SudhirDevOps1/The-Ultimate-Master-Study-Tracker",
-    techStack: ["React 18", "TypeScript 5", "Vite 7", "Electron 43", "TailwindCSS", "Dexie.js IndexedDB", "Web Audio API", "Framer Motion"],
+    techStack: ["React 19", "TypeScript 5", "Vite 7", "Electron 43", "TailwindCSS", "Dexie.js IndexedDB", "Web Audio API", "Framer Motion", "electron-updater"],
   };
 
   const tabs = [
     { id: "overview", label: "🌟 App Overview", icon: <BookOpen className="w-4 h-4" /> },
     { id: "features", label: "🚀 Feature Matrix", icon: <Zap className="w-4 h-4" /> },
     { id: "tech", label: "🛠️ Tech Architecture", icon: <Cpu className="w-4 h-4" /> },
-    { id: "fixes", label: "🐛 Solved in v6.0.0", icon: <CheckCircle2 className="w-4 h-4 text-emerald-400" /> },
+    { id: "fixes", label: "✨ New in v7.1.0", icon: <CheckCircle2 className="w-4 h-4 text-emerald-400" /> },
     { id: "storage", label: "📂 Data Storage Paths", icon: <HardDrive className="w-4 h-4" /> },
     { id: "limitations", label: "⚠️ System Requirements", icon: <AlertTriangle className="w-4 h-4 text-amber-400" /> },
     { id: "developer", label: "👨‍💻 Developer & Credits", icon: <UserCheck className="w-4 h-4" /> },
@@ -30,6 +30,34 @@ export function GuidePage() {
   ];
 
   const features = [
+    {
+      title: "🌐 In-App Chromium Web Portals Browser",
+      descEn: "Integrated embedded Chromium webview engine for Apna College, PW, Coursera, YouTube, & custom study sites without leaving FlowTrack Pro.",
+      descHi: "फ्लोट्रैक प्रो के अंदर ही अपना कॉलेज, PW, Coursera और YouTube चलाने के लिए इन-ऐप वेबव्यू ब्राउज़र इंजन।",
+      icon: "🌐",
+      tag: "Chromium Engine"
+    },
+    {
+      title: "🔐 Encrypted Password Vault & Proton Pass Auto-Fill",
+      descEn: "Local encrypted credential manager (Base64 + XOR cipher). 1-click '🔑 Fill Login' button auto-injects saved logins into portal forms.",
+      descHi: "लोकल एन्क्रिप्टेड पासवर्ड वॉल्ट: अपना कॉलेज या अन्य स्टडी साइट्स पर 1-क्लिक में यूजरनेम और पासवर्ड ऑटो-फिल करता है।",
+      icon: "🔐",
+      tag: "1-Click AutoFill"
+    },
+    {
+      title: "🔄 Background Silent Auto-Updater",
+      descEn: "Powered by electron-updater. Checks GitHub Releases silently in background, downloads updates, and provides 1-click 'Restart & Install'.",
+      descHi: "ऑटो-अपडेटर: बैकग्राउंड में नया वर्जन ऑटोमैटिकली डाउनलोड करता है और 1-क्लिक में ऐप अपडेट कर देता है।",
+      icon: "🔄",
+      tag: "electron-updater"
+    },
+    {
+      title: "🛡️ Anti-Cheat System Clock Guard",
+      descEn: "Protects study timer against system clock manual manipulation. Caps unexpected time jumps and enforces absolute timestamp validation.",
+      descHi: "सिस्टम क्लॉक एंटी-चीट गार्ड: टाइमर में सिस्टम का टाइम आगे बढ़ाकर फेक स्टडी आवर्स जोड़ने की कोशिश को रोकता है।",
+      icon: "🛡️",
+      tag: "Anti-Tamper Engine"
+    },
     {
       title: "🔍 Live Application & Active Window Tracking",
       descEn: "Background process hook monitors active windows (Chrome, VS Code, Zoom, etc.), records time spent, and classifies apps into Productive, Distracting, or Neutral categories.",
@@ -39,7 +67,7 @@ export function GuidePage() {
     },
     {
       title: "⏱️ Timestamp-Based Strict Study Timer",
-      descEn: "Uses absolute Unix timestamps (Date.now()) instead of simple setInterval state. Prevents timer lag, system clock drift, or background tab throttling. Throttled interaction tracking at 10-second intervals for 0% CPU stuttering.",
+      descEn: "Uses absolute Unix timestamps (Date.now()) instead of simple setInterval state. Prevents timer lag, system clock drift, or background tab throttling.",
       descHi: "Unix timestamps का उपयोग करके 100% सटीक टाइमिंग देता है। 10-सेकंड इवेंट थ्रॉटलिंग से CPU लैग और हैंगिंग बिल्कुल खत्म हो जाती है।",
       icon: "⏱️",
       tag: "Zero Lag Engine"
@@ -53,64 +81,43 @@ export function GuidePage() {
     },
     {
       title: "🎵 100% Offline AI Focus Soundscapes",
-      descEn: "Features a dual-engine sound player. If network stream audio fails or offline, Web Audio API Native Synthesizer automatically generates procedural binaural 10Hz alpha focus beats and rain noise.",
+      descEn: "Features a dual-engine sound player. Web Audio API Native Synthesizer automatically generates procedural binaural 10Hz alpha focus beats and rain noise.",
       descHi: "डुअल-इंजन साउंड प्लेयर: ऑनलाइन स्ट्रीम फेल होने या इंटरनेट बंद होने पर Web Audio API अपने आप 100% ऑफलाइन बाइन्यूरल बीट्स और रेन साउंड्स जनरेट करता है।",
       icon: "🎵",
       tag: "Offline Synthesizer"
-    },
-    {
-      title: "🎴 SuperMemo-2 Spaced Repetition Flashcards",
-      descEn: "Uses the scientific SuperMemo-2 algorithm to calculate optimal memory retention intervals based on difficulty ratings (1 to 5).",
-      descHi: "वैज्ञानिक SuperMemo-2 एल्गोरिदम का उपयोग करके याददाश्त के अनुसार अगली रिविजन डेट तय करता है।",
-      icon: "🎴",
-      tag: "SRS Algorithm"
-    },
-    {
-      title: "🧠 Interactive Mind Maps & Canvas Workspace",
-      descEn: "Powered by Excalidraw engine for drawing visual study notes, mind maps, diagramming, and PDF/OCR reference integration.",
-      descHi: "Excalidraw पावर्ड विजुअल कैनवास बोर्ड जहाँ आप माइंड मैप्स, नोट्स और फ्लोचार्ट्स बना सकते हैं।",
-      icon: "🧠",
-      tag: "Visual Board"
-    },
-    {
-      title: "🤖 Local Ollama AI Assistant & Cloud AI Proxies",
-      descEn: "100% private offline AI setup with Ollama (Llama 3.2, DeepSeek-R1) or free high-speed cloud AI proxies for study planning and instant code/concept explanations.",
-      descHi: "ओलामा (Ollama) के साथ 100% प्राइवेट लोकल एआई या फ्री क्लाउड एआई जिससे स्टडी हेल्प और कॉन्सेप्ट एक्सप्लेनेशन मिलती है।",
-      icon: "🤖",
-      tag: "Privacy AI"
     },
   ];
 
   const fixesv550 = [
     {
-      title: "Backend Activity Panel IPC Handler Mismatch Fix",
-      issue: "BackendActivityPanel invoked 'get-foreground-window', but electron.js only registered 'get-active-window', throwing unhandled promise rejections and displaying blank cards.",
-      solution: "Registered 'get-foreground-window' dual-alias in electron.js and updated BackendActivityPanel with safe fallback property mapping (appName || process || title).",
-      icon: "🐛"
+      title: "Encrypted Password Vault & Proton Pass AutoFill",
+      issue: "Users had to manually type credentials into Web Portals every time.",
+      solution: "Added local XOR encrypted Password Vault with 1-click JS DOM injection auto-fill button in browser toolbar.",
+      icon: "🔑"
     },
     {
-      title: "Timer UI Lag & Mouse Listener Throttling",
-      issue: "High-frequency mousemove listeners triggered setNowMs on every mouse pixel, causing CPU rendering storms and UI lag.",
-      solution: "Throttled interaction listeners in useTimer.ts to 10-second intervals and reduced study completion verification threshold to 5s.",
-      icon: "⚡"
+      title: "electron-updater Background Auto-Update Integration",
+      issue: "Users had to manually check and re-download installer .exe files from GitHub.",
+      solution: "Integrated electron-updater service for background silent downloading and 1-click 'Restart & Install Update' action.",
+      icon: "🔄"
     },
     {
-      title: "Audio Loading Failure & Offline Soundscapes",
-      issue: "External audio URLs displayed '⚠️ Audio failed to load' when offline or blocked by CORS.",
-      solution: "Connected AmbiencePlayer to Web Audio Synthesizer (audioEngine) for instant 100% offline procedural rain & binaural alpha beats synthesis.",
-      icon: "🎵"
-    },
-    {
-      title: "Exposed Storage Paths & Open Logs Folder Button",
-      issue: "Users could not easily locate where activity logs and database files were stored.",
-      solution: "Added dynamic AppData path renderer and '📂 Open Logs Folder' IPC button under Settings > FlowTrack Pro Desktop App panel.",
-      icon: "📂"
-    },
-    {
-      title: "Ecosystem Type Safety & Zero Compilation Errors",
-      issue: "ThemeName union type mismatch across desktop-app and web-app models.",
-      solution: "Unified ThemeName union and added optional model fields (createdAt, updatedAt, TimerSnapshot, ThemeConfig), achieving 0 tsc errors across both apps.",
+      title: "System Clock Tampering & Anti-Cheat Guard",
+      issue: "Changing system time forward artificially completed study sessions instantly.",
+      solution: "Implemented absolute timestamp delta validation and overshoot capping in getActiveElapsed timer store.",
       icon: "🛡️"
+    },
+    {
+      title: "External Link Protocol Security Hardening",
+      issue: "Open-external-link IPC channel accepted arbitrary protocol strings.",
+      solution: "Added strict protocol whitelist filter (http://, https://, mailto: only) in main electron.js process.",
+      icon: "🔒"
+    },
+    {
+      title: "Release Build Size Compression Optimization",
+      issue: "Electron-builder uncompressed store mode produced 700MB+ zip bundles.",
+      solution: "Enabled asar archiving and maximum LZMA compression settings in package.json, reducing build sizes to ~150MB.",
+      icon: "⚡"
     }
   ];
 
