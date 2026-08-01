@@ -762,6 +762,27 @@ export function SettingsPage() {
           <p className="mt-1 text-sm text-slate-400">Irreversible actions. Please be careful.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          {typeof window !== "undefined" && (window as any).electron && (
+            <button
+              onClick={async () => {
+                const confirmed = confirm("⚠️ Are you sure you want to clear ALL App & Website Activity Tracking logs?\n\nThis will permanently delete all activity log files stored on disk.");
+                if (!confirmed) return;
+                try {
+                  const res = await (window as any).electron.ipcRenderer?.invoke("clear-activity-log");
+                  if (res?.success) {
+                    showMessage("App Tracking activity logs cleared successfully.");
+                  } else {
+                    showMessage("Failed to clear app tracking logs.");
+                  }
+                } catch {
+                  showMessage("Error clearing app tracking logs.");
+                }
+              }}
+              className="rounded-2xl bg-gradient-to-r from-amber-600 to-rose-600 px-5 py-3 font-bold text-white shadow-lg transition-transform hover:scale-105"
+            >
+              🧹 Clear App Tracking Logs
+            </button>
+          )}
           <button
             onClick={async () => {
               const first = confirm("⚠️ Are you sure you want to delete ALL data? This includes all subjects, sessions, settings, and AI config. This action CANNOT be undone.");
@@ -782,7 +803,7 @@ export function SettingsPage() {
           >
             🗑️ Reset All Data
           </button>
-          <p className="text-xs text-slate-500">Deletes all subjects, sessions, settings, and reloads the app fresh.</p>
+          <p className="text-xs text-slate-500">Deletes app tracking logs, subjects, sessions, settings, and reloads the app fresh.</p>
         </div>
       </Panel>
     </div>

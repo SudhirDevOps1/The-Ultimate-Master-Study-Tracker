@@ -815,6 +815,23 @@ ipcMain.handle("get-tracked-dates", async () => {
   } catch { return []; }
 });
 
+ipcMain.handle("clear-activity-log", async () => {
+  try {
+    activityLog = [];
+    currentActivity = { processName: "", windowTitle: "", startMs: Date.now() };
+    if (dataDir && fs.existsSync(dataDir)) {
+      const files = fs.readdirSync(dataDir).filter(f => f.endsWith(".json"));
+      for (const f of files) {
+        try { fs.unlinkSync(path.join(dataDir, f)); } catch { /* ignore */ }
+      }
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+
 // ─── Webview Activity Reporting ───────────────────────────────────────────────
 // Called by WebPortalsPage when webview navigates to a new page.
 // Enables tracking study sites (apnacollege.in, youtube.com, etc.) instead of FlowTrack itself.

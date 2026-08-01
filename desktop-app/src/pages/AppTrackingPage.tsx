@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Monitor, Calendar, ShieldAlert, RefreshCw,
   Activity, Download, ChevronLeft, ChevronRight, Eye, Zap, TrendingUp, Globe,
-  Upload, PackageOpen
+  Upload, PackageOpen, Trash2
 } from "lucide-react";
 import { Panel } from "@/components/common/Panel";
 import { useAppStore } from "@/store/useAppStore";
@@ -612,6 +612,26 @@ export function AppTrackingPage() {
       alert(`✅ Import successful!\nBacked up on: ${new Date(result.exportedAt).toLocaleString()}\nVersion: ${result.version}`);
     } catch (e: any) { alert(`Import error: ${e.message}`); }
     setExportStatus("idle");
+  // ── Clear App Tracking Logs ───────────────────────────────────────────
+  const handleClearLogs = async () => {
+    const ipc = getIpc();
+    if (!ipc) return;
+    const confirmed = window.confirm(
+      "⚠️ Are you sure you want to clear ALL App & Website Activity Tracking logs?\n\n" +
+      "This will permanently delete all activity log files stored on disk. This action CANNOT be undone."
+    );
+    if (!confirmed) return;
+
+    try {
+      const res = await ipc.invoke("clear-activity-log");
+      if (res?.success) {
+        alert("✅ App & Website activity tracking logs cleared successfully!");
+        void fetchLog(selectedDate);
+        void fetchDates();
+      } else {
+        alert(`❌ Failed to clear logs: ${res?.error || "Unknown error"}`);
+      }
+    } catch (e: any) { alert(`Clear logs error: ${e.message}`); }
   };
 
   return (
@@ -671,6 +691,14 @@ export function AppTrackingPage() {
             <Upload className="w-3.5 h-3.5" />
             {exportStatus === "importing" ? "Restoring..." : "Restore"}
           </button>
+
+          {/* Clear App Tracking Activity Logs */}
+          {isElectron && (
+            <button onClick={handleClearLogs} title="Clear all app & website tracking logs"
+              className="flex items-center gap-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 px-3 py-2 text-xs font-bold text-rose-400 hover:bg-rose-500/20 transition-all">
+              <Trash2 className="w-3.5 h-3.5" /> Clear Logs
+            </button>
+          )}
 
           <button onClick={() => { void fetchLog(selectedDate); void fetchDates(); }}
             className={`p-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 transition-colors ${loading ? "animate-spin" : ""}`}>

@@ -28,6 +28,8 @@ const ALLOWED_INVOKE_CHANNELS = [
   "webview-activity-report",
   "webview-activity-clear",
   "get-active-webview-domain",
+  // Clear activity tracking logs
+  "clear-activity-log",
 ];
 
 const ALLOWED_LISTEN_CHANNELS = [
