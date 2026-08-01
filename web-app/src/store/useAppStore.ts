@@ -229,26 +229,39 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
   },
 
   fetchBackendData: async () => {
-    const url = get().backendUrl;
-    if (!url) { set({ isBackendConnected: false }); return; }
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000);
-      const statsRes = await fetch(`${url}/stats?range=all`, { signal: controller.signal });
-      if (!statsRes.ok) throw new Error("stats failed");
-      const statsData = await statsRes.json();
-      const activitiesRes = await fetch(`${url}/export?type=activities&format=json`, { signal: controller.signal });
-      if (!activitiesRes.ok) throw new Error("activities failed");
-      const activitiesData = await activitiesRes.json();
-      clearTimeout(timeoutId);
-      set({
-        backendStats: statsData,
-        backendActivities: activitiesData.activities || [],
-        isBackendConnected: true,
-      });
-    } catch {
-      set({ isBackendConnected: false });
+    let url = get().backendUrl || "http://localhost:5001";
+    
+    // Try primary URL first, then 127.0.0.1 fallback
+    const urlsToTry = [url];
+    if (url.includes("localhost")) {
+      urlsToTry.push(url.replace("localhost", "127.0.0.1"));
+    } else if (url.includes("127.0.0.1")) {
+      urlsToTry.push(url.replace("127.0.0.1", "localhost"));
     }
+
+    for (const targetUrl of urlsToTry) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2500);
+        const statsRes = await fetch(`${targetUrl}/stats?range=all`, { signal: controller.signal });
+        if (!statsRes.ok) throw new Error("stats failed");
+        const statsData = await statsRes.json();
+        const activitiesRes = await fetch(`${targetUrl}/export?type=activities&format=json`, { signal: controller.signal });
+        if (!activitiesRes.ok) throw new Error("activities failed");
+        const activitiesData = await activitiesRes.json();
+        clearTimeout(timeoutId);
+        set({
+          backendUrl: targetUrl,
+          backendStats: statsData,
+          backendActivities: activitiesData.activities || [],
+          isBackendConnected: true,
+        });
+        return;
+      } catch {
+        // try next URL
+      }
+    }
+    set({ isBackendConnected: false });
   },
 
   initApp: async () => {
@@ -424,6 +437,14 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
       });
       // Auto-connect to local Python backend if it's running (e.g. user ran START_BACKEND.bat)
       void get().fetchBackendData();
+
+      // Periodically check backend status every 10 seconds
+      if (typeof window !== "undefined" && !(window as any)._backendIntervalStarted) {
+        (window as any)._backendIntervalStarted = true;
+        setInterval(() => {
+          void get().fetchBackendData();
+        }, 10000);
+      }
     } catch (error) {
       console.error("[initApp] Initialization failed:", error);
       set({ loading: false });
