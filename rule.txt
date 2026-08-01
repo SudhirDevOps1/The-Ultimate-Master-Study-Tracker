@@ -1,0 +1,30 @@
+# ==============================================================================
+# FLOWTRACK PRO ECOSYSTEM — MANDATORY DEVELOPMENT RULES & OPERATIONAL DIRECTIVES
+# ==============================================================================
+# Created: 2026-08-01 | Architect: Sudhir Singh (@SudhirDevOps1)
+# ==============================================================================
+
+RULE 1: STRICT MODULE ISOLATION & NO FILE COPYING
+------------------------------------------------------------------------------
+- NEVER script-copy, bulk-copy, or duplicate files between `desktop-app/`, `web-app/`, or `src/` (e.g. NEVER use `Copy-Item`, `cp`, or script overwrite between folders).
+- All code modifications MUST be written manually and specifically per file for the requested module.
+- SCOPE CONTROL: If the user requests a change for "Desktop App", ONLY modify files under `desktop-app/`. If the user requests "Web App", ONLY modify files under `web-app/`. ONLY modify both if the user explicitly asks to change both.
+
+RULE 2: MANDATORY DOCUMENTATION UPDATE AFTER EVERY EDIT
+------------------------------------------------------------------------------
+- After EVERY single code edit, feature addition, bug fix, or cleanup, IMMEDIATELY update all documentation files to accurately log and explain the change:
+  1. `README.md` (Master Root Documentation)
+  2. `desktop-app/README.md` (Standalone Desktop Module Guide)
+  3. `web-app/README.md` (Serverless Web App Guide)
+  4. `CHANGELOG.md` (Release Log)
+  5. `docs/FULL_SYSTEM_GUIDE.md` (Technical Architecture Manual)
+
+RULE 3: AUTOMATIC LOCAL GIT COMMIT & EMPIRICAL VERIFICATION
+------------------------------------------------------------------------------
+- After every edit, verify compilation/build correctness (`npx tsc --noEmit` or live test).
+- Automatically create a local Git commit (`git add -A && git commit -m "..."`) and update the release tag (`vX.Y.Z`).
+
+RULE 4: GIT PUSH EXPLICIT USER CONSENT
+------------------------------------------------------------------------------
+- NEVER execute `git push` automatically.
+- Provide the exact `git push origin main --tags -f` command or run it ONLY when the user explicitly instructs to push to remote.

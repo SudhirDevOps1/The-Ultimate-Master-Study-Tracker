@@ -124,19 +124,23 @@ export function MindMapPage() {
       (window as any).EXCALIDRAW_ASSET_PATH = "https://unpkg.com/@excalidraw/excalidraw/dist/";
     }
 
-    import("@excalidraw/excalidraw")
-      .then((mod) => {
+    const loadExcalidraw = async () => {
+      try {
+        const pkgName = "@excalidraw/excalidraw";
+        const mod = await import(/* @vite-ignore */ pkgName);
         const Comp = (mod as any).Excalidraw || (mod as any).default?.Excalidraw || (mod as any).default;
         if (!Comp) throw new Error("Excalidraw component not found");
         setExcalidrawComp(() => Comp);
         setIsLoading(false);
-      })
-      .catch((err) => {
-        console.warn("Excalidraw load warning, switching to Native Canvas Engine:", err);
+      } catch (err: any) {
+        console.warn("Excalidraw load notice, using Native Canvas Engine:", err);
         setLoadError(err?.message || "Switched to Fast Native Canvas Engine");
         setIsLoading(false);
-        setUseNativeCanvas(true); // Auto fallback to native canvas!
-      });
+        setUseNativeCanvas(true);
+      }
+    };
+
+    void loadExcalidraw();
   }, []);
 
   // ── Auto-save Excalidraw on change ─────────────────────────────────────────
