@@ -696,7 +696,7 @@ export function AppTrackingPage() {
             </>
           ) : (
             <p className="mt-1 text-sm text-slate-500 italic">
-              {isElectron ? "Desktop is idle" : "Requires desktop app"}
+              Desktop is idle / backend initializing...
             </p>
           )}
         </motion.div>
@@ -831,7 +831,7 @@ export function AppTrackingPage() {
                   </h3>
                   {categoryTotals.length === 0 ? (
                     <p className="text-xs text-slate-500 text-center py-8">
-                      {isElectron ? "Use apps — data appears in ~5 seconds." : "Requires desktop app."}
+                      No app activity logged yet.
                     </p>
                   ) : (
                     <div className="space-y-3">
@@ -876,7 +876,7 @@ export function AppTrackingPage() {
                           <p className="text-4xl mb-3">🖥️</p>
                           <p className="text-sm text-slate-400 font-semibold">No app activity logged yet</p>
                           <p className="text-xs text-slate-500 mt-1">
-                            {isElectron ? "Start using apps — appears in ~5 s" : "Open as desktop app to enable tracking"}
+                            Start using apps or run backend tracker to log activity.
                           </p>
                         </div>
                       ) : appSummaries.map((app, i) => {
