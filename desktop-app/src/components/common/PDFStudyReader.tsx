@@ -310,8 +310,9 @@ export function PDFStudyReader() {
     try {
       const canvas = await html2canvas(notesContainerRef.current, {
         backgroundColor: "#0b0f19",
-        scale: 2,
-        useCORS: true
+        scale: 3, // Ultra HD High Quality
+        useCORS: true,
+        allowTaint: true
       });
       const link = document.createElement("a");
       link.download = `FlowTrack-StickyNotes-${new Date().toISOString().split("T")[0]}.png`;

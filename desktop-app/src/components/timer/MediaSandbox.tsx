@@ -327,7 +327,9 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction, isP
       try {
         const canvas = await html2canvas(sandboxRef.current, {
           backgroundColor: "#0f172a",
+          scale: 3, // Ultra HD High Quality
           useCORS: true,
+          allowTaint: true
         });
         dataUrl = canvas.toDataURL("image/png");
       } catch { /* ignore */ }

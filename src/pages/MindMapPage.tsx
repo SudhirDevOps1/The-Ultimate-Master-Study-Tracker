@@ -299,16 +299,23 @@ export function MindMapPage() {
     setIsPanning(false);
   };
 
-  // Export Mind Map Canvas to PNG
+  // Export Mind Map Canvas to Ultra 4K High Definition PNG
   const exportPNG = () => {
     const canvas = document.createElement("canvas");
-    canvas.width = 1920;
-    canvas.height = 1080;
+    // Ultra 4K Crisp Resolution (3840x2160)
+    canvas.width = 3840;
+    canvas.height = 2160;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    // Enable high definition text anti-aliasing
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+
+    ctx.scale(2, 2); // 2x Scale for 4K canvas context
+
     ctx.fillStyle = "#0B0F19";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, 1920, 1080);
 
     nodes.forEach(node => {
       if (!node.parentId) return;
@@ -334,12 +341,16 @@ export function MindMapPage() {
       const h = 44;
       const radius = 22;
 
-      ctx.fillStyle = node.id === "root" ? "rgba(168,85,247,0.3)" : "rgba(15,23,42,0.85)";
+      ctx.fillStyle = node.id === "root" ? "rgba(168,85,247,0.35)" : "rgba(15,23,42,0.9)";
       ctx.strokeStyle = node.color || "#a855f7";
       ctx.lineWidth = 2;
 
       ctx.beginPath();
-      ctx.roundRect(node.x, node.y, w, h, radius);
+      if (typeof ctx.roundRect === "function") {
+        ctx.roundRect(node.x, node.y, w, h, radius);
+      } else {
+        ctx.rect(node.x, node.y, w, h);
+      }
       ctx.fill();
       ctx.stroke();
 
@@ -351,10 +362,10 @@ export function MindMapPage() {
     });
 
     const link = document.createElement("a");
-    link.download = `FlowTrack_MindMap_${new Date().toISOString().slice(0, 10)}.png`;
-    link.href = canvas.toDataURL("image/png");
+    link.download = `FlowTrack_MindMap_4K_${new Date().toISOString().slice(0, 10)}.png`;
+    link.href = canvas.toDataURL("image/png", 1.0);
     link.click();
-    showToast("Mind Map PNG Exported!", "success");
+    showToast("Mind Map High-Res PNG Exported!", "success");
   };
 
   // Excalidraw Clear Canvas
@@ -367,7 +378,7 @@ export function MindMapPage() {
     }
   };
 
-  // Robust Multi-Fallback Excalidraw PNG Export
+  // Robust Multi-Fallback Excalidraw Ultra HD PNG Export
   const exportExcalidrawPNG = async () => {
     try {
       const mod = await import("@excalidraw/excalidraw");
@@ -378,9 +389,15 @@ export function MindMapPage() {
 
         const blob = await mod.exportToBlob({
           elements,
-          appState: { ...appState, exportWithBackground: true },
+          appState: { 
+            ...appState, 
+            exportWithBackground: true,
+            exportScale: 3, // High-Res 3x Scale
+            exportPadding: 30
+          },
           files,
           mimeType: "image/png",
+          quality: 1.0
         });
 
         const url = URL.createObjectURL(blob);
