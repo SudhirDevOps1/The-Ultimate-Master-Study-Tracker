@@ -23,7 +23,8 @@
         "repo": "The-Ultimate-Master-Study-Tracker"
       }
     ],
-    "compression": "store",
+    "asar": true,
+    "compression": "maximum",
     "win": {
       "verifyUpdateCodeSignature": false,
       "target": [
@@ -58,7 +59,9 @@
       "dist/**/*",
       "electron.js",
       "preload.js",
-      "package.json"
+      "package.json",
+      "!**/*.map",
+      "!**/*.ts"
     ],
     "extraResources": [
       {
