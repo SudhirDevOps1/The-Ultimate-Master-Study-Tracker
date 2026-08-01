@@ -147,5 +147,5 @@ export function applyTheme(theme: ThemeConfig): void {
 }
 
 export function getThemeColors(themeName: ThemeName): ThemeConfig {
-  return themes[themeName] ?? themes.default;
+  return themes[themeName] ?? themes.oled;
 }
