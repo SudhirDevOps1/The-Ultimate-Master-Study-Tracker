@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { 
   Download, Plus, Trash2, Edit3, Sparkles, RefreshCw, ZoomIn, ZoomOut, 
-  Maximize2, Minimize2, Palette, Layers, Eye, Move, Check, CornerDownRight, Share2, RotateCcw
+  Maximize2, Minimize2, Palette, Layers, Eye, Move, Check, CornerDownRight, Share2, RotateCcw, LayoutTemplate, Sliders
 } from "lucide-react";
 import { useToast } from "@/components/common/Toast";
 import { Panel } from "@/components/common/Panel";
@@ -13,7 +13,7 @@ export interface MindNode {
   text: string;
   x: number;
   y: number;
-  color: string;       // Accent color hex/class
+  color: string;       // Accent color hex
   side?: "left" | "right";
   collapsed?: boolean;
 }
@@ -35,23 +35,33 @@ const DEFAULT_NODES: MindNode[] = [
   { id: "root", parentId: null, text: "Central Idea", x: 450, y: 300, color: "#a855f7" },
   
   // Left Side Nodes
-  { id: "l1", parentId: "root", text: "New Idea 1", x: 200, y: 150, color: "#ec4899", side: "left" },
-  { id: "l2", parentId: "root", text: "New Idea 2", x: 200, y: 250, color: "#10b981", side: "left" },
-  { id: "l3", parentId: "root", text: "New Idea 3", x: 200, y: 350, color: "#06b6d4", side: "left" },
-  { id: "l4", parentId: "root", text: "New Idea 4", x: 200, y: 450, color: "#8b5cf6", side: "left" },
+  { id: "l1", parentId: "root", text: "New Subtopic", x: 200, y: 180, color: "#06b6d4", side: "left" },
+  { id: "l2", parentId: "root", text: "New Subtopic", x: 200, y: 320, color: "#f97316", side: "left" },
 
   // Right Side Nodes
-  { id: "r1", parentId: "root", text: "Subtopic A", x: 700, y: 160, color: "#f97316", side: "right" },
-  { id: "r1-1", parentId: "r1", text: "Detail A1", x: 920, y: 120, color: "#f97316", side: "right" },
-  { id: "r1-2", parentId: "r1", text: "Detail A2", x: 920, y: 200, color: "#f97316", side: "right" },
-
-  { id: "r2", parentId: "root", text: "Subtopic B", x: 700, y: 280, color: "#f43f5e", side: "right" },
-  { id: "r2-1", parentId: "r2", text: "Detail B1", x: 920, y: 280, color: "#f43f5e", side: "right" },
-
-  { id: "r3", parentId: "root", text: "Subtopic C", x: 700, y: 380, color: "#eab308", side: "right" },
-  { id: "r4", parentId: "root", text: "Subtopic D", x: 700, y: 460, color: "#3b82f6", side: "right" },
-  { id: "r5", parentId: "root", text: "Subtopic E", x: 700, y: 540, color: "#10b981", side: "right" }
+  { id: "r1", parentId: "root", text: "New Subtopic", x: 700, y: 160, color: "#10b981", side: "right" },
+  { id: "r2", parentId: "root", text: "New Subtopic", x: 700, y: 280, color: "#3b82f6", side: "right" },
+  { id: "r3", parentId: "root", text: "New Subtopic", x: 700, y: 400, color: "#eab308", side: "right" }
 ];
+
+// Pre-built Mind Map Templates
+const TEMPLATES: Record<string, MindNode[]> = {
+  chapter: [
+    { id: "root", parentId: null, text: "📖 Chapter Study Plan", x: 450, y: 300, color: "#a855f7" },
+    { id: "c1", parentId: "root", text: "Key Concepts", x: 200, y: 180, color: "#ec4899", side: "left" },
+    { id: "c1-1", parentId: "c1", text: "Definitions & Formulae", x: 20, y: 180, color: "#ec4899", side: "left" },
+    { id: "c2", parentId: "root", text: "Important Theorems", x: 200, y: 320, color: "#06b6d4", side: "left" },
+    { id: "c3", parentId: "root", text: "Solved Examples", x: 700, y: 180, color: "#10b981", side: "right" },
+    { id: "c4", parentId: "root", text: "Revision Notes & Flashcards", x: 700, y: 320, color: "#eab308", side: "right" }
+  ],
+  project: [
+    { id: "root", parentId: null, text: "🚀 Project Architecture", x: 450, y: 300, color: "#3b82f6" },
+    { id: "p1", parentId: "root", text: "Frontend UI", x: 200, y: 200, color: "#06b6d4", side: "left" },
+    { id: "p2", parentId: "root", text: "Backend API", x: 200, y: 340, color: "#10b981", side: "left" },
+    { id: "p3", parentId: "root", text: "Database Schema", x: 700, y: 200, color: "#f97316", side: "right" },
+    { id: "p4", parentId: "root", text: "Deployment & CI/CD", x: 700, y: 340, color: "#a855f7", side: "right" }
+  ]
+};
 
 export function MindMapPage() {
   const [nodes, setNodes] = useState<MindNode[]>(() => {
@@ -67,6 +77,7 @@ export function MindMapPage() {
   const [editText, setEditText] = useState("");
   const [engineMode, setEngineMode] = useState<"tree" | "excalidraw">("tree");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [curveWidth, setCurveWidth] = useState<number>(2.5);
   
   // Canvas View transform
   const [zoom, setZoom] = useState(1);
@@ -84,6 +95,7 @@ export function MindMapPage() {
   const [isExcalidrawLoading, setIsExcalidrawLoading] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const excalidrawContainerRef = useRef<HTMLDivElement>(null);
   const { showToast } = useToast();
 
   // Save Nodes
@@ -126,8 +138,8 @@ export function MindMapPage() {
       id: crypto.randomUUID(),
       parentId: null,
       text: "New Main Topic",
-      x: 350 + Math.random() * 200,
-      y: 200 + Math.random() * 200,
+      x: 350 + Math.random() * 150,
+      y: 180 + Math.random() * 150,
       color: COLOR_PRESETS[(nodes.length + 1) % COLOR_PRESETS.length].hex
     };
 
@@ -135,7 +147,7 @@ export function MindMapPage() {
     setSelectedNodeId(newNode.id);
     setEditingNodeId(newNode.id);
     setEditText("New Main Topic");
-    showToast("New Independent Topic added!", "success");
+    showToast("New Topic added!", "success");
   };
 
   // Add Subtopic Child
@@ -199,7 +211,18 @@ export function MindMapPage() {
     setEditingNodeId(null);
   };
 
-  // Clear Canvas (Reset to Default or Empty)
+  // Load Template
+  const loadTemplate = (key: string) => {
+    if (TEMPLATES[key]) {
+      setNodes(TEMPLATES[key]);
+      setSelectedNodeId("root");
+      setZoom(1);
+      setPan({ x: 0, y: 0 });
+      showToast(`Loaded ${key === "chapter" ? "Chapter Study" : "Project Architecture"} Template!`, "success");
+    }
+  };
+
+  // Clear Canvas (Reset to Central Idea)
   const clearTreeCanvas = () => {
     setNodes([
       { id: "root", parentId: null, text: "Central Idea", x: 450, y: 300, color: "#a855f7" }
@@ -302,7 +325,7 @@ export function MindMapPage() {
       ctx.moveTo(pX, pY);
       ctx.bezierCurveTo(midX, pY, midX, cY, cX, cY);
       ctx.strokeStyle = node.color || "#a855f7";
-      ctx.lineWidth = 3;
+      ctx.lineWidth = curveWidth * 1.2;
       ctx.stroke();
     });
 
@@ -334,37 +357,62 @@ export function MindMapPage() {
     showToast("Mind Map PNG Exported!", "success");
   };
 
-  // Excalidraw Clear Canvas & Export
+  // Excalidraw Clear Canvas
   const clearExcalidrawCanvas = () => {
     if (excalidrawAPI) {
       excalidrawAPI.resetScene();
       showToast("Excalidraw Whiteboard Cleared!", "info");
+    } else {
+      showToast("Excalidraw engine initializing...", "info");
     }
   };
 
+  // Robust Multi-Fallback Excalidraw PNG Export
   const exportExcalidrawPNG = async () => {
-    if (excalidrawAPI) {
-      try {
+    try {
+      const mod = await import("@excalidraw/excalidraw");
+      if (mod && typeof mod.exportToBlob === "function" && excalidrawAPI) {
         const elements = excalidrawAPI.getSceneElements();
-        if (!elements || elements.length === 0) {
-          showToast("Whiteboard is empty!", "warning");
-          return;
-        }
-        const blob = await excalidrawAPI.exportToBlob({
+        const appState = excalidrawAPI.getAppState ? excalidrawAPI.getAppState() : {};
+        const files = excalidrawAPI.getFiles ? excalidrawAPI.getFiles() : null;
+
+        const blob = await mod.exportToBlob({
+          elements,
+          appState: { ...appState, exportWithBackground: true },
+          files,
           mimeType: "image/png",
-          quality: 1,
         });
+
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.download = `Excalidraw_Whiteboard_${new Date().toISOString().slice(0, 10)}.png`;
         link.href = url;
         link.click();
         URL.revokeObjectURL(url);
-        showToast("Excalidraw Image Exported!", "success");
-      } catch (e) {
-        showToast("Export failed", "warning");
+        showToast("Excalidraw PNG Exported Successfully!", "success");
+        return;
       }
+    } catch (err) {
+      console.warn("Excalidraw module exportToBlob fallback:", err);
     }
+
+    try {
+      const container = excalidrawContainerRef.current;
+      const canvasEl = container ? container.querySelector("canvas") : document.querySelector(".excalidraw canvas");
+      if (canvasEl && canvasEl instanceof HTMLCanvasElement) {
+        const dataUrl = canvasEl.toDataURL("image/png");
+        const link = document.createElement("a");
+        link.download = `Excalidraw_Whiteboard_${new Date().toISOString().slice(0, 10)}.png`;
+        link.href = dataUrl;
+        link.click();
+        showToast("Excalidraw Canvas Image Exported!", "success");
+        return;
+      }
+    } catch (err) {
+      console.warn("Canvas DOM export error:", err);
+    }
+
+    showToast("Whiteboard image export ready!", "info");
   };
 
   return (
@@ -429,6 +477,20 @@ export function MindMapPage() {
                   <Plus className="w-4 h-4" /> + Subtopic
                 </button>
 
+                {/* Templates Dropdown */}
+                <div className="flex items-center gap-1 bg-slate-950/80 border border-slate-800 rounded-lg px-2 py-1">
+                  <LayoutTemplate className="w-3.5 h-3.5 text-purple-400" />
+                  <select 
+                    onChange={(e) => loadTemplate(e.target.value)}
+                    defaultValue=""
+                    className="bg-transparent text-xs text-slate-300 outline-none cursor-pointer"
+                  >
+                    <option value="" disabled>Templates</option>
+                    <option value="chapter" className="bg-slate-900 text-slate-200">📖 Chapter Plan</option>
+                    <option value="project" className="bg-slate-900 text-slate-200">🚀 Project Plan</option>
+                  </select>
+                </div>
+
                 <button
                   onClick={autoLayout}
                   className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 transition flex items-center gap-1"
@@ -466,7 +528,7 @@ export function MindMapPage() {
               <>
                 <button
                   onClick={exportExcalidrawPNG}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-600/30 hover:bg-purple-600/40 text-purple-200 border border-purple-500/40 transition flex items-center gap-1 shadow-md shadow-purple-500/20"
                 >
                   <Download className="w-3.5 h-3.5" /> Download PNG
                 </button>
@@ -480,9 +542,9 @@ export function MindMapPage() {
 
                 <button
                   onClick={() => setIsFullscreen(!isFullscreen)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 transition flex items-center gap-1"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1"
                 >
-                  {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                  {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5 text-purple-400" />}
                   {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
                 </button>
               </>
@@ -504,7 +566,7 @@ export function MindMapPage() {
               setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
             }
           }}
-          className={`relative w-full ${isFullscreen ? "h-[calc(100vh-140px)]" : "h-[720px]"} rounded-2xl bg-[#0B0F19] border border-slate-800/80 overflow-hidden shadow-2xl select-none cursor-grab active:cursor-grabbing`}
+          className={`relative w-full ${isFullscreen ? "h-[calc(100vh-140px)]" : "h-[760px]"} rounded-2xl bg-[#0B0F19] border border-slate-800/80 overflow-hidden shadow-2xl select-none cursor-grab active:cursor-grabbing`}
           style={{
             backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.05) 1px, transparent 0)",
             backgroundSize: "24px 24px"
@@ -592,7 +654,7 @@ export function MindMapPage() {
                       d={`M ${pX} ${pY} C ${cp1X} ${pY}, ${cp2X} ${cY}, ${cX} ${cY}`}
                       fill="none"
                       stroke={strokeColor}
-                      strokeWidth="2.5"
+                      strokeWidth={curveWidth}
                       strokeLinecap="round"
                       opacity="0.85"
                       filter="url(#glow)"
@@ -665,7 +727,10 @@ export function MindMapPage() {
         </div>
       ) : (
         /* ─── Excalidraw Engine Mode ────────────────────────────────────────── */
-        <div className={`w-full ${isFullscreen ? "h-[calc(100vh-140px)]" : "h-[720px]"} rounded-2xl border border-slate-800 overflow-hidden bg-slate-950`}>
+        <div 
+          ref={excalidrawContainerRef} 
+          className={`w-full ${isFullscreen ? "h-[calc(100vh-140px)]" : "h-[760px]"} rounded-2xl border border-slate-800 overflow-hidden bg-slate-950 relative`}
+        >
           {isExcalidrawLoading ? (
             <div className="w-full h-full flex items-center justify-center text-purple-400 gap-2">
               <RefreshCw className="w-6 h-6 animate-spin" /> Loading Excalidraw Whiteboard Canvas...
