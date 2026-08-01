@@ -31,10 +31,52 @@
   --theme-accent: #c084fc;
 }
 
-[data-theme="neon"] {
-  --theme-primary: #00ffc3;
-  --theme-secondary: #ff00e5;
-  --theme-accent: #00d4ff;
+[data-theme="tokyo"] {
+  --theme-primary: #7aa2f7;
+  --theme-secondary: #bb9af7;
+  --theme-accent: #7dcfff;
+}
+
+[data-theme="nordic"] {
+  --theme-primary: #88c0d0;
+  --theme-secondary: #81a1c1;
+  --theme-accent: #8fbcbb;
+}
+
+[data-theme="dracula"] {
+  --theme-primary: #bd93f9;
+  --theme-secondary: #ff79c6;
+  --theme-accent: #50fa7b;
+}
+
+[data-theme="coffee"] {
+  --theme-primary: #d97706;
+  --theme-secondary: #b45309;
+  --theme-accent: #f59e0b;
+}
+
+[data-theme="oled"] {
+  --theme-primary: #38bdf8;
+  --theme-secondary: #a78bfa;
+  --theme-accent: #34d399;
+}
+
+[data-theme="oled"] body,
+[data-theme="oled"] .grid-bg {
+  background: #000000 !important;
+  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px) !important;
+  background-size: 36px 36px !important;
+}
+
+[data-theme="oled"] [class*="bg-slate-9"],
+[data-theme="oled"] [class*="bg-slate-8"],
+[data-theme="oled"] [class*="bg-slate-950"],
+[data-theme="oled"] .glass,
+[data-theme="oled"] .panel {
+  background-color: #050505 !important;
+  background-image: none !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
 }
 
 [data-theme="paper"] {
