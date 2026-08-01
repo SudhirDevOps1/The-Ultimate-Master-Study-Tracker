@@ -124,6 +124,7 @@ export function GuidePage() {
   const openSourceCredits = [
     { name: "React 18", url: "https://react.dev", desc: "The library for web and native user interfaces", type: "Core UI Framework" },
     { name: "Vite 7", url: "https://vitejs.dev", desc: "Next Generation Frontend Tooling & Fast HMR Bundler", type: "Build Engine" },
+    { name: "Framework7", url: "https://framework7.io", desc: "Full featured HTML framework for building iOS & Android style apps", type: "Mobile UI Framework" },
     { name: "TypeScript 5", url: "https://www.typescriptlang.org", desc: "JavaScript with syntax for types and strict compile safety", type: "Compiler & Type System" },
     { name: "Electron 43", url: "https://www.electronjs.org", desc: "Build cross-platform desktop apps with JavaScript, HTML, and CSS", type: "Desktop Runtime" },
     { name: "Dexie.js / IndexedDB", url: "https://dexie.org", desc: "A Minimalistic Wrapper for IndexedDB offline local database", type: "Offline Storage" },
