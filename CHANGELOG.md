@@ -14,11 +14,10 @@ All notable changes, version updates, feature additions, architectural improveme
 
 ## [v7.2.0] — 2026-08-01
 
-### 🧠 Organic Curved Tree Mind Map & Excalidraw Controls
-- **➕ Topic Box & Subtopic Creator**: Added 1-click `+ Topic Box` button to spawn independent main topics and `+ Subtopic` to branch off child nodes.
-- **📺 Excalidraw Fullscreen Canvas**: Added 1-click Fullscreen toggle expanding the Excalidraw whiteboard to 100vh height.
-- **🧹 Excalidraw Clear & Download PNG**: Added 1-click `Clear All` reset and high-res `Download PNG` image exporter for Excalidraw drawings.
-- **Sleek Organic Branching Engine**: Overhauled Mind Map Page with vibrant pill nodes, smooth Bezier curves, neon glowing accent borders, drag-and-drop positioning, inline text editing, and high-res PNG export!
+### 📌 Study Notes & Saved Documents Suite Overhaul
+- **📝 Multiple Saved Named Documents (Google Notes Style)**: Added a document manager sidebar where users can create, title, search, pin, edit, copy, and export multiple named notepad documents (e.g., `📖 Physics Formulas`, `📝 Daily Study Journal`). All documents auto-save in real-time to app database!
+- **⚡ Quick Formatting & Live Stats**: Added quick markdown toolbar (Bold, Italic, Headings, Bullet Lists, Checkbox Tasks, Code blocks) with live word count and character count stats.
+- **📌 Sticky Board (Google Keep Style)**: Preserved visual color-coded sticky notes board with title, subject tag, background themes, image attachments, pin to top, search, and PNG board export.
 
 ### 🎨 Brand New 3D Glassmorphism Logo & Assets
 - **New Official App Icon**: High-res 3D Glassmorphism squircle app icon updated across Desktop App titlebar, system tray, Taskbar, Web App favicon, and GitHub README docs.

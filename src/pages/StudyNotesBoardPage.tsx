@@ -1,12 +1,18 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Panel } from "@/components/common/Panel";
-import { Palette, Download, Edit3, Trash, Plus, Search, Camera, FileText, Image as ImageIcon, Copy, Check, Type, Sparkles } from "lucide-react";
+import { 
+  Palette, Download, Edit3, Trash2, Plus, Search, Camera, FileText, 
+  Image as ImageIcon, Copy, Check, Type, Sparkles, Pin, FilePlus, Folder, 
+  Clock, Save, Share2, AlignLeft, Bold, Italic, List, CheckSquare, Code, Heading
+} from "lucide-react";
 import html2canvas from "html2canvas";
 import { useToast } from "@/components/common/Toast";
 
-interface StickyNote {
+// ─── Data Models ──────────────────────────────────────────────────────────────
+export interface StickyNote {
   id: string;
+  title?: string;
   text: string;
   color: string;      // Background Color Class
   textColor: string;  // Custom Text Color Class
@@ -14,9 +20,18 @@ interface StickyNote {
   date: string;
   time: string;
   subject: string;
-  isBold?: boolean;
-  isHighlighted?: boolean;
+  pinned?: boolean;
   image?: string;     // Base64 / URL image attachment
+}
+
+export interface NotepadDoc {
+  id: string;
+  title: string;
+  content: string;
+  category: string;
+  updatedAt: string;
+  createdAt: string;
+  pinned?: boolean;
 }
 
 const NOTE_BACKGROUNDS = [
@@ -43,604 +58,696 @@ const NOTE_FONTS = [
   { name: "System Sans", class: "font-sans" },
   { name: "Classic Serif", class: "font-serif" },
   { name: "Developer Mono", class: "font-mono" },
-  { name: "Rozha One (Hindi Stylised)", class: "font-[RozhaOne,serif]" },
-  { name: "Poppins (Hindi Modern)", class: "font-[Poppins,sans-serif]" },
-  { name: "Kurale (Hindi Classic)", class: "font-[Kurale,serif]" },
-  { name: "Yatra One (Hindi Retro)", class: "font-[YatraOne,cursive]" }
+  { name: "Poppins Modern", class: "font-[Poppins,sans-serif]" }
+];
+
+const DEFAULT_NOTEPAD_DOCS: NotepadDoc[] = [
+  {
+    id: "default-doc-1",
+    title: "📖 Physics Formulas & Notes",
+    content: `# Physics Study Notes
+
+## Key Formulas
+- Velocity: v = d / t
+- Acceleration: a = (v - u) / t
+- Newton's Second Law: F = m * a
+- Kinetic Energy: KE = 0.5 * m * v^2
+
+## Revision Strategy
+1. Solve 5 numerical problems daily.
+2. Review derivation for wave motion equations.
+3. Test flashcards before bedtime.`,
+    category: "Physics",
+    updatedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+    pinned: true
+  },
+  {
+    id: "default-doc-2",
+    title: "📝 Daily Study Journal",
+    content: `# Study Journal
+
+- **Today's Goal**: Finish 2 chapters of Mathematics.
+- **Key Takeaways**: Matrix multiplication requires rows of A to match columns of B.
+- **Pending Tasks**: Practice previous year questions.`,
+    category: "General",
+    updatedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString()
+  }
 ];
 
 export function StudyNotesBoardPage() {
   const [activeTab, setActiveTab] = useState<"board" | "notepad">("board");
 
+  // ─── Sticky Board State ──────────────────────────────────────────────────
   const [stickyNotes, setStickyNotes] = useState<StickyNote[]>(() => {
     try {
       const saved = localStorage.getItem("workspace_sticky_notes");
       return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      console.error("Failed to parse workspace_sticky_notes from localStorage:", e);
+    } catch {
       return [];
     }
   });
 
-  // Notepad State
-  const [notepadTitle, setNotepadTitle] = useState(() => localStorage.getItem("flowtrack_notepad_title") || "My Study Journal Notes");
-  const [notepadContent, setNotepadContent] = useState(() => localStorage.getItem("flowtrack_notepad_content") || "");
-  const [fontSize, setFontSize] = useState<"sm" | "base" | "lg">("base");
-  const [copiedNotepad, setCopiedNotepad] = useState(false);
-
-  // New Sticky Note State
+  const [noteTitle, setNoteTitle] = useState("");
   const [noteText, setNoteText] = useState("");
   const [noteSubject, setNoteSubject] = useState("");
   const [noteImage, setNoteImage] = useState<string | null>(null);
   const [newNoteBg, setNewNoteBg] = useState(NOTE_BACKGROUNDS[0].class);
   const [newNoteTextColor, setNewNoteTextColor] = useState(NOTE_TEXT_COLORS[5].class);
   const [newNoteFont, setNewNoteFont] = useState(NOTE_FONTS[0].class);
-  const [noteIsBold, setNoteIsBold] = useState(false);
-  const [noteIsHighlighted, setNoteIsHighlighted] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const { showToast } = useToast();
-
-  // Edit states
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
+
+  // ─── Real Notepad Multiple Docs State ─────────────────────────────────────
+  const [notepadDocs, setNotepadDocs] = useState<NotepadDoc[]>(() => {
+    try {
+      const saved = localStorage.getItem("flowtrack_notepad_docs_v2");
+      if (saved) return JSON.parse(saved);
+    } catch { /* fallback */ }
+    return DEFAULT_NOTEPAD_DOCS;
+  });
+
+  const [activeDocId, setActiveDocId] = useState<string>(() => {
+    return notepadDocs[0]?.id || "default-doc-1";
+  });
+
+  const [docSearch, setDocSearch] = useState("");
+  const [copiedNotepad, setCopiedNotepad] = useState(false);
+  const { showToast } = useToast();
 
   const notesContainerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Sync Sticky Notes
   useEffect(() => {
     localStorage.setItem("workspace_sticky_notes", JSON.stringify(stickyNotes));
   }, [stickyNotes]);
 
+  // Sync Notepad Documents
   useEffect(() => {
-    localStorage.setItem("flowtrack_notepad_title", notepadTitle);
-    localStorage.setItem("flowtrack_notepad_content", notepadContent);
-  }, [notepadTitle, notepadContent]);
+    localStorage.setItem("flowtrack_notepad_docs_v2", JSON.stringify(notepadDocs));
+  }, [notepadDocs]);
 
+  // Active Notepad Document
+  const activeDoc = useMemo(() => {
+    return notepadDocs.find(d => d.id === activeDocId) || notepadDocs[0] || null;
+  }, [notepadDocs, activeDocId]);
+
+  // ─── Sticky Notes Handlers ────────────────────────────────────────────────
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        showToast("Image too large. Max 2MB allowed.", "warning");
+        return;
+      }
       const reader = new FileReader();
-      reader.onload = (ev) => {
-        setNoteImage(ev.target?.result as string);
-        showToast("🖼️ Image attached to note!", "success");
+      reader.onloadend = () => {
+        setNoteImage(reader.result as string);
+        showToast("Image attached to Sticky Note", "info");
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleAddNote = () => {
-    if (!noteText.trim() && !noteImage) return;
+  const addStickyNote = () => {
+    if (!noteText.trim() && !noteImage && !noteTitle.trim()) {
+      showToast("Please enter a title or text for the note", "warning");
+      return;
+    }
+
     const now = new Date();
     const newNote: StickyNote = {
       id: crypto.randomUUID(),
-      text: noteText,
+      title: noteTitle.trim() || undefined,
+      text: noteText.trim(),
       color: newNoteBg,
       textColor: newNoteTextColor,
       font: newNoteFont,
-      date: now.toLocaleDateString(),
-      time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      subject: noteSubject.trim() || "General Study",
-      isBold: noteIsBold,
-      isHighlighted: noteIsHighlighted,
-      image: noteImage || undefined
+      date: now.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      time: now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      subject: noteSubject.trim() || "General",
+      image: noteImage || undefined,
+      pinned: false
     };
+
     setStickyNotes([newNote, ...stickyNotes]);
+    setNoteTitle("");
     setNoteText("");
     setNoteSubject("");
     setNoteImage(null);
-    setNoteIsBold(false);
-    setNoteIsHighlighted(false);
-    showToast("📌 Sticky note added successfully!", "success");
+    showToast("Sticky note saved!", "success");
   };
 
-  const handleSaveEdit = (id: string) => {
-    setStickyNotes(stickyNotes.map(n => n.id === id ? { ...n, text: editText } : n));
-    setEditingNoteId(null);
-    showToast("💾 Sticky note updated!", "success");
+  const togglePinSticky = (id: string) => {
+    setStickyNotes(prev => prev.map(n => n.id === id ? { ...n, pinned: !n.pinned } : n));
   };
 
-  const handleDelete = (id: string) => {
-    setStickyNotes(stickyNotes.filter(n => n.id !== id));
-    showToast("🗑️ Note deleted from board.", "warning");
+  const deleteStickyNote = (id: string) => {
+    setStickyNotes(prev => prev.filter(n => n.id !== id));
+    showToast("Sticky note deleted", "info");
   };
 
-  const handleDownloadSingleNoteAsPNG = async (note: StickyNote) => {
-    const el = document.getElementById(`note-card-${note.id}`);
-    if (!el) return;
-    try {
-      const canvas = await html2canvas(el, {
-        backgroundColor: "#090d16",
-        scale: 3,
-        useCORS: true,
-        allowTaint: true,
-        foreignObjectRendering: false,
-        logging: false
-      });
-      const dataUrl = canvas.toDataURL("image/png");
-      const defaultFilename = `FlowTrack-Note-${note.subject.replace(/\s+/g, "_")}-${new Date().getTime()}.png`;
-
-      const link = document.createElement("a");
-      link.download = defaultFilename;
-      link.href = dataUrl;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      showToast("📸 Single note exported as PNG image!", "success");
-    } catch (err) {
-      console.error("Failed to download note image", err);
-      showToast("❌ Image download failed", "error");
-    }
-  };
-
-  const handleDownloadAsPNG = async () => {
+  const exportBoardAsImage = async () => {
     if (!notesContainerRef.current) return;
     try {
+      showToast("Generating image export...", "info");
       const canvas = await html2canvas(notesContainerRef.current, {
-        backgroundColor: "#0b0f19",
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        foreignObjectRendering: false,
-        logging: false,
-        onclone: (clonedDoc) => {
-          const imgs = clonedDoc.querySelectorAll("img");
-          imgs.forEach((img) => img.setAttribute("crossOrigin", "anonymous"));
-        }
+        backgroundColor: "#0F172A",
+        scale: 2
       });
-      const dataUrl = canvas.toDataURL("image/png");
-      const defaultFilename = `FlowTrack-StickyNotes-${new Date().toISOString().split("T")[0]}.png`;
-
-      if (typeof window !== "undefined" && (window as any).electron?.ipcRenderer) {
-        try {
-          const invoker = (window as any).electron.ipcRenderer.invoke;
-          if (invoker) {
-            const res = await invoker("save-image-dialog", {
-              base64Data: dataUrl,
-              defaultFilename: defaultFilename
-            });
-            if (res && res.success) {
-              showToast(`✅ Sticky Notes Board PNG saved to: ${res.path}`, "success");
-              return;
-            }
-          }
-        } catch (ipcErr) {
-          console.warn("Electron native save failed, falling back to browser download", ipcErr);
-        }
-      }
-
+      const image = canvas.toDataURL("image/png");
       const link = document.createElement("a");
-      link.download = defaultFilename;
-      link.href = dataUrl;
-      document.body.appendChild(link);
+      link.href = image;
+      link.download = `FlowTrack_StickyBoard_${new Date().toISOString().slice(0, 10)}.png`;
       link.click();
-      document.body.removeChild(link);
-      showToast("📥 Sticky Notes Board downloaded as PNG image!", "success");
-    } catch (err) {
-      console.error("Failed to render notes", err);
-      showToast("❌ Failed to export image", "error");
+      showToast("Sticky Board exported as PNG!", "success");
+    } catch {
+      showToast("Failed to export image", "warning");
     }
   };
 
-  // Notepad Exporters
-  const handleDownloadNotepadTxt = () => {
-    const blob = new Blob([`${notepadTitle}\n${"=".repeat(notepadTitle.length)}\n\n${notepadContent}`], { type: "text/plain;charset=utf-8" });
+  // ─── Real Notepad Multiple Docs Handlers ──────────────────────────────────
+  const createNewDoc = () => {
+    const newDoc: NotepadDoc = {
+      id: crypto.randomUUID(),
+      title: `Untitled Document ${notepadDocs.length + 1}`,
+      content: "",
+      category: "General",
+      updatedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString()
+    };
+
+    setNotepadDocs([newDoc, ...notepadDocs]);
+    setActiveDocId(newDoc.id);
+    showToast("New Document created!", "success");
+  };
+
+  const updateActiveDocTitle = (title: string) => {
+    if (!activeDoc) return;
+    setNotepadDocs(prev => prev.map(d => d.id === activeDoc.id ? { 
+      ...d, 
+      title, 
+      updatedAt: new Date().toISOString() 
+    } : d));
+  };
+
+  const updateActiveDocContent = (content: string) => {
+    if (!activeDoc) return;
+    setNotepadDocs(prev => prev.map(d => d.id === activeDoc.id ? { 
+      ...d, 
+      content, 
+      updatedAt: new Date().toISOString() 
+    } : d));
+  };
+
+  const togglePinDoc = (id: string) => {
+    setNotepadDocs(prev => prev.map(d => d.id === id ? { ...d, pinned: !d.pinned } : d));
+  };
+
+  const deleteDoc = (id: string) => {
+    if (notepadDocs.length <= 1) {
+      showToast("Cannot delete the only remaining document", "warning");
+      return;
+    }
+    const filtered = notepadDocs.filter(d => d.id !== id);
+    setNotepadDocs(filtered);
+    setActiveDocId(filtered[0].id);
+    showToast("Document deleted", "info");
+  };
+
+  const downloadDocAsFile = () => {
+    if (!activeDoc) return;
+    const blob = new Blob([activeDoc.content], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${notepadTitle.replace(/\s+/g, "_")}.txt`;
-    document.body.appendChild(link);
+    const safeTitle = activeDoc.title.replace(/[^a-z0-9_-]/gi, "_").toLowerCase();
+    link.download = `${safeTitle || "note"}.md`;
     link.click();
-    document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    showToast("📄 Notepad saved as .txt file!", "success");
+    showToast("Document exported as .md file!", "success");
   };
 
-  const handleCopyNotepad = () => {
-    navigator.clipboard.writeText(`${notepadTitle}\n\n${notepadContent}`);
+  const copyDocToClipboard = () => {
+    if (!activeDoc) return;
+    navigator.clipboard.writeText(activeDoc.content);
     setCopiedNotepad(true);
+    showToast("Document copied to clipboard!", "success");
     setTimeout(() => setCopiedNotepad(false), 2000);
-    showToast("📋 Notepad copied to clipboard!", "info");
   };
 
-  // Filter notes based on query match
-  const filteredNotes = useMemo(() => {
-    if (!searchQuery.trim()) return stickyNotes;
-    const q = searchQuery.toLowerCase();
-    return stickyNotes.filter(
-      n => n.text.toLowerCase().includes(q) || n.subject.toLowerCase().includes(q)
-    );
+  // Quick formatting toolbar insertion into active notepad textarea
+  const insertFormatting = (prefix: string, suffix: string = "") => {
+    const textarea = document.getElementById("notepad-editor-textarea") as HTMLTextAreaElement | null;
+    if (!textarea || !activeDoc) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const currentText = activeDoc.content;
+    const selectedText = currentText.substring(start, end);
+
+    const replacement = `${prefix}${selectedText || "text"}${suffix}`;
+    const newContent = currentText.substring(0, start) + replacement + currentText.substring(end);
+
+    updateActiveDocContent(newContent);
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + prefix.length, end + prefix.length);
+    }, 50);
+  };
+
+  // Filtered Sticky Notes
+  const filteredStickyNotes = useMemo(() => {
+    let result = stickyNotes;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(n => 
+        (n.title && n.title.toLowerCase().includes(q)) ||
+        n.text.toLowerCase().includes(q) || 
+        n.subject.toLowerCase().includes(q)
+      );
+    }
+    // Sort pinned notes first
+    return [...result].sort((a, b) => Number(b.pinned || 0) - Number(a.pinned || 0));
   }, [stickyNotes, searchQuery]);
 
+  // Filtered Notepad Documents
+  const filteredDocs = useMemo(() => {
+    let result = notepadDocs;
+    if (docSearch.trim()) {
+      const q = docSearch.toLowerCase();
+      result = result.filter(d => d.title.toLowerCase().includes(q) || d.content.toLowerCase().includes(q));
+    }
+    return [...result].sort((a, b) => Number(b.pinned || 0) - Number(a.pinned || 0));
+  }, [notepadDocs, docSearch]);
+
+  // Word & Character count for active doc
+  const wordCount = activeDoc ? activeDoc.content.trim().split(/\s+/).filter(Boolean).length : 0;
+  const charCount = activeDoc ? activeDoc.content.length : 0;
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
-    >
-      {/* Header & Mode Switcher */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 rounded-3xl bg-slate-900/40 p-6 border border-white/5 shadow-2xl backdrop-blur-xl">
-        <div>
-          <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
-            📝 Study <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Notes Workspace</span>
-          </h2>
-          <p className="mt-1 text-xs sm:text-sm text-slate-400 leading-relaxed">
-            Sticky Notes Canvas Board + Real Notepad Editor with 1-click PNG & Text Image Export.
-          </p>
-        </div>
+    <div className="space-y-6">
+      {/* ─── Top Header & Dual Mode Tabs ─────────────────────────────────── */}
+      <Panel className="bg-slate-900/90 border-slate-800 backdrop-blur-md p-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center space-x-3">
+            <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 shadow-lg shadow-purple-500/5">
+              <Sparkles className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-slate-100 flex items-center gap-2">
+                📌 Study Notes & Notepad Suite
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                  {activeTab === "board" ? "Sticky Board (Keep Style)" : "Real Notepad (Docs Style)"}
+                </span>
+              </h1>
+              <p className="text-xs text-slate-400">Save, organize and manage all your study notes by title in app database</p>
+            </div>
+          </div>
 
-        {/* View Tabs Toggle */}
-        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-black/40 border border-white/10 shrink-0 self-start md:self-auto">
-          <button
-            onClick={() => setActiveTab("board")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-              activeTab === "board"
-                ? "bg-purple-500 text-white shadow-lg shadow-purple-500/25"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <Palette className="w-4 h-4" />
-            <span>Sticky Board</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("notepad")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-              activeTab === "notepad"
-                ? "bg-purple-500 text-white shadow-lg shadow-purple-500/25"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            <span>Real Notepad</span>
-          </button>
-        </div>
-      </div>
+          {/* Dual Navigation Tabs */}
+          <div className="flex items-center p-1 rounded-xl bg-slate-950/80 border border-slate-800">
+            <button
+              onClick={() => setActiveTab("board")}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
+                activeTab === "board"
+                  ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <Palette className="w-4 h-4" /> 📌 Sticky Board (Keep)
+            </button>
 
-      {/* TAB 1: STICKY NOTES BOARD */}
-      {activeTab === "board" && (
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Note Creator Form Panel */}
-          <Panel className="space-y-4 lg:col-span-1 h-fit">
-            <h3 className="text-base font-bold text-white flex items-center justify-between border-b border-white/5 pb-2">
-              <span className="flex items-center gap-1.5">
-                <span>✏️</span> Create Sticky Note
-              </span>
-              <Sparkles className="w-4 h-4 text-purple-400" />
+            <button
+              onClick={() => setActiveTab("notepad")}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
+                activeTab === "notepad"
+                  ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <FileText className="w-4 h-4" /> 📝 Real Notepad (Saved Docs)
+            </button>
+          </div>
+        </div>
+      </Panel>
+
+      {/* ─── TAB 1: STICKY BOARD MODE (GOOGLE KEEP STYLE) ──────────────────── */}
+      {activeTab === "board" ? (
+        <div className="space-y-6">
+          {/* Create New Sticky Note Input Card */}
+          <Panel className="bg-slate-900/80 border-slate-800 p-5 backdrop-blur-md">
+            <h3 className="text-sm font-bold text-slate-200 mb-3 flex items-center gap-2">
+              <Plus className="w-4 h-4 text-purple-400" /> Create New Sticky Note
             </h3>
-
+            
             <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  placeholder="Note Title (e.g. Physics Chapter 1 Summary)"
+                  value={noteTitle}
+                  onChange={(e) => setNoteTitle(e.target.value)}
+                  className="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-purple-500"
+                />
+
+                <input
+                  type="text"
+                  placeholder="Subject Tag (e.g. Mathematics, History, Biology)"
+                  value={noteSubject}
+                  onChange={(e) => setNoteSubject(e.target.value)}
+                  className="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-purple-500"
+                />
+              </div>
+
               <textarea
+                placeholder="Write your study note content here..."
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
-                placeholder="Type or paste note content here..."
-                className="w-full h-32 rounded-xl border border-white/10 bg-slate-950/70 p-3 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-purple-400 resize-none font-sans leading-relaxed"
+                rows={3}
+                className="w-full bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 text-xs text-white placeholder-slate-500 outline-none focus:border-purple-500 resize-y"
               />
 
-              {/* Image attachment preview */}
               {noteImage && (
-                <div className="relative rounded-xl border border-purple-500/30 overflow-hidden bg-black/40 max-h-36">
+                <div className="relative w-32 h-20 rounded-lg overflow-hidden border border-purple-500/40">
                   <img src={noteImage} alt="Attachment" className="w-full h-full object-cover" />
-                  <button
-                    onClick={() => setNoteImage(null)}
-                    className="absolute top-1 right-1 p-1 bg-rose-500/80 text-white rounded-full text-[10px]"
+                  <button 
+                    onClick={() => setNoteImage(null)} 
+                    className="absolute top-1 right-1 p-1 bg-rose-600 text-white rounded-full text-xs hover:bg-rose-500"
                   >
                     ✕
                   </button>
                 </div>
               )}
 
-              <div className="space-y-3 p-3 rounded-xl bg-slate-950/60 border border-white/5">
-                {/* Background Selector */}
-                <div className="flex flex-col gap-1.5">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Background Color</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {NOTE_BACKGROUNDS.map(bg => (
+              {/* Color & Styling Selectors */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* Background Theme */}
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-slate-400 mr-1">Bg:</span>
+                    {NOTE_BACKGROUNDS.map((bg) => (
                       <button
                         key={bg.name}
-                        title={bg.name}
                         onClick={() => setNewNoteBg(bg.class)}
-                        className={`w-5 h-5 rounded border ${bg.class.split(" ")[1]} ${
-                          newNoteBg === bg.class ? "ring-2 ring-white scale-110" : ""
-                        }`}
+                        className={`w-5 h-5 rounded-full border transition ${newNoteBg === bg.class ? "ring-2 ring-purple-500 scale-110 border-white" : "border-slate-700"}`}
+                        style={{ backgroundColor: bg.name === "Yellow" ? "#eab308" : bg.name === "Emerald" ? "#10b981" : bg.name === "Cyan" ? "#06b6d4" : bg.name === "Purple" ? "#a855f7" : bg.name === "Pink" ? "#ec4899" : bg.name === "Rose" ? "#f43f5e" : "#1e293b" }}
+                        title={bg.name}
                       />
                     ))}
                   </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase">Text Color</span>
-                    <select
-                      value={newNoteTextColor}
-                      onChange={(e) => setNewNoteTextColor(e.target.value)}
-                      className="bg-slate-900 border border-white/10 rounded px-2 py-1 text-xs text-white outline-none"
-                    >
-                      {NOTE_TEXT_COLORS.map(tc => (
-                        <option key={tc.class} value={tc.class}>{tc.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase">Font Model</span>
-                    <select
-                      value={newNoteFont}
-                      onChange={(e) => setNewNoteFont(e.target.value)}
-                      className="bg-slate-900 border border-white/10 rounded px-2 py-1 text-xs text-white outline-none"
-                    >
-                      {NOTE_FONTS.map(f => (
-                        <option key={f.class} value={f.class}>{f.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Formatting & Image Upload */}
-                <div className="flex items-center justify-between border-t border-white/5 pt-2">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setNoteIsBold(!noteIsBold)}
-                      className={`px-2 py-1 rounded text-[10px] flex items-center gap-1 border ${
-                        noteIsBold ? "bg-purple-500/25 border-purple-400/40 text-purple-300 font-bold" : "bg-white/5 border-white/10 text-slate-400"
-                      }`}
-                    >
-                      <span>B</span>
-                    </button>
-                    <button
-                      onClick={() => setNoteIsHighlighted(!noteIsHighlighted)}
-                      className={`px-2 py-1 rounded text-[10px] flex items-center gap-1 border ${
-                        noteIsHighlighted ? "bg-yellow-500/25 border-yellow-400/40 text-yellow-300 font-bold" : "bg-white/5 border-white/10 text-slate-400"
-                      }`}
-                    >
-                      <span>Highlight</span>
-                    </button>
-                  </div>
-
-                  {/* Attach Image Button */}
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleImageUpload}
-                    accept="image/*"
-                    className="hidden"
-                  />
+                  {/* Image Attachment */}
+                  <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300"
-                    title="Attach Image"
+                    className="px-3 py-1.5 rounded-lg text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1.5"
                   >
-                    <ImageIcon className="w-3 h-3 text-cyan-400" />
-                    <span>Image</span>
+                    <ImageIcon className="w-3.5 h-3.5 text-purple-400" /> Attach Image
                   </button>
                 </div>
 
-                <div className="space-y-2 pt-2 border-t border-white/5">
-                  <input
-                    type="text"
-                    placeholder="Subject (e.g. History)"
-                    value={noteSubject}
-                    onChange={(e) => setNoteSubject(e.target.value)}
-                    className="w-full bg-slate-950 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-purple-400"
-                  />
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={handleAddNote}
-                    disabled={!noteText.trim() && !noteImage}
-                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-bold disabled:opacity-40 active:scale-95 transition-transform flex items-center justify-center gap-1 shadow-lg shadow-purple-500/20"
+                    onClick={exportBoardAsImage}
+                    className="px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1.5"
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Create Sticky Note</span>
+                    <Download className="w-3.5 h-3.5" /> Export Board PNG
+                  </button>
+
+                  <button
+                    onClick={addStickyNote}
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-600/30 transition flex items-center gap-1.5"
+                  >
+                    <Plus className="w-4 h-4" /> Save Sticky Note
                   </button>
                 </div>
               </div>
             </div>
           </Panel>
 
-          {/* Board View Panel */}
-          <div className="lg:col-span-2 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <h3 className="text-base font-bold text-white flex items-center gap-1.5">
-                <Palette className="w-4 h-4 text-purple-400" />
-                <span>Canvas Board ({filteredNotes.length})</span>
-              </h3>
-              
-              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                {stickyNotes.length > 0 && (
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search notes / subjects..."
-                      className="bg-slate-900 border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-400 w-44"
-                    />
-                    <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" />
-                  </div>
-                )}
-
-                {stickyNotes.length > 0 && (
-                  <button
-                    onClick={handleDownloadAsPNG}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-purple-500/20 border border-purple-500/30 text-xs font-bold text-purple-300 hover:bg-purple-500/30 active:scale-95 transition-transform"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Export Entire Board PNG</span>
-                  </button>
-                )}
+          {/* Search Bar & Sticky Notes Grid */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search sticky notes by title, subject or content..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-slate-900/90 border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-purple-500"
+                />
               </div>
+
+              <span className="text-xs text-slate-400 font-semibold">
+                Total Notes: <span className="text-purple-400">{filteredStickyNotes.length}</span>
+              </span>
             </div>
 
-            {stickyNotes.length === 0 ? (
-              <div className="flex flex-col items-center justify-center p-12 rounded-3xl bg-slate-900/10 border border-white/5 border-dashed text-center">
-                <span className="text-3xl mb-2">📌</span>
-                <p className="text-sm font-semibold text-slate-400">Notes Board is Empty</p>
-                <p className="text-xs text-slate-500 mt-1">Create sticky notes on the left panel to populate your workspace board.</p>
-              </div>
-            ) : (
-              <div 
-                ref={notesContainerRef} 
-                className="grid gap-4 sm:grid-cols-2 p-4 rounded-2xl bg-slate-950 border border-white/5 min-h-[420px]"
-              >
-                {filteredNotes.map(note => (
-                  <div 
-                    key={note.id} 
-                    id={`note-card-${note.id}`}
-                    className={`relative rounded-xl border p-4 space-y-3 flex flex-col justify-between shadow-lg transition-transform hover:-translate-y-0.5 ${note.color}`}
+            <div ref={notesContainerRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-1">
+              <AnimatePresence>
+                {filteredStickyNotes.map((note) => (
+                  <motion.div
+                    key={note.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    className={`relative p-4 rounded-2xl border backdrop-blur-md shadow-xl transition hover:shadow-2xl flex flex-col justify-between ${note.color} ${note.pinned ? "ring-2 ring-purple-500/50" : ""}`}
                   >
                     <div>
-                      <div className="flex items-center justify-between border-b border-white/5 pb-1 mb-2">
-                        <span className="text-[10px] uppercase tracking-wider font-extrabold text-purple-300">{note.subject}</span>
-                        <button
-                          onClick={() => handleDownloadSingleNoteAsPNG(note)}
-                          className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-black/30 text-[9px] text-slate-300 hover:text-white hover:bg-black/50 transition-colors"
-                          title="Download Note Image PNG"
-                        >
-                          <Camera className="w-3 h-3 text-cyan-400" />
-                          <span>PNG</span>
-                        </button>
+                      {/* Note Header */}
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div>
+                          {note.title && (
+                            <h4 className={`text-sm font-bold tracking-tight ${note.textColor}`}>
+                              {note.title}
+                            </h4>
+                          )}
+                          <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-white/10 text-white/80 inline-block mt-1">
+                            {note.subject}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => togglePinSticky(note.id)}
+                            className={`p-1.5 rounded-lg transition ${note.pinned ? "bg-purple-600 text-white" : "hover:bg-white/10 text-slate-400"}`}
+                            title={note.pinned ? "Unpin Note" : "Pin Note to Top"}
+                          >
+                            <Pin className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            onClick={() => deleteStickyNote(note.id)}
+                            className="p-1.5 rounded-lg hover:bg-rose-500/20 text-rose-300 transition"
+                            title="Delete Note"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
 
+                      {/* Image Attachment */}
                       {note.image && (
-                        <div className="mb-2 rounded-lg overflow-hidden border border-white/10 max-h-44">
+                        <div className="my-2 rounded-xl overflow-hidden max-h-40 border border-white/10">
                           <img src={note.image} alt="Attachment" className="w-full h-full object-cover" />
                         </div>
                       )}
-                      
-                      {editingNoteId === note.id ? (
-                        <div className="space-y-2">
-                          <textarea
-                            value={editText}
-                            onChange={(e) => setEditText(e.target.value)}
-                            className="w-full h-24 bg-slate-900 border border-white/10 text-xs rounded p-2 text-white outline-none focus:border-purple-400"
-                          />
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleSaveEdit(note.id)}
-                              className="px-2 py-1 rounded bg-purple-500 text-white text-[10px] font-bold"
-                            >
-                              Save
-                            </button>
-                            <button
-                              onClick={() => setEditingNoteId(null)}
-                              className="px-2 py-1 rounded bg-white/5 text-slate-300 text-[10px]"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className={`text-xs leading-relaxed whitespace-pre-wrap break-words py-1 ${note.textColor} ${note.font} ${
-                          note.isBold ? "font-bold" : ""
-                        } ${
-                          note.isHighlighted ? "bg-yellow-500/20 px-1 py-0.5 rounded border border-yellow-500/25" : ""
-                        }`}>
-                          {note.text}
-                        </div>
-                      )}
+
+                      {/* Note Content */}
+                      <p className={`text-xs leading-relaxed whitespace-pre-wrap ${note.textColor} ${note.font}`}>
+                        {note.text}
+                      </p>
                     </div>
 
-                    <div className="border-t border-white/5 pt-2 flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                    {/* Date Footer */}
+                    <div className="mt-4 pt-2 border-t border-white/10 flex items-center justify-between text-[10px] text-slate-400">
                       <span>{note.date} • {note.time}</span>
-                      <div className="flex items-center gap-1">
-                        <button 
-                          onClick={() => {
-                            setEditingNoteId(note.id);
-                            setEditText(note.text);
-                          }}
-                          className="text-slate-400 hover:text-purple-300 p-1"
-                          title="Edit Note"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(note.id)}
-                          className="text-rose-400/70 hover:text-rose-400 p-1"
-                          title="Delete Note"
-                        >
-                          <Trash className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
-              </div>
-            )}
+              AnimatePresence>
+
+              {filteredStickyNotes.length === 0 && (
+                <div className="col-span-full py-12 text-center text-slate-400 space-y-2">
+                  <Palette className="w-8 h-8 mx-auto text-slate-600" />
+                  <p className="text-sm font-semibold">No sticky notes found</p>
+                  <p className="text-xs text-slate-500">Create a new sticky note above to populate your board!</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      )}
-
-      {/* TAB 2: REAL NOTEPAD EDITOR */}
-      {activeTab === "notepad" && (
-        <Panel className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">📓</span>
-              <input
-                type="text"
-                value={notepadTitle}
-                onChange={(e) => setNotepadTitle(e.target.value)}
-                className="bg-transparent text-lg font-bold text-white outline-none focus:border-b focus:border-purple-400 w-64 sm:w-80"
-                placeholder="Notepad Title..."
-              />
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Font Size controls */}
-              <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/10 text-xs">
-                <Type className="w-3.5 h-3.5 text-slate-400 ml-1" />
+      ) : (
+        /* ─── TAB 2: REAL NOTEPAD MODE (SAVED NAMED DOCUMENTS) ─────────────── */
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 min-h-[680px]">
+          {/* Documents Sidebar List */}
+          <Panel className="lg:col-span-1 bg-slate-900/90 border-slate-800 p-4 flex flex-col justify-between space-y-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
+                  <Folder className="w-4 h-4 text-purple-400" /> Saved Documents
+                </h3>
                 <button
-                  onClick={() => setFontSize("sm")}
-                  className={`px-2 py-0.5 rounded-lg ${fontSize === "sm" ? "bg-purple-500 text-white font-bold" : "text-slate-400"}`}
+                  onClick={createNewDoc}
+                  className="px-2.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition flex items-center gap-1 shadow-md shadow-purple-600/20"
                 >
-                  S
-                </button>
-                <button
-                  onClick={() => setFontSize("base")}
-                  className={`px-2 py-0.5 rounded-lg ${fontSize === "base" ? "bg-purple-500 text-white font-bold" : "text-slate-400"}`}
-                >
-                  M
-                </button>
-                <button
-                  onClick={() => setFontSize("lg")}
-                  className={`px-2 py-0.5 rounded-lg ${fontSize === "lg" ? "bg-purple-500 text-white font-bold" : "text-slate-400"}`}
-                >
-                  L
+                  <FilePlus className="w-3.5 h-3.5" /> + New Doc
                 </button>
               </div>
 
-              <button
-                onClick={handleCopyNotepad}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-slate-200 active:scale-95 transition-all"
-              >
-                {copiedNotepad ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
-                <span>{copiedNotepad ? "Copied!" : "Copy"}</span>
-              </button>
+              {/* Doc Search */}
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search docs..."
+                  value={docSearch}
+                  onChange={(e) => setDocSearch(e.target.value)}
+                  className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white outline-none focus:border-purple-500"
+                />
+              </div>
 
-              <button
-                onClick={handleDownloadNotepadTxt}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500 text-white text-xs font-bold hover:bg-purple-600 shadow-lg shadow-purple-500/20 active:scale-95 transition-all"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Save .TXT</span>
-              </button>
-            </div>
-          </div>
+              {/* Document List */}
+              <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
+                {filteredDocs.map((doc) => {
+                  const isActive = doc.id === activeDoc?.id;
+                  return (
+                    <div
+                      key={doc.id}
+                      onClick={() => setActiveDocId(doc.id)}
+                      className={`p-3 rounded-xl border transition cursor-pointer flex flex-col justify-between gap-1.5 ${
+                        isActive 
+                          ? "bg-purple-600/20 border-purple-500/50 text-white shadow-md shadow-purple-500/10" 
+                          : "bg-slate-950/40 border-slate-800/80 text-slate-300 hover:bg-slate-800/50"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <h4 className="text-xs font-bold truncate flex-1">
+                          {doc.title || "Untitled Document"}
+                        </h4>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); togglePinDoc(doc.id); }}
+                          className={`text-slate-400 hover:text-purple-400 ${doc.pinned ? "text-purple-400" : ""}`}
+                        >
+                          <Pin className="w-3 h-3" />
+                        </button>
+                      </div>
 
-          {/* Lined Paper Style Real Notepad Textarea */}
-          <div className="relative rounded-2xl border border-white/10 bg-slate-950 p-4 shadow-inner">
-            <textarea
-              value={notepadContent}
-              onChange={(e) => setNotepadContent(e.target.value)}
-              placeholder="Write your detailed study notes, lecture summaries, or formulas here... (Auto-saved locally)"
-              className={`w-full min-h-[460px] bg-transparent text-slate-100 placeholder-slate-600 outline-none resize-none font-mono leading-relaxed tracking-wide ${
-                fontSize === "sm" ? "text-xs" : fontSize === "lg" ? "text-base" : "text-sm"
-              }`}
-            />
-            <div className="flex items-center justify-between text-[10px] text-slate-500 pt-2 border-t border-white/5 font-mono">
-              <span>Auto-saved to Local Storage</span>
-              <span>{notepadContent.length} Characters • {notepadContent.split(/\s+/).filter(Boolean).length} Words</span>
+                      <p className="text-[11px] text-slate-400 line-clamp-2">
+                        {doc.content || "Empty document..."}
+                      </p>
+
+                      <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> {new Date(doc.updatedAt).toLocaleDateString([], { month: "short", day: "numeric" })}
+                        </span>
+                        {notepadDocs.length > 1 && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); deleteDoc(doc.id); }}
+                            className="text-slate-500 hover:text-rose-400 transition"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        </Panel>
+
+            <div className="text-[11px] text-slate-500 text-center pt-2 border-t border-slate-800">
+              Auto-saves real-time to app database 💾
+            </div>
+          </Panel>
+
+          {/* Active Notepad Document Editor Canvas */}
+          <Panel className="lg:col-span-3 bg-slate-900/90 border-slate-800 p-5 flex flex-col justify-between space-y-4">
+            {activeDoc ? (
+              <>
+                {/* Editor Header & Actions */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                  <input
+                    type="text"
+                    value={activeDoc.title}
+                    onChange={(e) => updateActiveDocTitle(e.target.value)}
+                    placeholder="Document Title (e.g. Physics Chapter Notes)"
+                    className="flex-1 bg-transparent text-lg font-extrabold text-white outline-none border-b border-transparent focus:border-purple-500 py-1"
+                  />
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={copyDocToClipboard}
+                      className="px-3 py-1.5 rounded-lg text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1.5"
+                    >
+                      {copiedNotepad ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedNotepad ? "Copied!" : "Copy"}
+                    </button>
+
+                    <button
+                      onClick={downloadDocAsFile}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-600/30 hover:bg-purple-600/40 text-purple-200 border border-purple-500/40 transition flex items-center gap-1.5"
+                    >
+                      <Download className="w-3.5 h-3.5" /> Export .md File
+                    </button>
+                  </div>
+                </div>
+
+                {/* Quick Formatting Toolbar */}
+                <div className="flex flex-wrap items-center gap-1.5 p-1.5 rounded-xl bg-slate-950/80 border border-slate-800">
+                  <button onClick={() => insertFormatting("**", "**")} className="p-1.5 hover:bg-slate-800 rounded text-slate-300" title="Bold">
+                    <Bold className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => insertFormatting("*", "*")} className="p-1.5 hover:bg-slate-800 rounded text-slate-300" title="Italic">
+                    <Italic className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => insertFormatting("# ")} className="p-1.5 hover:bg-slate-800 rounded text-slate-300" title="Heading">
+                    <Heading className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => insertFormatting("- ")} className="p-1.5 hover:bg-slate-800 rounded text-slate-300" title="Bullet List">
+                    <List className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => insertFormatting("- [ ] ")} className="p-1.5 hover:bg-slate-800 rounded text-slate-300" title="Checkbox Task">
+                    <CheckSquare className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => insertFormatting("```\n", "\n```")} className="p-1.5 hover:bg-slate-800 rounded text-slate-300" title="Code Block">
+                    <Code className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Main Textarea Document Editor */}
+                <textarea
+                  id="notepad-editor-textarea"
+                  value={activeDoc.content}
+                  onChange={(e) => updateActiveDocContent(e.target.value)}
+                  placeholder="Start typing your study notes, formulas, or journal entries here..."
+                  className="w-full flex-1 min-h-[440px] bg-slate-950/90 border border-slate-800 rounded-2xl p-5 text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-purple-500 font-mono leading-relaxed resize-y shadow-inner"
+                />
+
+                {/* Document Stats Footer */}
+                <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-800">
+                  <div className="flex items-center gap-4">
+                    <span>Words: <strong className="text-purple-400">{wordCount}</strong></span>
+                    <span>Characters: <strong className="text-purple-400">{charCount}</strong></span>
+                  </div>
+                  <span className="text-[11px] text-slate-500">Auto-saved live</span>
+                </div>
+              </>
+            ) : (
+              <div className="py-24 text-center text-slate-400">
+                <FileText className="w-10 h-10 mx-auto text-slate-600" />
+                <p className="mt-2 text-sm">Select or create a document to start editing</p>
+              </div>
+            )}
+          </Panel>
+        </div>
       )}
-    </motion.div>
+    </div>
   );
 }
