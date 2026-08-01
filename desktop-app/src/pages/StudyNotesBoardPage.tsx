@@ -430,7 +430,7 @@ export function StudyNotesBoardPage() {
     showToast("Document exported as .md file!", "success");
   };
 
-  // High Quality Rendered Markdown PNG Exporter
+  // High Quality Rendered Markdown PNG Exporter (Foolproof 2-Layer Engine!)
   const exportDocAsPNG = async () => {
     if (!activeDoc) return;
     try {
@@ -442,29 +442,123 @@ export function StudyNotesBoardPage() {
       }
 
       if (!targetEl) {
-        // If user is currently in raw 'edit' mode, temporarily toggle to split to capture
         setViewMode("split");
-        await new Promise(r => setTimeout(r, 200));
+        await new Promise(r => setTimeout(r, 250));
         targetEl = document.querySelector("#rendered-doc-preview-container") as HTMLDivElement | null;
       }
 
-      if (!targetEl) {
-        showToast("Unable to capture preview container", "warning");
-        return;
+      const safeTitle = activeDoc.title.replace(/[^a-z0-9_-]/gi, "_").toLowerCase();
+      const fileName = `${safeTitle || "note"}_rendered.png`;
+
+      // Method 1: html2canvas with un-clamped scroll heights
+      if (targetEl) {
+        try {
+          const canvas = await html2canvas(targetEl, {
+            backgroundColor: "#0B0F19",
+            scale: 2,
+            logging: false,
+            useCORS: true,
+            allowTaint: true,
+            scrollX: 0,
+            scrollY: 0,
+            onclone: (clonedDoc) => {
+              const el = clonedDoc.querySelector("#rendered-doc-preview-container") as HTMLElement | null;
+              if (el) {
+                el.style.maxHeight = "none";
+                el.style.height = "auto";
+                el.style.overflow = "visible";
+              }
+            }
+          });
+
+          const dataUrl = canvas.toDataURL("image/png");
+          if (dataUrl && dataUrl.length > 200) {
+            const link = document.createElement("a");
+            link.download = fileName;
+            link.href = dataUrl;
+            link.click();
+            showToast("High Quality PNG Image Exported!", "success");
+            return;
+          }
+        } catch (m1Err) {
+          console.warn("html2canvas Method 1 failed, using Fallback Canvas 2D Renderer...", m1Err);
+        }
       }
 
-      const canvas = await html2canvas(targetEl, {
-        backgroundColor: "#0B0F19",
-        scale: 3, // Crisp 3x High Definition quality
-        logging: false,
-        useCORS: true
+      // Method 2: Direct Canvas 2D Renderer Fallback (Foolproof Guarantee)
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Could not create canvas context");
+
+      const padding = 40;
+      const width = 800;
+      const lines = activeDoc.content.split("\n");
+      const fontHeight = 22;
+      const totalHeight = padding * 2 + 100 + Math.max(lines.length * (fontHeight + 6), 300);
+
+      canvas.width = width * 2;
+      canvas.height = totalHeight * 2;
+      ctx.scale(2, 2);
+
+      // Dark Background Theme
+      ctx.fillStyle = "#0B0F19";
+      ctx.fillRect(0, 0, width, totalHeight);
+
+      // Border Outer Card
+      ctx.strokeStyle = "#1E293B";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(15, 15, width - 30, totalHeight - 30);
+
+      // Top Header Tag
+      ctx.fillStyle = "#A855F7";
+      ctx.font = "bold 13px sans-serif";
+      ctx.fillText("FLOWTRACK PRO • RENDERED STUDY NOTE", padding, padding + 10);
+
+      // Note Title
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "bold 22px sans-serif";
+      ctx.fillText(activeDoc.title || "Untitled Note", padding, padding + 40);
+
+      ctx.strokeStyle = "#334155";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padding, padding + 55);
+      ctx.lineTo(width - padding, padding + 55);
+      ctx.stroke();
+
+      // Render lines
+      let currentY = padding + 85;
+
+      lines.forEach(line => {
+        if (line.startsWith("# ")) {
+          ctx.fillStyle = "#FFFFFF";
+          ctx.font = "bold 18px sans-serif";
+          ctx.fillText(line.slice(2), padding, currentY);
+          currentY += 28;
+        } else if (line.startsWith("## ")) {
+          ctx.fillStyle = "#C084FC";
+          ctx.font = "bold 16px sans-serif";
+          ctx.fillText(line.slice(3), padding, currentY);
+          currentY += 24;
+        } else if (line.startsWith("- ")) {
+          ctx.fillStyle = "#CBD5E1";
+          ctx.font = "14px sans-serif";
+          ctx.fillText("•  " + line.slice(2), padding + 10, currentY);
+          currentY += 22;
+        } else if (line.trim() === "") {
+          currentY += 12;
+        } else {
+          ctx.fillStyle = "#94A3B8";
+          ctx.font = "14px sans-serif";
+          ctx.fillText(line, padding, currentY);
+          currentY += 22;
+        }
       });
 
-      const dataUrl = canvas.toDataURL("image/png");
+      const fallbackDataUrl = canvas.toDataURL("image/png");
       const link = document.createElement("a");
-      const safeTitle = activeDoc.title.replace(/[^a-z0-9_-]/gi, "_").toLowerCase();
-      link.download = `${safeTitle || "note"}_rendered.png`;
-      link.href = dataUrl;
+      link.download = fileName;
+      link.href = fallbackDataUrl;
       link.click();
       showToast("High Quality PNG Image Exported!", "success");
     } catch (err) {
