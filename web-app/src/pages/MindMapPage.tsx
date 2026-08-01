@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/components/common/Toast";
 import { Panel } from "@/components/common/Panel";
+import "@excalidraw/excalidraw/index.css";
 
 // ─── Mind Map Tree Engine Models ──────────────────────────────────────────────
 export interface MindNode {
@@ -110,7 +111,7 @@ export function MindMapPage() {
     if (engineMode === "excalidraw" && !excalidrawComp) {
       setIsExcalidrawLoading(true);
       if (typeof window !== "undefined") {
-        (window as any).EXCALIDRAW_ASSET_PATH = "https://unpkg.com/@excalidraw/excalidraw/dist/";
+        (window as any).EXCALIDRAW_ASSET_PATH = "https://cdn.jsdelivr.net/npm/@excalidraw/excalidraw@0.18.1/dist/";
       }
       import("@excalidraw/excalidraw")
         .then((mod) => {
