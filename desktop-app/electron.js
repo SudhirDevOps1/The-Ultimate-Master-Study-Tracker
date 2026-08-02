@@ -269,14 +269,11 @@ function cleanWindowTitle(title) {
 
 
 // ── Direct Native Win32 Active Window Fetcher via win-tracker.exe ─────────────
-// STRICT: win-tracker.exe only. No fallback. If not available → returns null.
-function getForegroundWindow() {
+function getForegroundWindowFallback() {
   return new Promise((resolve) => {
-    if (!fs.existsSync(trackerExePath)) {
-      console.warn("[Tracker] win-tracker.exe not found at:", trackerExePath);
-      return resolve(null);
-    }
-    execFile(trackerExePath, { timeout: 1000 }, (err, stdout) => {
+    if (process.platform !== "win32") return resolve(null);
+    const psScript = `$code = '[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);'; Add-Type -MemberDefinition $code -Name Win32Utils -Namespace Native; $hwnd = [Native.Win32Utils]::GetForegroundWindow(); $pid = 0; [Native.Win32Utils]::GetWindowThreadProcessId($hwnd, [ref]$pid); if ($pid -gt 0) { $p = Get-Process -Id $pid -ErrorAction SilentlyContinue; if ($p) { @{ process = $p.ProcessName; title = $p.MainWindowTitle } | ConvertTo-Json -Compress } }`;
+    exec(`powershell -NoProfile -Command "${psScript}"`, { timeout: 1200 }, (err, stdout) => {
       if (err || !stdout) return resolve(null);
       try {
         const parsed = JSON.parse(stdout.trim());
@@ -291,18 +288,38 @@ function getForegroundWindow() {
   });
 }
 
+function getForegroundWindow() {
+  return new Promise((resolve) => {
+    if (!fs.existsSync(trackerExePath)) {
+      return resolve(getForegroundWindowFallback());
+    }
+    execFile(trackerExePath, { timeout: 1000 }, (err, stdout) => {
+      if (err || !stdout) {
+        return resolve(getForegroundWindowFallback());
+      }
+      try {
+        const parsed = JSON.parse(stdout.trim());
+        resolve({
+          title:   parsed.title   || "",
+          process: parsed.process || "unknown"
+        });
+      } catch {
+        resolve(getForegroundWindowFallback());
+      }
+    });
+  });
+}
+
 // ── Native System Idle Time (Lightweight Memory-Safe Call) ────────────────────
 // Using standard C# tracker exe integration if possible, fallback to 0. No expensive PowerShell processes.
 function getSystemIdleMs() {
   return new Promise((resolve) => {
     if (!fs.existsSync(trackerExePath)) return resolve(0);
-    // win-tracker.exe can be queried or fallback to normal process tracking.
-    // To make it lightweight and prevent high CPU heat, we skip launching PowerShell sub-shells.
     resolve(0); 
   });
 }
 
-// ── Background Activity Tracker Loop (Every 5 seconds) ────────────────────────
+// ── Background Activity Tracker Loop (Every 1.5 seconds) ──────────────────────
 function startActivityTracker() {
   setInterval(async () => {
     let rawInfo = await getForegroundWindow();
@@ -323,42 +340,51 @@ function startActivityTracker() {
 
     // 🛡️ Real-Time Native App & Browser Tab Blocker Enforcement Hook
     if (blockRulesData.globalEnabled && blockRulesData.rules && blockRulesData.rules.length > 0) {
-      const activeProc = (processName || "").toLowerCase();
-      const activeTitle = (windowTitle || "").toLowerCase();
+      const activeProc = (processName || "").toLowerCase().trim();
+      const activeTitle = (windowTitle || "").toLowerCase().trim();
+      const cleanActive = activeProc.replace(/\.exe$/i, "");
 
       for (const rule of blockRulesData.rules) {
-        if (!rule.blocked && rule.blocked !== undefined) continue;
+        const isBlocked = rule.blocked !== false && rule.enabled !== false;
+        if (!isBlocked) continue;
+
         const target = (rule.appName || "").toLowerCase().trim();
         if (!target) continue;
 
         const cleanTarget = target.replace(/\.exe$/i, "");
-        const cleanActive = activeProc.replace(/\.exe$/i, "");
 
-        const isMatch = activeProc.includes(target) || 
-                        cleanActive === cleanTarget ||
+        // Flexible matching: handles "chrome", "google chrome", "chrome.exe", "code", "vs code", etc.
+        const isMatch = cleanActive === cleanTarget ||
                         activeProc.includes(cleanTarget) ||
+                        cleanTarget.includes(cleanActive) ||
                         activeTitle.includes(cleanTarget) ||
-                        target.includes(cleanActive);
+                        (cleanTarget.length > 3 && (activeProc.includes(cleanTarget) || activeTitle.includes(cleanTarget)));
 
-        if (isMatch && !isSelf(processName, windowTitle) && activeProc !== "explorer.exe") {
+        if (isMatch && !isSelf(processName, windowTitle) && activeProc !== "explorer.exe" && cleanActive !== "explorer") {
+          const exeName = processName.toLowerCase().endsWith(".exe") ? processName : `${processName}.exe`;
+          const appDisplayName = normalizeAppName(processName) || cleanActive;
+
           if (rule.strictLevel === "hard") {
-            // HARD: Terminate process immediately
-            exec(`taskkill /F /IM "${processName}" /T`, () => {});
+            // HARD: Terminate process immediately using taskkill with .exe extension
+            exec(`taskkill /F /IM "${exeName}" /T`, () => {});
             if (mainWindow) {
-              mainWindow.webContents.send("toast-message", { message: `🛡️ Hard Blocked: Terminated ${normalizeAppName(processName)}!` });
+              mainWindow.webContents.send("toast-message", { message: `🛡️ Hard Blocked: Terminated ${appDisplayName}!` });
             }
           } else if (rule.strictLevel === "medium") {
-            // MEDIUM: Minimize distracting active window
-            exec(`powershell -command "(Get-Process -Name '${cleanActive}' -ErrorAction SilentlyContinue) | ForEach-Object { $_.CloseMainWindow() }"`, () => {
-              exec(`powershell -command "(new-object -com shell.application).minimizeall()"`, () => {});
+            // MEDIUM: Close main window & restore FlowTrack Pro window to focus
+            exec(`powershell -NoProfile -Command "(Get-Process -Name '${cleanActive}' -ErrorAction SilentlyContinue) | ForEach-Object { $_.CloseMainWindow() }"`, () => {
+              if (mainWindow) {
+                mainWindow.show();
+                mainWindow.focus();
+              }
             });
             if (mainWindow) {
-              mainWindow.webContents.send("toast-message", { message: `⚠️ Medium Blocked: Minimized ${normalizeAppName(processName)}!` });
+              mainWindow.webContents.send("toast-message", { message: `⚠️ Medium Blocked: Minimized ${appDisplayName}!` });
             }
           } else {
-            // SOFT: Notification Toast
+            // SOFT: Notification Toast Warning
             if (mainWindow) {
-              mainWindow.webContents.send("toast-message", { message: `🔔 Soft Warning: Distracting app ${normalizeAppName(processName)} detected!` });
+              mainWindow.webContents.send("toast-message", { message: `🔔 Soft Warning: Distracting app ${appDisplayName} detected!` });
             }
           }
           break;
