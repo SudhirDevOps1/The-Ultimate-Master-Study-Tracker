@@ -176,7 +176,7 @@ export function GuidePage() {
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <span className="text-xs text-slate-400 font-medium">Core Stack:</span>
-            {appInfo.techStack.slice(0, 5).map((tech, i) => (
+            {appInfo.techStack.map((tech, i) => (
               <span key={i} className="rounded-lg bg-slate-800/80 border border-white/10 px-2.5 py-1 text-[11px] font-mono text-cyan-300">
                 {tech}
               </span>
