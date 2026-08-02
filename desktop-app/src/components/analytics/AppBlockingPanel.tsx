@@ -1,9 +1,15 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Shield, ShieldAlert, Plus, Trash2, Check, RefreshCw } from "lucide-react";
+import { Shield, ShieldAlert, Plus, Trash2, Check, RefreshCw, Monitor, Laptop } from "lucide-react";
 import { Panel } from "@/components/common/Panel";
 import { useAppStore, type AppState } from "@/store/useAppStore";
 import type { AppBlockRule, BlockStrictLevel } from "@/types/models";
+
+interface RunningApp {
+  appName: string;
+  processName: string;
+  title: string;
+}
 
 export function AppBlockingPanel() {
   const backendUrl = useAppStore((state: AppState) => state.backendUrl);
@@ -16,7 +22,28 @@ export function AppBlockingPanel() {
   const [schedule, setSchedule] = useState<"always" | "study_hours">("study_hours");
   const [loading, setLoading] = useState(false);
 
+  // Running Windows Apps state
+  const [runningApps, setRunningApps] = useState<RunningApp[]>([]);
+  const [scanningApps, setScanningApps] = useState(false);
+
   const getIpc = () => (typeof window !== "undefined" ? (window as any).electron : null);
+
+  // Scan currently running Windows applications
+  const fetchRunningApps = async () => {
+    setScanningApps(true);
+    try {
+      const ipc = getIpc();
+      if (ipc) {
+        const res = await ipc.invoke("get-running-apps");
+        if (res && Array.isArray(res.apps)) {
+          setRunningApps(res.apps);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch running apps:", e);
+    }
+    setScanningApps(false);
+  };
 
   // Load block rules from Electron IPC / local db/storage and sync
   const loadRules = async () => {
@@ -44,6 +71,7 @@ export function AppBlockingPanel() {
 
   useEffect(() => {
     void loadRules();
+    void fetchRunningApps();
   }, [isBackendConnected]);
 
   const saveRulesToLocalAndBackend = async (updatedRules: AppBlockRule[], newGlobalEnabled?: boolean) => {
@@ -58,11 +86,19 @@ export function AppBlockingPanel() {
     }
   };
 
-  const addRule = async () => {
-    if (!newAppName.trim()) return;
+  const addRule = async (nameToAdd?: string) => {
+    const targetName = (nameToAdd || newAppName).trim();
+    if (!targetName) return;
+
+    // Check if rule already exists
+    if (rules.some(r => r.appName.toLowerCase() === targetName.toLowerCase())) {
+      setNewAppName("");
+      return;
+    }
+
     const newRule: AppBlockRule = {
       id: crypto.randomUUID(),
-      appName: newAppName.trim(),
+      appName: targetName,
       blocked: true,
       strictLevel,
       schedule,
@@ -120,17 +156,92 @@ export function AppBlockingPanel() {
           </div>
         </div>
 
+        {/* 💻 Windows Live Running Apps Picker Section */}
+        <div className="space-y-2.5 rounded-xl border border-white/10 bg-slate-950/60 p-3.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Monitor className="w-4 h-4 text-cyan-400" />
+              <span className="text-xs font-bold text-white uppercase tracking-wider">Detected Running Windows Apps</span>
+              <span className="rounded-full bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 text-[10px] font-bold text-cyan-300">
+                {runningApps.length} Apps Active
+              </span>
+            </div>
+            <button
+              onClick={() => void fetchRunningApps()}
+              disabled={scanningApps}
+              className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-cyan-300 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${scanningApps ? "animate-spin text-cyan-400" : ""}`} />
+              <span>{scanningApps ? "Scanning..." : "Scan Apps"}</span>
+            </button>
+          </div>
+
+          {/* Running apps list picker */}
+          {runningApps.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[160px] overflow-y-auto pr-1 pretty-scrollbar">
+              {runningApps.map((app) => {
+                const isAlreadyBlocked = rules.some(r => r.appName.toLowerCase() === app.processName.toLowerCase() || r.appName.toLowerCase() === app.appName.toLowerCase());
+                return (
+                  <div
+                    key={app.processName}
+                    className={`flex items-center justify-between gap-2 p-2 rounded-lg border transition-colors ${
+                      isAlreadyBlocked ? "border-rose-500/20 bg-rose-500/5 opacity-60" : "border-white/5 bg-white/[0.02] hover:border-cyan-500/30"
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-white truncate">{app.appName}</p>
+                      <p className="text-[10px] text-slate-400 truncate">{app.processName}</p>
+                    </div>
+                    {isAlreadyBlocked ? (
+                      <span className="text-[10px] font-bold text-rose-400 shrink-0 flex items-center gap-0.5">
+                        <Check className="w-3 h-3" /> Blocked
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => void addRule(app.processName)}
+                        className="flex items-center gap-1 rounded-md bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 px-2 py-1 text-[10px] font-bold text-cyan-300 transition-all shrink-0 active:scale-95"
+                      >
+                        <Plus className="w-3 h-3" /> Block
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-[11px] text-slate-500 italic py-2">Click "Scan Apps" to detect active Windows applications on your PC.</p>
+          )}
+        </div>
+
         {/* Add custom rule form */}
         <div className="grid gap-3 sm:grid-cols-4 items-end bg-white/[0.02] border border-white/5 p-3 rounded-xl">
           <div className="space-y-1 sm:col-span-2">
-            <label className="block text-[10px] uppercase font-bold text-slate-400">Process/App Name</label>
-            <input
-              type="text"
-              placeholder="e.g., discord.exe, Spotify"
-              value={newAppName}
-              onChange={(e) => setNewAppName(e.target.value)}
-              className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-rose-400"
-            />
+            <label className="block text-[10px] uppercase font-bold text-slate-400">Process / App Name</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="e.g., discord.exe, spotify, chrome"
+                value={newAppName}
+                onChange={(e) => setNewAppName(e.target.value)}
+                className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-rose-400"
+              />
+              {runningApps.length > 0 && (
+                <select
+                  onChange={(e) => {
+                    if (e.target.value) setNewAppName(e.target.value);
+                  }}
+                  value=""
+                  className="rounded-lg border border-white/10 bg-slate-900 px-2 py-2 text-xs text-slate-300 focus:outline-none focus:border-cyan-400 max-w-[140px]"
+                >
+                  <option value="">Pick App...</option>
+                  {runningApps.map(a => (
+                    <option key={a.processName} value={a.processName}>
+                      {a.appName} ({a.processName})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
           </div>
           <div className="space-y-1">
             <label className="block text-[10px] uppercase font-bold text-slate-400">Strictness</label>
@@ -145,7 +256,7 @@ export function AppBlockingPanel() {
             </select>
           </div>
           <button
-            onClick={addRule}
+            onClick={() => void addRule()}
             className="flex items-center justify-center gap-1.5 rounded-lg bg-rose-500 hover:bg-rose-600 px-4 py-2 text-xs font-bold text-white transition-all active:scale-95"
           >
             <Plus className="w-4 h-4" />
@@ -197,3 +308,4 @@ export function AppBlockingPanel() {
     </div>
   );
 }
+

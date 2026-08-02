@@ -794,6 +794,41 @@ ipcMain.handle("save-block-rules", async (_e, { rules, globalEnabled }) => {
   return { success: true, blockRulesData };
 });
 
+ipcMain.handle("get-running-apps", async () => {
+  return new Promise((resolve) => {
+    if (process.platform !== "win32") {
+      return resolve({ success: true, apps: [] });
+    }
+    const psScript = `Get-Process | Where-Object { $_.MainWindowTitle } | Select-Object ProcessName, MainWindowTitle | ConvertTo-Json -Compress`;
+    exec(`powershell -NoProfile -Command "${psScript}"`, { timeout: 3000 }, (err, stdout) => {
+      if (err || !stdout) return resolve({ success: true, apps: [] });
+      try {
+        let parsed = JSON.parse(stdout.trim());
+        if (!Array.isArray(parsed)) parsed = [parsed];
+        const appsMap = new Map();
+        for (const item of parsed) {
+          const proc = (item.ProcessName || "").trim();
+          const title = (item.MainWindowTitle || "").trim();
+          if (!proc) continue;
+          if (isSelf(proc, title) || proc.toLowerCase() === "explorer") continue;
+          const cleanName = normalizeAppName(proc) || proc;
+          if (!appsMap.has(proc.toLowerCase())) {
+            appsMap.set(proc.toLowerCase(), {
+              appName: cleanName,
+              processName: proc.toLowerCase().endsWith(".exe") ? proc.toLowerCase() : `${proc.toLowerCase()}.exe`,
+              title: title || cleanName,
+            });
+          }
+        }
+        const apps = Array.from(appsMap.values());
+        resolve({ success: true, apps });
+      } catch {
+        resolve({ success: true, apps: [] });
+      }
+    });
+  });
+});
+
 ipcMain.handle("get-active-window", async () => {
   const info = await getForegroundWindow();
   if (!info) return { title: "", process: "", appName: "", isSelf: false, skip: true };

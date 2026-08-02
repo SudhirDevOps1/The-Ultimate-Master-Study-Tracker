@@ -24,6 +24,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   "open-in-vlc",
   "get-block-rules",
   "save-block-rules",
+  "get-running-apps",
   // Webview Activity Tracking (Web Portals Browser page)
   "webview-activity-report",
   "webview-activity-clear",
