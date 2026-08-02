@@ -106,30 +106,6 @@ export function MindMapPage() {
     } catch { /* ignore */ }
   }, [nodes]);
 
-  // Load Excalidraw dynamically if toggled
-  useEffect(() => {
-    if (engineMode === "excalidraw" && !excalidrawComp) {
-      setIsExcalidrawLoading(true);
-      if (typeof window !== "undefined") {
-        (window as any).EXCALIDRAW_ASSET_PATH = "https://unpkg.com/@excalidraw/excalidraw/dist/";
-      }
-      import("@excalidraw/excalidraw")
-        .then((mod) => {
-          const Comp = (mod as any).Excalidraw || (mod as any).default?.Excalidraw || (mod as any).default;
-          if (!Comp) throw new Error("Excalidraw component not found");
-          setExcalidrawComp(() => Comp);
-        })
-        .catch((e) => {
-          console.warn("Excalidraw dynamic import notice:", e);
-          showToast("Failed to load Excalidraw engine. Returning to Organic Tree engine.", "warning");
-          setEngineMode("tree");
-        })
-        .finally(() => {
-          setIsExcalidrawLoading(false);
-        });
-    }
-  }, [engineMode, excalidrawComp, showToast]);
-
   // ── Node Helper Functions ──────────────────────────────────────────────────
   const selectedNode = nodes.find(n => n.id === selectedNodeId);
 
@@ -379,58 +355,23 @@ export function MindMapPage() {
     }
   };
 
-  // Robust Multi-Fallback Excalidraw Ultra HD PNG Export
+  // Whiteboard Canvas PNG Export
   const exportExcalidrawPNG = async () => {
     try {
-      const mod = await import("@excalidraw/excalidraw");
-      if (mod && typeof mod.exportToBlob === "function" && excalidrawAPI) {
-        const elements = excalidrawAPI.getSceneElements();
-        const appState = excalidrawAPI.getAppState ? excalidrawAPI.getAppState() : {};
-        const files = excalidrawAPI.getFiles ? excalidrawAPI.getFiles() : null;
-
-        const blob = await mod.exportToBlob({
-          elements,
-          appState: { 
-            ...appState, 
-            exportWithBackground: true,
-            exportScale: 3, // High-Res 3x Scale
-            exportPadding: 30
-          },
-          files,
-          mimeType: "image/png",
-          quality: 1.0
-        });
-
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.download = `Excalidraw_Whiteboard_${new Date().toISOString().slice(0, 10)}.png`;
-        link.href = url;
-        link.click();
-        URL.revokeObjectURL(url);
-        showToast("Excalidraw PNG Exported Successfully!", "success");
-        return;
-      }
-    } catch (err) {
-      console.warn("Excalidraw module exportToBlob fallback:", err);
-    }
-
-    // 2. Fallback to DOM Canvas Query
-    try {
       const container = excalidrawContainerRef.current;
-      const canvasEl = container ? container.querySelector("canvas") : document.querySelector(".excalidraw canvas");
+      const canvasEl = container ? container.querySelector("canvas") : document.querySelector("canvas");
       if (canvasEl && canvasEl instanceof HTMLCanvasElement) {
         const dataUrl = canvasEl.toDataURL("image/png");
         const link = document.createElement("a");
-        link.download = `Excalidraw_Whiteboard_${new Date().toISOString().slice(0, 10)}.png`;
+        link.download = `Whiteboard_${new Date().toISOString().slice(0, 10)}.png`;
         link.href = dataUrl;
         link.click();
-        showToast("Excalidraw Canvas Image Exported!", "success");
+        showToast("Whiteboard Canvas Image Exported!", "success");
         return;
       }
     } catch (err) {
       console.warn("Canvas DOM export error:", err);
     }
-
     showToast("Whiteboard image export ready!", "info");
   };
 
