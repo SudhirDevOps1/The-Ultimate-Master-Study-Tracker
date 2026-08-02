@@ -801,12 +801,12 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
         </div>
       </div>
 
-      {/* 🖌️ Left Vertical Floating Tools Dock */}
-      <div className="absolute left-4 top-20 z-20 flex flex-col gap-1.5 p-2 bg-slate-950/80 border border-white/10 backdrop-blur-xl rounded-2xl shadow-2xl">
+      {/* 🖌️ Left Vertical Floating Tools Dock (Compact & Scrollable) */}
+      <div className="absolute left-3 top-16 z-20 max-h-[calc(100%-80px)] overflow-y-auto scrollbar-none flex flex-col gap-1 p-1.5 bg-slate-950/90 border border-white/10 backdrop-blur-xl rounded-2xl shadow-2xl">
         <button
           onClick={() => setActiveTool("draw")}
-          className={`p-2.5 rounded-xl transition-all ${
-            activeTool === "draw" ? "bg-rose-500 text-white shadow-lg shadow-rose-500/40 scale-110" : "text-slate-400 hover:text-white hover:bg-white/10"
+          className={`p-2 rounded-xl transition-all ${
+            activeTool === "draw" ? "bg-rose-500 text-white shadow-lg shadow-rose-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"
           }`}
           title="Ultra-Smooth Pen (P)"
         >
@@ -815,8 +815,8 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
 
         <button
           onClick={() => setActiveTool("highlighter")}
-          className={`p-2.5 rounded-xl transition-all ${
-            activeTool === "highlighter" ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/40 scale-110" : "text-slate-400 hover:text-white hover:bg-white/10"
+          className={`p-2 rounded-xl transition-all ${
+            activeTool === "highlighter" ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"
           }`}
           title="Highlighter Marker"
         >
@@ -825,8 +825,8 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
 
         <button
           onClick={() => setActiveTool("laser")}
-          className={`p-2.5 rounded-xl transition-all ${
-            activeTool === "laser" ? "bg-rose-600 text-white shadow-lg shadow-rose-600/40 animate-pulse scale-110" : "text-slate-400 hover:text-white hover:bg-white/10"
+          className={`p-2 rounded-xl transition-all ${
+            activeTool === "laser" ? "bg-rose-600 text-white shadow-lg shadow-rose-600/40 animate-pulse scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"
           }`}
           title="Fading Laser Trail"
         >
@@ -835,8 +835,8 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
 
         <button
           onClick={() => setActiveTool("select")}
-          className={`p-2.5 rounded-xl transition-all ${
-            activeTool === "select" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-110" : "text-slate-400 hover:text-white hover:bg-white/10"
+          className={`p-2 rounded-xl transition-all ${
+            activeTool === "select" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"
           }`}
           title="Lasso Box Select (V)"
         >
@@ -845,8 +845,8 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
 
         <button
           onClick={() => setActiveTool("pan")}
-          className={`p-2.5 rounded-xl transition-all ${
-            activeTool === "pan" ? "bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/40 scale-110" : "text-slate-400 hover:text-white hover:bg-white/10"
+          className={`p-2 rounded-xl transition-all ${
+            activeTool === "pan" ? "bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"
           }`}
           title="360° Infinite Pan (H or Alt+Drag)"
         >
@@ -855,8 +855,8 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
 
         <button
           onClick={() => setActiveTool("erase")}
-          className={`p-2.5 rounded-xl transition-all ${
-            activeTool === "erase" ? "bg-rose-600 text-white shadow-lg shadow-rose-600/40 scale-110" : "text-slate-400 hover:text-white hover:bg-white/10"
+          className={`p-2 rounded-xl transition-all ${
+            activeTool === "erase" ? "bg-rose-600 text-white shadow-lg shadow-rose-600/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"
           }`}
           title="Object Eraser"
         >
@@ -865,28 +865,28 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
 
         <div className="w-full h-px bg-white/10 my-0.5" />
 
-        <button onClick={() => addShape("rect")} className="p-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Rectangle">
+        <button onClick={() => addShape("rect")} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Rectangle">
           <Square className="w-4 h-4" />
         </button>
-        <button onClick={() => addShape("circle")} className="p-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Circle">
+        <button onClick={() => addShape("circle")} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Circle">
           <Circle className="w-4 h-4" />
         </button>
-        <button onClick={() => addShape("diamond")} className="p-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Diamond Decision">
+        <button onClick={() => addShape("diamond")} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Diamond Decision">
           <Diamond className="w-4 h-4" />
         </button>
-        <button onClick={() => addShape("line")} className="p-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Line">
+        <button onClick={() => addShape("line")} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Line">
           <Minus className="w-4 h-4" />
         </button>
-        <button onClick={() => addShape("arrow")} className="p-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Arrow Connector">
+        <button onClick={() => addShape("arrow")} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Arrow Connector">
           <ArrowRight className="w-4 h-4" />
         </button>
-        <button onClick={() => addShape("text")} className="p-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Text">
+        <button onClick={() => addShape("text")} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Text">
           <Type className="w-4 h-4" />
         </button>
-        <button onClick={() => addShape("note")} className="p-2.5 rounded-xl text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 transition-colors" title="Editable Sticky Note">
+        <button onClick={() => addShape("note")} className="p-2 rounded-xl text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 transition-colors" title="Editable Sticky Note">
           <StickyNote className="w-4 h-4" />
         </button>
-        <button onClick={() => fileInputRef.current?.click()} className="p-2.5 rounded-xl text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors" title="Upload Local PC Image">
+        <button onClick={() => fileInputRef.current?.click()} className="p-2 rounded-xl text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors" title="Upload Local PC Image">
           <ImageIcon className="w-4 h-4" />
         </button>
       </div>
