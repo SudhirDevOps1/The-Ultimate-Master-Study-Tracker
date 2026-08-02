@@ -1,971 +1,1687 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+/**
+ * FabricWhiteboard — a clean, single-file, Excalidraw-style infinite whiteboard.
+ *
+ * • Zero external component imports; everything (toolbar, panels, engine,
+ *   history, export) lives here.
+ * • One canvas init effect that runs exactly once; state flows into the engine
+ *   through a single `live` ref so no handlers ever go stale.
+ * • Custom render passes for the grid (viewport-tracking pattern) and the
+ *   fading laser trail (no fabric objects, no history noise).
+ * • Full drag-to-draw with live preview, Shift-constrained shapes, drag
+ *   eraser, pan/zoom (mouse, trackpad, pinch), touch/stylus support,
+ *   clipboard paste, and a 60-step undo/redo history with autosave.
+ */
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as fabric from "fabric";
-import { 
-  Pencil, Eraser, Square, Circle, Type, StickyNote, Download, Trash2, 
-  RotateCcw, RotateCw, ZoomIn, ZoomOut, Image as ImageIcon,
-  ArrowRight, Minus, Layers, Hand, BoxSelect, Highlighter,
-  Diamond, Type as FontIcon, Copy, Upload, Flame,
-  BringToFront, SendToBack, Magnet, Grid, Maximize2, Minimize2
+import {
+  Undo2, Redo2, ZoomIn, ZoomOut, Maximize2, Minimize2, Menu, Download,
+  Upload, Trash2, Grid3x3, Magnet, ChevronDown, Scan, Palette, FileImage,
+  FileJson, FileCode2, Keyboard, MousePointer2, Hand, Pencil, Highlighter,
+  Zap, Eraser, Square, Circle, Diamond, Minus, ArrowRight, Type, StickyNote,
+  ImagePlus, Lock, Unlock, BringToFront, SendToBack, Copy, Ban, X,
 } from "lucide-react";
 import { useToast } from "@/components/common/Toast";
 
-interface FabricWhiteboardProps {
-  storageKey?: string;
+/* -------------------------------------------------------------------------- */
+/*  Types & constants                                                         */
+/* -------------------------------------------------------------------------- */
+
+type Tool =
+  | "select" | "pan" | "pen" | "marker" | "laser" | "eraser"
+  | "rect" | "ellipse" | "diamond" | "line" | "arrow" | "text" | "note";
+
+interface Theme {
+  id: string; name: string; page: string; grid: string;
+  gtype: "dots" | "lines" | "none"; ink: string; isDark: boolean;
 }
 
-const COLOR_PRESETS = [
-  "#ffffff", "#f43f5e", "#ec4899", "#a855f7", "#3b82f6", 
-  "#06b6d4", "#10b981", "#eab308", "#f97316", "#64748b"
+const SHAPE_TOOLS = new Set<Tool>(["rect", "ellipse", "diamond", "line", "arrow"]);
+const DRAW_TOOLS  = new Set<Tool>(["pen", "marker"]);
+const TEXT_TYPES  = new Set(["i-text", "text", "textbox"]);
+
+const GRID = 20;
+const LASER_MS = 900;
+const MAX_HIST = 60;
+const AUTOSAVE_MS = 500;
+const MIN_ZOOM = 0.08;
+const MAX_ZOOM = 8;
+
+const THEMES: Theme[] = [
+  { id: "midnight",  name: "Midnight",   page: "#0b1120", grid: "rgba(148,163,184,0.30)", gtype: "dots",  ink: "#f8fafc", isDark: true  },
+  { id: "graph",     name: "Graph",      page: "#0b1120", grid: "rgba(148,163,184,0.18)", gtype: "lines", ink: "#f8fafc", isDark: true  },
+  { id: "oled",      name: "OLED",       page: "#000000", grid: "rgba(0,0,0,0)",           gtype: "none",  ink: "#f8fafc", isDark: true  },
+  { id: "chalkboard",name: "Chalkboard", page: "#062a1d", grid: "rgba(16,185,129,0.24)",  gtype: "dots",  ink: "#ecfdf5", isDark: true  },
+  { id: "blueprint", name: "Blueprint",  page: "#0d2748", grid: "rgba(125,211,252,0.22)", gtype: "lines", ink: "#e0f2fe", isDark: true  },
+  { id: "white",     name: "Classic",    page: "#ffffff", grid: "rgba(100,116,139,0.28)", gtype: "dots",  ink: "#0f172a", isDark: false },
+  { id: "paper",     name: "Warm Paper", page: "#faf6ee", grid: "rgba(180,138,88,0.28)",  gtype: "lines", ink: "#3f2d1c", isDark: false },
 ];
+
+const STROKES = ["#0f172a", "#ffffff", "#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899"];
+const FILLS   = ["transparent", "#ef444433", "#22c55e33", "#06b6d433", "#3b82f633", "#f9731633", "#eab30833", "#8b5cf633", "#94a3b833"];
 
 const FONTS = [
-  { name: "Handwritten (Excalidraw)", family: "'Caveat', 'Architects Daughter', cursive, sans-serif" },
-  { name: "Modern Sans", family: "'Inter', system-ui, sans-serif" },
-  { name: "Monospace", family: "'Courier New', monospace" },
+  { name: "Handwritten", family: "'Caveat', 'Comic Sans MS', cursive" },
+  { name: "Architect",   family: "'Architects Daughter', cursive" },
+  { name: "Sans",        family: "Inter, system-ui, sans-serif" },
+  { name: "Serif",       family: "Georgia, 'Times New Roman', serif" },
+  { name: "Mono",        family: "'JetBrains Mono', 'Courier New', monospace" },
 ];
 
-const BACKGROUND_THEMES = [
-  { id: "dot-grid", name: "Dot Grid (Excalidraw)", css: "bg-slate-950 bg-[radial-gradient(#ffffff20_1.5px,transparent_1.5px)] [background-size:24px_24px]" },
-  { id: "graph-lines", name: "Math Graph Grid", css: "bg-slate-950 bg-[linear-gradient(to_right,#ffffff10_1px,transparent_1px),linear-gradient(to_bottom,#ffffff10_1px,transparent_1px)] [background-size:24px_24px]" },
-  { id: "pitch-black", name: "OLED Pitch Black", css: "bg-slate-950" },
-  { id: "chalkboard", name: "Emerald Chalkboard", css: "bg-[#062419] bg-[radial-gradient(#10b98125_1.5px,transparent_1.5px)] [background-size:24px_24px]" },
-  { id: "clean-white", name: "Classic Whiteboard", css: "bg-slate-100 bg-[radial-gradient(#64748b25_1.5px,transparent_1.5px)] [background-size:24px_24px]" },
+const DASHES: Record<string, number[] | undefined> = {
+  solid: undefined, dashed: [12, 9], dotted: [1, 7],
+};
+
+const KEYS: Record<string, Tool> = {
+  v: "select", h: "pan", p: "pen", m: "marker", x: "laser", e: "eraser",
+  r: "rect", o: "ellipse", d: "diamond", l: "line", a: "arrow", t: "text", n: "note",
+};
+
+interface ToolMeta { id: Tool; icon: typeof MousePointer2; label: string; key: string; accent: string; }
+const TOOLS: ToolMeta[] = [
+  { id: "select",  icon: MousePointer2, label: "Select",   key: "V", accent: "bg-white/95 text-slate-900" },
+  { id: "pan",     icon: Hand,          label: "Pan",      key: "H", accent: "bg-emerald-400 text-slate-950" },
+  { id: "pen",     icon: Pencil,        label: "Pen",      key: "P", accent: "bg-rose-500 text-white" },
+  { id: "marker",  icon: Highlighter,   label: "Marker",   key: "M", accent: "bg-amber-400 text-slate-950" },
+  { id: "laser",   icon: Zap,           label: "Laser",    key: "X", accent: "bg-red-500 text-white" },
+  { id: "eraser",  icon: Eraser,        label: "Eraser",   key: "E", accent: "bg-slate-200 text-slate-900" },
+  { id: "rect",    icon: Square,        label: "Rectangle",key: "R", accent: "bg-cyan-400 text-slate-950" },
+  { id: "ellipse", icon: Circle,        label: "Ellipse",  key: "O", accent: "bg-cyan-400 text-slate-950" },
+  { id: "diamond", icon: Diamond,       label: "Diamond",  key: "D", accent: "bg-cyan-400 text-slate-950" },
+  { id: "line",    icon: Minus,         label: "Line",     key: "L", accent: "bg-cyan-400 text-slate-950" },
+  { id: "arrow",   icon: ArrowRight,    label: "Arrow",    key: "A", accent: "bg-cyan-400 text-slate-950" },
+  { id: "text",    icon: Type,          label: "Text",     key: "T", accent: "bg-violet-500 text-white" },
+  { id: "note",    icon: StickyNote,    label: "Note",     key: "N", accent: "bg-amber-400 text-slate-950" },
 ];
 
-export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1" }: FabricWhiteboardProps) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const jsonInputRef = useRef<HTMLInputElement | null>(null);
+const SHORTCUTS: [string, string][] = [
+  ["V","Select"],["H","Pan"],["P","Pen"],["M","Marker"],["X","Laser"],["E","Eraser"],
+  ["R","Rectangle"],["O","Ellipse"],["D","Diamond"],["L","Line"],["A","Arrow"],
+  ["T","Text"],["N","Note"],["Space","Hold to pan"],
+  ["Ctrl+Z","Undo"],["Ctrl+Shift+Z","Redo"],["Ctrl+D","Duplicate"],
+  ["Ctrl+C / V","Copy / paste"],["Ctrl+A","Select all"],["Delete","Delete"],
+  ["Ctrl+0","Reset zoom"],["Ctrl+1","Zoom to fit"],
+  ["Shift+drag","Constrain"],["Alt+drag","Pan canvas"],
+];
+
+/* -------------------------------------------------------------------------- */
+/*  Pure helpers                                                              */
+/* -------------------------------------------------------------------------- */
+
+const isTextObj  = (o?: fabric.Object | null) => !!o && TEXT_TYPES.has(o.type);
+const isShape    = (t: Tool) => SHAPE_TOOLS.has(t);
+const isDraw     = (t: Tool) => DRAW_TOOLS.has(t);
+const clamp      = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+const isHex6     = (s: string) => /^#[0-9a-f]{6}$/i.test(s);
+
+const arrowPathD = (ax: number, ay: number, bx: number, by: number, w: number) => {
+  const ang = Math.atan2(by - ay, bx - ax);
+  const len = Math.hypot(bx - ax, by - ay);
+  const k = clamp(10 + w * 1.4, 8, Math.max(8, len * 0.45));
+  const a1 = ang - Math.PI / 7, a2 = ang + Math.PI / 7;
+  return `M ${ax} ${ay} L ${bx} ${by} `
+       + `M ${bx - k * Math.cos(a1)} ${by - k * Math.sin(a1)} `
+       + `L ${bx} ${by} `
+       + `L ${bx - k * Math.cos(a2)} ${by - k * Math.sin(a2)}`;
+};
+
+const cursorFor = (t: Tool) =>
+  t === "pan"    ? "grab"
+  : t === "eraser" ? "cell"
+  : t === "text" ? "text"
+  : t === "select" ? "default"
+  : "crosshair";
+
+/* -------------------------------------------------------------------------- */
+/*  Component                                                                 */
+/* -------------------------------------------------------------------------- */
+
+export interface FabricWhiteboardProps { storageKey?: string; }
+export const DEFAULT_STORAGE_KEY = "excalidraw_board_v1";
+
+interface LaserPt { x: number; y: number; t: number; }
+
+interface LiveState {
+  tool: Tool; locked: boolean; showGrid: boolean; snap: boolean; theme: Theme;
+  stroke: string; fill: string; width: number; style: string; opacity: number;
+  font: string; size: number;
+}
+
+export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhiteboardProps) {
   const { showToast } = useToast();
 
-  const [activeTool, setActiveTool] = useState<
-    "select" | "draw" | "highlighter" | "laser" | "erase" | "pan" | 
-    "rect" | "circle" | "diamond" | "line" | "arrow" | "text" | "note"
-  >("draw");
+  /* --- DOM refs --------------------------------------------------------- */
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const canvasElRef = useRef<HTMLCanvasElement | null>(null);
+  const fcRef = useRef<fabric.Canvas | null>(null);
+  const imgFileRef = useRef<HTMLInputElement | null>(null);
+  const jsonFileRef = useRef<HTMLInputElement | null>(null);
 
-  const [strokeColor, setStrokeColor] = useState("#f97316");
-  const [fillColor, setFillColor] = useState("rgba(249,115,22,0.15)");
+  /* --- Reactive state (drives UI + panels) ----------------------------- */
+  const [tool, setTool] = useState<Tool>("pen");
+  const [locked, setLocked] = useState(false);
+  const [themeId, setThemeId] = useState(THEMES[0].id);
+  const [showGrid, setShowGrid] = useState(true);
+  const [snap, setSnap] = useState(false);
+
+  const [stroke, setStroke] = useState(THEMES[0].ink);
+  const [fill, setFill] = useState("transparent");
   const [strokeWidth, setStrokeWidth] = useState(4);
-  const [selectedFont, setSelectedFont] = useState(FONTS[0].family);
-  const [bgTheme, setBgTheme] = useState(BACKGROUND_THEMES[0].id);
-  const [zoomLevel, setZoomLevel] = useState(1);
-  const [snapToGrid, setSnapToGrid] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [strokeStyle, setStrokeStyle] = useState("solid");
+  const [opacity, setOpacity] = useState(1);
+  const [fontFamily, setFontFamily] = useState(FONTS[0].family);
+  const [fontSize, setFontSize] = useState(24);
 
-  // History Stacks
-  const historyRef = useRef<string[]>([]);
-  const historyIndexRef = useRef<number>(-1);
-  const isHistoryProcessing = useRef<boolean>(false);
+  const [zoom, setZoom] = useState(1);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+  const [hasSel, setHasSel] = useState(false);
+  const [selIsText, setSelIsText] = useState(false);
 
-  // Laser trail state
-  const laserPathsRef = useRef<fabric.Object[]>([]);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [ready, setReady] = useState(false);
 
-  // Save state to history
-  const pushState = useCallback(() => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas || isHistoryProcessing.current) return;
-    try {
-      const json = JSON.stringify(canvas.toJSON());
-      localStorage.setItem(storageKey, json);
+  const theme = useMemo(() => THEMES.find(t => t.id === themeId) ?? THEMES[0], [themeId]);
 
-      const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
-      newHistory.push(json);
-      historyRef.current = newHistory;
-      historyIndexRef.current = newHistory.length - 1;
+  /* --- Single live ref: engine always sees latest values --------------- */
+  const live = useRef<LiveState>({
+    tool, locked, showGrid, snap, theme,
+    stroke, fill, width: strokeWidth, style: strokeStyle, opacity,
+    font: fontFamily, size: fontSize,
+  });
+  useEffect(() => {
+    live.current = {
+      tool, locked, showGrid, snap, theme,
+      stroke, fill, width: strokeWidth, style: strokeStyle, opacity,
+      font: fontFamily, size: fontSize,
+    };
+  });
 
-      setCanUndo(historyIndexRef.current > 0);
-      setCanRedo(false);
-    } catch { /* ignore */ }
+  /* --- History --------------------------------------------------------- */
+  const histRef = useRef<string[]>([]);
+  const idxRef = useRef(-1);
+  const suspendRef = useRef(false);
+  const saveTimerRef = useRef<number | null>(null);
+
+  const persist = useCallback((json: string) => {
+    if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = window.setTimeout(() => {
+      try { localStorage.setItem(storageKey, json); } catch { /* quota */ }
+    }, AUTOSAVE_MS);
   }, [storageKey]);
 
-  // Undo Action
-  const handleUndo = useCallback(() => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas || historyIndexRef.current <= 0) return;
-    isHistoryProcessing.current = true;
-    historyIndexRef.current -= 1;
-    const previousState = historyRef.current[historyIndexRef.current];
-    canvas.loadFromJSON(previousState).then(() => {
-      canvas.renderAll();
-      isHistoryProcessing.current = false;
-      setCanUndo(historyIndexRef.current > 0);
-      setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
-      showToast("Undo applied", "info");
-    });
-  }, [showToast]);
+  const pushHistory = useCallback(() => {
+    const c = fcRef.current;
+    if (!c || suspendRef.current) return;
+    const json = JSON.stringify(c.toJSON());
+    if (histRef.current[idxRef.current] === json) return;
+    histRef.current = histRef.current.slice(0, idxRef.current + 1);
+    histRef.current.push(json);
+    if (histRef.current.length > MAX_HIST) histRef.current.shift();
+    idxRef.current = histRef.current.length - 1;
+    setCanUndo(idxRef.current > 0);
+    setCanRedo(false);
+    persist(json);
+  }, [persist]);
 
-  // Redo Action
-  const handleRedo = useCallback(() => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas || historyIndexRef.current >= historyRef.current.length - 1) return;
-    isHistoryProcessing.current = true;
-    historyIndexRef.current += 1;
-    const nextState = historyRef.current[historyIndexRef.current];
-    canvas.loadFromJSON(nextState).then(() => {
-      canvas.renderAll();
-      isHistoryProcessing.current = false;
-      setCanUndo(historyIndexRef.current > 0);
-      setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
-      showToast("Redo applied", "info");
-    });
-  }, [showToast]);
+  const loadJSON = useCallback(async (json: string) => {
+    const c = fcRef.current;
+    if (!c) return;
+    suspendRef.current = true;
+    c.discardActiveObject();
+    await c.loadFromJSON(json);
+    c.requestRenderAll();
+    suspendRef.current = false;
+    setHasSel(false);
+    setSelIsText(false);
+    persist(json);
+  }, [persist]);
 
-  // Duplicate Selected Objects
-  const handleDuplicate = useCallback(() => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-    const activeObj = canvas.getActiveObject();
-    if (!activeObj) {
-      showToast("Select any shape or drawing to duplicate", "warning");
-      return;
+  const undo = useCallback(async () => {
+    if (idxRef.current <= 0) return;
+    idxRef.current -= 1;
+    await loadJSON(histRef.current[idxRef.current]);
+    setCanUndo(idxRef.current > 0);
+    setCanRedo(true);
+  }, [loadJSON]);
+
+  const redo = useCallback(async () => {
+    if (idxRef.current >= histRef.current.length - 1) return;
+    idxRef.current += 1;
+    await loadJSON(histRef.current[idxRef.current]);
+    setCanUndo(true);
+    setCanRedo(idxRef.current < histRef.current.length - 1);
+  }, [loadJSON]);
+
+  const mutateSelection = useCallback((fn: (o: fabric.Object) => void) => {
+    const c = fcRef.current;
+    if (!c) return false;
+    const objs = c.getActiveObjects();
+    if (!objs.length) return false;
+    objs.forEach(fn);
+    c.requestRenderAll();
+    pushHistory();
+    return true;
+  }, [pushHistory]);
+
+  /* --- Callback refs (so the once-only keyboard handler is always fresh) */
+  const cbs = useRef({
+    undo, redo,
+    duplicate:  async () => { /* set below */ },
+    copy:       async () => { /* set below */ },
+    paste:      async () => { /* set below */ },
+    deleteSel:  () => { /* set below */ },
+    resetView:  () => { /* set below */ },
+    fitView:    () => { /* set below */ },
+    selectAll:  () => { /* set below */ },
+  });
+
+  /* ============================================================ ENGINE == */
+  useEffect(() => {
+    const el = canvasElRef.current, host = hostRef.current;
+    if (!el || !host) return;
+
+    if (!document.getElementById("wb-fonts")) {
+      const l = document.createElement("link");
+      l.id = "wb-fonts";
+      l.rel = "stylesheet";
+      l.href = "https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Caveat:wght@500;700&family=Inter:wght@500&display=swap";
+      document.head.appendChild(l);
     }
 
-    activeObj.clone().then((cloned) => {
-      canvas.discardActiveObject();
-      cloned.set({
-        left: cloned.left! + 25,
-        top: cloned.top! + 25,
-        evented: true,
-      });
-      if (cloned.type === "activeSelection") {
-        cloned.canvas = canvas;
-        (cloned as any).forEachObject((obj: fabric.Object) => {
-          canvas.add(obj);
-        });
-        cloned.setCoordinates();
-      } else {
-        canvas.add(cloned);
-      }
-      canvas.setActiveObject(cloned);
-      canvas.requestRenderAll();
-      showToast("Duplicated object!", "success");
-    });
-  }, [showToast]);
-
-  const snapToGridRef = useRef(snapToGrid);
-  useEffect(() => {
-    snapToGridRef.current = snapToGrid;
-  }, [snapToGrid]);
-
-  const strokeColorRef = useRef(strokeColor);
-  const fillColorRef = useRef(fillColor);
-  const strokeWidthRef = useRef(strokeWidth);
-  const selectedFontRef = useRef(selectedFont);
-
-  useEffect(() => { strokeColorRef.current = strokeColor; }, [strokeColor]);
-  useEffect(() => { fillColorRef.current = fillColor; }, [fillColor]);
-  useEffect(() => { strokeWidthRef.current = strokeWidth; }, [strokeWidth]);
-  useEffect(() => { selectedFontRef.current = selectedFont; }, [selectedFont]);
-
-  // Initialize Fabric Canvas
-  useEffect(() => {
-    if (!canvasRef.current || !containerRef.current) return;
-
-    if (!document.getElementById("google-fonts-excalidraw")) {
-      const link = document.createElement("link");
-      link.id = "google-fonts-excalidraw";
-      link.rel = "stylesheet";
-      link.href = "https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Caveat:wght@600&display=swap";
-      document.head.appendChild(link);
-    }
-
-    const width = containerRef.current.clientWidth || 1000;
-    const height = containerRef.current.clientHeight || 720;
-
-    const canvas = new fabric.Canvas(canvasRef.current, {
-      width,
-      height,
-      backgroundColor: "transparent",
-      isDrawingMode: true,
-      selection: true,
-      selectionColor: "rgba(6,182,212,0.15)",
-      selectionLineWidth: 1.5,
-      selectionBorderColor: "#06b6d4",
+    const c = new fabric.Canvas(el, {
+      width: host.clientWidth || 1200,
+      height: host.clientHeight || 700,
+      backgroundColor: "",
       preserveObjectStacking: true,
+      selection: true,
+      selectionColor: "rgba(6,182,212,0.12)",
+      selectionBorderColor: "#22d3ee",
+      selectionLineWidth: 1,
+      enableRetinaScaling: true,
+      allowTouchScrolling: false,
+      fireRightClick: true,
+      stopContextMenu: true,
     });
+    fcRef.current = c;
 
     fabric.Object.prototype.set({
-      cornerColor: "#06b6d4",
+      cornerColor: "#ffffff",
+      cornerStrokeColor: "#22d3ee",
       cornerStyle: "circle",
-      cornerSize: 10,
+      cornerSize: 9,
       transparentCorners: false,
-      borderColor: "#06b6d4",
+      borderColor: "#22d3ee",
+      borderScaleFactor: 1.4,
+      padding: 4,
     });
 
-    fabricCanvasRef.current = canvas;
-
-    const brush = new fabric.PencilBrush(canvas);
-    brush.color = strokeColor;
-    brush.width = strokeWidth;
-    brush.decimate = 1.5;
+    const brush = new fabric.PencilBrush(c);
+    brush.decimate = 3;
     brush.strokeLineCap = "round";
     brush.strokeLineJoin = "round";
-    canvas.freeDrawingBrush = brush;
+    c.freeDrawingBrush = brush;
 
-    try {
-      const savedData = localStorage.getItem(storageKey);
-      if (savedData) {
-        canvas.loadFromJSON(savedData).then(() => {
-          canvas.renderAll();
-          historyRef.current = [savedData];
-          historyIndexRef.current = 0;
-        });
-      } else {
-        const initialJson = JSON.stringify(canvas.toJSON());
-        historyRef.current = [initialJson];
-        historyIndexRef.current = 0;
+    /* ---- Grid: cached pattern that tracks viewport ----------------- */
+    const patCache = new Map<string, CanvasPattern | null>();
+    const makePattern = (
+      ctx: CanvasRenderingContext2D, size: number, color: string, type: "dots" | "lines" | "none",
+    ): CanvasPattern | null => {
+      const key = `${size}|${color}|${type}`;
+      const cached = patCache.get(key);
+      if (cached !== undefined) return cached;
+      const s = Math.max(4, Math.round(size));
+      const tile = document.createElement("canvas");
+      tile.width = tile.height = s;
+      const tx = tile.getContext("2d");
+      if (!tx) { patCache.set(key, null); return null; }
+      if (type === "dots") {
+        tx.fillStyle = color;
+        tx.beginPath();
+        tx.arc(1.25, 1.25, 1.25, 0, Math.PI * 2);
+        tx.fill();
+      } else if (type === "lines") {
+        tx.strokeStyle = color;
+        tx.lineWidth = 1;
+        tx.beginPath();
+        tx.moveTo(0.5, 0); tx.lineTo(0.5, s);
+        tx.moveTo(0, 0.5); tx.lineTo(s, 0.5);
+        tx.stroke();
       }
-    } catch (e) {
-      console.error("Failed to restore whiteboard data:", e);
-    }
+      const pat = ctx.createPattern(tile, "repeat");
+      patCache.set(key, pat);
+      return pat;
+    };
 
-    canvas.on("object:moving", (options) => {
-      if (!snapToGridRef.current || !options.target) return;
-      const gridSize = 20;
-      options.target.set({
-        left: Math.round((options.target.left || 0) / gridSize) * gridSize,
-        top: Math.round((options.target.top || 0) / gridSize) * gridSize,
+    c.on("before:render", (opt) => {
+      const ctx = (opt as unknown as { ctx: CanvasRenderingContext2D }).ctx;
+      if (!ctx || ctx !== c.getContext()) return;
+      const { showGrid, theme } = live.current;
+      if (!showGrid || theme.gtype === "none") return;
+      const vpt = c.viewportTransform;
+      let size = GRID * c.getZoom();
+      while (size < 12) size *= 2;
+      while (size > 96) size /= 2;
+      const sq = Math.max(4, Math.round(size));
+      const pat = makePattern(ctx, sq, theme.grid, theme.gtype);
+      if (!pat) return;
+      let ox = vpt[4] % sq, oy = vpt[5] % sq;
+      if (ox > 0) ox -= sq;
+      if (oy > 0) oy -= sq;
+      ctx.save();
+      ctx.translate(ox, oy);
+      ctx.fillStyle = pat;
+      ctx.fillRect(0, 0, c.getWidth() - ox + sq, c.getHeight() - oy + sq);
+      ctx.restore();
+    });
+
+    /* ---- Laser trail: pure canvas, no objects ---------------------- */
+    const laser: LaserPt[] = [];
+    let rafId = 0;
+    const loop = () => {
+      rafId = 0;
+      if (fcRef.current && laser.length) {
+        fcRef.current.requestRenderAll();
+        rafId = requestAnimationFrame(loop);
+      }
+    };
+    const pumpLaser = () => { if (!rafId) rafId = requestAnimationFrame(loop); };
+
+    c.on("after:render", (opt) => {
+      const ctx = (opt as unknown as { ctx: CanvasRenderingContext2D }).ctx;
+      if (!ctx || ctx !== c.getContext() || !laser.length) return;
+      const now = performance.now();
+      while (laser.length && now - laser[0].t > LASER_MS) laser.shift();
+      if (laser.length < 2) return;
+      ctx.save();
+      ctx.lineCap = ctx.lineJoin = "round";
+      for (let i = 1; i < laser.length; i++) {
+        const a = clamp(1 - (now - laser[i].t) / LASER_MS, 0, 1);
+        if (a < 0.02) continue;
+        ctx.beginPath();
+        ctx.moveTo(laser[i - 1].x, laser[i - 1].y);
+        ctx.lineTo(laser[i].x, laser[i].y);
+        ctx.strokeStyle = `rgba(239,68,68,${a * 0.35})`;
+        ctx.lineWidth = 14 * a;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(laser[i - 1].x, laser[i - 1].y);
+        ctx.lineTo(laser[i].x, laser[i].y);
+        ctx.strokeStyle = `rgba(255,255,255,${a})`;
+        ctx.lineWidth = Math.max(1, 4 * a);
+        ctx.stroke();
+      }
+      ctx.restore();
+    });
+
+    /* ---- Shape construction ---------------------------------------- */
+    const snapVal = (v: number) => live.current.snap ? Math.round(v / GRID) * GRID : v;
+
+    const buildShape = (t: Tool, a: fabric.Point, b: fabric.Point): fabric.Object | null => {
+      const L = live.current;
+      const left = Math.min(a.x, b.x), top = Math.min(a.y, b.y);
+      const w = Math.abs(b.x - a.x), h = Math.abs(b.y - a.y);
+      const base = {
+        stroke: L.stroke, strokeWidth: L.width, strokeDashArray: DASHES[L.style],
+        strokeUniform: true, opacity: L.opacity,
+        strokeLineCap: "round" as const, strokeLineJoin: "round" as const,
+      };
+      const fl = L.fill === "transparent" ? "" : L.fill;
+      switch (t) {
+        case "rect":
+          return new fabric.Rect({ ...base, left, top, width: Math.max(w, 1), height: Math.max(h, 1), fill: fl, rx: 10, ry: 10 });
+        case "ellipse":
+          return new fabric.Ellipse({ ...base, left, top, rx: Math.max(w / 2, 1), ry: Math.max(h / 2, 1), fill: fl });
+        case "diamond": {
+          const p = new fabric.Polygon(
+            [{ x: 50, y: 0 }, { x: 100, y: 50 }, { x: 50, y: 100 }, { x: 0, y: 50 }],
+            { ...base, fill: fl, objectCaching: false },
+          );
+          p.set({ left, top, scaleX: Math.max(w, 1) / 100, scaleY: Math.max(h, 1) / 100 });
+          return p;
+        }
+        case "line":
+          return new fabric.Line([a.x, a.y, b.x, b.y], base);
+        case "arrow":
+          return new fabric.Path(arrowPathD(a.x, a.y, b.x, b.y, L.width), base);
+        default: return null;
+      }
+    };
+
+    const addText = (x: number, y: number) => {
+      const L = live.current;
+      const it = new fabric.IText("", {
+        left: x, top: y - L.size / 2,
+        fontFamily: L.font, fontSize: L.size,
+        fill: L.stroke, opacity: L.opacity,
+        editable: true, selectable: true, evented: true,
+      });
+      c.add(it);
+      c.setActiveObject(it);
+      it.enterEditing();
+      c.requestRenderAll();
+      if (!L.locked) setTool("select");
+    };
+
+    const addNote = (x: number, y: number) => {
+      const L = live.current;
+      const n = new fabric.Textbox("", {
+        left: x - 100, top: y - 70, width: 200,
+        fontFamily: L.font, fontSize: 20, lineHeight: 1.25,
+        fill: "#422006", backgroundColor: "#fde68a",
+        padding: 10,
+        selectable: true, evented: true, editable: true,
+        shadow: new fabric.Shadow({ color: "rgba(0,0,0,0.35)", blur: 18, offsetY: 8 }),
+      });
+      c.add(n);
+      c.setActiveObject(n);
+      n.enterEditing();
+      c.requestRenderAll();
+      if (!L.locked) setTool("select");
+    };
+
+    /* ---- Interaction state ---------------------------------------- */
+    let creating = false;
+    let startPt: fabric.Point | null = null;
+    let preview: fabric.Object | null = null;
+
+    let panning = false;
+    let lastX = 0, lastY = 0;
+    let spaceHeld = false;
+    let drawSuspended = false;
+
+    let erasing = false;
+    let laserOn = false;
+
+    const clientXY = (e: fabric.TPointerEvent) => {
+      if (typeof TouchEvent !== "undefined" && e instanceof TouchEvent) {
+        const p = e.touches[0] ?? e.changedTouches[0];
+        return { x: p?.clientX ?? 0, y: p?.clientY ?? 0 };
+      }
+      const m = e as MouseEvent;
+      return { x: m.clientX, y: m.clientY };
+    };
+
+    const wantsPan = (e: fabric.TPointerEvent) =>
+      live.current.tool === "pan" || spaceHeld
+      || (e as MouseEvent).altKey === true
+      || (e as MouseEvent).button === 1;
+
+    /* Pan gestures must trump the pen — kill drawing mode BEFORE fabric
+       initiates a stroke on mouse:down. */
+    c.on("mouse:down:before", (opt) => {
+      if (c.isDrawingMode && wantsPan(opt.e)) {
+        drawSuspended = true;
+        c.isDrawingMode = false;
+      }
+    });
+
+    c.on("mouse:down", (opt) => {
+      const t = live.current.tool;
+
+      if (wantsPan(opt.e)) {
+        panning = true;
+        c.selection = false;
+        c.setCursor("grabbing");
+        const p = clientXY(opt.e);
+        lastX = p.x; lastY = p.y;
+        return;
+      }
+
+      if (t === "eraser") {
+        erasing = true;
+        suspendRef.current = true;
+        if (opt.target) { c.remove(opt.target); c.requestRenderAll(); }
+        return;
+      }
+
+      if (t === "laser") {
+        laserOn = true;
+        const vp = c.getViewportPoint(opt.e);
+        laser.push({ x: vp.x, y: vp.y, t: performance.now() });
+        pumpLaser();
+        return;
+      }
+
+      const sp = c.getScenePoint(opt.e);
+
+      if (isShape(t)) {
+        creating = true;
+        suspendRef.current = true;
+        startPt = new fabric.Point(snapVal(sp.x), snapVal(sp.y));
+        preview = null;
+        return;
+      }
+      if (t === "text") addText(sp.x, sp.y);
+      else if (t === "note") addNote(sp.x, sp.y);
+    });
+
+    c.on("mouse:move", (opt) => {
+      if (panning) {
+        const p = clientXY(opt.e);
+        const vpt = c.viewportTransform;
+        vpt[4] += p.x - lastX; vpt[5] += p.y - lastY;
+        lastX = p.x; lastY = p.y;
+        c.setViewportTransform(vpt);
+        c.setCursor("grabbing");
+        return;
+      }
+      if (erasing) {
+        if (opt.target) { c.remove(opt.target); c.requestRenderAll(); }
+        return;
+      }
+      if (laserOn) {
+        const vp = c.getViewportPoint(opt.e);
+        laser.push({ x: vp.x, y: vp.y, t: performance.now() });
+        if (laser.length > 400) laser.shift();
+        pumpLaser();
+        return;
+      }
+      if (creating && startPt) {
+        const sp = c.getScenePoint(opt.e);
+        const end = new fabric.Point(snapVal(sp.x), snapVal(sp.y));
+        if ((opt.e as MouseEvent).shiftKey) {
+          const t = live.current.tool;
+          if (t === "line" || t === "arrow") {
+            if (Math.abs(end.x - startPt.x) >= Math.abs(end.y - startPt.y)) end.y = startPt.y;
+            else end.x = startPt.x;
+          } else {
+            const d = Math.max(Math.abs(end.x - startPt.x), Math.abs(end.y - startPt.y));
+            end.x = startPt.x + (Math.sign(end.x - startPt.x) || 1) * d;
+            end.y = startPt.y + (Math.sign(end.y - startPt.y) || 1) * d;
+          }
+        }
+        if (preview) c.remove(preview);
+        preview = buildShape(live.current.tool, startPt, end);
+        if (preview) c.add(preview);
+        c.requestRenderAll();
+      }
+    });
+
+    const finishInteraction = () => {
+      if (drawSuspended) {
+        drawSuspended = false;
+        c.isDrawingMode = isDraw(live.current.tool);
+      }
+      if (panning) {
+        panning = false;
+        c.selection = live.current.tool === "select";
+        c.setCursor(cursorFor(live.current.tool));
+      }
+      if (erasing) {
+        erasing = false;
+        suspendRef.current = false;
+        pushHistory();
+      }
+      if (laserOn) laserOn = false;
+      if (creating) {
+        creating = false;
+        const t = live.current.tool, s = startPt;
+        let obj = preview;
+        preview = null;
+        startPt = null;
+
+        // Simple click (no drag) → drop a sensible default-sized shape.
+        const tiny = !obj ||
+          ((obj.width ?? 0) * (obj.scaleX ?? 1) < 6 &&
+           (obj.height ?? 0) * (obj.scaleY ?? 1) < 6);
+        if (tiny && s) {
+          if (obj) c.remove(obj);
+          const b = new fabric.Point(
+            s.x + (t === "line" || t === "arrow" ? 160 : 140),
+            s.y + (t === "line" || t === "arrow" ? 0 : 90),
+          );
+          obj = buildShape(t, s, b);
+          if (obj) c.add(obj);
+        }
+        suspendRef.current = false;
+        if (obj) {
+          obj.setCoords();
+          c.setActiveObject(obj);
+          pushHistory();
+        }
+        c.requestRenderAll();
+        if (!live.current.locked) setTool("select");
+      }
+    };
+
+    c.on("mouse:up", finishInteraction);
+
+    // Safety net: pointer released outside canvas, or window loses focus.
+    const escape = () => {
+      if (panning || erasing || creating || laserOn || drawSuspended) finishInteraction();
+    };
+    window.addEventListener("pointerup", escape);
+    window.addEventListener("blur", escape);
+
+    /* Double-click empty canvas → drop a text object. */
+    c.on("mouse:dblclick", (opt) => {
+      if (live.current.tool !== "select" || opt.target) return;
+      const sp = c.getScenePoint(opt.e);
+      addText(sp.x, sp.y);
+    });
+
+    c.on("text:editing:exited", (opt) => {
+      const t = opt.target as fabric.IText | undefined;
+      if (t && !t.text?.trim() && t.type === "i-text") {
+        c.remove(t);
+        c.requestRenderAll();
+      } else {
+        pushHistory();
+      }
+    });
+
+    /* ---- Wheel: pinch-zoom, ctrl-zoom, trackpad pan ---------------- */
+    c.on("mouse:wheel", (opt) => {
+      const e = opt.e;
+      e.preventDefault(); e.stopPropagation();
+      const vpt = c.viewportTransform;
+      if (!e.ctrlKey && !e.metaKey && Math.abs(e.deltaX) > 0.5) {
+        vpt[4] -= e.deltaX; vpt[5] -= e.deltaY;
+        c.setViewportTransform(vpt);
+        return;
+      }
+      const factor = 0.999 ** (e.deltaY * (e.ctrlKey ? 2.5 : 1));
+      const z = clamp(c.getZoom() * factor, MIN_ZOOM, MAX_ZOOM);
+      c.zoomToPoint(new fabric.Point(e.offsetX, e.offsetY), z);
+      setZoom(z);
+    });
+
+    /* ---- Touch: pinch-zoom + two-finger pan ------------------------ */
+    const upper = c.upperCanvasEl;
+    let pinchDist = 0, pinching = false;
+    let pinchMid = { x: 0, y: 0 };
+    const distOf = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+
+    const onTouchStart = (ev: TouchEvent) => {
+      if (ev.touches.length !== 2) return;
+      pinching = true;
+      creating = false; panning = false; erasing = false; laserOn = false;
+      if (preview) { c.remove(preview); preview = null; }
+      suspendRef.current = false;
+      (c as unknown as { _isCurrentlyDrawing?: boolean })._isCurrentlyDrawing = false;
+      pinchDist = distOf(ev.touches);
+      const r = upper.getBoundingClientRect();
+      pinchMid = {
+        x: (ev.touches[0].clientX + ev.touches[1].clientX) / 2 - r.left,
+        y: (ev.touches[0].clientY + ev.touches[1].clientY) / 2 - r.top,
+      };
+      ev.preventDefault();
+    };
+    const onTouchMove = (ev: TouchEvent) => {
+      if (!pinching || ev.touches.length !== 2) return;
+      ev.preventDefault();
+      const d = distOf(ev.touches);
+      if (!pinchDist) pinchDist = d;
+      const r = upper.getBoundingClientRect();
+      const mid = {
+        x: (ev.touches[0].clientX + ev.touches[1].clientX) / 2 - r.left,
+        y: (ev.touches[0].clientY + ev.touches[1].clientY) / 2 - r.top,
+      };
+      const z = clamp(c.getZoom() * (d / pinchDist), MIN_ZOOM, MAX_ZOOM);
+      c.zoomToPoint(new fabric.Point(mid.x, mid.y), z);
+      const vpt = c.viewportTransform;
+      vpt[4] += mid.x - pinchMid.x; vpt[5] += mid.y - pinchMid.y;
+      c.setViewportTransform(vpt);
+      pinchDist = d; pinchMid = mid;
+      setZoom(z);
+    };
+    const onTouchEnd = (ev: TouchEvent) => {
+      if (ev.touches.length < 2 && pinching) { pinching = false; pinchDist = 0; }
+    };
+    upper.addEventListener("touchstart", onTouchStart, { passive: false });
+    upper.addEventListener("touchmove", onTouchMove, { passive: false });
+    upper.addEventListener("touchend", onTouchEnd);
+    upper.addEventListener("touchcancel", onTouchEnd);
+
+    /* ---- Snap on move, history & selection tracking ---------------- */
+    c.on("object:moving", (opt) => {
+      if (!live.current.snap || !opt.target) return;
+      opt.target.set({
+        left: Math.round((opt.target.left ?? 0) / GRID) * GRID,
+        top:  Math.round((opt.target.top  ?? 0) / GRID) * GRID,
       });
     });
+    c.on("object:added",    () => pushHistory());
+    c.on("object:modified", () => pushHistory());
+    c.on("object:removed",  () => pushHistory());
 
-    canvas.on("object:added", (e) => {
-      if (activeCanvasRefTool.current === "laser" && e.target) {
-        const laserObj = e.target;
-        laserPathsRef.current.push(laserObj);
-        setTimeout(() => {
-          canvas.remove(laserObj);
-          canvas.renderAll();
-        }, 1200);
+    const readSel = () => {
+      const objs = c.getActiveObjects();
+      setHasSel(objs.length > 0);
+      setSelIsText(objs.some(isTextObj));
+      const o = objs[0];
+      if (!o) return;
+      if (isTextObj(o)) {
+        const t = o as fabric.IText;
+        if (typeof t.fill === "string") setStroke(t.fill);
+        if (t.fontFamily) setFontFamily(t.fontFamily);
+        if (t.fontSize) setFontSize(Math.round(t.fontSize));
+      } else {
+        if (typeof o.stroke === "string" && o.stroke) setStroke(o.stroke);
+        if (typeof o.fill   === "string") setFill(o.fill || "transparent");
+        if (o.strokeWidth) setStrokeWidth(o.strokeWidth);
+      }
+      if (typeof o.opacity === "number") setOpacity(o.opacity);
+    };
+    c.on("selection:created", readSel);
+    c.on("selection:updated", readSel);
+    c.on("selection:cleared", () => { setHasSel(false); setSelIsText(false); });
+
+    /* ---- Restore or seed history ---------------------------------- */
+    (async () => {
+      const saved = localStorage.getItem(storageKey);
+      suspendRef.current = true;
+      if (saved) { try { await c.loadFromJSON(saved); } catch { /* ignore */ } }
+      c.requestRenderAll();
+      suspendRef.current = false;
+      const seed = JSON.stringify(c.toJSON());
+      histRef.current = [seed];
+      idxRef.current = 0;
+      setCanUndo(false);
+      setCanRedo(false);
+      setReady(true);
+    })();
+
+    /* ---- Viewport resize ------------------------------------------ */
+    const ro = new ResizeObserver(() => {
+      if (!fcRef.current || !host) return;
+      fcRef.current.setDimensions({ width: host.clientWidth, height: host.clientHeight });
+      fcRef.current.requestRenderAll();
+    });
+    ro.observe(host);
+
+    /* ---- Keyboard --------------------------------------------------- */
+    const isEditing = () => {
+      const a = c.getActiveObject() as fabric.IText | undefined;
+      return !!a && !!a.isEditing;
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName)) return;
+      if (isEditing()) return;
+
+      const meta = e.ctrlKey || e.metaKey;
+      const k = e.key.toLowerCase();
+
+      if (e.code === "Space" && !spaceHeld) {
+        spaceHeld = true;
+        if (c.isDrawingMode) { drawSuspended = true; c.isDrawingMode = false; }
+        c.defaultCursor = "grab";
+        c.setCursor("grab");
+        e.preventDefault();
         return;
       }
-      pushState();
-    });
-    canvas.on("object:modified", () => pushState());
-    canvas.on("object:removed", () => pushState());
-
-    // 🎯 Precision Shape & Text Click-to-Place Engine
-    canvas.on("mouse:down", (opt) => {
-      const activeCanvas = fabricCanvasRef.current;
-      if (!activeCanvas) return;
-      const currentTool = activeCanvasRefTool.current;
-
-      if (currentTool === "erase" && opt.target) {
-        activeCanvas.remove(opt.target);
-        activeCanvas.renderAll();
-        return;
-      }
-
-      if (["rect", "circle", "diamond", "line", "arrow", "text", "note"].includes(currentTool)) {
-        const pointer = activeCanvas.getScenePoint(opt.e);
-        let newShape: fabric.Object | null = null;
-
-        if (currentTool === "rect") {
-          newShape = new fabric.Rect({
-            left: pointer.x - 70,
-            top: pointer.y - 45,
-            width: 140,
-            height: 90,
-            fill: fillColorRef.current,
-            stroke: strokeColorRef.current,
-            strokeWidth: strokeWidthRef.current,
-            rx: 10,
-            ry: 10,
-          });
-        } else if (currentTool === "circle") {
-          newShape = new fabric.Circle({
-            left: pointer.x - 50,
-            top: pointer.y - 50,
-            radius: 50,
-            fill: fillColorRef.current,
-            stroke: strokeColorRef.current,
-            strokeWidth: strokeWidthRef.current,
-          });
-        } else if (currentTool === "diamond") {
-          newShape = new fabric.Polygon(
-            [
-              { x: 60, y: 0 },
-              { x: 120, y: 60 },
-              { x: 60, y: 120 },
-              { x: 0, y: 60 },
-            ],
-            {
-              left: pointer.x - 60,
-              top: pointer.y - 60,
-              fill: fillColorRef.current,
-              stroke: strokeColorRef.current,
-              strokeWidth: strokeWidthRef.current,
-            }
-          );
-        } else if (currentTool === "line") {
-          newShape = new fabric.Line([pointer.x - 70, pointer.y, pointer.x + 70, pointer.y], {
-            stroke: strokeColorRef.current,
-            strokeWidth: strokeWidthRef.current,
-          });
-        } else if (currentTool === "arrow") {
-          const line = new fabric.Line([pointer.x - 70, pointer.y, pointer.x + 50, pointer.y], {
-            stroke: strokeColorRef.current,
-            strokeWidth: strokeWidthRef.current,
-          });
-          const triangle = new fabric.Triangle({
-            left: pointer.x + 50,
-            top: pointer.y - strokeWidthRef.current * 2,
-            angle: 90,
-            width: strokeWidthRef.current * 4,
-            height: strokeWidthRef.current * 4,
-            fill: strokeColorRef.current,
-          });
-          newShape = new fabric.Group([line, triangle]);
-        } else if (currentTool === "text") {
-          newShape = new fabric.IText("Click to type text", {
-            left: pointer.x - 90,
-            top: pointer.y - 15,
-            fontFamily: selectedFontRef.current,
-            fontSize: 26,
-            fill: strokeColorRef.current,
-            editable: true,
-          });
-        } else if (currentTool === "note") {
-          newShape = new fabric.Textbox("📌 Sticky Note\n(Click to edit)", {
-            left: pointer.x - 90,
-            top: pointer.y - 90,
-            width: 180,
-            height: 180,
-            fontSize: 20,
-            fontFamily: selectedFontRef.current,
-            fill: "#fef9c3",
-            backgroundColor: "rgba(234, 179, 8, 0.25)",
-            borderColor: "#eab308",
-            borderScaleFactor: 2,
-            padding: 14,
-            rx: 12,
-            ry: 12,
-            splitByGrapheme: true,
-            editable: true,
-          });
-        }
-
-        if (newShape) {
-          activeCanvas.add(newShape);
-          activeCanvas.setActiveObject(newShape);
-          if (currentTool === "text" || currentTool === "note") {
-            (newShape as fabric.IText).enterEditing();
-          }
-          activeCanvas.renderAll();
-          setActiveTool("select");
-        }
-      }
-    });
-
-    canvas.on("mouse:wheel", (opt) => {
-      const delta = opt.e.deltaY;
-      let zoom = canvas.getZoom();
-      zoom *= 0.999 ** delta;
-      if (zoom > 10) zoom = 10;
-      if (zoom < 0.1) zoom = 0.1;
-      canvas.zoomToPoint(new fabric.Point(opt.e.offsetX, opt.e.offsetY), zoom);
-      opt.e.preventDefault();
-      opt.e.stopPropagation();
-      setZoomLevel(zoom);
-    });
-
-    let isDragging = false;
-    let lastPosX = 0;
-    let lastPosY = 0;
-
-    canvas.on("mouse:down", (opt) => {
-      const evt = opt.e;
-      if (evt.altKey || activeCanvasRefTool.current === "pan") {
-        isDragging = true;
-        canvas.selection = false;
-        lastPosX = evt.clientX;
-        lastPosY = evt.clientY;
-      }
-    });
-
-    canvas.on("mouse:move", (opt) => {
-      if (isDragging) {
-        const e = opt.e;
-        const vpt = canvas.viewportTransform;
-        if (vpt) {
-          vpt[4] += e.clientX - lastPosX;
-          vpt[5] += e.clientY - lastPosY;
-          canvas.requestRenderAll();
-        }
-        lastPosX = e.clientX;
-        lastPosY = e.clientY;
-      }
-    });
-
-    canvas.on("mouse:up", () => {
-      if (isDragging) {
-        canvas.setViewportTransform(canvas.viewportTransform);
-        isDragging = false;
-        canvas.selection = true;
-      }
-    });
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (meta && k === "z") { e.preventDefault(); e.shiftKey ? cbs.current.redo() : cbs.current.undo(); return; }
+      if (meta && k === "y") { e.preventDefault(); cbs.current.redo(); return; }
+      if (meta && k === "d") { e.preventDefault(); cbs.current.duplicate(); return; }
+      if (meta && k === "c") { e.preventDefault(); cbs.current.copy(); return; }
+      if (meta && k === "v") { e.preventDefault(); cbs.current.paste(); return; }
+      if (meta && k === "a") { e.preventDefault(); cbs.current.selectAll(); return; }
+      if (meta && k === "0") { e.preventDefault(); cbs.current.resetView(); return; }
+      if (meta && k === "1") { e.preventDefault(); cbs.current.fitView(); return; }
+      if (meta) return;
 
       if (e.key === "Delete" || e.key === "Backspace") {
-        const activeCanvas = fabricCanvasRef.current;
-        if (activeCanvas) {
-          const activeObjects = activeCanvas.getActiveObjects();
-          if (activeObjects.length > 0) {
-            activeObjects.forEach((obj) => activeCanvas.remove(obj));
-            activeCanvas.discardActiveObject();
-            activeCanvas.renderAll();
-          }
+        e.preventDefault();
+        cbs.current.deleteSel();
+        return;
+      }
+      if (e.key === "Escape") {
+        c.discardActiveObject();
+        c.requestRenderAll();
+        setTool("select");
+        return;
+      }
+      const mapped = KEYS[k];
+      if (mapped) setTool(mapped);
+    };
+
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === "Space") {
+        spaceHeld = false;
+        if (drawSuspended) {
+          drawSuspended = false;
+          c.isDrawingMode = isDraw(live.current.tool);
         }
-      } else if (e.ctrlKey && e.key.toLowerCase() === "z") {
-        e.preventDefault();
-        handleUndo();
-      } else if (e.ctrlKey && e.key.toLowerCase() === "y") {
-        e.preventDefault();
-        handleRedo();
-      } else if (e.ctrlKey && e.key.toLowerCase() === "d") {
-        e.preventDefault();
-        handleDuplicate();
+        c.defaultCursor = cursorFor(live.current.tool);
       }
     };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
 
-    window.addEventListener("keydown", handleKeyDown);
-
-    const handleResize = () => {
-      if (!containerRef.current || !fabricCanvasRef.current) return;
-      fabricCanvasRef.current.setDimensions({
-        width: containerRef.current.clientWidth,
-        height: containerRef.current.clientHeight,
-      });
-      fabricCanvasRef.current.renderAll();
+    /* ---- Paste images from clipboard ------------------------------- */
+    const onPaste = (e: ClipboardEvent) => {
+      if (isEditing()) return;
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const it of Array.from(items)) {
+        if (!it.type.startsWith("image/")) continue;
+        e.preventDefault();
+        const f = it.getAsFile();
+        if (!f) continue;
+        const r = new FileReader();
+        r.onload = () => {
+          fabric.FabricImage.fromURL(r.result as string).then((img) => {
+            const maxW = c.getWidth() * 0.6;
+            if ((img.width ?? 0) > maxW) img.scaleToWidth(maxW);
+            const cp = c.getVpCenter();
+            img.set({ left: cp.x - img.getScaledWidth() / 2, top: cp.y - img.getScaledHeight() / 2 });
+            c.add(img);
+            c.setActiveObject(img);
+            c.requestRenderAll();
+            setTool("select");
+            showToast("Image pasted", "success");
+          });
+        };
+        r.readAsDataURL(f);
+        return;
+      }
     };
+    document.addEventListener("paste", onPaste);
 
-    window.addEventListener("resize", handleResize);
-
+    /* ---- Cleanup --------------------------------------------------- */
     return () => {
-      window.removeEventListener("resize", handleResize);
-      window.removeEventListener("keydown", handleKeyDown);
-      canvas.dispose();
-      fabricCanvasRef.current = null;
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("pointerup", escape);
+      window.removeEventListener("blur", escape);
+      document.removeEventListener("paste", onPaste);
+      upper.removeEventListener("touchstart", onTouchStart);
+      upper.removeEventListener("touchmove", onTouchMove);
+      upper.removeEventListener("touchend", onTouchEnd);
+      upper.removeEventListener("touchcancel", onTouchEnd);
+      if (rafId) cancelAnimationFrame(rafId);
+      ro.disconnect();
+      c.dispose();
+      fcRef.current = null;
     };
-  }, [storageKey, pushState, handleUndo, handleRedo, handleDuplicate]);
+    // storageKey is the only long-lived dependency; state flows via live ref.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey]);
 
+  /* --- Tool → canvas mode sync ---------------------------------------- */
   useEffect(() => {
-    setTimeout(() => {
-      if (!containerRef.current || !fabricCanvasRef.current) return;
-      fabricCanvasRef.current.setDimensions({
-        width: containerRef.current.clientWidth,
-        height: containerRef.current.clientHeight,
-      });
-      fabricCanvasRef.current.renderAll();
-    }, 100);
-  }, [isFullscreen]);
+    const c = fcRef.current;
+    if (!c) return;
 
-  const activeCanvasRefTool = useRef(activeTool);
-  useEffect(() => {
-    activeCanvasRefTool.current = activeTool;
-  }, [activeTool]);
-
-  useEffect(() => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-
-    if (activeTool === "draw" || activeTool === "highlighter" || activeTool === "laser") {
-      canvas.isDrawingMode = true;
-      if (!canvas.freeDrawingBrush) {
-        canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
-      }
-
-      if (activeTool === "laser") {
-        canvas.freeDrawingBrush.color = "#f43f5e";
-        canvas.freeDrawingBrush.width = 6;
-      } else if (activeTool === "highlighter") {
-        canvas.freeDrawingBrush.color = strokeColor.startsWith("#") ? `${strokeColor}55` : "rgba(234,179,8,0.35)";
-        canvas.freeDrawingBrush.width = strokeWidth * 4;
+    const drawing = isDraw(tool);
+    c.isDrawingMode = drawing;
+    if (drawing && c.freeDrawingBrush) {
+      const b = c.freeDrawingBrush as fabric.PencilBrush;
+      if (tool === "marker") {
+        b.color = isHex6(stroke) ? `${stroke}59` : stroke;
+        b.width = Math.max(12, strokeWidth * 4);
       } else {
-        canvas.freeDrawingBrush.color = strokeColor;
-        canvas.freeDrawingBrush.width = strokeWidth;
+        b.color = stroke;
+        b.width = strokeWidth;
       }
-      (canvas.freeDrawingBrush as fabric.PencilBrush).decimate = 1.5;
-      (canvas.freeDrawingBrush as fabric.PencilBrush).strokeLineCap = "round";
-      (canvas.freeDrawingBrush as fabric.PencilBrush).strokeLineJoin = "round";
-    } else {
-      canvas.isDrawingMode = false;
+      b.decimate = 3;
+      b.strokeLineCap = "round";
+      b.strokeLineJoin = "round";
     }
+    c.selection = tool === "select";
+    c.skipTargetFind = !(tool === "select" || tool === "eraser");
+    c.forEachObject((o) => {
+      o.selectable = tool === "select";
+      o.evented = tool === "select" || tool === "eraser";
+    });
+    c.defaultCursor = cursorFor(tool);
+    c.hoverCursor = tool === "select" ? "move" : c.defaultCursor;
+    if (tool !== "select") c.discardActiveObject();
+    c.requestRenderAll();
+  }, [tool, stroke, strokeWidth, ready]);
 
-    if (activeTool === "select") {
-      canvas.selection = true;
-      canvas.defaultCursor = "default";
-    } else if (activeTool === "pan") {
-      canvas.selection = false;
-      canvas.defaultCursor = "grab";
-    } else if (activeTool === "erase") {
-      canvas.selection = false;
-      canvas.defaultCursor = "crosshair";
-    } else if (["rect", "circle", "diamond", "line", "arrow", "text", "note"].includes(activeTool)) {
-      canvas.selection = false;
-      canvas.defaultCursor = "crosshair";
-    } else {
-      canvas.defaultCursor = "default";
-    }
-  }, [activeTool, strokeColor, strokeWidth]);
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (f) => {
-      const data = f.target?.result as string;
-      if (!data) return;
-
-      const imgObj = new Image();
-      imgObj.src = data;
-      imgObj.onload = () => {
-        const canvas = fabricCanvasRef.current;
-        if (!canvas) return;
-
-        const fabricImg = new fabric.Image(imgObj);
-        const center = canvas.getVpCenter();
-
-        if (fabricImg.width! > 500) {
-          fabricImg.scaleToWidth(500);
-        }
-
-        fabricImg.set({
-          left: center.x - (fabricImg.getBoundingRect().width / 2),
-          top: center.y - (fabricImg.getBoundingRect().height / 2),
-        });
-
-        canvas.add(fabricImg);
-        canvas.setActiveObject(fabricImg);
-        canvas.renderAll();
-        setActiveTool("select");
-        showToast("Image uploaded to Whiteboard!", "success");
-      };
+  /* Keep newly-added objects interactive in the current tool mode */
+  useEffect(() => {
+    const c = fcRef.current;
+    if (!c) return;
+    const handler = (opt: { target?: fabric.Object }) => {
+      if (!opt.target) return;
+      opt.target.selectable = live.current.tool === "select";
+      opt.target.evented = live.current.tool === "select" || live.current.tool === "eraser";
     };
-    reader.readAsDataURL(file);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    c.on("object:added", handler);
+    return () => { c.off("object:added", handler); };
+  }, [ready]);
+
+  useEffect(() => { fcRef.current?.requestRenderAll(); }, [showGrid, themeId]);
+
+  /* Auto-switch ink colour when the theme's default ink changes and the user
+     hasn't picked a custom colour yet. */
+  const prevInkRef = useRef(theme.ink);
+  useEffect(() => {
+    if (stroke === prevInkRef.current) setStroke(theme.ink);
+    prevInkRef.current = theme.ink;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [themeId]);
+
+  /* --- Actions -------------------------------------------------------- */
+  const clipboardRef = useRef<fabric.Object | null>(null);
+
+  const duplicate = useCallback(async () => {
+    const c = fcRef.current;
+    const act = c?.getActiveObject();
+    if (!c || !act) { showToast("Pehle koi object select karo", "warning"); return; }
+    const cl = await act.clone();
+    c.discardActiveObject();
+    cl.set({ left: (cl.left ?? 0) + 24, top: (cl.top ?? 0) + 24, evented: true });
+    if (cl instanceof fabric.ActiveSelection) {
+      cl.canvas = c;
+      cl.forEachObject((o) => c.add(o));
+      cl.setCoords();
+    } else c.add(cl);
+    c.setActiveObject(cl);
+    c.requestRenderAll();
+  }, [showToast]);
+
+  const copySel = useCallback(async () => {
+    const c = fcRef.current;
+    const act = c?.getActiveObject();
+    if (!c || !act) return;
+    clipboardRef.current = await act.clone();
+    showToast("Copied", "info");
+  }, [showToast]);
+
+  const paste = useCallback(async () => {
+    const c = fcRef.current;
+    if (!c || !clipboardRef.current) return;
+    const cl = await clipboardRef.current.clone();
+    c.discardActiveObject();
+    cl.set({ left: (cl.left ?? 0) + 28, top: (cl.top ?? 0) + 28, evented: true });
+    if (cl instanceof fabric.ActiveSelection) {
+      cl.canvas = c;
+      cl.forEachObject((o) => c.add(o));
+      cl.setCoords();
+    } else c.add(cl);
+    c.setActiveObject(cl);
+    c.requestRenderAll();
+  }, []);
+
+  const deleteSel = useCallback(() => {
+    const c = fcRef.current;
+    if (!c) return;
+    const objs = c.getActiveObjects();
+    if (!objs.length) return;
+    objs.forEach((o) => c.remove(o));
+    c.discardActiveObject();
+    c.requestRenderAll();
+  }, []);
+
+  const selectAll = useCallback(() => {
+    const c = fcRef.current;
+    if (!c) return;
+    c.discardActiveObject();
+    const all = c.getObjects().filter((o) => o.selectable !== false);
+    if (!all.length) return;
+    c.setActiveObject(new fabric.ActiveSelection(all, { canvas: c }));
+    c.requestRenderAll();
+  }, []);
+
+  const bringFront = useCallback(() => {
+    const c = fcRef.current, a = c?.getActiveObject();
+    if (c && a) { c.bringObjectToFront(a); c.requestRenderAll(); pushHistory(); }
+  }, [pushHistory]);
+
+  const sendBack = useCallback(() => {
+    const c = fcRef.current, a = c?.getActiveObject();
+    if (c && a) { c.sendObjectToBack(a); c.requestRenderAll(); pushHistory(); }
+  }, [pushHistory]);
+
+  /* --- View ----------------------------------------------------------- */
+  const zoomBy = useCallback((f: number) => {
+    const c = fcRef.current;
+    if (!c) return;
+    const z = clamp(c.getZoom() * f, MIN_ZOOM, MAX_ZOOM);
+    c.zoomToPoint(new fabric.Point(c.getWidth() / 2, c.getHeight() / 2), z);
+    setZoom(z);
+  }, []);
+
+  const resetView = useCallback(() => {
+    const c = fcRef.current;
+    if (!c) return;
+    c.setViewportTransform([1, 0, 0, 1, 0, 0]);
+    setZoom(1);
+  }, []);
+
+  const fitView = useCallback(() => {
+    const c = fcRef.current;
+    if (!c) return;
+    const objs = c.getObjects();
+    if (!objs.length) { resetView(); return; }
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    objs.forEach((o) => {
+      const r = o.getBoundingRect();
+      if (r.left < minX) minX = r.left;
+      if (r.top  < minY) minY = r.top;
+      if (r.left + r.width  > maxX) maxX = r.left + r.width;
+      if (r.top  + r.height > maxY) maxY = r.top  + r.height;
+    });
+    const pad = 100, w = maxX - minX, h = maxY - minY;
+    if (w <= 0 || h <= 0) { resetView(); return; }
+    const z = clamp(Math.min((c.getWidth() - pad) / w, (c.getHeight() - pad) / h), MIN_ZOOM, MAX_ZOOM);
+    c.setViewportTransform([
+      z, 0, 0, z,
+      c.getWidth() / 2 - (minX + w / 2) * z,
+      c.getHeight() / 2 - (minY + h / 2) * z,
+    ]);
+    setZoom(z);
+  }, [resetView]);
+
+  /* Keep the keyboard handler's callback refs current */
+  useEffect(() => {
+    cbs.current = {
+      undo, redo, duplicate, copy: copySel, paste, deleteSel,
+      resetView, fitView, selectAll,
+    };
+  });
+
+  /* --- Style updaters that mutate current selection too -------------- */
+  const setStrokeA = (v: string) => {
+    setStroke(v);
+    mutateSelection((o) => { if (isTextObj(o)) o.set({ fill: v }); else o.set({ stroke: v }); });
+  };
+  const setFillA = (v: string) => {
+    setFill(v);
+    mutateSelection((o) => { if (!isTextObj(o)) o.set({ fill: v === "transparent" ? "" : v }); });
+  };
+  const setWidthA = (v: number) => {
+    setStrokeWidth(v);
+    mutateSelection((o) => { if (!isTextObj(o)) o.set({ strokeWidth: v }); });
+  };
+  const setStyleA = (v: string) => {
+    setStrokeStyle(v);
+    mutateSelection((o) => o.set({ strokeDashArray: DASHES[v] ?? null }));
+  };
+  const setOpacityA = (v: number) => {
+    setOpacity(v);
+    mutateSelection((o) => o.set({ opacity: v }));
+  };
+  const setFontA = (v: string) => {
+    setFontFamily(v);
+    mutateSelection((o) => { if (isTextObj(o)) o.set({ fontFamily: v }); });
+  };
+  const setSizeA = (v: number) => {
+    setFontSize(v);
+    mutateSelection((o) => { if (isTextObj(o)) o.set({ fontSize: v }); });
+  };
+
+  /* --- Import / export ------------------------------------------------ */
+  const downloadURL = (href: string, name: string, revoke = false) => {
+    const a = document.createElement("a");
+    a.href = href; a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    if (revoke) window.setTimeout(() => URL.revokeObjectURL(href), 4000);
+  };
+
+  const onImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const c = fcRef.current;
+    if (!c) return;
+    try {
+      const url = await new Promise<string>((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result as string);
+        r.onerror = rej;
+        r.readAsDataURL(f);
+      });
+      const img = await fabric.FabricImage.fromURL(url);
+      const maxW = c.getWidth() * 0.6;
+      if ((img.width ?? 0) > maxW) img.scaleToWidth(maxW);
+      const cp = c.getVpCenter();
+      img.set({ left: cp.x - img.getScaledWidth() / 2, top: cp.y - img.getScaledHeight() / 2 });
+      c.add(img);
+      c.setActiveObject(img);
+      c.requestRenderAll();
+      setTool("select");
+      showToast("Image added", "success");
+    } catch {
+      showToast("Image load nahi hui", "error");
+    }
+    if (imgFileRef.current) imgFileRef.current.value = "";
+  };
+
+  const onJSONFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    try {
+      const text = await f.text();
+      JSON.parse(text);
+      await loadJSON(text);
+      pushHistory();
+      showToast("Board imported", "success");
+    } catch {
+      showToast("Invalid board file", "error");
+    }
+    if (jsonFileRef.current) jsonFileRef.current.value = "";
+  };
+
+  const withBackground = <T,>(fn: () => T, transparent: boolean): T => {
+    const c = fcRef.current!;
+    const prev = c.backgroundColor;
+    if (!transparent) c.backgroundColor = theme.page;
+    const out = fn();
+    c.backgroundColor = prev;
+    c.requestRenderAll();
+    return out;
+  };
+
+  const exportPNG = (multiplier: number, transparent = false) => {
+    const c = fcRef.current;
+    if (!c) return;
+    setExportOpen(false);
+    const url = withBackground(
+      () => c.toDataURL({ format: "png", quality: 1, multiplier, enableRetinaScaling: false }),
+      transparent,
+    );
+    downloadURL(url, `board-${multiplier}x-${Date.now()}.png`);
+    showToast(`PNG ${multiplier}× exported`, "success");
+  };
+
+  const exportSVG = () => {
+    const c = fcRef.current;
+    if (!c) return;
+    setExportOpen(false);
+    const svg = withBackground(() => c.toSVG(), false);
+    downloadURL(URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" })), `board-${Date.now()}.svg`, true);
+    showToast("SVG exported", "success");
   };
 
   const exportJSON = () => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-    const jsonStr = JSON.stringify(canvas.toJSON());
-    const blob = new Blob([jsonStr], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.download = `flowtrack_whiteboard_project_${Date.now()}.json`;
-    link.href = url;
-    link.click();
-    URL.revokeObjectURL(url);
-    showToast("Exported Whiteboard Project JSON!", "success");
+    const c = fcRef.current;
+    if (!c) return;
+    setExportOpen(false);
+    downloadURL(
+      URL.createObjectURL(new Blob([JSON.stringify(c.toJSON())], { type: "application/json" })),
+      `board-${Date.now()}.json`, true,
+    );
+    showToast("Board file exported", "success");
   };
 
-  const importJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (f) => {
-      const content = f.target?.result as string;
-      if (!content) return;
-      try {
-        const canvas = fabricCanvasRef.current;
-        if (!canvas) return;
-        canvas.loadFromJSON(content).then(() => {
-          canvas.renderAll();
-          pushState();
-          showToast("Imported Whiteboard Project!", "success");
-        });
-      } catch {
-        showToast("Invalid JSON file", "error");
-      }
-    };
-    reader.readAsText(file);
-    if (jsonInputRef.current) jsonInputRef.current.value = "";
+  const clearBoard = () => {
+    const c = fcRef.current;
+    if (!c) return;
+    setMenuOpen(false);
+    if (!c.getObjects().length) { showToast("Board already empty", "info"); return; }
+    if (!window.confirm("Poora board clear kar dein?")) return;
+    suspendRef.current = true;
+    c.remove(...c.getObjects());
+    c.discardActiveObject();
+    c.requestRenderAll();
+    suspendRef.current = false;
+    pushHistory();
+    showToast("Board cleared", "info");
   };
 
-  const bringToFront = () => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-    const activeObj = canvas.getActiveObject();
-    if (activeObj) {
-      canvas.bringObjectToFront(activeObj);
-      canvas.renderAll();
-      showToast("Brought to Front", "info");
-    }
-  };
+  /* Escape closes fullscreen too */
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onEsc = (e: KeyboardEvent) => { if (e.key === "Escape") setFullscreen(false); };
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [fullscreen]);
 
-  const sendToBack = () => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-    const activeObj = canvas.getActiveObject();
-    if (activeObj) {
-      canvas.sendObjectToBack(activeObj);
-      canvas.renderAll();
-      showToast("Sent to Back", "info");
-    }
-  };
+  /* ============================================================== UI == */
 
-  const deleteSelected = () => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-    const activeObjects = canvas.getActiveObjects();
-    if (activeObjects.length > 0) {
-      activeObjects.forEach((obj) => canvas.remove(obj));
-      canvas.discardActiveObject();
-      canvas.renderAll();
-      showToast(`Deleted ${activeObjects.length} object(s)`, "info");
-    } else {
-      showToast("Click or drag box select objects to delete", "warning");
-    }
-  };
+  const shell = fullscreen
+    ? "fixed inset-0 z-[100] rounded-none"
+    : "relative h-[78vh] min-h-[560px] rounded-2xl";
 
-  const clearCanvas = () => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-    canvas.clear();
-    canvas.renderAll();
-    localStorage.removeItem(storageKey);
-    pushState();
-    showToast("Whiteboard cleared", "info");
-  };
+  const hint =
+    tool === "select" ? "Drag to marquee-select · double-click for text"
+    : tool === "pan"    ? "Drag to move · Space also pans"
+    : tool === "pen"    ? "Draw freely · scroll to zoom"
+    : tool === "marker" ? "Semi-transparent highlighter"
+    : tool === "laser"  ? "Hold & move — trail fades"
+    : tool === "eraser" ? "Drag over strokes to erase"
+    : isShape(tool)     ? "Drag to size · Shift = perfect ratio"
+    : tool === "text"   ? "Click to start typing"
+    : tool === "note"   ? "Click to drop a sticky note"
+    : "";
 
-  const exportImageHighRes = (multiplier: number = 4) => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-    const dataUrl = canvas.toDataURL({
-      format: "png",
-      quality: 1,
-      multiplier: multiplier,
-    });
-    const link = document.createElement("a");
-    link.download = `flowtrack_whiteboard_${multiplier}k_hd_${Date.now()}.png`;
-    link.href = dataUrl;
-    link.click();
-    showToast(`Downloaded ${multiplier}K Ultra HD High-Res PNG!`, "success");
-  };
+  const showProps = hasSel || isShape(tool) || isDraw(tool) || tool === "text" || tool === "note";
 
-  const changeZoom = (factor: number) => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-    let newZoom = canvas.getZoom() * factor;
-    if (newZoom > 10) newZoom = 10;
-    if (newZoom < 0.1) newZoom = 0.1;
-    canvas.zoomToPoint(canvas.getVpCenter(), newZoom);
-    setZoomLevel(newZoom);
-  };
-
-  const resetZoomPan = () => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-    canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
-    setZoomLevel(1);
-    showToast("Reset Canvas View", "info");
-  };
-
-  const selectedBg = BACKGROUND_THEMES.find(t => t.id === bgTheme) || BACKGROUND_THEMES[0];
+  // Small helpers to keep JSX terse.
+  const btnBase = "flex items-center justify-center rounded-xl transition-all";
+  const iconBtn = "h-9 w-9 " + btnBase;
+  const island = "pointer-events-auto rounded-2xl border border-white/10 bg-slate-950/90 shadow-2xl backdrop-blur-xl";
+  const groupSep = (i: number) => (i === 2 || i === 6 || i === 11);
 
   return (
-    <div className={`relative w-full ${isFullscreen ? "fixed inset-0 z-50 rounded-none h-screen w-screen" : "h-[760px] rounded-2xl"} border border-white/10 overflow-hidden flex flex-col shadow-2xl transition-all ${selectedBg.css}`}>
-      {/* Hidden File Inputs */}
-      <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
-      <input type="file" ref={jsonInputRef} onChange={importJSON} accept="application/json" className="hidden" />
+    <div
+      className={`${shell} flex w-full flex-col overflow-hidden border border-white/10 shadow-2xl`}
+      style={{ background: theme.page }}
+    >
+      <input ref={imgFileRef}  type="file" accept="image/*"        onChange={onImageFile} className="hidden" />
+      <input ref={jsonFileRef} type="file" accept="application/json" onChange={onJSONFile}  className="hidden" />
 
-      {/* 🛠️ Top Responsive Mac-Style Glassmorphism Control Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-slate-950/90 border-b border-white/10 backdrop-blur-xl z-30 shadow-lg">
-        {/* Left Section: Font & Background Theme Selector */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-slate-900/90 p-1.5 px-2.5 rounded-xl border border-white/10 text-xs">
-            <FontIcon className="w-3.5 h-3.5 text-cyan-400" />
-            <select
-              value={selectedFont}
-              onChange={(e) => setSelectedFont(e.target.value)}
-              className="bg-transparent text-slate-200 text-xs font-semibold focus:outline-none cursor-pointer"
+      {/* Canvas host */}
+      <div className="relative flex-1 overflow-hidden">
+        <div ref={hostRef} className="absolute inset-0" style={{ touchAction: "none" }}>
+          <canvas ref={canvasElRef} />
+        </div>
+
+        {/* ============================================ TOP-LEFT: menu === */}
+        <div className="pointer-events-none absolute left-3 top-3 z-30 flex gap-2">
+          <div className={`${island} relative p-1`}>
+            <button
+              onClick={() => { setMenuOpen(v => !v); setExportOpen(false); }}
+              className={`${iconBtn} text-slate-300 hover:bg-white/10 hover:text-white`}
+              title="Menu"
+              aria-label="Menu"
             >
-              {FONTS.map((font) => (
-                <option key={font.name} value={font.family} className="bg-slate-900 text-white">
-                  {font.name}
-                </option>
-              ))}
-            </select>
-          </div>
+              <Menu className="h-[17px] w-[17px]" />
+            </button>
+            {menuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+                <div className="absolute left-0 top-full z-50 mt-2 w-64 space-y-3 rounded-2xl border border-white/10 bg-slate-950/95 p-3 shadow-2xl">
+                  <div className="space-y-1">
+                    <p className="px-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">Theme</p>
+                    <div className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5">
+                      <Palette className="h-3.5 w-3.5 shrink-0 text-violet-400" />
+                      <select
+                        value={themeId}
+                        onChange={(e) => setThemeId(e.target.value)}
+                        className="w-full cursor-pointer bg-transparent text-[11px] font-bold text-slate-200 focus:outline-none"
+                      >
+                        {THEMES.map((t) => (
+                          <option key={t.id} value={t.id} className="bg-slate-900">{t.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
 
-          <div className="flex items-center gap-1.5 bg-slate-900/90 p-1.5 px-2.5 rounded-xl border border-white/10 text-xs">
-            <Grid className="w-3.5 h-3.5 text-purple-400" />
-            <select
-              value={bgTheme}
-              onChange={(e) => setBgTheme(e.target.value)}
-              className="bg-transparent text-slate-200 text-xs font-semibold focus:outline-none cursor-pointer"
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      onClick={() => setShowGrid(v => !v)}
+                      className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[11px] font-bold transition-all ${
+                        showGrid ? "border-cyan-400/50 bg-cyan-500/15 text-cyan-300" : "border-white/10 bg-white/5 text-slate-400"
+                      }`}
+                    >
+                      <Grid3x3 className="h-3.5 w-3.5" /> Grid
+                    </button>
+                    <button
+                      onClick={() => setSnap(v => !v)}
+                      className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[11px] font-bold transition-all ${
+                        snap ? "border-emerald-400/50 bg-emerald-500/15 text-emerald-300" : "border-white/10 bg-white/5 text-slate-400"
+                      }`}
+                    >
+                      <Magnet className="h-3.5 w-3.5" /> Snap
+                    </button>
+                  </div>
+
+                  <div className="h-px bg-white/10" />
+
+                  <button
+                    onClick={() => { jsonFileRef.current?.click(); setMenuOpen(false); }}
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] font-semibold text-slate-300 hover:bg-white/10 hover:text-white"
+                  >
+                    <Upload className="h-3.5 w-3.5 text-cyan-300" /> Import board
+                  </button>
+                  <button
+                    onClick={clearBoard}
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] font-semibold text-rose-300 hover:bg-rose-500/15"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Clear board
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* ============================================ TOP-CENTER: tools == */}
+        <div className="pointer-events-none absolute left-1/2 top-3 z-30 flex -translate-x-1/2">
+          <div className={`${island} scrollbar-none flex max-w-[calc(100vw-24px)] items-center gap-0.5 overflow-x-auto p-1`}>
+            {TOOLS.map(({ id, icon: Icon, label, key, accent }, i) => {
+              const active = tool === id;
+              return (
+                <button
+                  key={id}
+                  onClick={() => setTool(id)}
+                  title={`${label} · ${key}`}
+                  aria-pressed={active}
+                  aria-label={label}
+                  className={`${iconBtn} relative shrink-0 ${groupSep(i) ? "ml-1" : ""} ${
+                    active ? `${accent} scale-[1.06] shadow-lg` : "text-slate-400 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  <Icon className="h-[17px] w-[17px]" strokeWidth={2} />
+                  {active && (
+                    <span className="pointer-events-none absolute -bottom-0.5 left-1/2 h-[3px] w-4 -translate-x-1/2 rounded-full bg-current opacity-70" />
+                  )}
+                </button>
+              );
+            })}
+            <div className="mx-1 h-6 w-px bg-white/10" />
+            <button
+              onClick={() => imgFileRef.current?.click()}
+              title="Insert image"
+              className={`${iconBtn} text-slate-400 hover:bg-white/10 hover:text-emerald-300`}
             >
-              {BACKGROUND_THEMES.map((theme) => (
-                <option key={theme.id} value={theme.id} className="bg-slate-900 text-white">
-                  {theme.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <button
-            onClick={() => {
-              setSnapToGrid(!snapToGrid);
-              showToast(`Grid Snapping ${!snapToGrid ? "Enabled (20px)" : "Disabled"}`, "info");
-            }}
-            className={`p-1.5 px-2 rounded-xl text-xs font-bold flex items-center gap-1 transition-all border ${
-              snapToGrid ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-lg shadow-cyan-500/20" : "bg-slate-900/90 text-slate-400 border-white/10 hover:text-white"
-            }`}
-            title="Snap Objects to 20px Grid Boundaries"
-          >
-            <Magnet className="w-3.5 h-3.5" />
-            <span className="hidden lg:inline">Snap Grid</span>
-          </button>
-        </div>
-
-        {/* Center Color Palette & Stroke Size */}
-        <div className="flex items-center gap-2.5 bg-slate-900/90 p-1.5 px-3 rounded-2xl border border-white/10 shadow-inner">
-          <div className="flex items-center gap-1.5 overflow-x-auto max-w-[200px] sm:max-w-none scrollbar-none">
-            {COLOR_PRESETS.map((color) => (
-              <button
-                key={color}
-                onClick={() => {
-                  setStrokeColor(color);
-                  setFillColor(color === "#ffffff" ? "rgba(255,255,255,0.1)" : `${color}25`);
-                }}
-                style={{ backgroundColor: color }}
-                className={`w-5 h-5 rounded-full transition-all shrink-0 ${
-                  strokeColor === color ? "scale-125 ring-2 ring-white shadow-lg" : "hover:scale-110 opacity-75 hover:opacity-100"
-                }`}
-              />
-            ))}
-          </div>
-
-          <div className="h-4 w-px bg-white/10 hidden sm:block" />
-
-          <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400">
-            <span className="text-[10px] uppercase font-bold text-slate-400">Size</span>
-            <input
-              type="range"
-              min="1"
-              max="30"
-              value={strokeWidth}
-              onChange={(e) => setStrokeWidth(Number(e.target.value))}
-              className="w-14 h-1 accent-rose-500 cursor-pointer"
-            />
-          </div>
-        </div>
-
-        {/* Right Section: Actions & Fullscreen & 4K High-Res Export */}
-        <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-white/10">
-            <button onClick={handleUndo} disabled={!canUndo} className={`p-1.5 rounded-lg transition-all ${canUndo ? "text-slate-300 hover:text-white hover:bg-white/10" : "text-slate-600 cursor-not-allowed"}`} title="Undo (Ctrl+Z)">
-              <RotateCcw className="w-3.5 h-3.5" />
+              <ImagePlus className="h-[17px] w-[17px]" />
             </button>
-            <button onClick={handleRedo} disabled={!canRedo} className={`p-1.5 rounded-lg transition-all ${canRedo ? "text-slate-300 hover:text-white hover:bg-white/10" : "text-slate-600 cursor-not-allowed"}`} title="Redo (Ctrl+Y)">
-              <RotateCw className="w-3.5 h-3.5" />
+            <button
+              onClick={() => setLocked(v => !v)}
+              title={locked ? "Tool stays active after use" : "Switch to Select after use"}
+              className={`${iconBtn} ${locked ? "bg-white/15 text-white" : "text-slate-500 hover:bg-white/10 hover:text-white"}`}
+            >
+              {locked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+
+        {/* ============================================ TOP-RIGHT: history / export */}
+        <div className="pointer-events-none absolute right-3 top-3 z-30 flex gap-2">
+          <div className={`${island} flex items-center gap-0.5 p-1`}>
+            <button
+              onClick={undo}
+              disabled={!canUndo}
+              title="Undo (Ctrl+Z)"
+              className={`${iconBtn} ${canUndo ? "text-slate-300 hover:bg-white/10 hover:text-white" : "cursor-not-allowed text-slate-700"}`}
+            >
+              <Undo2 className="h-4 w-4" />
+            </button>
+            <button
+              onClick={redo}
+              disabled={!canRedo}
+              title="Redo (Ctrl+Shift+Z)"
+              className={`${iconBtn} ${canRedo ? "text-slate-300 hover:bg-white/10 hover:text-white" : "cursor-not-allowed text-slate-700"}`}
+            >
+              <Redo2 className="h-4 w-4" />
             </button>
           </div>
 
-          <div className="hidden md:flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-white/10">
-            <button onClick={handleDuplicate} className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors" title="Duplicate Object (Ctrl+D)">
-              <Copy className="w-3.5 h-3.5" />
+          <div className={`${island} flex items-center gap-0.5 p-1`}>
+            <button
+              onClick={() => setHelpOpen(true)}
+              title="Shortcuts"
+              className={`${iconBtn} text-slate-300 hover:bg-white/10 hover:text-white`}
+            >
+              <Keyboard className="h-4 w-4" />
             </button>
-            <button onClick={bringToFront} className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors" title="Bring to Front">
-              <BringToFront className="w-3.5 h-3.5" />
-            </button>
-            <button onClick={sendToBack} className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors" title="Send to Back">
-              <SendToBack className="w-3.5 h-3.5" />
+            <button
+              onClick={() => setFullscreen(v => !v)}
+              title={fullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}
+              className={`${iconBtn} text-slate-300 hover:bg-white/10 hover:text-white`}
+            >
+              {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
             </button>
           </div>
 
-          <button onClick={() => jsonInputRef.current?.click()} className="p-2 rounded-xl border border-white/10 bg-white/5 text-cyan-400 hover:bg-cyan-500/10 transition-all text-xs font-bold" title="Import JSON Project">
-            <Upload className="w-3.5 h-3.5" />
-          </button>
-
-          <button onClick={exportJSON} className="p-2 rounded-xl border border-white/10 bg-white/5 text-purple-400 hover:bg-purple-500/10 transition-all text-xs font-bold" title="Export Editable JSON Project">
-            <Layers className="w-3.5 h-3.5" />
-          </button>
-
-          <button onClick={deleteSelected} className="p-2 rounded-xl border border-rose-500/20 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 transition-all text-xs font-bold" title="Delete Selected Items (Delete key)">
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-
-          <button onClick={clearCanvas} className="p-2 rounded-xl border border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all text-xs font-bold" title="Clear Canvas">
-            <RotateCcw className="w-3.5 h-3.5" />
-          </button>
-
-          <button 
-            onClick={() => setIsFullscreen(!isFullscreen)} 
-            className="p-2 rounded-xl border border-white/10 bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 transition-all text-xs font-bold" 
-            title={isFullscreen ? "Exit Fullscreen" : "Toggle Fullscreen View"}
-          >
-            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5 text-cyan-400" /> : <Maximize2 className="w-3.5 h-3.5 text-slate-300" />}
-          </button>
-
-          <button onClick={() => exportImageHighRes(4)} className="p-2 px-3 rounded-xl bg-gradient-to-r from-rose-500 via-amber-500 to-emerald-500 text-slate-950 font-extrabold text-xs shadow-lg flex items-center gap-1.5 hover:opacity-95 transition-all" title="Download 4K Ultra HD Crisp PNG">
-            <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">Export 4K HD</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Main Body Layout: Left Toolbar + Canvas Area */}
-      <div className="flex-1 w-full relative flex overflow-hidden">
-        {/* Left Toolbar Dock - Absolutely Positioned inside body area (top-3 left-3) so IT NEVER OVERLAPS TOP BAR */}
-        <div className="absolute left-3 top-3 z-20 max-h-[calc(100%-24px)] overflow-y-auto scrollbar-none flex flex-col gap-1 p-1.5 bg-slate-950/90 border border-white/10 backdrop-blur-xl rounded-2xl shadow-2xl">
-          <button
-            onClick={() => setActiveTool("draw")}
-            className={`p-2 rounded-xl transition-all ${
-              activeTool === "draw" ? "bg-rose-500 text-white shadow-lg shadow-rose-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"
-            }`}
-            title="Ultra-Smooth Pen (P)"
-          >
-            <Pencil className="w-4 h-4" />
-          </button>
-
-          <button
-            onClick={() => setActiveTool("highlighter")}
-            className={`p-2 rounded-xl transition-all ${
-              activeTool === "highlighter" ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"
-            }`}
-            title="Highlighter Marker"
-          >
-            <Highlighter className="w-4 h-4" />
-          </button>
-
-          <button
-            onClick={() => setActiveTool("laser")}
-            className={`p-2 rounded-xl transition-all ${
-              activeTool === "laser" ? "bg-rose-600 text-white shadow-lg shadow-rose-600/40 animate-pulse scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"
-            }`}
-            title="Fading Laser Trail"
-          >
-            <Flame className="w-4 h-4 text-rose-400" />
-          </button>
-
-          <button
-            onClick={() => setActiveTool("select")}
-            className={`p-2 rounded-xl transition-all ${
-              activeTool === "select" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"
-            }`}
-            title="Lasso Box Select (V)"
-          >
-            <BoxSelect className="w-4 h-4" />
-          </button>
-
-          <button
-            onClick={() => setActiveTool("pan")}
-            className={`p-2 rounded-xl transition-all ${
-              activeTool === "pan" ? "bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"
-            }`}
-            title="360° Infinite Pan (H or Alt+Drag)"
-          >
-            <Hand className="w-4 h-4" />
-          </button>
-
-          <button
-            onClick={() => setActiveTool("erase")}
-            className={`p-2 rounded-xl transition-all ${
-              activeTool === "erase" ? "bg-rose-600 text-white shadow-lg shadow-rose-600/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"
-            }`}
-            title="Object Eraser"
-          >
-            <Eraser className="w-4 h-4" />
-          </button>
-
-          <div className="w-full h-px bg-white/10 my-0.5" />
-
-          <button 
-            onClick={() => { setActiveTool("rect"); showToast("Click on canvas to place Rectangle", "info"); }} 
-            className={`p-2 rounded-xl transition-all ${activeTool === "rect" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
-            title="Click canvas to place Rectangle"
-          >
-            <Square className="w-4 h-4" />
-          </button>
-
-          <button 
-            onClick={() => { setActiveTool("circle"); showToast("Click on canvas to place Circle", "info"); }} 
-            className={`p-2 rounded-xl transition-all ${activeTool === "circle" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
-            title="Click canvas to place Circle"
-          >
-            <Circle className="w-4 h-4" />
-          </button>
-
-          <button 
-            onClick={() => { setActiveTool("diamond"); showToast("Click on canvas to place Diamond", "info"); }} 
-            className={`p-2 rounded-xl transition-all ${activeTool === "diamond" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
-            title="Click canvas to place Diamond"
-          >
-            <Diamond className="w-4 h-4" />
-          </button>
-
-          <button 
-            onClick={() => { setActiveTool("line"); showToast("Click on canvas to place Line", "info"); }} 
-            className={`p-2 rounded-xl transition-all ${activeTool === "line" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
-            title="Click canvas to place Line"
-          >
-            <Minus className="w-4 h-4" />
-          </button>
-
-          <button 
-            onClick={() => { setActiveTool("arrow"); showToast("Click on canvas to place Arrow", "info"); }} 
-            className={`p-2 rounded-xl transition-all ${activeTool === "arrow" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
-            title="Click canvas to place Arrow"
-          >
-            <ArrowRight className="w-4 h-4" />
-          </button>
-
-          <button 
-            onClick={() => { setActiveTool("text"); showToast("Click on canvas to add Text", "info"); }} 
-            className={`p-2 rounded-xl transition-all ${activeTool === "text" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
-            title="Click canvas to place Text"
-          >
-            <Type className="w-4 h-4" />
-          </button>
-
-          <button 
-            onClick={() => { setActiveTool("note"); showToast("Click on canvas to place Sticky Note", "info"); }} 
-            className={`p-2 rounded-xl transition-all ${activeTool === "note" ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/40 scale-105" : "text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"}`} 
-            title="Click canvas to place Sticky Note"
-          >
-            <StickyNote className="w-4 h-4" />
-          </button>
-
-          <button onClick={() => fileInputRef.current?.click()} className="p-2 rounded-xl text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors" title="Upload Local PC Image">
-            <ImageIcon className="w-4 h-4" />
-          </button>
+          <div className={`${island} relative p-1`}>
+            <button
+              onClick={() => { setExportOpen(v => !v); setMenuOpen(false); }}
+              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-400 to-emerald-400 px-3 py-1.5 text-[11px] font-extrabold text-slate-950 shadow-lg transition-all hover:opacity-90"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Export</span>
+              <ChevronDown className="h-3 w-3" />
+            </button>
+            {exportOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
+                <div className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-white/10 bg-slate-950/95 p-1 shadow-2xl">
+                  {[
+                    { label: "PNG · 1× (screen)",    icon: FileImage, fn: () => exportPNG(1) },
+                    { label: "PNG · 2× (retina)",    icon: FileImage, fn: () => exportPNG(2) },
+                    { label: "PNG · 4× (ultra HD)",  icon: FileImage, fn: () => exportPNG(4) },
+                    { label: "PNG · transparent",    icon: FileImage, fn: () => exportPNG(2, true) },
+                    { label: "SVG (vector)",         icon: FileCode2, fn: exportSVG },
+                    { label: "Board file (.json)",   icon: FileJson,  fn: exportJSON },
+                  ].map(({ label, icon: I, fn }) => (
+                    <button
+                      key={label}
+                      onClick={fn}
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[12px] font-semibold text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+                    >
+                      <I className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Canvas Area Container */}
-        <div ref={containerRef} className="flex-1 w-full h-full relative cursor-crosshair">
-          <canvas ref={canvasRef} />
+        {/* ============================================ LEFT: properties (contextual) */}
+        {showProps && (
+          <div className="pointer-events-none absolute bottom-16 left-3 top-16 z-20 flex items-start">
+            <div className={`${island} scrollbar-none w-[204px] max-h-full space-y-3 overflow-y-auto p-3`}>
+              <PanelSection label="Stroke">
+                <div className="grid grid-cols-5 gap-1.5">
+                  {STROKES.map((clr) => (
+                    <button
+                      key={clr}
+                      onClick={() => setStrokeA(clr)}
+                      title={clr}
+                      style={{ background: clr }}
+                      className={`h-6 w-full rounded-md border transition-all ${
+                        stroke === clr ? "border-white ring-2 ring-cyan-400 ring-offset-1 ring-offset-slate-950" : "border-white/20 hover:scale-105"
+                      }`}
+                    />
+                  ))}
+                </div>
+                <label className="mt-1 flex cursor-pointer items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-semibold text-slate-300">
+                  <input
+                    type="color"
+                    value={isHex6(stroke) ? stroke : "#ffffff"}
+                    onChange={(e) => setStrokeA(e.target.value)}
+                    className="h-4 w-4 cursor-pointer rounded border-0 bg-transparent p-0"
+                  />
+                  Custom
+                </label>
+              </PanelSection>
+
+              {(hasSel || tool === "rect" || tool === "ellipse" || tool === "diamond") && (
+                <PanelSection label="Fill">
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {FILLS.map((clr) => (
+                      <button
+                        key={clr}
+                        onClick={() => setFillA(clr)}
+                        title={clr === "transparent" ? "No fill" : clr}
+                        style={clr === "transparent" ? undefined : { background: clr }}
+                        className={`flex h-6 w-full items-center justify-center rounded-md border transition-all ${
+                          fill === clr ? "border-white ring-2 ring-cyan-400 ring-offset-1 ring-offset-slate-950" : "border-white/20 hover:scale-105"
+                        } ${clr === "transparent" ? "bg-slate-800" : ""}`}
+                      >
+                        {clr === "transparent" && <Ban className="h-3 w-3 text-slate-500" />}
+                      </button>
+                    ))}
+                  </div>
+                </PanelSection>
+              )}
+
+              <PanelSection label={`Width · ${strokeWidth}`}>
+                <div className="flex gap-1.5">
+                  {[2, 4, 8, 14].map((w) => (
+                    <button
+                      key={w}
+                      onClick={() => setWidthA(w)}
+                      className={`flex h-7 flex-1 items-center justify-center rounded-lg border transition-all ${
+                        strokeWidth === w ? "border-cyan-400 bg-cyan-500/20" : "border-white/10 bg-white/5 hover:bg-white/10"
+                      }`}
+                    >
+                      <span className="block w-4 rounded-full bg-slate-200" style={{ height: Math.min(w, 8) }} />
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="range" min={1} max={40} value={strokeWidth}
+                  onChange={(e) => setWidthA(Number(e.target.value))}
+                  className="mt-1 h-1 w-full cursor-pointer accent-cyan-400"
+                />
+              </PanelSection>
+
+              <PanelSection label="Style">
+                <div className="flex gap-1.5">
+                  {Object.keys(DASHES).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setStyleA(s)}
+                      title={s}
+                      className={`flex h-7 flex-1 items-center justify-center rounded-lg border transition-all ${
+                        strokeStyle === s ? "border-cyan-400 bg-cyan-500/20" : "border-white/10 bg-white/5 hover:bg-white/10"
+                      }`}
+                    >
+                      <svg width="22" height="6" viewBox="0 0 22 6">
+                        <line
+                          x1="1" y1="3" x2="21" y2="3"
+                          stroke="#e2e8f0" strokeWidth="2" strokeLinecap="round"
+                          strokeDasharray={s === "dashed" ? "5 4" : s === "dotted" ? "0.5 4" : undefined}
+                        />
+                      </svg>
+                    </button>
+                  ))}
+                </div>
+              </PanelSection>
+
+              {(selIsText || tool === "text" || tool === "note") && (
+                <>
+                  <PanelSection label="Font">
+                    <select
+                      value={fontFamily}
+                      onChange={(e) => setFontA(e.target.value)}
+                      className="w-full cursor-pointer rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] font-semibold text-slate-200 focus:outline-none"
+                    >
+                      {FONTS.map((f) => (
+                        <option key={f.name} value={f.family} className="bg-slate-900">{f.name}</option>
+                      ))}
+                    </select>
+                  </PanelSection>
+                  <PanelSection label={`Size · ${fontSize}`}>
+                    <div className="flex gap-1.5">
+                      {[16, 24, 36, 56].map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => setSizeA(s)}
+                          className={`h-7 flex-1 rounded-lg border text-[11px] font-bold transition-all ${
+                            fontSize === s ? "border-cyan-400 bg-cyan-500/20 text-white" : "border-white/10 bg-white/5 text-slate-400 hover:bg-white/10"
+                          }`}
+                        >
+                          {s === 16 ? "S" : s === 24 ? "M" : s === 36 ? "L" : "XL"}
+                        </button>
+                      ))}
+                    </div>
+                  </PanelSection>
+                </>
+              )}
+
+              <PanelSection label={`Opacity · ${Math.round(opacity * 100)}%`}>
+                <input
+                  type="range" min={10} max={100} value={Math.round(opacity * 100)}
+                  onChange={(e) => setOpacityA(Number(e.target.value) / 100)}
+                  className="h-1 w-full cursor-pointer accent-cyan-400"
+                />
+              </PanelSection>
+
+              {hasSel && (
+                <PanelSection label="Selection">
+                  <div className="grid grid-cols-4 gap-1.5">
+                    <IconAction onClick={bringFront} title="Bring to front"><BringToFront className="h-3.5 w-3.5" /></IconAction>
+                    <IconAction onClick={sendBack}   title="Send to back"><SendToBack   className="h-3.5 w-3.5" /></IconAction>
+                    <IconAction onClick={duplicate}  title="Duplicate (Ctrl+D)"><Copy    className="h-3.5 w-3.5" /></IconAction>
+                    <IconAction onClick={deleteSel}  title="Delete (Del)" danger><Trash2 className="h-3.5 w-3.5" /></IconAction>
+                  </div>
+                </PanelSection>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ============================================ BOTTOM-LEFT: zoom = */}
+        <div className={`${island} absolute bottom-3 left-3 z-20 flex items-center gap-0.5 p-1`}>
+          <button onClick={() => zoomBy(1 / 1.2)} title="Zoom out" className={`${iconBtn} h-8 w-8 text-slate-300 hover:bg-white/10 hover:text-white`}>
+            <ZoomOut className="h-3.5 w-3.5" />
+          </button>
+          <button onClick={resetView} title="Reset (Ctrl+0)" className="min-w-[52px] rounded-lg px-1 py-1 font-mono text-[11px] font-bold text-white hover:bg-white/10">
+            {Math.round(zoom * 100)}%
+          </button>
+          <button onClick={() => zoomBy(1.2)} title="Zoom in" className={`${iconBtn} h-8 w-8 text-slate-300 hover:bg-white/10 hover:text-white`}>
+            <ZoomIn className="h-3.5 w-3.5" />
+          </button>
+          <div className="mx-0.5 h-4 w-px bg-white/15" />
+          <button onClick={fitView} title="Zoom to fit (Ctrl+1)" className={`${iconBtn} h-8 w-8 text-slate-300 hover:bg-white/10 hover:text-white`}>
+            <Scan className="h-3.5 w-3.5" />
+          </button>
         </div>
-      </div>
 
-      {/* 🔍 Bottom Canvas View & Shortcuts Bar */}
-      <div className="absolute bottom-3 left-3 bg-slate-950/85 border border-white/10 backdrop-blur-xl rounded-xl p-2 px-3 flex items-center gap-3 text-xs text-slate-400 z-20 shadow-xl max-w-[calc(100%-24px)] overflow-x-auto scrollbar-none">
-        <div className="flex items-center gap-2">
-          <button onClick={() => changeZoom(1.25)} className="p-1 hover:text-white transition-colors" title="Zoom In">
-            <ZoomIn className="w-3.5 h-3.5" />
-          </button>
-          <button onClick={resetZoomPan} className="font-mono text-xs font-bold text-white hover:text-cyan-400 transition-colors" title="Click to Reset 100% View">
-            {Math.round(zoomLevel * 100)}%
-          </button>
-          <button onClick={() => changeZoom(0.8)} className="p-1 hover:text-white transition-colors" title="Zoom Out">
-            <ZoomOut className="w-3.5 h-3.5" />
-          </button>
+        {/* ============================================ BOTTOM-RIGHT: hint */}
+        <div className="pointer-events-none absolute bottom-3 right-3 z-20 hidden rounded-xl border border-white/10 bg-slate-950/70 px-3 py-1.5 text-[11px] font-medium text-slate-400 backdrop-blur-xl md:block">
+          {hint}
         </div>
 
-        <div className="h-3 w-px bg-white/20" />
-
-        <span className="text-[11px] text-slate-400 whitespace-nowrap">
-          🎯 <span className="font-semibold text-slate-300">Whiteboard Canvas</span> Grid themes & high resolution 4K HD export enabled!
-        </span>
+        {/* ============================================ Shortcuts overlay */}
+        {helpOpen && (
+          <div
+            className="absolute inset-0 z-40 flex items-center justify-center bg-slate-950/60 p-6 backdrop-blur-sm"
+            onClick={() => setHelpOpen(false)}
+          >
+            <div
+              className="w-full max-w-lg rounded-2xl border border-white/10 bg-slate-950/95 p-5 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-extrabold text-white">Keyboard shortcuts</h3>
+                <button onClick={() => setHelpOpen(false)} className="rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-white">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="grid grid-cols-1 gap-x-6 gap-y-1 text-[12px] sm:grid-cols-2">
+                {SHORTCUTS.map(([k, v]) => (
+                  <div key={k} className="flex items-center justify-between gap-3 border-b border-white/5 py-1">
+                    <span className="text-slate-400">{v}</span>
+                    <kbd className="rounded-md border border-white/10 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-200">{k}</kbd>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Tiny inline UI helpers                                                    */
+/* -------------------------------------------------------------------------- */
+
+function PanelSection({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</p>
+      {children}
+    </div>
+  );
+}
+
+function IconAction({
+  onClick, title, danger, children,
+}: {
+  onClick: () => void; title: string; danger?: boolean; children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className={`flex h-7 items-center justify-center rounded-lg border transition-all ${
+        danger
+          ? "border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20"
+          : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
