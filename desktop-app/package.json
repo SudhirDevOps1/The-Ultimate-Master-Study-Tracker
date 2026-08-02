@@ -71,11 +71,11 @@
     ]
   },
   "dependencies": {
-    "@excalidraw/excalidraw": "^0.18.1",
     "clsx": "2.1.1",
     "date-fns": "^4.1.0",
     "dexie": "^4.3.0",
     "electron-updater": "^6.8.9",
+    "fabric": "^6.6.1",
     "firebase": "^12.15.0",
     "framer-motion": "^12.35.0",
     "html2canvas": "^1.4.1",
@@ -103,5 +103,10 @@
     "typescript": "5.9.3",
     "vite": "^7.3.6",
     "wait-on": "^9.0.10"
+  },
+  "overrides": {
+    "nanoid": "^5.0.9",
+    "tar": "^7.5.3",
+    "lodash-es": "^4.17.21"
   }
 }

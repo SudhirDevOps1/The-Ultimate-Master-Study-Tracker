@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/components/common/Toast";
 import { Panel } from "@/components/common/Panel";
+import { FabricWhiteboard } from "@/components/common/FabricWhiteboard";
 
 // ─── Mind Map Tree Engine Models ──────────────────────────────────────────────
 export interface MindNode {
@@ -744,34 +745,8 @@ export function MindMapPage() {
           </div>
         </div>
       ) : (
-        /* ─── Excalidraw Engine Mode ────────────────────────────────────────── */
-        <div 
-          ref={excalidrawContainerRef} 
-          className={`w-full ${isFullscreen ? "h-[calc(100vh-140px)]" : "h-[760px]"} rounded-2xl border border-slate-800 overflow-hidden bg-slate-950 relative`}
-        >
-          {isExcalidrawLoading ? (
-            <div className="w-full h-full flex items-center justify-center text-purple-400 gap-2">
-              <RefreshCw className="w-6 h-6 animate-spin" /> Loading Excalidraw Whiteboard Canvas...
-            </div>
-          ) : excalidrawComp ? (
-            (() => {
-              const Comp = excalidrawComp;
-              return (
-                <Comp 
-                  excalidrawAPI={(api: any) => setExcalidrawAPI(api)} 
-                  theme="dark" 
-                />
-              );
-            })()
-          ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-3">
-              <p>Excalidraw engine loading...</p>
-              <button onClick={() => setEngineMode("tree")} className="px-4 py-2 rounded-lg bg-purple-600 text-white text-xs font-semibold">
-                Return to Tree Engine
-              </button>
-            </div>
-          )}
-        </div>
+        /* ─── Fabric.js Whiteboard Engine Mode ───────────────────────────────── */
+        <FabricWhiteboard storageKey="flowtrack_fabric_whiteboard_desktop_v1" />
       )}
     </div>
   );
