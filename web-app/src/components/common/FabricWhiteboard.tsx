@@ -55,11 +55,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
   const [snapToGrid, setSnapToGrid] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Drag-to-Draw Interactive Shape Creation Refs
-  const isDrawingShapeRef = useRef(false);
-  const shapeStartPointRef = useRef<{ x: number; y: number } | null>(null);
-  const activeShapeObjectRef = useRef<fabric.Object | null>(null);
-
   // History Stacks
   const historyRef = useRef<string[]>([]);
   const historyIndexRef = useRef<number>(-1);
@@ -256,7 +251,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     canvas.on("object:modified", () => pushState());
     canvas.on("object:removed", () => pushState());
 
-    // 🎯 Interactive Click-and-Drag Shape Creation Events
+    // 🎯 Instant 100% Reliable Click-to-Place Shape Creation on Canvas Cursor
     canvas.on("mouse:down", (opt) => {
       const activeCanvas = fabricCanvasRef.current;
       if (!activeCanvas) return;
@@ -270,76 +265,76 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
 
       if (["rect", "circle", "diamond", "line", "arrow", "text", "note"].includes(currentTool)) {
         const pointer = activeCanvas.getScenePoint(opt.e);
-        shapeStartPointRef.current = { x: pointer.x, y: pointer.y };
-        isDrawingShapeRef.current = true;
+        let newShape: fabric.Object | null = null;
 
         if (currentTool === "rect") {
-          const rect = new fabric.Rect({
-            left: pointer.x,
-            top: pointer.y,
-            width: 0,
-            height: 0,
+          newShape = new fabric.Rect({
+            left: pointer.x - 70,
+            top: pointer.y - 45,
+            width: 140,
+            height: 90,
             fill: fillColorRef.current,
             stroke: strokeColorRef.current,
             strokeWidth: strokeWidthRef.current,
             rx: 10,
             ry: 10,
           });
-          activeCanvas.add(rect);
-          activeShapeObjectRef.current = rect;
         } else if (currentTool === "circle") {
-          const circle = new fabric.Circle({
-            left: pointer.x,
-            top: pointer.y,
-            radius: 0,
+          newShape = new fabric.Circle({
+            left: pointer.x - 50,
+            top: pointer.y - 50,
+            radius: 50,
             fill: fillColorRef.current,
             stroke: strokeColorRef.current,
             strokeWidth: strokeWidthRef.current,
           });
-          activeCanvas.add(circle);
-          activeShapeObjectRef.current = circle;
         } else if (currentTool === "diamond") {
-          const diamond = new fabric.Polygon(
+          newShape = new fabric.Polygon(
             [
-              { x: 0, y: 0 },
-              { x: 0, y: 0 },
-              { x: 0, y: 0 },
-              { x: 0, y: 0 },
+              { x: 60, y: 0 },
+              { x: 120, y: 60 },
+              { x: 60, y: 120 },
+              { x: 0, y: 60 },
             ],
             {
-              left: pointer.x,
-              top: pointer.y,
+              left: pointer.x - 60,
+              top: pointer.y - 60,
               fill: fillColorRef.current,
               stroke: strokeColorRef.current,
               strokeWidth: strokeWidthRef.current,
             }
           );
-          activeCanvas.add(diamond);
-          activeShapeObjectRef.current = diamond;
-        } else if (currentTool === "line" || currentTool === "arrow") {
-          const line = new fabric.Line([pointer.x, pointer.y, pointer.x, pointer.y], {
+        } else if (currentTool === "line") {
+          newShape = new fabric.Line([pointer.x - 70, pointer.y, pointer.x + 70, pointer.y], {
             stroke: strokeColorRef.current,
             strokeWidth: strokeWidthRef.current,
           });
-          activeCanvas.add(line);
-          activeShapeObjectRef.current = line;
-        } else if (currentTool === "text") {
-          const text = new fabric.IText("Type here", {
-            left: pointer.x,
-            top: pointer.y,
-            fontFamily: selectedFontRef.current,
-            fontSize: 26,
+        } else if (currentTool === "arrow") {
+          const line = new fabric.Line([pointer.x - 70, pointer.y, pointer.x + 50, pointer.y], {
+            stroke: strokeColorRef.current,
+            strokeWidth: strokeWidthRef.current,
+          });
+          const triangle = new fabric.Triangle({
+            left: pointer.x + 50,
+            top: pointer.y - strokeWidthRef.current * 2,
+            angle: 90,
+            width: strokeWidthRef.current * 4,
+            height: strokeWidthRef.current * 4,
             fill: strokeColorRef.current,
           });
-          activeCanvas.add(text);
-          activeCanvas.setActiveObject(text);
-          activeCanvas.renderAll();
-          isDrawingShapeRef.current = false;
-          setActiveTool("select");
+          newShape = new fabric.Group([line, triangle]);
+        } else if (currentTool === "text") {
+          newShape = new fabric.IText("Double click to edit", {
+            left: pointer.x - 90,
+            top: pointer.y - 15,
+            fontFamily: selectedFontRef.current,
+            fontSize: 24,
+            fill: strokeColorRef.current,
+          });
         } else if (currentTool === "note") {
-          const note = new fabric.Textbox("📌 Sticky Note\n(Double click to edit)", {
-            left: pointer.x,
-            top: pointer.y,
+          newShape = new fabric.Textbox("📌 Sticky Note\n(Double click to edit)", {
+            left: pointer.x - 90,
+            top: pointer.y - 90,
             width: 180,
             height: 180,
             fontSize: 20,
@@ -353,70 +348,14 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
             ry: 12,
             splitByGrapheme: true,
           });
-          activeCanvas.add(note);
-          activeCanvas.setActiveObject(note);
+        }
+
+        if (newShape) {
+          activeCanvas.add(newShape);
+          activeCanvas.setActiveObject(newShape);
           activeCanvas.renderAll();
-          isDrawingShapeRef.current = false;
           setActiveTool("select");
         }
-      }
-    });
-
-    canvas.on("mouse:move", (opt) => {
-      const activeCanvas = fabricCanvasRef.current;
-      if (!activeCanvas || !isDrawingShapeRef.current || !shapeStartPointRef.current || !activeShapeObjectRef.current) return;
-
-      const pointer = activeCanvas.getScenePoint(opt.e);
-      const startX = shapeStartPointRef.current.x;
-      const startY = shapeStartPointRef.current.y;
-      const currentShape = activeShapeObjectRef.current;
-      const currentTool = activeCanvasRefTool.current;
-
-      const left = Math.min(startX, pointer.x);
-      const top = Math.min(startY, pointer.y);
-      const width = Math.abs(startX - pointer.x);
-      const height = Math.abs(startY - pointer.y);
-
-      if (currentTool === "rect") {
-        currentShape.set({ left, top, width, height });
-      } else if (currentTool === "circle") {
-        const radius = Math.max(width, height) / 2;
-        currentShape.set({ left, top, radius });
-      } else if (currentTool === "diamond") {
-        const w = Math.max(width, 20);
-        const h = Math.max(height, 20);
-        (currentShape as fabric.Polygon).set({
-          left,
-          top,
-          points: [
-            { x: w / 2, y: 0 },
-            { x: w, y: h / 2 },
-            { x: w / 2, y: h },
-            { x: 0, y: h / 2 },
-          ],
-        });
-      } else if (currentTool === "line" || currentTool === "arrow") {
-        (currentShape as fabric.Line).set({
-          x2: pointer.x,
-          y2: pointer.y,
-        });
-      }
-
-      activeCanvas.renderAll();
-    });
-
-    canvas.on("mouse:up", () => {
-      const activeCanvas = fabricCanvasRef.current;
-      if (isDrawingShapeRef.current && activeCanvas && activeShapeObjectRef.current) {
-        const shapeObj = activeShapeObjectRef.current;
-        shapeObj.setCoords();
-        activeCanvas.setActiveObject(shapeObj);
-        activeCanvas.renderAll();
-
-        isDrawingShapeRef.current = false;
-        shapeStartPointRef.current = null;
-        activeShapeObjectRef.current = null;
-        setActiveTool("select");
       }
     });
 
@@ -880,7 +819,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
         </div>
       </div>
 
-      {/* 🖌️ Interactive Drag-to-Draw Shape Dock (Select Tool -> Drag on Canvas to Draw Shape Exactly Where You Want!) */}
+      {/* 🖌️ Precision Click-to-Place Shape Tools Dock */}
       <div className="absolute left-2.5 top-16 z-20 max-h-[calc(100%-80px)] overflow-y-auto scrollbar-none flex flex-col gap-1 p-1.5 bg-slate-950/90 border border-white/10 backdrop-blur-xl rounded-2xl shadow-2xl">
         <button
           onClick={() => setActiveTool("draw")}
@@ -944,43 +883,43 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
 
         <div className="w-full h-px bg-white/10 my-0.5" />
 
-        {/* Click tool icon -> Drag mouse on canvas to draw exact shape size & position! */}
+        {/* Precision Click-to-Place Shape Tools */}
         <button 
-          onClick={() => { setActiveTool("rect"); showToast("Click & drag mouse on canvas to draw Rectangle", "info"); }} 
+          onClick={() => { setActiveTool("rect"); showToast("Click on canvas to place Rectangle", "info"); }} 
           className={`p-2 rounded-xl transition-all ${activeTool === "rect" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
-          title="Rectangle (Drag to draw)"
+          title="Click canvas to place Rectangle"
         >
           <Square className="w-4 h-4" />
         </button>
 
         <button 
-          onClick={() => { setActiveTool("circle"); showToast("Click & drag mouse on canvas to draw Circle", "info"); }} 
+          onClick={() => { setActiveTool("circle"); showToast("Click on canvas to place Circle", "info"); }} 
           className={`p-2 rounded-xl transition-all ${activeTool === "circle" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
-          title="Circle (Drag to draw)"
+          title="Click canvas to place Circle"
         >
           <Circle className="w-4 h-4" />
         </button>
 
         <button 
-          onClick={() => { setActiveTool("diamond"); showToast("Click & drag mouse on canvas to draw Diamond", "info"); }} 
+          onClick={() => { setActiveTool("diamond"); showToast("Click on canvas to place Diamond", "info"); }} 
           className={`p-2 rounded-xl transition-all ${activeTool === "diamond" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
-          title="Diamond (Drag to draw)"
+          title="Click canvas to place Diamond"
         >
           <Diamond className="w-4 h-4" />
         </button>
 
         <button 
-          onClick={() => { setActiveTool("line"); showToast("Click & drag mouse on canvas to draw Line", "info"); }} 
+          onClick={() => { setActiveTool("line"); showToast("Click on canvas to place Line", "info"); }} 
           className={`p-2 rounded-xl transition-all ${activeTool === "line" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
-          title="Line (Drag to draw)"
+          title="Click canvas to place Line"
         >
           <Minus className="w-4 h-4" />
         </button>
 
         <button 
-          onClick={() => { setActiveTool("arrow"); showToast("Click & drag mouse on canvas to draw Arrow", "info"); }} 
+          onClick={() => { setActiveTool("arrow"); showToast("Click on canvas to place Arrow", "info"); }} 
           className={`p-2 rounded-xl transition-all ${activeTool === "arrow" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
-          title="Arrow (Drag to draw)"
+          title="Click canvas to place Arrow"
         >
           <ArrowRight className="w-4 h-4" />
         </button>
@@ -1028,7 +967,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
         <div className="h-3 w-px bg-white/20" />
 
         <span className="text-[11px] text-slate-400 whitespace-nowrap">
-          🎯 <span className="font-semibold text-slate-300">Drag to Draw Shapes</span> Click shape tool & drag mouse anywhere on canvas to size & place!
+          🎯 <span className="font-semibold text-slate-300">Precision Click-to-Place Shapes</span> Click any shape tool & tap mouse on canvas to place exactly where you want!
         </span>
       </div>
     </div>
