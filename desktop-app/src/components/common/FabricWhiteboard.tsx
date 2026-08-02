@@ -55,6 +55,11 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
   const [snapToGrid, setSnapToGrid] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // Drag-to-Draw Interactive Shape Creation Refs
+  const isDrawingShapeRef = useRef(false);
+  const shapeStartPointRef = useRef<{ x: number; y: number } | null>(null);
+  const activeShapeObjectRef = useRef<fabric.Object | null>(null);
+
   // History Stacks
   const historyRef = useRef<string[]>([]);
   const historyIndexRef = useRef<number>(-1);
@@ -152,6 +157,16 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     snapToGridRef.current = snapToGrid;
   }, [snapToGrid]);
 
+  const strokeColorRef = useRef(strokeColor);
+  const fillColorRef = useRef(fillColor);
+  const strokeWidthRef = useRef(strokeWidth);
+  const selectedFontRef = useRef(selectedFont);
+
+  useEffect(() => { strokeColorRef.current = strokeColor; }, [strokeColor]);
+  useEffect(() => { fillColorRef.current = fillColor; }, [fillColor]);
+  useEffect(() => { strokeWidthRef.current = strokeWidth; }, [strokeWidth]);
+  useEffect(() => { selectedFontRef.current = selectedFont; }, [selectedFont]);
+
   // Initialize Fabric Canvas
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return;
@@ -241,13 +256,167 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     canvas.on("object:modified", () => pushState());
     canvas.on("object:removed", () => pushState());
 
-    // Eraser Mode
+    // 🎯 Interactive Click-and-Drag Shape Creation Events
     canvas.on("mouse:down", (opt) => {
       const activeCanvas = fabricCanvasRef.current;
       if (!activeCanvas) return;
-      if (activeCanvasRefTool.current === "erase" && opt.target) {
+      const currentTool = activeCanvasRefTool.current;
+
+      if (currentTool === "erase" && opt.target) {
         activeCanvas.remove(opt.target);
         activeCanvas.renderAll();
+        return;
+      }
+
+      if (["rect", "circle", "diamond", "line", "arrow", "text", "note"].includes(currentTool)) {
+        const pointer = activeCanvas.getScenePoint(opt.e);
+        shapeStartPointRef.current = { x: pointer.x, y: pointer.y };
+        isDrawingShapeRef.current = true;
+
+        if (currentTool === "rect") {
+          const rect = new fabric.Rect({
+            left: pointer.x,
+            top: pointer.y,
+            width: 0,
+            height: 0,
+            fill: fillColorRef.current,
+            stroke: strokeColorRef.current,
+            strokeWidth: strokeWidthRef.current,
+            rx: 10,
+            ry: 10,
+          });
+          activeCanvas.add(rect);
+          activeShapeObjectRef.current = rect;
+        } else if (currentTool === "circle") {
+          const circle = new fabric.Circle({
+            left: pointer.x,
+            top: pointer.y,
+            radius: 0,
+            fill: fillColorRef.current,
+            stroke: strokeColorRef.current,
+            strokeWidth: strokeWidthRef.current,
+          });
+          activeCanvas.add(circle);
+          activeShapeObjectRef.current = circle;
+        } else if (currentTool === "diamond") {
+          const diamond = new fabric.Polygon(
+            [
+              { x: 0, y: 0 },
+              { x: 0, y: 0 },
+              { x: 0, y: 0 },
+              { x: 0, y: 0 },
+            ],
+            {
+              left: pointer.x,
+              top: pointer.y,
+              fill: fillColorRef.current,
+              stroke: strokeColorRef.current,
+              strokeWidth: strokeWidthRef.current,
+            }
+          );
+          activeCanvas.add(diamond);
+          activeShapeObjectRef.current = diamond;
+        } else if (currentTool === "line" || currentTool === "arrow") {
+          const line = new fabric.Line([pointer.x, pointer.y, pointer.x, pointer.y], {
+            stroke: strokeColorRef.current,
+            strokeWidth: strokeWidthRef.current,
+          });
+          activeCanvas.add(line);
+          activeShapeObjectRef.current = line;
+        } else if (currentTool === "text") {
+          const text = new fabric.IText("Type here", {
+            left: pointer.x,
+            top: pointer.y,
+            fontFamily: selectedFontRef.current,
+            fontSize: 26,
+            fill: strokeColorRef.current,
+          });
+          activeCanvas.add(text);
+          activeCanvas.setActiveObject(text);
+          activeCanvas.renderAll();
+          isDrawingShapeRef.current = false;
+          setActiveTool("select");
+        } else if (currentTool === "note") {
+          const note = new fabric.Textbox("📌 Sticky Note\n(Double click to edit)", {
+            left: pointer.x,
+            top: pointer.y,
+            width: 180,
+            height: 180,
+            fontSize: 20,
+            fontFamily: selectedFontRef.current,
+            fill: "#fef9c3",
+            backgroundColor: "rgba(234, 179, 8, 0.25)",
+            borderColor: "#eab308",
+            borderScaleFactor: 2,
+            padding: 14,
+            rx: 12,
+            ry: 12,
+            splitByGrapheme: true,
+          });
+          activeCanvas.add(note);
+          activeCanvas.setActiveObject(note);
+          activeCanvas.renderAll();
+          isDrawingShapeRef.current = false;
+          setActiveTool("select");
+        }
+      }
+    });
+
+    canvas.on("mouse:move", (opt) => {
+      const activeCanvas = fabricCanvasRef.current;
+      if (!activeCanvas || !isDrawingShapeRef.current || !shapeStartPointRef.current || !activeShapeObjectRef.current) return;
+
+      const pointer = activeCanvas.getScenePoint(opt.e);
+      const startX = shapeStartPointRef.current.x;
+      const startY = shapeStartPointRef.current.y;
+      const currentShape = activeShapeObjectRef.current;
+      const currentTool = activeCanvasRefTool.current;
+
+      const left = Math.min(startX, pointer.x);
+      const top = Math.min(startY, pointer.y);
+      const width = Math.abs(startX - pointer.x);
+      const height = Math.abs(startY - pointer.y);
+
+      if (currentTool === "rect") {
+        currentShape.set({ left, top, width, height });
+      } else if (currentTool === "circle") {
+        const radius = Math.max(width, height) / 2;
+        currentShape.set({ left, top, radius });
+      } else if (currentTool === "diamond") {
+        const w = Math.max(width, 20);
+        const h = Math.max(height, 20);
+        (currentShape as fabric.Polygon).set({
+          left,
+          top,
+          points: [
+            { x: w / 2, y: 0 },
+            { x: w, y: h / 2 },
+            { x: w / 2, y: h },
+            { x: 0, y: h / 2 },
+          ],
+        });
+      } else if (currentTool === "line" || currentTool === "arrow") {
+        (currentShape as fabric.Line).set({
+          x2: pointer.x,
+          y2: pointer.y,
+        });
+      }
+
+      activeCanvas.renderAll();
+    });
+
+    canvas.on("mouse:up", () => {
+      const activeCanvas = fabricCanvasRef.current;
+      if (isDrawingShapeRef.current && activeCanvas && activeShapeObjectRef.current) {
+        const shapeObj = activeShapeObjectRef.current;
+        shapeObj.setCoords();
+        activeCanvas.setActiveObject(shapeObj);
+        activeCanvas.renderAll();
+
+        isDrawingShapeRef.current = false;
+        shapeStartPointRef.current = null;
+        activeShapeObjectRef.current = null;
+        setActiveTool("select");
       }
     });
 
@@ -402,119 +571,13 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     } else if (activeTool === "erase") {
       canvas.selection = false;
       canvas.defaultCursor = "crosshair";
+    } else if (["rect", "circle", "diamond", "line", "arrow", "text", "note"].includes(activeTool)) {
+      canvas.selection = false;
+      canvas.defaultCursor = "crosshair";
     } else {
       canvas.defaultCursor = "default";
     }
   }, [activeTool, strokeColor, strokeWidth]);
-
-  // Add Shapes, Text & Directly Editable Sticky Notes
-  const addShape = (type: "rect" | "circle" | "diamond" | "line" | "arrow" | "text" | "note") => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-
-    const center = canvas.getVpCenter();
-
-    if (type === "rect") {
-      const rect = new fabric.Rect({
-        left: center.x - 60,
-        top: center.y - 40,
-        width: 140,
-        height: 90,
-        fill: fillColor,
-        stroke: strokeColor,
-        strokeWidth: strokeWidth,
-        rx: 10,
-        ry: 10,
-      });
-      canvas.add(rect);
-      canvas.setActiveObject(rect);
-    } else if (type === "circle") {
-      const circle = new fabric.Circle({
-        left: center.x - 50,
-        top: center.y - 50,
-        radius: 50,
-        fill: fillColor,
-        stroke: strokeColor,
-        strokeWidth: strokeWidth,
-      });
-      canvas.add(circle);
-      canvas.setActiveObject(circle);
-    } else if (type === "diamond") {
-      const diamond = new fabric.Polygon(
-        [
-          { x: 60, y: 0 },
-          { x: 120, y: 60 },
-          { x: 60, y: 120 },
-          { x: 0, y: 60 },
-        ],
-        {
-          left: center.x - 60,
-          top: center.y - 60,
-          fill: fillColor,
-          stroke: strokeColor,
-          strokeWidth: strokeWidth,
-        }
-      );
-      canvas.add(diamond);
-      canvas.setActiveObject(diamond);
-    } else if (type === "line") {
-      const line = new fabric.Line([center.x - 70, center.y, center.x + 70, center.y], {
-        stroke: strokeColor,
-        strokeWidth: strokeWidth,
-      });
-      canvas.add(line);
-      canvas.setActiveObject(line);
-    } else if (type === "arrow") {
-      const line = new fabric.Line([center.x - 70, center.y, center.x + 50, center.y], {
-        stroke: strokeColor,
-        strokeWidth: strokeWidth,
-      });
-      const triangle = new fabric.Triangle({
-        left: center.x + 50,
-        top: center.y - strokeWidth * 2,
-        angle: 90,
-        width: strokeWidth * 4,
-        height: strokeWidth * 4,
-        fill: strokeColor,
-      });
-      const group = new fabric.Group([line, triangle]);
-      canvas.add(group);
-      canvas.setActiveObject(group);
-    } else if (type === "text") {
-      const text = new fabric.IText("Double click to edit text", {
-        left: center.x - 110,
-        top: center.y - 15,
-        fontFamily: selectedFont,
-        fontSize: 26,
-        fill: strokeColor,
-      });
-      canvas.add(text);
-      canvas.setActiveObject(text);
-    } else if (type === "note") {
-      const note = new fabric.Textbox("📌 Quick Sticky Note\n(Double click to edit text)", {
-        left: center.x - 90,
-        top: center.y - 90,
-        width: 180,
-        height: 180,
-        fontSize: 20,
-        fontFamily: selectedFont,
-        fill: "#fef9c3",
-        backgroundColor: "rgba(234, 179, 8, 0.25)",
-        borderColor: "#eab308",
-        borderScaleFactor: 2,
-        padding: 14,
-        rx: 12,
-        ry: 12,
-        splitByGrapheme: true,
-      });
-      canvas.add(note);
-      canvas.setActiveObject(note);
-    }
-
-    canvas.renderAll();
-    setActiveTool("select");
-    showToast(`Added ${type}`, "info");
-  };
 
   // Upload Local PC Image
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -817,7 +880,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
         </div>
       </div>
 
-      {/* 🖌️ Responsive Left Vertical Floating Tools Dock (Scrollable & Fits All Devices) */}
+      {/* 🖌️ Interactive Drag-to-Draw Shape Dock (Select Tool -> Drag on Canvas to Draw Shape Exactly Where You Want!) */}
       <div className="absolute left-2.5 top-16 z-20 max-h-[calc(100%-80px)] overflow-y-auto scrollbar-none flex flex-col gap-1 p-1.5 bg-slate-950/90 border border-white/10 backdrop-blur-xl rounded-2xl shadow-2xl">
         <button
           onClick={() => setActiveTool("draw")}
@@ -881,27 +944,63 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
 
         <div className="w-full h-px bg-white/10 my-0.5" />
 
-        <button onClick={() => addShape("rect")} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Rectangle">
+        {/* Click tool icon -> Drag mouse on canvas to draw exact shape size & position! */}
+        <button 
+          onClick={() => { setActiveTool("rect"); showToast("Click & drag mouse on canvas to draw Rectangle", "info"); }} 
+          className={`p-2 rounded-xl transition-all ${activeTool === "rect" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
+          title="Rectangle (Drag to draw)"
+        >
           <Square className="w-4 h-4" />
         </button>
-        <button onClick={() => addShape("circle")} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Circle">
+
+        <button 
+          onClick={() => { setActiveTool("circle"); showToast("Click & drag mouse on canvas to draw Circle", "info"); }} 
+          className={`p-2 rounded-xl transition-all ${activeTool === "circle" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
+          title="Circle (Drag to draw)"
+        >
           <Circle className="w-4 h-4" />
         </button>
-        <button onClick={() => addShape("diamond")} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Diamond Decision">
+
+        <button 
+          onClick={() => { setActiveTool("diamond"); showToast("Click & drag mouse on canvas to draw Diamond", "info"); }} 
+          className={`p-2 rounded-xl transition-all ${activeTool === "diamond" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
+          title="Diamond (Drag to draw)"
+        >
           <Diamond className="w-4 h-4" />
         </button>
-        <button onClick={() => addShape("line")} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Line">
+
+        <button 
+          onClick={() => { setActiveTool("line"); showToast("Click & drag mouse on canvas to draw Line", "info"); }} 
+          className={`p-2 rounded-xl transition-all ${activeTool === "line" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
+          title="Line (Drag to draw)"
+        >
           <Minus className="w-4 h-4" />
         </button>
-        <button onClick={() => addShape("arrow")} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Arrow Connector">
+
+        <button 
+          onClick={() => { setActiveTool("arrow"); showToast("Click & drag mouse on canvas to draw Arrow", "info"); }} 
+          className={`p-2 rounded-xl transition-all ${activeTool === "arrow" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
+          title="Arrow (Drag to draw)"
+        >
           <ArrowRight className="w-4 h-4" />
         </button>
-        <button onClick={() => addShape("text")} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Text">
+
+        <button 
+          onClick={() => { setActiveTool("text"); showToast("Click on canvas to add Text", "info"); }} 
+          className={`p-2 rounded-xl transition-all ${activeTool === "text" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
+          title="Click canvas to place Text"
+        >
           <Type className="w-4 h-4" />
         </button>
-        <button onClick={() => addShape("note")} className="p-2 rounded-xl text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 transition-colors" title="Editable Sticky Note">
+
+        <button 
+          onClick={() => { setActiveTool("note"); showToast("Click on canvas to place Sticky Note", "info"); }} 
+          className={`p-2 rounded-xl transition-all ${activeTool === "note" ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/40 scale-105" : "text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"}`} 
+          title="Click canvas to place Sticky Note"
+        >
           <StickyNote className="w-4 h-4" />
         </button>
+
         <button onClick={() => fileInputRef.current?.click()} className="p-2 rounded-xl text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors" title="Upload Local PC Image">
           <ImageIcon className="w-4 h-4" />
         </button>
@@ -929,7 +1028,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
         <div className="h-3 w-px bg-white/20" />
 
         <span className="text-[11px] text-slate-400 whitespace-nowrap">
-          ✨ <span className="font-semibold text-slate-300">4K Ultra HD Export</span> Enabled | <span className="font-semibold text-slate-300">Themes</span> Dot Grid, Graph, Black, Emerald Chalk, White
+          🎯 <span className="font-semibold text-slate-300">Drag to Draw Shapes</span> Click shape tool & drag mouse anywhere on canvas to size & place!
         </span>
       </div>
     </div>
