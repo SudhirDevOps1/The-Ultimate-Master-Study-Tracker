@@ -61,15 +61,20 @@ const STROKES = ["#f97316", "#ffffff", "#0f172a", "#ef4444", "#ec4899", "#a855f7
 const FILLS   = ["transparent", "#f9731633", "#ef444433", "#22c55e33", "#06b6d433", "#3b82f633", "#eab30833", "#8b5cf633", "#94a3b833"];
 
 const FONTS = [
-  { name: "Kalam (Notebook)",   family: "'Kalam', cursive" },
-  { name: "Caveat (Marker)",     family: "'Caveat', cursive" },
-  { name: "Architect (Draft)",   family: "'Architects Daughter', cursive" },
-  { name: "Pacifico (Brush)",    family: "'Pacifico', cursive" },
-  { name: "Dancing Script",      family: "'Dancing Script', cursive" },
-  { name: "Indie Flower",        family: "'Indie Flower', cursive" },
-  { name: "Patrick Hand",        family: "'Patrick Hand', cursive" },
-  { name: "Clean Sans",          family: "Inter, system-ui, sans-serif" },
-  { name: "Code Mono",           family: "'JetBrains Mono', 'Courier New', monospace" },
+  { name: "Kalam (Notebook)",        family: "'Kalam', cursive" },
+  { name: "Caveat (Marker)",          family: "'Caveat', cursive" },
+  { name: "Architect (Draft)",        family: "'Architects Daughter', cursive" },
+  { name: "Pacifico (Brush)",         family: "'Pacifico', cursive" },
+  { name: "Dancing Script (Cursive)", family: "'Dancing Script', cursive" },
+  { name: "Indie Flower (Casual)",    family: "'Indie Flower', cursive" },
+  { name: "Patrick Hand (Class)",     family: "'Patrick Hand', cursive" },
+  { name: "Shadows (Light)",          family: "'Shadows Into Light', cursive" },
+  { name: "Gloria Hallelujah",        family: "'Gloria Hallelujah', cursive" },
+  { name: "Amatic SC (Tall)",         family: "'Amatic SC', cursive" },
+  { name: "Satisfy (Calligraphy)",    family: "'Satisfy', cursive" },
+  { name: "Permanent Marker",         family: "'Permanent Marker', cursive" },
+  { name: "Clean Sans",               family: "Inter, system-ui, sans-serif" },
+  { name: "Code Mono",                family: "'JetBrains Mono', 'Courier New', monospace" },
 ];
 
 const DASHES: Record<string, number[] | undefined> = {
@@ -306,8 +311,13 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
       const l = document.createElement("link");
       l.id = "wb-fonts";
       l.rel = "stylesheet";
-      l.href = "https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Caveat:wght@500;700&family=Dancing+Script:wght@600&family=Indie+Flower&family=Kalam:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Inter:wght@500;700&display=swap";
+      l.href = "https://fonts.googleapis.com/css2?family=Amatic+SC:wght@700&family=Architects+Daughter&family=Caveat:wght@500;700&family=Dancing+Script:wght@600&family=Gloria+Hallelujah&family=Indie+Flower&family=Kalam:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Satisfy&family=Shadows+Into+Light&family=Inter:wght@500;700&family=JetBrains+Mono&display=swap";
       document.head.appendChild(l);
+    }
+    if (typeof document !== "undefined" && document.fonts) {
+      document.fonts.ready.then(() => {
+        fcRef.current?.requestRenderAll();
+      });
     }
 
     const c = new fabric.Canvas(el, {
@@ -1237,7 +1247,16 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
   };
   const setFontA = (v: string) => {
     setFontFamily(v);
-    mutateSelection((o) => { if (isTextObj(o)) o.set({ fontFamily: v }); });
+    mutateSelection((o) => { if (isTextObj(o)) (o as fabric.IText).set({ fontFamily: v }); });
+    if (typeof document !== "undefined" && document.fonts) {
+      document.fonts.load(`24px ${v}`).then(() => {
+        fcRef.current?.requestRenderAll();
+      }).catch(() => {
+        fcRef.current?.requestRenderAll();
+      });
+    } else {
+      fcRef.current?.requestRenderAll();
+    }
   };
   const setSizeA = (v: number) => {
     setFontSize(v);
