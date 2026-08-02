@@ -2,10 +2,10 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import * as fabric from "fabric";
 import { 
   Pencil, Eraser, Square, Circle, Type, StickyNote, Download, Trash2, 
-  RotateCcw, RotateCw, MousePointer, ZoomIn, ZoomOut, Maximize2, Image as ImageIcon,
-  ArrowRight, Minus, Move, Sparkles, Layers, Hand, BoxSelect, Highlighter,
-  Diamond, Grid as GridIcon, Type as FontIcon, Copy, Upload, Shield, Eye, Flame,
-  BringToFront, SendToBack, Magnet, AlignCenter, Maximize, Palette
+  RotateCcw, RotateCw, MousePointer, ZoomIn, ZoomOut, Image as ImageIcon,
+  ArrowRight, Minus, Layers, Hand, BoxSelect, Highlighter,
+  Diamond, Type as FontIcon, Copy, Upload, Flame,
+  BringToFront, SendToBack, Magnet, AlignCenter, Maximize2, Minimize2
 } from "lucide-react";
 import { useToast } from "@/components/common/Toast";
 
@@ -45,7 +45,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
   const [snapToGrid, setSnapToGrid] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Undo / Redo History Stacks
+  // History Stacks
   const historyRef = useRef<string[]>([]);
   const historyIndexRef = useRef<number>(-1);
   const isHistoryProcessing = useRef<boolean>(false);
@@ -137,7 +137,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     });
   }, [showToast]);
 
-  // Ref to hold snapToGrid state for event listeners
   const snapToGridRef = useRef(snapToGrid);
   useEffect(() => {
     snapToGridRef.current = snapToGrid;
@@ -165,18 +164,27 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
       isDrawingMode: true,
       selection: true,
       selectionColor: "rgba(6,182,212,0.15)",
-      selectionLineWidth: 1,
+      selectionLineWidth: 1.5,
       selectionBorderColor: "#06b6d4",
       preserveObjectStacking: true,
     });
 
+    // Modern styled selection control handles
+    fabric.Object.prototype.set({
+      cornerColor: "#06b6d4",
+      cornerStyle: "circle",
+      cornerSize: 10,
+      transparentCorners: false,
+      borderColor: "#06b6d4",
+    });
+
     fabricCanvasRef.current = canvas;
 
-    // Ultra-Smooth Pencil Brush with decimate & round line join
+    // Ultra-Smooth Pencil Brush
     const brush = new fabric.PencilBrush(canvas);
     brush.color = strokeColor;
     brush.width = strokeWidth;
-    brush.decimate = 3; // Smooth point reduction
+    brush.decimate = 1.5; // Natural smooth handwriting curve
     brush.strokeLineCap = "round";
     brush.strokeLineJoin = "round";
     canvas.freeDrawingBrush = brush;
@@ -198,7 +206,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
       console.error("Failed to restore whiteboard data:", e);
     }
 
-    // Grid Snapping Algorithm on Object Moving
+    // Grid Snapping
     canvas.on("object:moving", (options) => {
       if (!snapToGridRef.current || !options.target) return;
       const gridSize = 20;
@@ -209,7 +217,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     });
 
     canvas.on("object:added", (e) => {
-      // Laser Pointer Fading Trail
       if (activeCanvasRefTool.current === "laser" && e.target) {
         const laserObj = e.target;
         laserPathsRef.current.push(laserObj);
@@ -331,6 +338,18 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     };
   }, [storageKey, pushState, handleUndo, handleRedo, handleDuplicate]);
 
+  // Dynamically update canvas dimensions on Fullscreen toggle
+  useEffect(() => {
+    setTimeout(() => {
+      if (!containerRef.current || !fabricCanvasRef.current) return;
+      fabricCanvasRef.current.setDimensions({
+        width: containerRef.current.clientWidth,
+        height: containerRef.current.clientHeight,
+      });
+      fabricCanvasRef.current.renderAll();
+    }, 100);
+  }, [isFullscreen]);
+
   const activeCanvasRefTool = useRef(activeTool);
   useEffect(() => {
     activeCanvasRefTool.current = activeTool;
@@ -357,7 +376,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
         canvas.freeDrawingBrush.color = strokeColor;
         canvas.freeDrawingBrush.width = strokeWidth;
       }
-      (canvas.freeDrawingBrush as fabric.PencilBrush).decimate = 3;
+      (canvas.freeDrawingBrush as fabric.PencilBrush).decimate = 1.5;
       (canvas.freeDrawingBrush as fabric.PencilBrush).strokeLineCap = "round";
       (canvas.freeDrawingBrush as fabric.PencilBrush).strokeLineJoin = "round";
     } else {
@@ -566,7 +585,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     if (jsonInputRef.current) jsonInputRef.current.value = "";
   };
 
-  // Align Objects (Center Horizontal / Center Vertical)
+  // Align Objects
   const alignCenterHorizontal = () => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
@@ -578,18 +597,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     }
   };
 
-  const alignCenterVertical = () => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-    const activeObj = canvas.getActiveObject();
-    if (activeObj) {
-      canvas.centerObjectV(activeObj);
-      canvas.renderAll();
-      showToast("Aligned Centered Vertically", "info");
-    }
-  };
-
-  // Layer Stacking (Bring Forward / Send Backward)
+  // Layer Stacking
   const bringToFront = () => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
@@ -675,7 +683,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
   };
 
   return (
-    <div className={`relative w-full ${isFullscreen ? "fixed inset-0 z-50 rounded-none h-screen" : "h-[760px] rounded-2xl"} bg-[#050505] border border-white/10 overflow-hidden flex flex-col shadow-2xl transition-all`}>
+    <div className={`relative w-full ${isFullscreen ? "fixed inset-0 z-50 rounded-none h-screen w-screen" : "h-[760px] rounded-2xl"} bg-[#050505] border border-white/10 overflow-hidden flex flex-col shadow-2xl transition-all`}>
       {/* Hidden File Inputs */}
       <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
       <input type="file" ref={jsonInputRef} onChange={importJSON} accept="application/json" className="hidden" />
@@ -862,7 +870,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
               <Copy className="w-4 h-4" />
             </button>
 
-            {/* Align Horizontal / Vertical */}
             <button onClick={alignCenterHorizontal} className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors" title="Center Horizontally">
               <AlignCenter className="w-4 h-4" />
             </button>
@@ -875,8 +882,8 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
             </button>
           </div>
 
-          <button onClick={() => setIsFullscreen(!isFullscreen)} className="p-2 rounded-xl border border-white/10 bg-white/5 text-amber-300 hover:bg-amber-500/10 transition-all" title="Toggle Canvas Fullscreen">
-            <Maximize className="w-4 h-4" />
+          <button onClick={() => setIsFullscreen(!isFullscreen)} className={`p-2 rounded-xl border transition-all ${isFullscreen ? "bg-amber-500 text-slate-950 border-amber-400" : "border-white/10 bg-white/5 text-amber-300 hover:bg-amber-500/10"}`} title="Toggle Canvas Fullscreen">
+            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </button>
 
           <button onClick={() => jsonInputRef.current?.click()} className="p-2 rounded-xl border border-white/10 bg-white/5 text-cyan-400 hover:bg-cyan-500/10 transition-all text-xs font-bold flex items-center gap-1" title="Import JSON Project">
