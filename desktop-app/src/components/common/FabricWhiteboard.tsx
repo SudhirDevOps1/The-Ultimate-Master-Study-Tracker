@@ -8,7 +8,7 @@
  * • Custom render passes for the grid (viewport-tracking pattern) and the
  *   fading laser trail (no fabric objects, no history noise).
  * • Full drag-to-draw with live preview, Shift-constrained shapes, drag
- *   eraser, pan/zoom (mouse, trackpad, pinch), touch/stylus support,
+ *   eraser, lasso selection, pan/zoom (mouse, trackpad, pinch), touch/stylus support,
  *   clipboard paste, and a 60-step undo/redo history with autosave.
  */
 
@@ -17,7 +17,7 @@ import * as fabric from "fabric";
 import {
   Undo2, Redo2, ZoomIn, ZoomOut, Maximize2, Minimize2, Menu, Download,
   Upload, Trash2, Grid3x3, Magnet, ChevronDown, Scan, Palette, FileImage,
-  FileJson, FileCode2, Keyboard, MousePointer2, Hand, Pencil, Highlighter,
+  FileJson, FileCode2, Keyboard, MousePointer2, LassoSelect, Hand, Pencil, Highlighter,
   Zap, Eraser, Square, Circle, Diamond, Minus, ArrowRight, Type, StickyNote,
   ImagePlus, Lock, Unlock, BringToFront, SendToBack, Copy, Ban, X,
 } from "lucide-react";
@@ -28,7 +28,7 @@ import { useToast } from "@/components/common/Toast";
 /* -------------------------------------------------------------------------- */
 
 type Tool =
-  | "select" | "pan" | "pen" | "marker" | "laser" | "eraser"
+  | "select" | "lasso" | "pan" | "pen" | "marker" | "laser" | "eraser"
   | "rect" | "ellipse" | "diamond" | "line" | "arrow" | "text" | "note";
 
 interface Theme {
@@ -73,13 +73,14 @@ const DASHES: Record<string, number[] | undefined> = {
 };
 
 const KEYS: Record<string, Tool> = {
-  v: "select", h: "pan", p: "pen", m: "marker", x: "laser", e: "eraser",
+  v: "select", q: "lasso", h: "pan", p: "pen", m: "marker", x: "laser", e: "eraser",
   r: "rect", o: "ellipse", d: "diamond", l: "line", a: "arrow", t: "text", n: "note",
 };
 
 interface ToolMeta { id: Tool; icon: typeof MousePointer2; label: string; key: string; accent: string; }
 const TOOLS: ToolMeta[] = [
   { id: "select",  icon: MousePointer2, label: "Select",   key: "V", accent: "bg-white/95 text-slate-900" },
+  { id: "lasso",   icon: LassoSelect,   label: "Lasso",    key: "Q", accent: "bg-indigo-500 text-white" },
   { id: "pan",     icon: Hand,          label: "Pan",      key: "H", accent: "bg-emerald-400 text-slate-950" },
   { id: "pen",     icon: Pencil,        label: "Pen",      key: "P", accent: "bg-rose-500 text-white" },
   { id: "marker",  icon: Highlighter,   label: "Marker",   key: "M", accent: "bg-amber-400 text-slate-950" },
@@ -95,7 +96,7 @@ const TOOLS: ToolMeta[] = [
 ];
 
 const SHORTCUTS: [string, string][] = [
-  ["V","Select"],["H","Pan"],["P","Pen"],["M","Marker"],["X","Laser"],["E","Eraser"],
+  ["V","Select"],["Q","Lasso Select"],["H","Pan"],["P","Pen"],["M","Marker"],["X","Laser"],["E","Eraser"],
   ["R","Rectangle"],["O","Ellipse"],["D","Diamond"],["L","Line"],["A","Arrow"],
   ["T","Text"],["N","Note"],["Space","Hold to pan"],
   ["Ctrl+Z","Undo"],["Ctrl+Shift+Z","Redo"],["Ctrl+D","Duplicate"],
@@ -113,6 +114,17 @@ const isShape    = (t: Tool) => SHAPE_TOOLS.has(t);
 const isDraw     = (t: Tool) => DRAW_TOOLS.has(t);
 const clamp      = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 const isHex6     = (s: string) => /^#[0-9a-f]{6}$/i.test(s);
+
+const pointInPoly = (p: { x: number; y: number }, poly: { x: number; y: number }[]) => {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i].x, yi = poly[i].y;
+    const xj = poly[j].x, yj = poly[j].y;
+    const intersect = ((yi > p.y) !== (yj > p.y)) && (p.x < ((xj - xi) * (p.y - yi)) / (yj - yi + 1e-10) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+};
 
 const arrowPathD = (ax: number, ay: number, bx: number, by: number, w: number) => {
   const ang = Math.atan2(by - ay, bx - ax);
@@ -499,6 +511,10 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
     let erasing = false;
     let laserOn = false;
 
+    let lassoOn = false;
+    let lassoPts: { x: number; y: number }[] = [];
+    let lassoPoly: fabric.Polygon | null = null;
+
     const clientXY = (e: fabric.TPointerEvent) => {
       if (typeof TouchEvent !== "undefined" && e instanceof TouchEvent) {
         const p = e.touches[0] ?? e.changedTouches[0];
@@ -551,6 +567,24 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
 
       const sp = c.getScenePoint(opt.e);
 
+      if (t === "lasso") {
+        lassoOn = true;
+        lassoPts = [{ x: sp.x, y: sp.y }];
+        if (lassoPoly) c.remove(lassoPoly);
+        lassoPoly = new fabric.Polygon([{ x: sp.x, y: sp.y }], {
+          fill: "rgba(99, 102, 241, 0.15)",
+          stroke: "#6366f1",
+          strokeWidth: 1.5,
+          strokeDashArray: [4, 4],
+          selectable: false,
+          evented: false,
+          strokeUniform: true,
+        });
+        c.add(lassoPoly);
+        c.requestRenderAll();
+        return;
+      }
+
       if (isShape(t)) {
         creating = true;
         suspendRef.current = true;
@@ -581,6 +615,13 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
         laser.push({ x: vp.x, y: vp.y, t: performance.now() });
         if (laser.length > 400) laser.shift();
         pumpLaser();
+        return;
+      }
+      if (lassoOn && lassoPoly) {
+        const sp = c.getScenePoint(opt.e);
+        lassoPts.push({ x: sp.x, y: sp.y });
+        lassoPoly.set({ points: [...lassoPts] });
+        c.requestRenderAll();
         return;
       }
       if (creating && startPt) {
@@ -620,6 +661,30 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
         pushHistory();
       }
       if (laserOn) laserOn = false;
+      if (lassoOn) {
+        lassoOn = false;
+        if (lassoPoly) { c.remove(lassoPoly); lassoPoly = null; }
+        if (lassoPts.length > 2) {
+          const matched = c.getObjects().filter((o) => {
+            if (o.selectable === false) return false;
+            const center = o.getCenterPoint();
+            if (pointInPoly(center, lassoPts)) return true;
+            const coords = o.getCoords();
+            return coords.some((pt) => pointInPoly(pt, lassoPts));
+          });
+          if (matched.length) {
+            c.discardActiveObject();
+            if (matched.length === 1) {
+              c.setActiveObject(matched[0]);
+            } else {
+              c.setActiveObject(new fabric.ActiveSelection(matched, { canvas: c }));
+            }
+            if (!live.current.locked) setTool("select");
+          }
+        }
+        lassoPts = [];
+        c.requestRenderAll();
+      }
       if (creating) {
         creating = false;
         const t = live.current.tool, s = startPt;
@@ -655,7 +720,7 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
 
     // Safety net: pointer released outside canvas, or window loses focus.
     const escape = () => {
-      if (panning || erasing || creating || laserOn || drawSuspended) finishInteraction();
+      if (panning || erasing || creating || laserOn || lassoOn || drawSuspended) finishInteraction();
     };
     window.addEventListener("pointerup", escape);
     window.addEventListener("blur", escape);
@@ -702,8 +767,9 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
     const onTouchStart = (ev: TouchEvent) => {
       if (ev.touches.length !== 2) return;
       pinching = true;
-      creating = false; panning = false; erasing = false; laserOn = false;
+      creating = false; panning = false; erasing = false; laserOn = false; lassoOn = false;
       if (preview) { c.remove(preview); preview = null; }
+      if (lassoPoly) { c.remove(lassoPoly); lassoPoly = null; }
       suspendRef.current = false;
       (c as unknown as { _isCurrentlyDrawing?: boolean })._isCurrentlyDrawing = false;
       pinchDist = distOf(ev.touches);
@@ -1247,6 +1313,7 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
 
   const hint =
     tool === "select" ? "Drag to marquee-select · double-click for text"
+    : tool === "lasso"  ? "Draw a loop around items to select them"
     : tool === "pan"    ? "Drag to move · Space also pans"
     : tool === "pen"    ? "Draw freely · scroll to zoom"
     : tool === "marker" ? "Semi-transparent highlighter"
@@ -1263,7 +1330,7 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
   const btnBase = "flex items-center justify-center rounded-xl transition-all";
   const iconBtn = "h-9 w-9 " + btnBase;
   const island = "pointer-events-auto rounded-2xl border border-white/10 bg-slate-950/90 shadow-2xl backdrop-blur-xl";
-  const groupSep = (i: number) => (i === 2 || i === 6 || i === 11);
+  const groupSep = (i: number) => (i === 2 || i === 7 || i === 12);
 
   return (
     <div
