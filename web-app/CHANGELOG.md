@@ -6,6 +6,7 @@ All notable changes, version updates, feature additions, architectural improveme
 
 ## 🏷️ Version History Summary
 
+- [v7.4.0 (2026-08-02)](#v740---2026-08-02) — 🎨 Excalidraw Whiteboard v2: Lasso Selection, Sketchy Hand-Drawn Mode & 12 Handwriting Fonts
 - [v7.3.1 (2026-08-02)](#v731---2026-08-02) — 🎨 Ultra-Lightweight Fabric Whiteboard Engine & Package Vulnerability Overrides
 - [v7.3.0 (2026-08-01)](#v730---2026-08-01) — ⚡ Repository Categorization & Web-App Hybrid Tracking Engine Release
 - [v7.0.0 (2026-07-31)](#v700---2026-07-31) — 🌐 Web Portals Browser, Fullscreen Study Mode, Webview Activity Tracking, Bug Audit
@@ -22,7 +23,13 @@ All notable changes, version updates, feature additions, architectural improveme
 
 ---
 
-## [v7.0.0] — 2026-07-31
+## [v7.4.0] — 2026-08-02
+
+### 🎨 Excalidraw Whiteboard Engine Overhaul & Porting
+- **Lasso Selection Tool (`Q`)**: Freehand loop selection tool using ray-casting point-in-polygon algorithm to group objects without individual target dragging.
+- **Hand-Drawn Sketchy Mode (`✨`)**: Multi-pass organic polygon jitter outline engine for authentic Excalidraw hand-drawn shapes with top-bar toggle.
+- **12 Aesthetic Handwriting Fonts**: Integrated 12 Google Fonts (Kalam, Caveat, Architect, Pacifico, Dancing Script, Indie Flower, Patrick Hand, Shadows Into Light, Gloria Hallelujah, Amatic SC, Satisfy, Permanent Marker) with instant `document.fonts.load()` canvas re-rendering.
+- **Parity Across Ecosystem**: Synchronized identical `FabricWhiteboard` component across both `desktop-app` & `web-app`.
 
 ### 🌐 Web Portals Browser (New Page)
 - **Dedicated In-App Browser Page**: Brand new `WebPortalsPage.tsx` with Electron `<webview>` Chromium engine — load any website (Apna College, YouTube, PW, Coursera, ChatGPT, GitHub, etc.) inside the app without leaving FlowTrack.
