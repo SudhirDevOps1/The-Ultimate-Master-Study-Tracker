@@ -15,13 +15,18 @@ export function GuidePage() {
     version: "v7.4.0 (Latest 2026 Release)",
     developer: "Sudhir DevOps (FlowTrack Engineering Team)",
     repo: "SudhirDevOps1/The-Ultimate-Master-Study-Tracker",
-    techStack: ["React 19", "TypeScript 5", "Vite 7", "Electron 43", "TailwindCSS", "Dexie.js IndexedDB", "Web Audio API", "Framer Motion", "electron-updater"],
+    techStack: [
+      "React 19", "TypeScript 5.9", "Vite 7", "Electron 43", "TailwindCSS 4",
+      "Fabric.js 7.4 (Whiteboard Engine)", "Dexie.js 4 (IndexedDB)", "Zustand 5",
+      "Framer Motion 12", "C# Win32 Active Window Tracker", "Python REST Backend (SQLite WAL)",
+      "PDF.js 6.1 (PDF Viewer)", "Tesseract.js 7.0 (OCR Flashcards)", "electron-updater", "Web Audio API"
+    ],
   };
 
   const appMeta = {
     version: "v7.4.0 (Latest 2026 Release)",
     builtBy: "Sudhir DevOps (Google Antigravity Pair Programmed)",
-    platform: "React 19 + TypeScript 5.9 + Vite + Tailwind CSS + Dexie DB",
+    platform: "React 19 + TypeScript 5.9 + Vite 7 + Electron 43 + Fabric.js 7.4 + Tailwind CSS 4 + Dexie DB + C# Win32 Tracker",
   };
 
   const tabs = [

@@ -15,7 +15,12 @@ export function GuidePage() {
     version: "v7.4.0 (Latest 2026 Release)",
     developer: "Sudhir DevOps (FlowTrack Engineering Team)",
     repo: "SudhirDevOps1/The-Ultimate-Master-Study-Tracker",
-    techStack: ["React 19", "TypeScript 5", "Vite 7", "TailwindCSS", "Dexie.js IndexedDB", "Web Audio API", "Framer Motion"],
+    techStack: [
+      "React 19", "TypeScript 5.9", "Vite 7", "TailwindCSS 4",
+      "Fabric.js 7.4 (Whiteboard Engine)", "Dexie.js 4 (IndexedDB)", "Zustand 5",
+      "Framer Motion 12", "Python REST Backend (SQLite WAL)",
+      "PDF.js 6.1 (PDF Viewer)", "Tesseract.js 7.0 (OCR Flashcards)", "Web Audio API"
+    ],
   };
 
   const tabs = [
