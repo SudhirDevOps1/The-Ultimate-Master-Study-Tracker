@@ -2,11 +2,10 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import * as fabric from "fabric";
 import { 
   Pencil, Eraser, Square, Circle, Type, StickyNote, Download, Trash2, 
-  RotateCcw, RotateCw, MousePointer, ZoomIn, ZoomOut, Image as ImageIcon,
+  RotateCcw, RotateCw, ZoomIn, ZoomOut, Image as ImageIcon,
   ArrowRight, Minus, Layers, Hand, BoxSelect, Highlighter,
   Diamond, Type as FontIcon, Copy, Upload, Flame,
-  BringToFront, SendToBack, Magnet, AlignCenter, Maximize2, Minimize2,
-  Sparkles, Palette, HelpCircle, Grid, Sliders
+  BringToFront, SendToBack, Magnet, Grid, Maximize2, Minimize2
 } from "lucide-react";
 import { useToast } from "@/components/common/Toast";
 
@@ -26,11 +25,11 @@ const FONTS = [
 ];
 
 const BACKGROUND_THEMES = [
-  { id: "dot-grid", name: "Dot Grid (Excalidraw)", css: "bg-slate-950 bg-[radial-gradient(#ffffff15_1px,transparent_1px)] [background-size:24px_24px]" },
-  { id: "graph-lines", name: "Math Graph Grid", css: "bg-slate-950 bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)] [background-size:24px_24px]" },
-  { id: "pitch-black", name: "OLED Pitch Black", css: "bg-black" },
-  { id: "chalkboard", name: "Emerald Chalkboard", css: "bg-[#062419] bg-[radial-gradient(#10b98120_1px,transparent_1px)] [background-size:24px_24px]" },
-  { id: "clean-white", name: "Classic Whiteboard", css: "bg-slate-100 bg-[radial-gradient(#64748b20_1px,transparent_1px)] [background-size:24px_24px]" },
+  { id: "dot-grid", name: "Dot Grid (Excalidraw)", css: "bg-slate-950 bg-[radial-gradient(#ffffff20_1.5px,transparent_1.5px)] [background-size:24px_24px]" },
+  { id: "graph-lines", name: "Math Graph Grid", css: "bg-slate-950 bg-[linear-gradient(to_right,#ffffff10_1px,transparent_1px),linear-gradient(to_bottom,#ffffff10_1px,transparent_1px)] [background-size:24px_24px]" },
+  { id: "pitch-black", name: "OLED Pitch Black", css: "bg-slate-950" },
+  { id: "chalkboard", name: "Emerald Chalkboard", css: "bg-[#062419] bg-[radial-gradient(#10b98125_1.5px,transparent_1.5px)] [background-size:24px_24px]" },
+  { id: "clean-white", name: "Classic Whiteboard", css: "bg-slate-100 bg-[radial-gradient(#64748b25_1.5px,transparent_1.5px)] [background-size:24px_24px]" },
 ];
 
 export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1" }: FabricWhiteboardProps) {
@@ -189,7 +188,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
       preserveObjectStacking: true,
     });
 
-    // Modern styled selection control handles
     fabric.Object.prototype.set({
       cornerColor: "#06b6d4",
       cornerStyle: "circle",
@@ -200,7 +198,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
 
     fabricCanvasRef.current = canvas;
 
-    // Ultra-Smooth Pencil Brush
     const brush = new fabric.PencilBrush(canvas);
     brush.color = strokeColor;
     brush.width = strokeWidth;
@@ -226,7 +223,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
       console.error("Failed to restore whiteboard data:", e);
     }
 
-    // Grid Snapping
     canvas.on("object:moving", (options) => {
       if (!snapToGridRef.current || !options.target) return;
       const gridSize = 20;
@@ -251,7 +247,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     canvas.on("object:modified", () => pushState());
     canvas.on("object:removed", () => pushState());
 
-    // 🎯 Instant 100% Reliable Click-to-Place Shape Creation on Canvas Cursor
+    // 🎯 Precision Shape & Text Click-to-Place Engine
     canvas.on("mouse:down", (opt) => {
       const activeCanvas = fabricCanvasRef.current;
       if (!activeCanvas) return;
@@ -324,15 +320,16 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
           });
           newShape = new fabric.Group([line, triangle]);
         } else if (currentTool === "text") {
-          newShape = new fabric.IText("Double click to edit", {
+          newShape = new fabric.IText("Click to type text", {
             left: pointer.x - 90,
             top: pointer.y - 15,
             fontFamily: selectedFontRef.current,
-            fontSize: 24,
+            fontSize: 26,
             fill: strokeColorRef.current,
+            editable: true,
           });
         } else if (currentTool === "note") {
-          newShape = new fabric.Textbox("📌 Sticky Note\n(Double click to edit)", {
+          newShape = new fabric.Textbox("📌 Sticky Note\n(Click to edit)", {
             left: pointer.x - 90,
             top: pointer.y - 90,
             width: 180,
@@ -347,19 +344,22 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
             rx: 12,
             ry: 12,
             splitByGrapheme: true,
+            editable: true,
           });
         }
 
         if (newShape) {
           activeCanvas.add(newShape);
           activeCanvas.setActiveObject(newShape);
+          if (currentTool === "text" || currentTool === "note") {
+            (newShape as fabric.IText).enterEditing();
+          }
           activeCanvas.renderAll();
           setActiveTool("select");
         }
       }
     });
 
-    // 360-Degree Mouse Wheel Zooming
     canvas.on("mouse:wheel", (opt) => {
       const delta = opt.e.deltaY;
       let zoom = canvas.getZoom();
@@ -372,7 +372,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
       setZoomLevel(zoom);
     });
 
-    // 360-Degree Drag Panning
     let isDragging = false;
     let lastPosX = 0;
     let lastPosY = 0;
@@ -409,7 +408,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
       }
     });
 
-    // Keyboard Shortcuts (Delete, Ctrl+Z, Ctrl+Y, Ctrl+D)
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
@@ -456,7 +454,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     };
   }, [storageKey, pushState, handleUndo, handleRedo, handleDuplicate]);
 
-  // Dynamically update canvas dimensions on Fullscreen toggle
   useEffect(() => {
     setTimeout(() => {
       if (!containerRef.current || !fabricCanvasRef.current) return;
@@ -473,7 +470,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     activeCanvasRefTool.current = activeTool;
   }, [activeTool]);
 
-  // Sync tool change with Fabric canvas modes
   useEffect(() => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
@@ -518,7 +514,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     }
   }, [activeTool, strokeColor, strokeWidth]);
 
-  // Upload Local PC Image
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -557,7 +552,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  // Export Scene JSON File
   const exportJSON = () => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
@@ -572,7 +566,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     showToast("Exported Whiteboard Project JSON!", "success");
   };
 
-  // Import Scene JSON File
   const importJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -597,7 +590,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     if (jsonInputRef.current) jsonInputRef.current.value = "";
   };
 
-  // Layer Stacking
   const bringToFront = () => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
@@ -620,7 +612,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     }
   };
 
-  // Erase Selected Objects
   const deleteSelected = () => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
@@ -635,7 +626,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     }
   };
 
-  // Clear Whiteboard
   const clearCanvas = () => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
@@ -646,7 +636,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     showToast("Whiteboard cleared", "info");
   };
 
-  // 🚀 Ultra HD 4K High-Quality Export PNG (Multiplier = 4)
   const exportImageHighRes = (multiplier: number = 4) => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
@@ -662,7 +651,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     showToast(`Downloaded ${multiplier}K Ultra HD High-Res PNG!`, "success");
   };
 
-  // Zoom controls
   const changeZoom = (factor: number) => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
@@ -690,7 +678,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
       <input type="file" ref={jsonInputRef} onChange={importJSON} accept="application/json" className="hidden" />
 
       {/* 🛠️ Top Responsive Mac-Style Glassmorphism Control Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-slate-950/85 border-b border-white/10 backdrop-blur-xl z-20 shadow-lg">
+      <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-slate-950/90 border-b border-white/10 backdrop-blur-xl z-30 shadow-lg">
         {/* Left Section: Font & Background Theme Selector */}
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5 bg-slate-900/90 p-1.5 px-2.5 rounded-xl border border-white/10 text-xs">
@@ -708,7 +696,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
             </select>
           </div>
 
-          {/* Background Canvas Theme Picker */}
           <div className="flex items-center gap-1.5 bg-slate-900/90 p-1.5 px-2.5 rounded-xl border border-white/10 text-xs">
             <Grid className="w-3.5 h-3.5 text-purple-400" />
             <select
@@ -772,7 +759,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
           </div>
         </div>
 
-        {/* Right Section: Actions & 4K High-Res Export */}
+        {/* Right Section: Actions & Fullscreen & 4K High-Res Export */}
         <div className="flex items-center gap-1.5">
           <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-white/10">
             <button onClick={handleUndo} disabled={!canUndo} className={`p-1.5 rounded-lg transition-all ${canUndo ? "text-slate-300 hover:text-white hover:bg-white/10" : "text-slate-600 cursor-not-allowed"}`} title="Undo (Ctrl+Z)">
@@ -811,7 +798,14 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
 
-          {/* 💎 4K Ultra HD Export Button */}
+          <button 
+            onClick={() => setIsFullscreen(!isFullscreen)} 
+            className="p-2 rounded-xl border border-white/10 bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 transition-all text-xs font-bold" 
+            title={isFullscreen ? "Exit Fullscreen" : "Toggle Fullscreen View"}
+          >
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5 text-cyan-400" /> : <Maximize2 className="w-3.5 h-3.5 text-slate-300" />}
+          </button>
+
           <button onClick={() => exportImageHighRes(4)} className="p-2 px-3 rounded-xl bg-gradient-to-r from-rose-500 via-amber-500 to-emerald-500 text-slate-950 font-extrabold text-xs shadow-lg flex items-center gap-1.5 hover:opacity-95 transition-all" title="Download 4K Ultra HD Crisp PNG">
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Export 4K HD</span>
@@ -819,135 +813,137 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
         </div>
       </div>
 
-      {/* 🖌️ Precision Click-to-Place Shape Tools Dock */}
-      <div className="absolute left-2.5 top-16 z-20 max-h-[calc(100%-80px)] overflow-y-auto scrollbar-none flex flex-col gap-1 p-1.5 bg-slate-950/90 border border-white/10 backdrop-blur-xl rounded-2xl shadow-2xl">
-        <button
-          onClick={() => setActiveTool("draw")}
-          className={`p-2 rounded-xl transition-all ${
-            activeTool === "draw" ? "bg-rose-500 text-white shadow-lg shadow-rose-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"
-          }`}
-          title="Ultra-Smooth Pen (P)"
-        >
-          <Pencil className="w-4 h-4" />
-        </button>
+      {/* Main Body Layout: Left Toolbar + Canvas Area */}
+      <div className="flex-1 w-full relative flex overflow-hidden">
+        {/* Left Toolbar Dock - Absolutely Positioned inside body area (top-3 left-3) so IT NEVER OVERLAPS TOP BAR */}
+        <div className="absolute left-3 top-3 z-20 max-h-[calc(100%-24px)] overflow-y-auto scrollbar-none flex flex-col gap-1 p-1.5 bg-slate-950/90 border border-white/10 backdrop-blur-xl rounded-2xl shadow-2xl">
+          <button
+            onClick={() => setActiveTool("draw")}
+            className={`p-2 rounded-xl transition-all ${
+              activeTool === "draw" ? "bg-rose-500 text-white shadow-lg shadow-rose-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"
+            }`}
+            title="Ultra-Smooth Pen (P)"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
 
-        <button
-          onClick={() => setActiveTool("highlighter")}
-          className={`p-2 rounded-xl transition-all ${
-            activeTool === "highlighter" ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"
-          }`}
-          title="Highlighter Marker"
-        >
-          <Highlighter className="w-4 h-4" />
-        </button>
+          <button
+            onClick={() => setActiveTool("highlighter")}
+            className={`p-2 rounded-xl transition-all ${
+              activeTool === "highlighter" ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"
+            }`}
+            title="Highlighter Marker"
+          >
+            <Highlighter className="w-4 h-4" />
+          </button>
 
-        <button
-          onClick={() => setActiveTool("laser")}
-          className={`p-2 rounded-xl transition-all ${
-            activeTool === "laser" ? "bg-rose-600 text-white shadow-lg shadow-rose-600/40 animate-pulse scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"
-          }`}
-          title="Fading Laser Trail"
-        >
-          <Flame className="w-4 h-4 text-rose-400" />
-        </button>
+          <button
+            onClick={() => setActiveTool("laser")}
+            className={`p-2 rounded-xl transition-all ${
+              activeTool === "laser" ? "bg-rose-600 text-white shadow-lg shadow-rose-600/40 animate-pulse scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"
+            }`}
+            title="Fading Laser Trail"
+          >
+            <Flame className="w-4 h-4 text-rose-400" />
+          </button>
 
-        <button
-          onClick={() => setActiveTool("select")}
-          className={`p-2 rounded-xl transition-all ${
-            activeTool === "select" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"
-          }`}
-          title="Lasso Box Select (V)"
-        >
-          <BoxSelect className="w-4 h-4" />
-        </button>
+          <button
+            onClick={() => setActiveTool("select")}
+            className={`p-2 rounded-xl transition-all ${
+              activeTool === "select" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"
+            }`}
+            title="Lasso Box Select (V)"
+          >
+            <BoxSelect className="w-4 h-4" />
+          </button>
 
-        <button
-          onClick={() => setActiveTool("pan")}
-          className={`p-2 rounded-xl transition-all ${
-            activeTool === "pan" ? "bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"
-          }`}
-          title="360° Infinite Pan (H or Alt+Drag)"
-        >
-          <Hand className="w-4 h-4" />
-        </button>
+          <button
+            onClick={() => setActiveTool("pan")}
+            className={`p-2 rounded-xl transition-all ${
+              activeTool === "pan" ? "bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"
+            }`}
+            title="360° Infinite Pan (H or Alt+Drag)"
+          >
+            <Hand className="w-4 h-4" />
+          </button>
 
-        <button
-          onClick={() => setActiveTool("erase")}
-          className={`p-2 rounded-xl transition-all ${
-            activeTool === "erase" ? "bg-rose-600 text-white shadow-lg shadow-rose-600/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"
-          }`}
-          title="Object Eraser"
-        >
-          <Eraser className="w-4 h-4" />
-        </button>
+          <button
+            onClick={() => setActiveTool("erase")}
+            className={`p-2 rounded-xl transition-all ${
+              activeTool === "erase" ? "bg-rose-600 text-white shadow-lg shadow-rose-600/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"
+            }`}
+            title="Object Eraser"
+          >
+            <Eraser className="w-4 h-4" />
+          </button>
 
-        <div className="w-full h-px bg-white/10 my-0.5" />
+          <div className="w-full h-px bg-white/10 my-0.5" />
 
-        {/* Precision Click-to-Place Shape Tools */}
-        <button 
-          onClick={() => { setActiveTool("rect"); showToast("Click on canvas to place Rectangle", "info"); }} 
-          className={`p-2 rounded-xl transition-all ${activeTool === "rect" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
-          title="Click canvas to place Rectangle"
-        >
-          <Square className="w-4 h-4" />
-        </button>
+          <button 
+            onClick={() => { setActiveTool("rect"); showToast("Click on canvas to place Rectangle", "info"); }} 
+            className={`p-2 rounded-xl transition-all ${activeTool === "rect" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
+            title="Click canvas to place Rectangle"
+          >
+            <Square className="w-4 h-4" />
+          </button>
 
-        <button 
-          onClick={() => { setActiveTool("circle"); showToast("Click on canvas to place Circle", "info"); }} 
-          className={`p-2 rounded-xl transition-all ${activeTool === "circle" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
-          title="Click canvas to place Circle"
-        >
-          <Circle className="w-4 h-4" />
-        </button>
+          <button 
+            onClick={() => { setActiveTool("circle"); showToast("Click on canvas to place Circle", "info"); }} 
+            className={`p-2 rounded-xl transition-all ${activeTool === "circle" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
+            title="Click canvas to place Circle"
+          >
+            <Circle className="w-4 h-4" />
+          </button>
 
-        <button 
-          onClick={() => { setActiveTool("diamond"); showToast("Click on canvas to place Diamond", "info"); }} 
-          className={`p-2 rounded-xl transition-all ${activeTool === "diamond" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
-          title="Click canvas to place Diamond"
-        >
-          <Diamond className="w-4 h-4" />
-        </button>
+          <button 
+            onClick={() => { setActiveTool("diamond"); showToast("Click on canvas to place Diamond", "info"); }} 
+            className={`p-2 rounded-xl transition-all ${activeTool === "diamond" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
+            title="Click canvas to place Diamond"
+          >
+            <Diamond className="w-4 h-4" />
+          </button>
 
-        <button 
-          onClick={() => { setActiveTool("line"); showToast("Click on canvas to place Line", "info"); }} 
-          className={`p-2 rounded-xl transition-all ${activeTool === "line" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
-          title="Click canvas to place Line"
-        >
-          <Minus className="w-4 h-4" />
-        </button>
+          <button 
+            onClick={() => { setActiveTool("line"); showToast("Click on canvas to place Line", "info"); }} 
+            className={`p-2 rounded-xl transition-all ${activeTool === "line" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
+            title="Click canvas to place Line"
+          >
+            <Minus className="w-4 h-4" />
+          </button>
 
-        <button 
-          onClick={() => { setActiveTool("arrow"); showToast("Click on canvas to place Arrow", "info"); }} 
-          className={`p-2 rounded-xl transition-all ${activeTool === "arrow" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
-          title="Click canvas to place Arrow"
-        >
-          <ArrowRight className="w-4 h-4" />
-        </button>
+          <button 
+            onClick={() => { setActiveTool("arrow"); showToast("Click on canvas to place Arrow", "info"); }} 
+            className={`p-2 rounded-xl transition-all ${activeTool === "arrow" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
+            title="Click canvas to place Arrow"
+          >
+            <ArrowRight className="w-4 h-4" />
+          </button>
 
-        <button 
-          onClick={() => { setActiveTool("text"); showToast("Click on canvas to add Text", "info"); }} 
-          className={`p-2 rounded-xl transition-all ${activeTool === "text" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
-          title="Click canvas to place Text"
-        >
-          <Type className="w-4 h-4" />
-        </button>
+          <button 
+            onClick={() => { setActiveTool("text"); showToast("Click on canvas to add Text", "info"); }} 
+            className={`p-2 rounded-xl transition-all ${activeTool === "text" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-105" : "text-slate-400 hover:text-white hover:bg-white/10"}`} 
+            title="Click canvas to place Text"
+          >
+            <Type className="w-4 h-4" />
+          </button>
 
-        <button 
-          onClick={() => { setActiveTool("note"); showToast("Click on canvas to place Sticky Note", "info"); }} 
-          className={`p-2 rounded-xl transition-all ${activeTool === "note" ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/40 scale-105" : "text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"}`} 
-          title="Click canvas to place Sticky Note"
-        >
-          <StickyNote className="w-4 h-4" />
-        </button>
+          <button 
+            onClick={() => { setActiveTool("note"); showToast("Click on canvas to place Sticky Note", "info"); }} 
+            className={`p-2 rounded-xl transition-all ${activeTool === "note" ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/40 scale-105" : "text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"}`} 
+            title="Click canvas to place Sticky Note"
+          >
+            <StickyNote className="w-4 h-4" />
+          </button>
 
-        <button onClick={() => fileInputRef.current?.click()} className="p-2 rounded-xl text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors" title="Upload Local PC Image">
-          <ImageIcon className="w-4 h-4" />
-        </button>
-      </div>
+          <button onClick={() => fileInputRef.current?.click()} className="p-2 rounded-xl text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors" title="Upload Local PC Image">
+            <ImageIcon className="w-4 h-4" />
+          </button>
+        </div>
 
-      {/* 🎨 Interactive Canvas Viewport */}
-      <div ref={containerRef} className="flex-1 w-full h-full relative cursor-crosshair">
-        <canvas ref={canvasRef} />
+        {/* Canvas Area Container */}
+        <div ref={containerRef} className="flex-1 w-full h-full relative cursor-crosshair">
+          <canvas ref={canvasRef} />
+        </div>
       </div>
 
       {/* 🔍 Bottom Canvas View & Shortcuts Bar */}
@@ -967,7 +963,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
         <div className="h-3 w-px bg-white/20" />
 
         <span className="text-[11px] text-slate-400 whitespace-nowrap">
-          🎯 <span className="font-semibold text-slate-300">Precision Click-to-Place Shapes</span> Click any shape tool & tap mouse on canvas to place exactly where you want!
+          🎯 <span className="font-semibold text-slate-300">Whiteboard Canvas</span> Grid themes & high resolution 4K HD export enabled!
         </span>
       </div>
     </div>
