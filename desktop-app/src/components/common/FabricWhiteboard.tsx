@@ -431,7 +431,7 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
       ctx.restore();
     });
 
-    /* ---- Shape construction with optional Sketchy hand-drawn mode --- */
+    /* ---- Shape construction with robust Hand-Drawn Sketchy Mode --- */
     const snapVal = (v: number) => live.current.snap ? Math.round(v / GRID) * GRID : v;
 
     const buildShape = (t: Tool, a: fabric.Point, b: fabric.Point): fabric.Object | null => {
@@ -445,75 +445,67 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
       };
       const fl = L.fill === "transparent" ? "" : L.fill;
 
-      if (L.sketchy) {
-        const j = () => (Math.random() - 0.5) * 3;
-        switch (t) {
-          case "rect": {
-            const W = Math.max(w, 8), H = Math.max(h, 8);
-            const pData =
-              `M ${j()} ${j()} L ${W + j()} ${j()} L ${W + j()} ${H + j()} L ${j()} ${H + j()} Z ` +
-              `M ${j()} ${j()} L ${W + j()} ${j()} L ${W + j()} ${H + j()} L ${j()} ${H + j()} Z`;
-            return new fabric.Path(pData, { ...base, left, top, fill: fl });
-          }
-          case "ellipse": {
-            const rx = Math.max(w / 2, 4), ry = Math.max(h / 2, 4);
-            const pts: string[] = [];
-            for (let pass = 0; pass < 2; pass++) {
-              for (let i = 0; i <= 24; i++) {
-                const theta = (i / 24) * Math.PI * 2;
-                const rj = (Math.random() - 0.5) * 2.5;
-                const px = rx + (rx + rj) * Math.cos(theta);
-                const py = ry + (ry + rj) * Math.sin(theta);
-                pts.push(`${i === 0 && pass === 0 ? "M" : "L"} ${px} ${py}`);
-              }
-            }
-            return new fabric.Path(pts.join(" "), { ...base, left, top, fill: fl });
-          }
-          case "diamond": {
-            const W = Math.max(w, 8), H = Math.max(h, 8);
-            const pData =
-              `M ${W / 2 + j()} ${j()} L ${W + j()} ${H / 2 + j()} L ${W / 2 + j()} ${H + j()} L ${j()} ${H / 2 + j()} Z ` +
-              `M ${W / 2 + j()} ${j()} L ${W + j()} ${H / 2 + j()} L ${W / 2 + j()} ${H + j()} L ${j()} ${H / 2 + j()} Z`;
-            return new fabric.Path(pData, { ...base, left, top, fill: fl });
-          }
-          case "line": {
-            const pData = `M ${a.x + j()} ${a.y + j()} L ${b.x + j()} ${b.y + j()} M ${a.x + j()} ${a.y + j()} L ${b.x + j()} ${b.y + j()}`;
-            return new fabric.Path(pData, base);
-          }
-          case "arrow": {
-            const p1 = arrowPathD(a.x + j(), a.y + j(), b.x + j(), b.y + j(), L.width);
-            const p2 = arrowPathD(a.x + j(), a.y + j(), b.x + j(), b.y + j(), L.width);
-            return new fabric.Path(`${p1} ${p2}`, base);
-          }
-        }
-      }
-
       switch (t) {
-        case "rect":
-          return new fabric.Rect({ ...base, left, top, width: Math.max(w, 1), height: Math.max(h, 1), fill: fl, rx: 10, ry: 10 });
-        case "ellipse":
-          return new fabric.Ellipse({ ...base, left, top, rx: Math.max(w / 2, 1), ry: Math.max(h / 2, 1), fill: fl });
-        case "diamond": {
-          const p = new fabric.Polygon(
-            [{ x: 50, y: 0 }, { x: 100, y: 50 }, { x: 50, y: 100 }, { x: 0, y: 50 }],
-            { ...base, fill: fl, objectCaching: false },
-          );
-          p.set({ left, top, scaleX: Math.max(w, 1) / 100, scaleY: Math.max(h, 1) / 100 });
-          return p;
+        case "rect": {
+          const W = Math.max(w, 2), H = Math.max(h, 2);
+          if (L.sketchy) {
+            const pts = [
+              { x: 0, y: 0 }, { x: W, y: 0 }, { x: W, y: H }, { x: 0, y: H }, { x: 0, y: 0 },
+              { x: 2, y: -1 }, { x: W - 1, y: 1 }, { x: W + 1, y: H - 1 }, { x: -1, y: H + 1 }
+            ];
+            return new fabric.Polygon(pts, { ...base, left, top, fill: fl, objectCaching: false });
+          }
+          return new fabric.Rect({ ...base, left, top, width: W, height: H, fill: fl, rx: 10, ry: 10 });
         }
-        case "line":
+        case "ellipse": {
+          const rx = Math.max(w / 2, 1), ry = Math.max(h / 2, 1);
+          if (L.sketchy) {
+            const pts: { x: number; y: number }[] = [];
+            for (let i = 0; i <= 24; i++) {
+              const angle = (i / 24) * Math.PI * 2;
+              pts.push({ x: rx + rx * Math.cos(angle), y: ry + ry * Math.sin(angle) });
+            }
+            for (let i = 0; i <= 24; i++) {
+              const angle = (i / 24) * Math.PI * 2;
+              const j = (i % 2 === 0 ? 1 : -1) * 1.5;
+              pts.push({ x: rx + (rx + j) * Math.cos(angle), y: ry + (ry + j) * Math.sin(angle) });
+            }
+            return new fabric.Polygon(pts, { ...base, left, top, fill: fl, objectCaching: false });
+          }
+          return new fabric.Ellipse({ ...base, left, top, rx, ry, fill: fl });
+        }
+        case "diamond": {
+          const W = Math.max(w, 2), H = Math.max(h, 2);
+          const pts = L.sketchy
+            ? [
+                { x: W / 2, y: 0 }, { x: W, y: H / 2 }, { x: W / 2, y: H }, { x: 0, y: H / 2 }, { x: W / 2, y: 0 },
+                { x: W / 2 + 1, y: -1 }, { x: W + 1, y: H / 2 + 1 }, { x: W / 2 - 1, y: H - 1 }, { x: -1, y: H / 2 - 1 }
+              ]
+            : [{ x: W / 2, y: 0 }, { x: W, y: H / 2 }, { x: W / 2, y: H }, { x: 0, y: H / 2 }];
+          return new fabric.Polygon(pts, { ...base, left, top, fill: fl, objectCaching: false });
+        }
+        case "line": {
+          if (L.sketchy) {
+            const midX = (a.x + b.x) / 2 + (Math.random() - 0.5) * 4;
+            const midY = (a.y + b.y) / 2 + (Math.random() - 0.5) * 4;
+            return new fabric.Path(`M ${a.x} ${a.y} Q ${midX} ${midY} ${b.x} ${b.y}`, base);
+          }
           return new fabric.Line([a.x, a.y, b.x, b.y], base);
-        case "arrow":
-          return new fabric.Path(arrowPathD(a.x, a.y, b.x, b.y, L.width), base);
+        }
+        case "arrow": {
+          const pathD = arrowPathD(a.x, a.y, b.x, b.y, L.width);
+          return new fabric.Path(pathD, base);
+        }
         default: return null;
       }
     };
 
     const addText = (x: number, y: number) => {
       const L = live.current;
+      const font = L.sketchy ? FONTS[0].family : L.font;
       const it = new fabric.IText("Type text here", {
         left: x, top: y - L.size / 2,
-        fontFamily: L.font, fontSize: L.size,
+        fontFamily: font, fontSize: L.size,
         fill: L.stroke, opacity: L.opacity,
         editable: true, selectable: true, evented: true,
       });
@@ -527,9 +519,10 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
 
     const addNote = (x: number, y: number) => {
       const L = live.current;
+      const font = L.sketchy ? FONTS[0].family : L.font;
       const n = new fabric.Textbox("📌 Sticky Note", {
         left: x - 100, top: y - 70, width: 200, height: 160,
-        fontFamily: L.font, fontSize: 20, lineHeight: 1.25,
+        fontFamily: font, fontSize: 20, lineHeight: 1.25,
         fill: "#422006", backgroundColor: "#fde68a",
         padding: 12,
         selectable: true, evented: true, editable: true,
@@ -1457,7 +1450,11 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
                   </div>
 
                   <button
-                    onClick={() => setSketchy(v => !v)}
+                    onClick={() => {
+                      const next = !sketchy;
+                      setSketchy(next);
+                      showToast(next ? "✨ Hand-Drawn Sketchy Mode ON" : "Clean Mode ON", "info");
+                    }}
                     className={`flex w-full items-center justify-between gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-bold transition-all ${
                       sketchy ? "border-purple-400/60 bg-purple-500/20 text-purple-300" : "border-white/10 bg-white/5 text-slate-400"
                     }`}
@@ -1511,7 +1508,11 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
             })}
             <div className="mx-1 h-6 w-px bg-white/10" />
             <button
-              onClick={() => setSketchy(v => !v)}
+              onClick={() => {
+                const next = !sketchy;
+                setSketchy(next);
+                showToast(next ? "✨ Hand-Drawn Sketchy Mode ON" : "Clean Mode ON", "info");
+              }}
               title={sketchy ? "Hand-drawn sketchy mode ON" : "Turn ON hand-drawn sketchy mode"}
               className={`${iconBtn} ${sketchy ? "bg-purple-500 text-white shadow-lg ring-2 ring-purple-400/50" : "text-slate-400 hover:bg-white/10 hover:text-purple-300"}`}
             >
