@@ -8,7 +8,7 @@
  * • Custom render passes for the grid (viewport-tracking pattern) and the
  *   fading laser trail (no fabric objects, no history noise).
  * • Full drag-to-draw with live preview, Shift-constrained shapes, drag
- *   eraser, lasso selection, pan/zoom (mouse, trackpad, pinch), touch/stylus support,
+ *   eraser, lasso selection, Excalidraw sketchy hand-drawn mode, pan/zoom (mouse, trackpad, pinch), touch/stylus support,
  *   clipboard paste, and a 60-step undo/redo history with autosave.
  */
 
@@ -19,7 +19,7 @@ import {
   Upload, Trash2, Grid3x3, Magnet, ChevronDown, Scan, Palette, FileImage,
   FileJson, FileCode2, Keyboard, MousePointer2, LassoSelect, Hand, Pencil, Highlighter,
   Zap, Eraser, Square, Circle, Diamond, Minus, ArrowRight, Type, StickyNote,
-  ImagePlus, Lock, Unlock, BringToFront, SendToBack, Copy, Ban, X,
+  ImagePlus, Lock, Unlock, BringToFront, SendToBack, Copy, Ban, X, Sparkles,
 } from "lucide-react";
 import { useToast } from "@/components/common/Toast";
 
@@ -157,7 +157,7 @@ interface LaserPt { x: number; y: number; t: number; }
 interface LiveState {
   tool: Tool; locked: boolean; showGrid: boolean; snap: boolean; theme: Theme;
   stroke: string; fill: string; width: number; style: string; opacity: number;
-  font: string; size: number;
+  font: string; size: number; sketchy: boolean;
 }
 
 export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhiteboardProps) {
@@ -176,6 +176,7 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
   const [themeId, setThemeId] = useState(THEMES[0].id);
   const [showGrid, setShowGrid] = useState(true);
   const [snap, setSnap] = useState(false);
+  const [sketchy, setSketchy] = useState(false);
 
   const [stroke, setStroke] = useState(THEMES[0].ink);
   const [fill, setFill] = useState("transparent");
@@ -203,13 +204,13 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
   const live = useRef<LiveState>({
     tool, locked, showGrid, snap, theme,
     stroke, fill, width: strokeWidth, style: strokeStyle, opacity,
-    font: fontFamily, size: fontSize,
+    font: fontFamily, size: fontSize, sketchy,
   });
   useEffect(() => {
     live.current = {
       tool, locked, showGrid, snap, theme,
       stroke, fill, width: strokeWidth, style: strokeStyle, opacity,
-      font: fontFamily, size: fontSize,
+      font: fontFamily, size: fontSize, sketchy,
     };
   });
 
@@ -430,7 +431,7 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
       ctx.restore();
     });
 
-    /* ---- Shape construction ---------------------------------------- */
+    /* ---- Shape construction with optional Sketchy hand-drawn mode --- */
     const snapVal = (v: number) => live.current.snap ? Math.round(v / GRID) * GRID : v;
 
     const buildShape = (t: Tool, a: fabric.Point, b: fabric.Point): fabric.Object | null => {
@@ -443,6 +444,50 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
         strokeLineCap: "round" as const, strokeLineJoin: "round" as const,
       };
       const fl = L.fill === "transparent" ? "" : L.fill;
+
+      if (L.sketchy) {
+        const j = () => (Math.random() - 0.5) * 3;
+        switch (t) {
+          case "rect": {
+            const W = Math.max(w, 8), H = Math.max(h, 8);
+            const pData =
+              `M ${j()} ${j()} L ${W + j()} ${j()} L ${W + j()} ${H + j()} L ${j()} ${H + j()} Z ` +
+              `M ${j()} ${j()} L ${W + j()} ${j()} L ${W + j()} ${H + j()} L ${j()} ${H + j()} Z`;
+            return new fabric.Path(pData, { ...base, left, top, fill: fl });
+          }
+          case "ellipse": {
+            const rx = Math.max(w / 2, 4), ry = Math.max(h / 2, 4);
+            const pts: string[] = [];
+            for (let pass = 0; pass < 2; pass++) {
+              for (let i = 0; i <= 24; i++) {
+                const theta = (i / 24) * Math.PI * 2;
+                const rj = (Math.random() - 0.5) * 2.5;
+                const px = rx + (rx + rj) * Math.cos(theta);
+                const py = ry + (ry + rj) * Math.sin(theta);
+                pts.push(`${i === 0 && pass === 0 ? "M" : "L"} ${px} ${py}`);
+              }
+            }
+            return new fabric.Path(pts.join(" "), { ...base, left, top, fill: fl });
+          }
+          case "diamond": {
+            const W = Math.max(w, 8), H = Math.max(h, 8);
+            const pData =
+              `M ${W / 2 + j()} ${j()} L ${W + j()} ${H / 2 + j()} L ${W / 2 + j()} ${H + j()} L ${j()} ${H / 2 + j()} Z ` +
+              `M ${W / 2 + j()} ${j()} L ${W + j()} ${H / 2 + j()} L ${W / 2 + j()} ${H + j()} L ${j()} ${H / 2 + j()} Z`;
+            return new fabric.Path(pData, { ...base, left, top, fill: fl });
+          }
+          case "line": {
+            const pData = `M ${a.x + j()} ${a.y + j()} L ${b.x + j()} ${b.y + j()} M ${a.x + j()} ${a.y + j()} L ${b.x + j()} ${b.y + j()}`;
+            return new fabric.Path(pData, base);
+          }
+          case "arrow": {
+            const p1 = arrowPathD(a.x + j(), a.y + j(), b.x + j(), b.y + j(), L.width);
+            const p2 = arrowPathD(a.x + j(), a.y + j(), b.x + j(), b.y + j(), L.width);
+            return new fabric.Path(`${p1} ${p2}`, base);
+          }
+        }
+      }
+
       switch (t) {
         case "rect":
           return new fabric.Rect({ ...base, left, top, width: Math.max(w, 1), height: Math.max(h, 1), fill: fl, rx: 10, ry: 10 });
@@ -1411,6 +1456,16 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
                     </button>
                   </div>
 
+                  <button
+                    onClick={() => setSketchy(v => !v)}
+                    className={`flex w-full items-center justify-between gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-bold transition-all ${
+                      sketchy ? "border-purple-400/60 bg-purple-500/20 text-purple-300" : "border-white/10 bg-white/5 text-slate-400"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2"><Sparkles className="h-3.5 w-3.5 text-purple-400" /> Sketchy Hand-Drawn Mode</span>
+                    <span className={`text-[10px] font-black uppercase ${sketchy ? "text-purple-300" : "text-slate-500"}`}>{sketchy ? "ON" : "OFF"}</span>
+                  </button>
+
                   <div className="h-px bg-white/10" />
 
                   <button
@@ -1455,6 +1510,13 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
               );
             })}
             <div className="mx-1 h-6 w-px bg-white/10" />
+            <button
+              onClick={() => setSketchy(v => !v)}
+              title={sketchy ? "Hand-drawn sketchy mode ON" : "Turn ON hand-drawn sketchy mode"}
+              className={`${iconBtn} ${sketchy ? "bg-purple-500 text-white shadow-lg ring-2 ring-purple-400/50" : "text-slate-400 hover:bg-white/10 hover:text-purple-300"}`}
+            >
+              <Sparkles className="h-[17px] w-[17px]" />
+            </button>
             <button
               onClick={() => imgFileRef.current?.click()}
               title="Insert image"
