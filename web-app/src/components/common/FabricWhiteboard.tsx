@@ -4,8 +4,8 @@ import {
   Pencil, Eraser, Square, Circle, Type, StickyNote, Download, Trash2, 
   RotateCcw, RotateCw, MousePointer, ZoomIn, ZoomOut, Maximize2, Image as ImageIcon,
   ArrowRight, Minus, Move, Sparkles, Layers, Hand, BoxSelect, Highlighter,
-  Diamond, Grid, Type as FontIcon, Copy, Upload, Shield, Eye, Flame,
-  BringToFront, SendToBack
+  Diamond, Grid as GridIcon, Type as FontIcon, Copy, Upload, Shield, Eye, Flame,
+  BringToFront, SendToBack, Magnet, AlignCenter, Maximize, Palette
 } from "lucide-react";
 import { useToast } from "@/components/common/Toast";
 
@@ -42,7 +42,8 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
   const [strokeWidth, setStrokeWidth] = useState(4);
   const [selectedFont, setSelectedFont] = useState(FONTS[0].family);
   const [zoomLevel, setZoomLevel] = useState(1);
-  const [bgStyle, setBgStyle] = useState<"grid" | "dots" | "dark">("grid");
+  const [snapToGrid, setSnapToGrid] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Undo / Redo History Stacks
   const historyRef = useRef<string[]>([]);
@@ -117,8 +118,8 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     activeObj.clone().then((cloned) => {
       canvas.discardActiveObject();
       cloned.set({
-        left: cloned.left! + 20,
-        top: cloned.top! + 20,
+        left: cloned.left! + 25,
+        top: cloned.top! + 25,
         evented: true,
       });
       if (cloned.type === "activeSelection") {
@@ -136,6 +137,12 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     });
   }, [showToast]);
 
+  // Ref to hold snapToGrid state for event listeners
+  const snapToGridRef = useRef(snapToGrid);
+  useEffect(() => {
+    snapToGridRef.current = snapToGrid;
+  }, [snapToGrid]);
+
   // Initialize Fabric Canvas
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return;
@@ -149,7 +156,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     }
 
     const width = containerRef.current.clientWidth || 1000;
-    const height = containerRef.current.clientHeight || 700;
+    const height = containerRef.current.clientHeight || 720;
 
     const canvas = new fabric.Canvas(canvasRef.current, {
       width,
@@ -165,10 +172,13 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
 
     fabricCanvasRef.current = canvas;
 
+    // Ultra-Smooth Pencil Brush with decimate & round line join
     const brush = new fabric.PencilBrush(canvas);
     brush.color = strokeColor;
     brush.width = strokeWidth;
-    brush.decimate = 2;
+    brush.decimate = 3; // Smooth point reduction
+    brush.strokeLineCap = "round";
+    brush.strokeLineJoin = "round";
     canvas.freeDrawingBrush = brush;
 
     try {
@@ -188,8 +198,18 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
       console.error("Failed to restore whiteboard data:", e);
     }
 
+    // Grid Snapping Algorithm on Object Moving
+    canvas.on("object:moving", (options) => {
+      if (!snapToGridRef.current || !options.target) return;
+      const gridSize = 20;
+      options.target.set({
+        left: Math.round((options.target.left || 0) / gridSize) * gridSize,
+        top: Math.round((options.target.top || 0) / gridSize) * gridSize,
+      });
+    });
+
     canvas.on("object:added", (e) => {
-      // Handle Laser Pointer Fading Trail
+      // Laser Pointer Fading Trail
       if (activeCanvasRefTool.current === "laser" && e.target) {
         const laserObj = e.target;
         laserPathsRef.current.push(laserObj);
@@ -337,7 +357,9 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
         canvas.freeDrawingBrush.color = strokeColor;
         canvas.freeDrawingBrush.width = strokeWidth;
       }
-      (canvas.freeDrawingBrush as fabric.PencilBrush).decimate = 2;
+      (canvas.freeDrawingBrush as fabric.PencilBrush).decimate = 3;
+      (canvas.freeDrawingBrush as fabric.PencilBrush).strokeLineCap = "round";
+      (canvas.freeDrawingBrush as fabric.PencilBrush).strokeLineJoin = "round";
     } else {
       canvas.isDrawingMode = false;
     }
@@ -544,6 +566,29 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     if (jsonInputRef.current) jsonInputRef.current.value = "";
   };
 
+  // Align Objects (Center Horizontal / Center Vertical)
+  const alignCenterHorizontal = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    const activeObj = canvas.getActiveObject();
+    if (activeObj) {
+      canvas.centerObjectH(activeObj);
+      canvas.renderAll();
+      showToast("Aligned Centered Horizontally", "info");
+    }
+  };
+
+  const alignCenterVertical = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    const activeObj = canvas.getActiveObject();
+    if (activeObj) {
+      canvas.centerObjectV(activeObj);
+      canvas.renderAll();
+      showToast("Aligned Centered Vertically", "info");
+    }
+  };
+
   // Layer Stacking (Bring Forward / Send Backward)
   const bringToFront = () => {
     const canvas = fabricCanvasRef.current;
@@ -630,22 +675,10 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
   };
 
   return (
-    <div className="relative w-full h-[760px] bg-[#050505] rounded-2xl border border-white/10 overflow-hidden flex flex-col shadow-2xl">
+    <div className={`relative w-full ${isFullscreen ? "fixed inset-0 z-50 rounded-none h-screen" : "h-[760px] rounded-2xl"} bg-[#050505] border border-white/10 overflow-hidden flex flex-col shadow-2xl transition-all`}>
       {/* Hidden File Inputs */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleImageUpload}
-        accept="image/*"
-        className="hidden"
-      />
-      <input
-        type="file"
-        ref={jsonInputRef}
-        onChange={importJSON}
-        accept="application/json"
-        className="hidden"
-      />
+      <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
+      <input type="file" ref={jsonInputRef} onChange={importJSON} accept="application/json" className="hidden" />
 
       {/* 🛠️ Main Floating Whiteboard Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-slate-950/90 border-b border-white/10 backdrop-blur z-10">
@@ -656,7 +689,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
             className={`p-2 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all ${
               activeTool === "draw" ? "bg-rose-500 text-white shadow-lg shadow-rose-500/30 scale-105" : "text-slate-400 hover:text-white hover:bg-white/5"
             }`}
-            title="Pencil Mode (P)"
+            title="Ultra-Smooth Pencil Mode (P)"
           >
             <Pencil className="w-4 h-4" />
             <span className="hidden md:inline">Pen</span>
@@ -746,7 +779,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
           </button>
         </div>
 
-        {/* Fonts, Color & Styling */}
+        {/* Fonts, Snap-to-Grid & Styling */}
         <div className="flex items-center gap-3 bg-slate-900/90 p-1.5 px-3 rounded-xl border border-white/10">
           <div className="flex items-center gap-1.5 text-xs">
             <FontIcon className="w-3.5 h-3.5 text-cyan-400" />
@@ -762,6 +795,23 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
               ))}
             </select>
           </div>
+
+          <div className="h-4 w-px bg-white/10" />
+
+          {/* Smart Grid Snapping Toggle */}
+          <button
+            onClick={() => {
+              setSnapToGrid(!snapToGrid);
+              showToast(`Grid Snapping ${!snapToGrid ? "Enabled (20px)" : "Disabled"}`, "info");
+            }}
+            className={`p-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
+              snapToGrid ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40" : "text-slate-400 hover:text-white"
+            }`}
+            title="Snap Objects to 20px Grid Boundaries"
+          >
+            <Magnet className="w-3.5 h-3.5" />
+            <span className="hidden xl:inline">Snap Grid</span>
+          </button>
 
           <div className="h-4 w-px bg-white/10" />
 
@@ -796,7 +846,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
           </div>
         </div>
 
-        {/* History, Layering, Export & Project Files */}
+        {/* Alignment, History, Layering, Export & Fullscreen */}
         <div className="flex items-center gap-1.5">
           <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-white/10">
             <button onClick={handleUndo} disabled={!canUndo} className={`p-2 rounded-lg transition-all ${canUndo ? "text-slate-300 hover:text-white hover:bg-white/10" : "text-slate-600 cursor-not-allowed"}`} title="Undo (Ctrl+Z)">
@@ -811,6 +861,12 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
             <button onClick={handleDuplicate} className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors" title="Duplicate Object (Ctrl+D)">
               <Copy className="w-4 h-4" />
             </button>
+
+            {/* Align Horizontal / Vertical */}
+            <button onClick={alignCenterHorizontal} className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors" title="Center Horizontally">
+              <AlignCenter className="w-4 h-4" />
+            </button>
+
             <button onClick={bringToFront} className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors" title="Bring to Front">
               <BringToFront className="w-4 h-4" />
             </button>
@@ -818,6 +874,10 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
               <SendToBack className="w-4 h-4" />
             </button>
           </div>
+
+          <button onClick={() => setIsFullscreen(!isFullscreen)} className="p-2 rounded-xl border border-white/10 bg-white/5 text-amber-300 hover:bg-amber-500/10 transition-all" title="Toggle Canvas Fullscreen">
+            <Maximize className="w-4 h-4" />
+          </button>
 
           <button onClick={() => jsonInputRef.current?.click()} className="p-2 rounded-xl border border-white/10 bg-white/5 text-cyan-400 hover:bg-cyan-500/10 transition-all text-xs font-bold flex items-center gap-1" title="Import JSON Project">
             <Upload className="w-4 h-4" />
@@ -864,7 +924,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
         <div className="h-3 w-px bg-white/20" />
 
         <span className="text-[11px] text-slate-400 hidden sm:inline">
-          🔥 <span className="font-semibold text-slate-300">Laser Pointer</span> live presentation mode | <span className="font-semibold text-slate-300">Ctrl + D</span> Duplicate | <span className="font-semibold text-slate-300">Ctrl + Z / Y</span> Undo/Redo
+          🧲 <span className="font-semibold text-slate-300">Snap Grid</span> {snapToGrid ? "ON" : "OFF"} | <span className="font-semibold text-slate-300">Ctrl + D</span> Duplicate | <span className="font-semibold text-slate-300">Laser Pointer</span> presentation mode
         </span>
       </div>
     </div>
