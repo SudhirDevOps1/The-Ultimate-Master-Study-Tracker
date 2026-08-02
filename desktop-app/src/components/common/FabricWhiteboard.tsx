@@ -57,8 +57,8 @@ const THEMES: Theme[] = [
   { id: "paper",     name: "Warm Paper", page: "#faf6ee", grid: "rgba(180,138,88,0.28)",  gtype: "lines", ink: "#3f2d1c", isDark: false },
 ];
 
-const STROKES = ["#0f172a", "#ffffff", "#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899"];
-const FILLS   = ["transparent", "#ef444433", "#22c55e33", "#06b6d433", "#3b82f633", "#f9731633", "#eab30833", "#8b5cf633", "#94a3b833"];
+const STROKES = ["#f97316", "#ffffff", "#0f172a", "#ef4444", "#ec4899", "#a855f7", "#3b82f6", "#06b6d4", "#22c55e", "#eab308"];
+const FILLS   = ["transparent", "#f9731633", "#ef444433", "#22c55e33", "#06b6d433", "#3b82f633", "#eab30833", "#8b5cf633", "#94a3b833"];
 
 const FONTS = [
   { name: "Handwritten", family: "'Caveat', 'Comic Sans MS', cursive" },
@@ -453,7 +453,7 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
 
     const addText = (x: number, y: number) => {
       const L = live.current;
-      const it = new fabric.IText("", {
+      const it = new fabric.IText("Type text here", {
         left: x, top: y - L.size / 2,
         fontFamily: L.font, fontSize: L.size,
         fill: L.stroke, opacity: L.opacity,
@@ -462,23 +462,26 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
       c.add(it);
       c.setActiveObject(it);
       it.enterEditing();
+      it.selectAll();
       c.requestRenderAll();
       if (!L.locked) setTool("select");
     };
 
     const addNote = (x: number, y: number) => {
       const L = live.current;
-      const n = new fabric.Textbox("", {
-        left: x - 100, top: y - 70, width: 200,
+      const n = new fabric.Textbox("📌 Sticky Note", {
+        left: x - 100, top: y - 70, width: 200, height: 160,
         fontFamily: L.font, fontSize: 20, lineHeight: 1.25,
         fill: "#422006", backgroundColor: "#fde68a",
-        padding: 10,
+        padding: 12,
         selectable: true, evented: true, editable: true,
+        rx: 12, ry: 12,
         shadow: new fabric.Shadow({ color: "rgba(0,0,0,0.35)", blur: 18, offsetY: 8 }),
       });
       c.add(n);
       c.setActiveObject(n);
       n.enterEditing();
+      n.selectAll();
       c.requestRenderAll();
       if (!L.locked) setTool("select");
     };
@@ -666,7 +669,7 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
 
     c.on("text:editing:exited", (opt) => {
       const t = opt.target as fabric.IText | undefined;
-      if (t && !t.text?.trim() && t.type === "i-text") {
+      if (t && !t.text?.trim()) {
         c.remove(t);
         c.requestRenderAll();
       } else {
@@ -904,14 +907,14 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey]);
 
-  /* --- Tool → canvas mode sync ---------------------------------------- */
+  /* --- Tool → canvas mode sync & Brush Color Sync --------------------- */
   useEffect(() => {
     const c = fcRef.current;
     if (!c) return;
 
     const drawing = isDraw(tool);
     c.isDrawingMode = drawing;
-    if (drawing && c.freeDrawingBrush) {
+    if (c.freeDrawingBrush) {
       const b = c.freeDrawingBrush as fabric.PencilBrush;
       if (tool === "marker") {
         b.color = isHex6(stroke) ? `${stroke}59` : stroke;
@@ -1080,9 +1083,13 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
     };
   });
 
-  /* --- Style updaters that mutate current selection too -------------- */
+  /* --- Style updaters that mutate current selection & pencil brush ------ */
   const setStrokeA = (v: string) => {
     setStroke(v);
+    if (fcRef.current?.freeDrawingBrush) {
+      const b = fcRef.current.freeDrawingBrush as fabric.PencilBrush;
+      b.color = tool === "marker" && isHex6(v) ? `${v}59` : v;
+    }
     mutateSelection((o) => { if (isTextObj(o)) o.set({ fill: v }); else o.set({ stroke: v }); });
   };
   const setFillA = (v: string) => {
@@ -1091,6 +1098,10 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
   };
   const setWidthA = (v: number) => {
     setStrokeWidth(v);
+    if (fcRef.current?.freeDrawingBrush) {
+      const b = fcRef.current.freeDrawingBrush as fabric.PencilBrush;
+      b.width = tool === "marker" ? Math.max(12, v * 4) : v;
+    }
     mutateSelection((o) => { if (!isTextObj(o)) o.set({ strokeWidth: v }); });
   };
   const setStyleA = (v: string) => {
@@ -1457,7 +1468,7 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
         {showProps && (
           <div className="pointer-events-none absolute bottom-16 left-3 top-16 z-20 flex items-start">
             <div className={`${island} scrollbar-none w-[204px] max-h-full space-y-3 overflow-y-auto p-3`}>
-              <PanelSection label="Stroke">
+              <PanelSection label={isDraw(tool) ? "Pen Color" : "Stroke Color"}>
                 <div className="grid grid-cols-5 gap-1.5">
                   {STROKES.map((clr) => (
                     <button
@@ -1478,7 +1489,7 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
                     onChange={(e) => setStrokeA(e.target.value)}
                     className="h-4 w-4 cursor-pointer rounded border-0 bg-transparent p-0"
                   />
-                  Custom
+                  Custom Color
                 </label>
               </PanelSection>
 
@@ -1502,7 +1513,7 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
                 </PanelSection>
               )}
 
-              <PanelSection label={`Width · ${strokeWidth}`}>
+              <PanelSection label={`${isDraw(tool) ? "Pen Size" : "Width"} · ${strokeWidth}px`}>
                 <div className="flex gap-1.5">
                   {[2, 4, 8, 14].map((w) => (
                     <button
@@ -1523,28 +1534,30 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
                 />
               </PanelSection>
 
-              <PanelSection label="Style">
-                <div className="flex gap-1.5">
-                  {Object.keys(DASHES).map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => setStyleA(s)}
-                      title={s}
-                      className={`flex h-7 flex-1 items-center justify-center rounded-lg border transition-all ${
-                        strokeStyle === s ? "border-cyan-400 bg-cyan-500/20" : "border-white/10 bg-white/5 hover:bg-white/10"
-                      }`}
-                    >
-                      <svg width="22" height="6" viewBox="0 0 22 6">
-                        <line
-                          x1="1" y1="3" x2="21" y2="3"
-                          stroke="#e2e8f0" strokeWidth="2" strokeLinecap="round"
-                          strokeDasharray={s === "dashed" ? "5 4" : s === "dotted" ? "0.5 4" : undefined}
-                        />
-                      </svg>
-                    </button>
-                  ))}
-                </div>
-              </PanelSection>
+              {!isDraw(tool) && (
+                <PanelSection label="Style">
+                  <div className="flex gap-1.5">
+                    {Object.keys(DASHES).map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => setStyleA(s)}
+                        title={s}
+                        className={`flex h-7 flex-1 items-center justify-center rounded-lg border transition-all ${
+                          strokeStyle === s ? "border-cyan-400 bg-cyan-500/20" : "border-white/10 bg-white/5 hover:bg-white/10"
+                        }`}
+                      >
+                        <svg width="22" height="6" viewBox="0 0 22 6">
+                          <line
+                            x1="1" y1="3" x2="21" y2="3"
+                            stroke="#e2e8f0" strokeWidth="2" strokeLinecap="round"
+                            strokeDasharray={s === "dashed" ? "5 4" : s === "dotted" ? "0.5 4" : undefined}
+                          />
+                        </svg>
+                      </button>
+                    ))}
+                  </div>
+                </PanelSection>
+              )}
 
               {(selIsText || tool === "text" || tool === "note") && (
                 <>
