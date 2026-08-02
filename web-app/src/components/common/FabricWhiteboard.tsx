@@ -4,7 +4,8 @@ import {
   Pencil, Eraser, Square, Circle, Type, StickyNote, Download, Trash2, 
   RotateCcw, RotateCw, MousePointer, ZoomIn, ZoomOut, Maximize2, Image as ImageIcon,
   ArrowRight, Minus, Move, Sparkles, Layers, Hand, BoxSelect, Highlighter,
-  Diamond, Grid, Type as FontIcon, Copy
+  Diamond, Grid, Type as FontIcon, Copy, Upload, Shield, Eye, Flame,
+  BringToFront, SendToBack
 } from "lucide-react";
 import { useToast } from "@/components/common/Toast";
 
@@ -28,10 +29,11 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
   const containerRef = useRef<HTMLDivElement | null>(null);
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const jsonInputRef = useRef<HTMLInputElement | null>(null);
   const { showToast } = useToast();
 
   const [activeTool, setActiveTool] = useState<
-    "select" | "draw" | "highlighter" | "erase" | "pan" | 
+    "select" | "draw" | "highlighter" | "laser" | "erase" | "pan" | 
     "rect" | "circle" | "diamond" | "line" | "arrow" | "text" | "note"
   >("draw");
 
@@ -40,7 +42,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
   const [strokeWidth, setStrokeWidth] = useState(4);
   const [selectedFont, setSelectedFont] = useState(FONTS[0].family);
   const [zoomLevel, setZoomLevel] = useState(1);
-  const [bgPattern, setBgPattern] = useState<"grid" | "dots" | "dark">("grid");
+  const [bgStyle, setBgStyle] = useState<"grid" | "dots" | "dark">("grid");
 
   // Undo / Redo History Stacks
   const historyRef = useRef<string[]>([]);
@@ -48,6 +50,9 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
   const isHistoryProcessing = useRef<boolean>(false);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+
+  // Laser trail state
+  const laserPathsRef = useRef<fabric.Object[]>([]);
 
   // Save state to history
   const pushState = useCallback(() => {
@@ -99,11 +104,42 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     });
   }, [showToast]);
 
+  // Duplicate Selected Objects
+  const handleDuplicate = useCallback(() => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    const activeObj = canvas.getActiveObject();
+    if (!activeObj) {
+      showToast("Select any shape or drawing to duplicate", "warning");
+      return;
+    }
+
+    activeObj.clone().then((cloned) => {
+      canvas.discardActiveObject();
+      cloned.set({
+        left: cloned.left! + 20,
+        top: cloned.top! + 20,
+        evented: true,
+      });
+      if (cloned.type === "activeSelection") {
+        cloned.canvas = canvas;
+        (cloned as any).forEachObject((obj: fabric.Object) => {
+          canvas.add(obj);
+        });
+        cloned.setCoordinates();
+      } else {
+        canvas.add(cloned);
+      }
+      canvas.setActiveObject(cloned);
+      canvas.requestRenderAll();
+      showToast("Duplicated object!", "success");
+    });
+  }, [showToast]);
+
   // Initialize Fabric Canvas
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return;
 
-    // Dynamically inject Google Fonts for Excalidraw feel
     if (!document.getElementById("google-fonts-excalidraw")) {
       const link = document.createElement("link");
       link.id = "google-fonts-excalidraw";
@@ -120,7 +156,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
       height,
       backgroundColor: "#050505",
       isDrawingMode: true,
-      selection: true, // Lasso / Multi-object drag selection box
+      selection: true,
       selectionColor: "rgba(6,182,212,0.15)",
       selectionLineWidth: 1,
       selectionBorderColor: "#06b6d4",
@@ -129,14 +165,12 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
 
     fabricCanvasRef.current = canvas;
 
-    // Configure ultra-smooth Pencil Brush
     const brush = new fabric.PencilBrush(canvas);
     brush.color = strokeColor;
     brush.width = strokeWidth;
-    brush.decimate = 2; // Smooth curve interpolation
+    brush.decimate = 2;
     canvas.freeDrawingBrush = brush;
 
-    // Load saved canvas data if available
     try {
       const savedData = localStorage.getItem(storageKey);
       if (savedData) {
@@ -154,23 +188,33 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
       console.error("Failed to restore whiteboard data:", e);
     }
 
-    // Auto-save on object modification
-    canvas.on("object:added", () => pushState());
+    canvas.on("object:added", (e) => {
+      // Handle Laser Pointer Fading Trail
+      if (activeCanvasRefTool.current === "laser" && e.target) {
+        const laserObj = e.target;
+        laserPathsRef.current.push(laserObj);
+        setTimeout(() => {
+          canvas.remove(laserObj);
+          canvas.renderAll();
+        }, 1200);
+        return;
+      }
+      pushState();
+    });
     canvas.on("object:modified", () => pushState());
     canvas.on("object:removed", () => pushState());
 
-    // Eraser Mode Object Click/Drag Removal
+    // Eraser Mode
     canvas.on("mouse:down", (opt) => {
       const activeCanvas = fabricCanvasRef.current;
       if (!activeCanvas) return;
-
       if (activeCanvasRefTool.current === "erase" && opt.target) {
         activeCanvas.remove(opt.target);
         activeCanvas.renderAll();
       }
     });
 
-    // 360-Degree Mouse Wheel Zooming & Panning
+    // 360-Degree Mouse Wheel Zooming
     canvas.on("mouse:wheel", (opt) => {
       const delta = opt.e.deltaY;
       let zoom = canvas.getZoom();
@@ -220,7 +264,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
       }
     });
 
-    // Keyboard Shortcuts (Delete, Ctrl+Z, Ctrl+Y)
+    // Keyboard Shortcuts (Delete, Ctrl+Z, Ctrl+Y, Ctrl+D)
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
@@ -240,12 +284,14 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
       } else if (e.ctrlKey && e.key.toLowerCase() === "y") {
         e.preventDefault();
         handleRedo();
+      } else if (e.ctrlKey && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        handleDuplicate();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
 
-    // Responsive Canvas Resize
     const handleResize = () => {
       if (!containerRef.current || !fabricCanvasRef.current) return;
       fabricCanvasRef.current.setDimensions({
@@ -263,9 +309,8 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
       canvas.dispose();
       fabricCanvasRef.current = null;
     };
-  }, [storageKey, pushState, handleUndo, handleRedo]);
+  }, [storageKey, pushState, handleUndo, handleRedo, handleDuplicate]);
 
-  // Track active tool in ref for event handlers
   const activeCanvasRefTool = useRef(activeTool);
   useEffect(() => {
     activeCanvasRefTool.current = activeTool;
@@ -276,13 +321,16 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
 
-    if (activeTool === "draw" || activeTool === "highlighter") {
+    if (activeTool === "draw" || activeTool === "highlighter" || activeTool === "laser") {
       canvas.isDrawingMode = true;
       if (!canvas.freeDrawingBrush) {
         canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
       }
 
-      if (activeTool === "highlighter") {
+      if (activeTool === "laser") {
+        canvas.freeDrawingBrush.color = "#f43f5e";
+        canvas.freeDrawingBrush.width = 6;
+      } else if (activeTool === "highlighter") {
         canvas.freeDrawingBrush.color = strokeColor.startsWith("#") ? `${strokeColor}55` : "rgba(234,179,8,0.35)";
         canvas.freeDrawingBrush.width = strokeWidth * 4;
       } else {
@@ -295,7 +343,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     }
 
     if (activeTool === "select") {
-      canvas.selection = true; // Enable multi-object selection box (Lasso select)
+      canvas.selection = true;
       canvas.defaultCursor = "default";
     } else if (activeTool === "pan") {
       canvas.selection = false;
@@ -392,7 +440,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
       canvas.add(text);
       canvas.setActiveObject(text);
     } else if (type === "note") {
-      // Direct Editable Sticky Note Textbox with yellow background
       const note = new fabric.Textbox("📌 Quick Sticky Note\n(Double click to edit text)", {
         left: center.x - 90,
         top: center.y - 90,
@@ -457,6 +504,69 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  // Export Scene JSON File
+  const exportJSON = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    const jsonStr = JSON.stringify(canvas.toJSON());
+    const blob = new Blob([jsonStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.download = `flowtrack_whiteboard_project_${Date.now()}.json`;
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast("Exported Whiteboard Project JSON!", "success");
+  };
+
+  // Import Scene JSON File
+  const importJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (f) => {
+      const content = f.target?.result as string;
+      if (!content) return;
+      try {
+        const canvas = fabricCanvasRef.current;
+        if (!canvas) return;
+        canvas.loadFromJSON(content).then(() => {
+          canvas.renderAll();
+          pushState();
+          showToast("Imported Whiteboard Project!", "success");
+        });
+      } catch {
+        showToast("Invalid JSON file", "error");
+      }
+    };
+    reader.readAsText(file);
+    if (jsonInputRef.current) jsonInputRef.current.value = "";
+  };
+
+  // Layer Stacking (Bring Forward / Send Backward)
+  const bringToFront = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    const activeObj = canvas.getActiveObject();
+    if (activeObj) {
+      canvas.bringObjectToFront(activeObj);
+      canvas.renderAll();
+      showToast("Brought to Front", "info");
+    }
+  };
+
+  const sendToBack = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    const activeObj = canvas.getActiveObject();
+    if (activeObj) {
+      canvas.sendObjectToBack(activeObj);
+      canvas.renderAll();
+      showToast("Sent to Back", "info");
+    }
+  };
+
   // Erase Selected Objects
   const deleteSelected = () => {
     const canvas = fabricCanvasRef.current;
@@ -511,7 +621,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     setZoomLevel(newZoom);
   };
 
-  // Reset Zoom & Pan
   const resetZoomPan = () => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
@@ -521,8 +630,8 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
   };
 
   return (
-    <div className="relative w-full h-[750px] bg-[#050505] rounded-2xl border border-white/10 overflow-hidden flex flex-col shadow-2xl">
-      {/* Hidden File Input for Image Upload */}
+    <div className="relative w-full h-[760px] bg-[#050505] rounded-2xl border border-white/10 overflow-hidden flex flex-col shadow-2xl">
+      {/* Hidden File Inputs */}
       <input
         type="file"
         ref={fileInputRef}
@@ -530,10 +639,17 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
         accept="image/*"
         className="hidden"
       />
+      <input
+        type="file"
+        ref={jsonInputRef}
+        onChange={importJSON}
+        accept="application/json"
+        className="hidden"
+      />
 
       {/* 🛠️ Main Floating Whiteboard Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-slate-950/90 border-b border-white/10 backdrop-blur z-10">
-        {/* Primary Draw / Select / Pan / Eraser Tools */}
+        {/* Primary Draw / Select / Laser / Pan / Eraser Tools */}
         <div className="flex items-center gap-1 bg-slate-900/90 p-1.5 rounded-xl border border-white/10 shadow-inner">
           <button
             onClick={() => setActiveTool("draw")}
@@ -555,6 +671,17 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
           >
             <Highlighter className="w-4 h-4" />
             <span className="hidden md:inline">Highlight</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTool("laser")}
+            className={`p-2 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all ${
+              activeTool === "laser" ? "bg-rose-600 text-white shadow-lg shadow-rose-600/40 animate-pulse scale-105" : "text-slate-400 hover:text-white hover:bg-white/5"
+            }`}
+            title="Fading Laser Pointer Trail (Presentation Mode)"
+          >
+            <Flame className="w-4 h-4 text-rose-400" />
+            <span className="hidden md:inline">Laser</span>
           </button>
 
           <button
@@ -593,67 +720,34 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
           <div className="h-4 w-px bg-white/10 mx-1" />
 
           {/* Shapes & Text */}
-          <button
-            onClick={() => addShape("rect")}
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-            title="Add Rectangle"
-          >
+          <button onClick={() => addShape("rect")} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Add Rectangle">
             <Square className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => addShape("circle")}
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-            title="Add Circle"
-          >
+          <button onClick={() => addShape("circle")} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Add Circle">
             <Circle className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => addShape("diamond")}
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-            title="Add Diamond Decision"
-          >
+          <button onClick={() => addShape("diamond")} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Add Diamond Decision">
             <Diamond className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => addShape("line")}
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-            title="Add Straight Line"
-          >
+          <button onClick={() => addShape("line")} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Add Straight Line">
             <Minus className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => addShape("arrow")}
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-            title="Add Arrow"
-          >
+          <button onClick={() => addShape("arrow")} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Add Arrow">
             <ArrowRight className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => addShape("text")}
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-            title="Add Text"
-          >
+          <button onClick={() => addShape("text")} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Add Text">
             <Type className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => addShape("note")}
-            className="p-2 rounded-lg text-amber-400/90 hover:text-amber-300 hover:bg-amber-500/10 transition-colors"
-            title="Add Editable Sticky Note"
-          >
+          <button onClick={() => addShape("note")} className="p-2 rounded-lg text-amber-400/90 hover:text-amber-300 hover:bg-amber-500/10 transition-colors" title="Add Editable Sticky Note">
             <StickyNote className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="p-2 rounded-lg text-emerald-400/90 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors flex items-center gap-1"
-            title="Upload PC Image"
-          >
+          <button onClick={() => fileInputRef.current?.click()} className="p-2 rounded-lg text-emerald-400/90 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors" title="Upload PC Image">
             <ImageIcon className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Fonts & Styling Options */}
+        {/* Fonts, Color & Styling */}
         <div className="flex items-center gap-3 bg-slate-900/90 p-1.5 px-3 rounded-xl border border-white/10">
-          {/* Excalidraw Font Selector */}
           <div className="flex items-center gap-1.5 text-xs">
             <FontIcon className="w-3.5 h-3.5 text-cyan-400" />
             <select
@@ -671,7 +765,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
 
           <div className="h-4 w-px bg-white/10" />
 
-          {/* Color Palette */}
           <div className="flex items-center gap-1.5">
             {COLOR_PRESETS.map((color) => (
               <button
@@ -690,7 +783,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
 
           <div className="h-4 w-px bg-white/10" />
 
-          {/* Stroke Width Slider */}
           <div className="flex items-center gap-1.5 text-xs text-slate-400">
             <span className="text-[10px] uppercase font-bold text-slate-400">Size</span>
             <input
@@ -704,52 +796,46 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
           </div>
         </div>
 
-        {/* History, Erase & Export Controls */}
+        {/* History, Layering, Export & Project Files */}
         <div className="flex items-center gap-1.5">
           <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-white/10">
-            <button
-              onClick={handleUndo}
-              disabled={!canUndo}
-              className={`p-2 rounded-lg transition-all ${
-                canUndo ? "text-slate-300 hover:text-white hover:bg-white/10" : "text-slate-600 cursor-not-allowed"
-              }`}
-              title="Undo (Ctrl+Z)"
-            >
+            <button onClick={handleUndo} disabled={!canUndo} className={`p-2 rounded-lg transition-all ${canUndo ? "text-slate-300 hover:text-white hover:bg-white/10" : "text-slate-600 cursor-not-allowed"}`} title="Undo (Ctrl+Z)">
               <RotateCcw className="w-4 h-4" />
             </button>
-            <button
-              onClick={handleRedo}
-              disabled={!canRedo}
-              className={`p-2 rounded-lg transition-all ${
-                canRedo ? "text-slate-300 hover:text-white hover:bg-white/10" : "text-slate-600 cursor-not-allowed"
-              }`}
-              title="Redo (Ctrl+Y)"
-            >
+            <button onClick={handleRedo} disabled={!canRedo} className={`p-2 rounded-lg transition-all ${canRedo ? "text-slate-300 hover:text-white hover:bg-white/10" : "text-slate-600 cursor-not-allowed"}`} title="Redo (Ctrl+Y)">
               <RotateCw className="w-4 h-4" />
             </button>
           </div>
 
-          <button
-            onClick={deleteSelected}
-            className="p-2 rounded-xl border border-rose-500/20 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 transition-all text-xs font-bold flex items-center gap-1"
-            title="Delete Selected Items (Delete key)"
-          >
+          <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-white/10">
+            <button onClick={handleDuplicate} className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors" title="Duplicate Object (Ctrl+D)">
+              <Copy className="w-4 h-4" />
+            </button>
+            <button onClick={bringToFront} className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors" title="Bring to Front">
+              <BringToFront className="w-4 h-4" />
+            </button>
+            <button onClick={sendToBack} className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors" title="Send to Back">
+              <SendToBack className="w-4 h-4" />
+            </button>
+          </div>
+
+          <button onClick={() => jsonInputRef.current?.click()} className="p-2 rounded-xl border border-white/10 bg-white/5 text-cyan-400 hover:bg-cyan-500/10 transition-all text-xs font-bold flex items-center gap-1" title="Import JSON Project">
+            <Upload className="w-4 h-4" />
+          </button>
+
+          <button onClick={exportJSON} className="p-2 rounded-xl border border-white/10 bg-white/5 text-purple-400 hover:bg-purple-500/10 transition-all text-xs font-bold flex items-center gap-1" title="Export Editable JSON Project">
+            <Layers className="w-4 h-4" />
+          </button>
+
+          <button onClick={deleteSelected} className="p-2 rounded-xl border border-rose-500/20 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 transition-all text-xs font-bold flex items-center gap-1" title="Delete Selected Items (Delete key)">
             <Trash2 className="w-4 h-4" />
-            <span className="hidden lg:inline">Delete</span>
           </button>
-          <button
-            onClick={clearCanvas}
-            className="p-2 rounded-xl border border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all text-xs font-bold flex items-center gap-1"
-            title="Clear Entire Canvas"
-          >
+
+          <button onClick={clearCanvas} className="p-2 rounded-xl border border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all text-xs font-bold flex items-center gap-1" title="Clear Entire Canvas">
             <RotateCcw className="w-4 h-4" />
-            <span className="hidden lg:inline">Clear</span>
           </button>
-          <button
-            onClick={exportImage}
-            className="p-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 text-white font-bold text-xs shadow-lg flex items-center gap-1.5 hover:opacity-95 transition-all"
-            title="Download High-Res PNG Image"
-          >
+
+          <button onClick={exportImage} className="p-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 text-white font-bold text-xs shadow-lg flex items-center gap-1.5 hover:opacity-95 transition-all" title="Download High-Res PNG Image">
             <Download className="w-4 h-4" />
             <span>Export PNG</span>
           </button>
@@ -778,7 +864,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
         <div className="h-3 w-px bg-white/20" />
 
         <span className="text-[11px] text-slate-400 hidden sm:inline">
-          ✨ <span className="font-semibold text-slate-300">Lasso Drag Box</span> select multiple items | <span className="font-semibold text-slate-300">Double click</span> text/notes to edit directly
+          🔥 <span className="font-semibold text-slate-300">Laser Pointer</span> live presentation mode | <span className="font-semibold text-slate-300">Ctrl + D</span> Duplicate | <span className="font-semibold text-slate-300">Ctrl + Z / Y</span> Undo/Redo
         </span>
       </div>
     </div>
