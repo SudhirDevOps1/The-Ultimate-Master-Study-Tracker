@@ -116,6 +116,7 @@ const clamp      = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(
 const isHex6     = (s: string) => /^#[0-9a-f]{6}$/i.test(s);
 
 const pointInPoly = (p: { x: number; y: number }, poly: { x: number; y: number }[]) => {
+  if (poly.length < 3) return false;
   let inside = false;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
     const xi = poly[i].x, yi = poly[i].y;
@@ -572,10 +573,10 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
         lassoPts = [{ x: sp.x, y: sp.y }];
         if (lassoPoly) c.remove(lassoPoly);
         lassoPoly = new fabric.Polygon([{ x: sp.x, y: sp.y }], {
-          fill: "rgba(99, 102, 241, 0.15)",
+          fill: "rgba(99, 102, 241, 0.18)",
           stroke: "#6366f1",
-          strokeWidth: 1.5,
-          strokeDashArray: [4, 4],
+          strokeWidth: 2,
+          strokeDashArray: [6, 4],
           selectable: false,
           evented: false,
           strokeUniform: true,
@@ -664,22 +665,36 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
       if (lassoOn) {
         lassoOn = false;
         if (lassoPoly) { c.remove(lassoPoly); lassoPoly = null; }
-        if (lassoPts.length > 2) {
-          const matched = c.getObjects().filter((o) => {
-            if (o.selectable === false) return false;
+        if (lassoPts.length >= 3) {
+          const allObjects = c.getObjects();
+          const matched = allObjects.filter((o) => {
+            if (o === lassoPoly || !o.evented) return false;
             const center = o.getCenterPoint();
             if (pointInPoly(center, lassoPts)) return true;
-            const coords = o.getCoords();
-            return coords.some((pt) => pointInPoly(pt, lassoPts));
+            const br = o.getBoundingRect();
+            const centerBR = { x: br.left + br.width / 2, y: br.top + br.height / 2 };
+            if (pointInPoly(centerBR, lassoPts)) return true;
+            const corners = [
+              { x: br.left, y: br.top },
+              { x: br.left + br.width, y: br.top },
+              { x: br.left, y: br.top + br.height },
+              { x: br.left + br.width, y: br.top + br.height },
+            ];
+            return corners.some((pt) => pointInPoly(pt, lassoPts));
           });
-          if (matched.length) {
+
+          if (matched.length > 0) {
             c.discardActiveObject();
-            if (matched.length === 1) {
-              c.setActiveObject(matched[0]);
-            } else {
-              c.setActiveObject(new fabric.ActiveSelection(matched, { canvas: c }));
-            }
-            if (!live.current.locked) setTool("select");
+            setTool("select");
+            setTimeout(() => {
+              if (matched.length === 1) {
+                c.setActiveObject(matched[0]);
+              } else {
+                const sel = new fabric.ActiveSelection(matched, { canvas: c });
+                c.setActiveObject(sel);
+              }
+              c.requestRenderAll();
+            }, 20);
           }
         }
         lassoPts = [];
@@ -996,12 +1011,12 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
     c.selection = tool === "select";
     c.skipTargetFind = !(tool === "select" || tool === "eraser");
     c.forEachObject((o) => {
-      o.selectable = tool === "select";
-      o.evented = tool === "select" || tool === "eraser";
+      o.selectable = (tool === "select" || tool === "lasso");
+      o.evented = (tool === "select" || tool === "eraser" || tool === "lasso");
     });
     c.defaultCursor = cursorFor(tool);
     c.hoverCursor = tool === "select" ? "move" : c.defaultCursor;
-    if (tool !== "select") c.discardActiveObject();
+    if (tool !== "select" && tool !== "lasso") c.discardActiveObject();
     c.requestRenderAll();
   }, [tool, stroke, strokeWidth, ready]);
 
@@ -1011,8 +1026,8 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
     if (!c) return;
     const handler = (opt: { target?: fabric.Object }) => {
       if (!opt.target) return;
-      opt.target.selectable = live.current.tool === "select";
-      opt.target.evented = live.current.tool === "select" || live.current.tool === "eraser";
+      opt.target.selectable = (live.current.tool === "select" || live.current.tool === "lasso");
+      opt.target.evented = (live.current.tool === "select" || live.current.tool === "eraser" || live.current.tool === "lasso");
     };
     c.on("object:added", handler);
     return () => { c.off("object:added", handler); };
