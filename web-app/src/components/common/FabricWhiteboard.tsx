@@ -6,7 +6,7 @@ import {
   ArrowRight, Minus, Layers, Hand, BoxSelect, Highlighter,
   Diamond, Type as FontIcon, Copy, Upload, Flame,
   BringToFront, SendToBack, Magnet, AlignCenter, Maximize2, Minimize2,
-  Sparkles, Palette, HelpCircle
+  Sparkles, Palette, HelpCircle, Grid, Sliders
 } from "lucide-react";
 import { useToast } from "@/components/common/Toast";
 
@@ -23,6 +23,14 @@ const FONTS = [
   { name: "Handwritten (Excalidraw)", family: "'Caveat', 'Architects Daughter', cursive, sans-serif" },
   { name: "Modern Sans", family: "'Inter', system-ui, sans-serif" },
   { name: "Monospace", family: "'Courier New', monospace" },
+];
+
+const BACKGROUND_THEMES = [
+  { id: "dot-grid", name: "Dot Grid (Excalidraw)", css: "bg-slate-950 bg-[radial-gradient(#ffffff15_1px,transparent_1px)] [background-size:24px_24px]" },
+  { id: "graph-lines", name: "Math Graph Grid", css: "bg-slate-950 bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)] [background-size:24px_24px]" },
+  { id: "pitch-black", name: "OLED Pitch Black", css: "bg-black" },
+  { id: "chalkboard", name: "Emerald Chalkboard", css: "bg-[#062419] bg-[radial-gradient(#10b98120_1px,transparent_1px)] [background-size:24px_24px]" },
+  { id: "clean-white", name: "Classic Whiteboard", css: "bg-slate-100 bg-[radial-gradient(#64748b20_1px,transparent_1px)] [background-size:24px_24px]" },
 ];
 
 export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1" }: FabricWhiteboardProps) {
@@ -42,6 +50,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
   const [fillColor, setFillColor] = useState("rgba(249,115,22,0.15)");
   const [strokeWidth, setStrokeWidth] = useState(4);
   const [selectedFont, setSelectedFont] = useState(FONTS[0].family);
+  const [bgTheme, setBgTheme] = useState(BACKGROUND_THEMES[0].id);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [snapToGrid, setSnapToGrid] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -586,18 +595,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     if (jsonInputRef.current) jsonInputRef.current.value = "";
   };
 
-  // Align Objects
-  const alignCenterHorizontal = () => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-    const activeObj = canvas.getActiveObject();
-    if (activeObj) {
-      canvas.centerObjectH(activeObj);
-      canvas.renderAll();
-      showToast("Aligned Centered Horizontally", "info");
-    }
-  };
-
   // Layer Stacking
   const bringToFront = () => {
     const canvas = fabricCanvasRef.current;
@@ -647,20 +644,20 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     showToast("Whiteboard cleared", "info");
   };
 
-  // Export High-Res PNG
-  const exportImage = () => {
+  // 🚀 Ultra HD 4K High-Quality Export PNG (Multiplier = 4)
+  const exportImageHighRes = (multiplier: number = 4) => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
     const dataUrl = canvas.toDataURL({
       format: "png",
       quality: 1,
-      multiplier: 2,
+      multiplier: multiplier,
     });
     const link = document.createElement("a");
-    link.download = `flowtrack_whiteboard_${Date.now()}.png`;
+    link.download = `flowtrack_whiteboard_${multiplier}k_hd_${Date.now()}.png`;
     link.href = dataUrl;
     link.click();
-    showToast("Downloaded High-Res PNG Image!", "success");
+    showToast(`Downloaded ${multiplier}K Ultra HD High-Res PNG!`, "success");
   };
 
   // Zoom controls
@@ -682,17 +679,19 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     showToast("Reset Canvas View", "info");
   };
 
+  const selectedBg = BACKGROUND_THEMES.find(t => t.id === bgTheme) || BACKGROUND_THEMES[0];
+
   return (
-    <div className={`relative w-full ${isFullscreen ? "fixed inset-0 z-50 rounded-none h-screen w-screen" : "h-[760px] rounded-2xl"} bg-slate-950 border border-white/10 overflow-hidden flex flex-col shadow-2xl transition-all`}>
+    <div className={`relative w-full ${isFullscreen ? "fixed inset-0 z-50 rounded-none h-screen w-screen" : "h-[760px] rounded-2xl"} border border-white/10 overflow-hidden flex flex-col shadow-2xl transition-all ${selectedBg.css}`}>
       {/* Hidden File Inputs */}
       <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
       <input type="file" ref={jsonInputRef} onChange={importJSON} accept="application/json" className="hidden" />
 
-      {/* 🛠️ Top Mac-Style Glassmorphism Floating Control Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-slate-950/80 border-b border-white/10 backdrop-blur-xl z-20 shadow-lg">
-        {/* Left Section: Font & Grid Snap */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-slate-900/90 p-1.5 px-3 rounded-xl border border-white/10 text-xs">
+      {/* 🛠️ Top Responsive Mac-Style Glassmorphism Control Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-slate-950/85 border-b border-white/10 backdrop-blur-xl z-20 shadow-lg">
+        {/* Left Section: Font & Background Theme Selector */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 bg-slate-900/90 p-1.5 px-2.5 rounded-xl border border-white/10 text-xs">
             <FontIcon className="w-3.5 h-3.5 text-cyan-400" />
             <select
               value={selectedFont}
@@ -707,24 +706,40 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
             </select>
           </div>
 
+          {/* Background Canvas Theme Picker */}
+          <div className="flex items-center gap-1.5 bg-slate-900/90 p-1.5 px-2.5 rounded-xl border border-white/10 text-xs">
+            <Grid className="w-3.5 h-3.5 text-purple-400" />
+            <select
+              value={bgTheme}
+              onChange={(e) => setBgTheme(e.target.value)}
+              className="bg-transparent text-slate-200 text-xs font-semibold focus:outline-none cursor-pointer"
+            >
+              {BACKGROUND_THEMES.map((theme) => (
+                <option key={theme.id} value={theme.id} className="bg-slate-900 text-white">
+                  {theme.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <button
             onClick={() => {
               setSnapToGrid(!snapToGrid);
               showToast(`Grid Snapping ${!snapToGrid ? "Enabled (20px)" : "Disabled"}`, "info");
             }}
-            className={`p-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border ${
+            className={`p-1.5 px-2 rounded-xl text-xs font-bold flex items-center gap-1 transition-all border ${
               snapToGrid ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-lg shadow-cyan-500/20" : "bg-slate-900/90 text-slate-400 border-white/10 hover:text-white"
             }`}
             title="Snap Objects to 20px Grid Boundaries"
           >
             <Magnet className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Snap Grid</span>
+            <span className="hidden lg:inline">Snap Grid</span>
           </button>
         </div>
 
         {/* Center Color Palette & Stroke Size */}
-        <div className="flex items-center gap-3 bg-slate-900/90 p-1.5 px-3 rounded-2xl border border-white/10 shadow-inner">
-          <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2.5 bg-slate-900/90 p-1.5 px-3 rounded-2xl border border-white/10 shadow-inner">
+          <div className="flex items-center gap-1.5 overflow-x-auto max-w-[200px] sm:max-w-none scrollbar-none">
             {COLOR_PRESETS.map((color) => (
               <button
                 key={color}
@@ -733,16 +748,16 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
                   setFillColor(color === "#ffffff" ? "rgba(255,255,255,0.1)" : `${color}25`);
                 }}
                 style={{ backgroundColor: color }}
-                className={`w-5 h-5 rounded-full transition-all ${
+                className={`w-5 h-5 rounded-full transition-all shrink-0 ${
                   strokeColor === color ? "scale-125 ring-2 ring-white shadow-lg" : "hover:scale-110 opacity-75 hover:opacity-100"
                 }`}
               />
             ))}
           </div>
 
-          <div className="h-4 w-px bg-white/10" />
+          <div className="h-4 w-px bg-white/10 hidden sm:block" />
 
-          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+          <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400">
             <span className="text-[10px] uppercase font-bold text-slate-400">Size</span>
             <input
               type="range"
@@ -750,59 +765,60 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
               max="30"
               value={strokeWidth}
               onChange={(e) => setStrokeWidth(Number(e.target.value))}
-              className="w-16 h-1 accent-rose-500 cursor-pointer"
+              className="w-14 h-1 accent-rose-500 cursor-pointer"
             />
           </div>
         </div>
 
-        {/* Right Section: Actions & Export */}
+        {/* Right Section: Actions & 4K High-Res Export */}
         <div className="flex items-center gap-1.5">
           <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-white/10">
-            <button onClick={handleUndo} disabled={!canUndo} className={`p-2 rounded-lg transition-all ${canUndo ? "text-slate-300 hover:text-white hover:bg-white/10" : "text-slate-600 cursor-not-allowed"}`} title="Undo (Ctrl+Z)">
-              <RotateCcw className="w-4 h-4" />
+            <button onClick={handleUndo} disabled={!canUndo} className={`p-1.5 rounded-lg transition-all ${canUndo ? "text-slate-300 hover:text-white hover:bg-white/10" : "text-slate-600 cursor-not-allowed"}`} title="Undo (Ctrl+Z)">
+              <RotateCcw className="w-3.5 h-3.5" />
             </button>
-            <button onClick={handleRedo} disabled={!canRedo} className={`p-2 rounded-lg transition-all ${canRedo ? "text-slate-300 hover:text-white hover:bg-white/10" : "text-slate-600 cursor-not-allowed"}`} title="Redo (Ctrl+Y)">
-              <RotateCw className="w-4 h-4" />
+            <button onClick={handleRedo} disabled={!canRedo} className={`p-1.5 rounded-lg transition-all ${canRedo ? "text-slate-300 hover:text-white hover:bg-white/10" : "text-slate-600 cursor-not-allowed"}`} title="Redo (Ctrl+Y)">
+              <RotateCw className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-white/10">
-            <button onClick={handleDuplicate} className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors" title="Duplicate Object (Ctrl+D)">
-              <Copy className="w-4 h-4" />
+          <div className="hidden md:flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-white/10">
+            <button onClick={handleDuplicate} className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors" title="Duplicate Object (Ctrl+D)">
+              <Copy className="w-3.5 h-3.5" />
             </button>
-            <button onClick={bringToFront} className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors" title="Bring to Front">
-              <BringToFront className="w-4 h-4" />
+            <button onClick={bringToFront} className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors" title="Bring to Front">
+              <BringToFront className="w-3.5 h-3.5" />
             </button>
-            <button onClick={sendToBack} className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors" title="Send to Back">
-              <SendToBack className="w-4 h-4" />
+            <button onClick={sendToBack} className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors" title="Send to Back">
+              <SendToBack className="w-3.5 h-3.5" />
             </button>
           </div>
 
           <button onClick={() => jsonInputRef.current?.click()} className="p-2 rounded-xl border border-white/10 bg-white/5 text-cyan-400 hover:bg-cyan-500/10 transition-all text-xs font-bold" title="Import JSON Project">
-            <Upload className="w-4 h-4" />
+            <Upload className="w-3.5 h-3.5" />
           </button>
 
           <button onClick={exportJSON} className="p-2 rounded-xl border border-white/10 bg-white/5 text-purple-400 hover:bg-purple-500/10 transition-all text-xs font-bold" title="Export Editable JSON Project">
-            <Layers className="w-4 h-4" />
+            <Layers className="w-3.5 h-3.5" />
           </button>
 
           <button onClick={deleteSelected} className="p-2 rounded-xl border border-rose-500/20 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 transition-all text-xs font-bold" title="Delete Selected Items (Delete key)">
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-3.5 h-3.5" />
           </button>
 
           <button onClick={clearCanvas} className="p-2 rounded-xl border border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all text-xs font-bold" title="Clear Canvas">
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="w-3.5 h-3.5" />
           </button>
 
-          <button onClick={exportImage} className="p-2 px-3 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 text-white font-bold text-xs shadow-lg flex items-center gap-1.5 hover:opacity-95 transition-all">
+          {/* 💎 4K Ultra HD Export Button */}
+          <button onClick={() => exportImageHighRes(4)} className="p-2 px-3 rounded-xl bg-gradient-to-r from-rose-500 via-amber-500 to-emerald-500 text-slate-950 font-extrabold text-xs shadow-lg flex items-center gap-1.5 hover:opacity-95 transition-all" title="Download 4K Ultra HD Crisp PNG">
             <Download className="w-4 h-4" />
-            <span>Export</span>
+            <span className="hidden sm:inline">Export 4K HD</span>
           </button>
         </div>
       </div>
 
-      {/* 🖌️ Left Vertical Floating Tools Dock (Compact & Scrollable) */}
-      <div className="absolute left-3 top-16 z-20 max-h-[calc(100%-80px)] overflow-y-auto scrollbar-none flex flex-col gap-1 p-1.5 bg-slate-950/90 border border-white/10 backdrop-blur-xl rounded-2xl shadow-2xl">
+      {/* 🖌️ Responsive Left Vertical Floating Tools Dock (Scrollable & Fits All Devices) */}
+      <div className="absolute left-2.5 top-16 z-20 max-h-[calc(100%-80px)] overflow-y-auto scrollbar-none flex flex-col gap-1 p-1.5 bg-slate-950/90 border border-white/10 backdrop-blur-xl rounded-2xl shadow-2xl">
         <button
           onClick={() => setActiveTool("draw")}
           className={`p-2 rounded-xl transition-all ${
@@ -891,29 +907,29 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
         </button>
       </div>
 
-      {/* 🎨 Excalidraw Style Patterned Canvas Viewport */}
-      <div ref={containerRef} className="flex-1 w-full h-full relative cursor-crosshair bg-[radial-gradient(#ffffff15_1px,transparent_1px)] [background-size:24px_24px]">
+      {/* 🎨 Interactive Canvas Viewport */}
+      <div ref={containerRef} className="flex-1 w-full h-full relative cursor-crosshair">
         <canvas ref={canvasRef} />
       </div>
 
       {/* 🔍 Bottom Canvas View & Shortcuts Bar */}
-      <div className="absolute bottom-4 left-4 bg-slate-950/80 border border-white/10 backdrop-blur-xl rounded-xl p-2 px-3 flex items-center gap-3 text-xs text-slate-400 z-20 shadow-xl">
+      <div className="absolute bottom-3 left-3 bg-slate-950/85 border border-white/10 backdrop-blur-xl rounded-xl p-2 px-3 flex items-center gap-3 text-xs text-slate-400 z-20 shadow-xl max-w-[calc(100%-24px)] overflow-x-auto scrollbar-none">
         <div className="flex items-center gap-2">
           <button onClick={() => changeZoom(1.25)} className="p-1 hover:text-white transition-colors" title="Zoom In">
-            <ZoomIn className="w-4 h-4" />
+            <ZoomIn className="w-3.5 h-3.5" />
           </button>
           <button onClick={resetZoomPan} className="font-mono text-xs font-bold text-white hover:text-cyan-400 transition-colors" title="Click to Reset 100% View">
             {Math.round(zoomLevel * 100)}%
           </button>
           <button onClick={() => changeZoom(0.8)} className="p-1 hover:text-white transition-colors" title="Zoom Out">
-            <ZoomOut className="w-4 h-4" />
+            <ZoomOut className="w-3.5 h-3.5" />
           </button>
         </div>
 
         <div className="h-3 w-px bg-white/20" />
 
-        <span className="text-[11px] text-slate-400 hidden sm:inline">
-          ✨ <span className="font-semibold text-slate-300">Lasso Drag Box</span> select multiple items | <span className="font-semibold text-slate-300">Alt + Drag</span> 360° pan everywhere
+        <span className="text-[11px] text-slate-400 whitespace-nowrap">
+          ✨ <span className="font-semibold text-slate-300">4K Ultra HD Export</span> Enabled | <span className="font-semibold text-slate-300">Themes</span> Dot Grid, Graph, Black, Emerald Chalk, White
         </span>
       </div>
     </div>
