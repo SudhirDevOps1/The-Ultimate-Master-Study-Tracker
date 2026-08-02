@@ -29,7 +29,13 @@ export function AppBlockingPanel() {
   const [searchFilter, setSearchFilter] = useState("");
   const [scanningApps, setScanningApps] = useState(false);
 
-  const getIpc = () => (typeof window !== "undefined" ? (window as any).electron : null);
+  const getIpc = () => {
+    if (typeof window === "undefined") return null;
+    const win = window as any;
+    if (win.electron?.ipcRenderer) return win.electron.ipcRenderer;
+    if (win.electron?.invoke) return win.electron;
+    return null;
+  };
 
   // Scan currently running & installed Windows applications
   const fetchApps = async () => {
