@@ -5,7 +5,8 @@ import {
   RotateCcw, RotateCw, MousePointer, ZoomIn, ZoomOut, Image as ImageIcon,
   ArrowRight, Minus, Layers, Hand, BoxSelect, Highlighter,
   Diamond, Type as FontIcon, Copy, Upload, Flame,
-  BringToFront, SendToBack, Magnet, AlignCenter, Maximize2, Minimize2
+  BringToFront, SendToBack, Magnet, AlignCenter, Maximize2, Minimize2,
+  Sparkles, Palette, HelpCircle
 } from "lucide-react";
 import { useToast } from "@/components/common/Toast";
 
@@ -160,7 +161,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     const canvas = new fabric.Canvas(canvasRef.current, {
       width,
       height,
-      backgroundColor: "#050505",
+      backgroundColor: "transparent",
       isDrawingMode: true,
       selection: true,
       selectionColor: "rgba(6,182,212,0.15)",
@@ -184,7 +185,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     const brush = new fabric.PencilBrush(canvas);
     brush.color = strokeColor;
     brush.width = strokeWidth;
-    brush.decimate = 1.5; // Natural smooth handwriting curve
+    brush.decimate = 1.5;
     brush.strokeLineCap = "round";
     brush.strokeLineJoin = "round";
     canvas.freeDrawingBrush = brush;
@@ -640,7 +641,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
     canvas.clear();
-    canvas.backgroundColor = "#050505";
     canvas.renderAll();
     localStorage.removeItem(storageKey);
     pushState();
@@ -683,146 +683,47 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
   };
 
   return (
-    <div className={`relative w-full ${isFullscreen ? "fixed inset-0 z-50 rounded-none h-screen w-screen" : "h-[760px] rounded-2xl"} bg-[#050505] border border-white/10 overflow-hidden flex flex-col shadow-2xl transition-all`}>
+    <div className={`relative w-full ${isFullscreen ? "fixed inset-0 z-50 rounded-none h-screen w-screen" : "h-[760px] rounded-2xl"} bg-slate-950 border border-white/10 overflow-hidden flex flex-col shadow-2xl transition-all`}>
       {/* Hidden File Inputs */}
       <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
       <input type="file" ref={jsonInputRef} onChange={importJSON} accept="application/json" className="hidden" />
 
-      {/* 🛠️ Main Floating Whiteboard Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-slate-950/90 border-b border-white/10 backdrop-blur z-10">
-        {/* Primary Draw / Select / Laser / Pan / Eraser Tools */}
-        <div className="flex items-center gap-1 bg-slate-900/90 p-1.5 rounded-xl border border-white/10 shadow-inner">
-          <button
-            onClick={() => setActiveTool("draw")}
-            className={`p-2 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all ${
-              activeTool === "draw" ? "bg-rose-500 text-white shadow-lg shadow-rose-500/30 scale-105" : "text-slate-400 hover:text-white hover:bg-white/5"
-            }`}
-            title="Ultra-Smooth Pencil Mode (P)"
-          >
-            <Pencil className="w-4 h-4" />
-            <span className="hidden md:inline">Pen</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTool("highlighter")}
-            className={`p-2 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all ${
-              activeTool === "highlighter" ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/30 scale-105" : "text-slate-400 hover:text-white hover:bg-white/5"
-            }`}
-            title="Highlighter Marker"
-          >
-            <Highlighter className="w-4 h-4" />
-            <span className="hidden md:inline">Highlight</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTool("laser")}
-            className={`p-2 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all ${
-              activeTool === "laser" ? "bg-rose-600 text-white shadow-lg shadow-rose-600/40 animate-pulse scale-105" : "text-slate-400 hover:text-white hover:bg-white/5"
-            }`}
-            title="Fading Laser Pointer Trail (Presentation Mode)"
-          >
-            <Flame className="w-4 h-4 text-rose-400" />
-            <span className="hidden md:inline">Laser</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTool("select")}
-            className={`p-2 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all ${
-              activeTool === "select" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/30 scale-105" : "text-slate-400 hover:text-white hover:bg-white/5"
-            }`}
-            title="Lasso / Multi-Object Drag Box Selection (V)"
-          >
-            <BoxSelect className="w-4 h-4" />
-            <span className="hidden md:inline">Lasso / Select</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTool("pan")}
-            className={`p-2 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all ${
-              activeTool === "pan" ? "bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/30 scale-105" : "text-slate-400 hover:text-white hover:bg-white/5"
-            }`}
-            title="Pan / Move Infinite 360° Canvas (H or hold Alt)"
-          >
-            <Hand className="w-4 h-4" />
-            <span className="hidden md:inline">Pan</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTool("erase")}
-            className={`p-2 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all ${
-              activeTool === "erase" ? "bg-rose-600 text-white shadow-lg shadow-rose-600/30 scale-105" : "text-slate-400 hover:text-white hover:bg-white/5"
-            }`}
-            title="Click or Drag Object Eraser"
-          >
-            <Eraser className="w-4 h-4" />
-            <span className="hidden md:inline">Eraser</span>
-          </button>
-
-          <div className="h-4 w-px bg-white/10 mx-1" />
-
-          {/* Shapes & Text */}
-          <button onClick={() => addShape("rect")} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Add Rectangle">
-            <Square className="w-4 h-4" />
-          </button>
-          <button onClick={() => addShape("circle")} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Add Circle">
-            <Circle className="w-4 h-4" />
-          </button>
-          <button onClick={() => addShape("diamond")} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Add Diamond Decision">
-            <Diamond className="w-4 h-4" />
-          </button>
-          <button onClick={() => addShape("line")} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Add Straight Line">
-            <Minus className="w-4 h-4" />
-          </button>
-          <button onClick={() => addShape("arrow")} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Add Arrow">
-            <ArrowRight className="w-4 h-4" />
-          </button>
-          <button onClick={() => addShape("text")} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Add Text">
-            <Type className="w-4 h-4" />
-          </button>
-          <button onClick={() => addShape("note")} className="p-2 rounded-lg text-amber-400/90 hover:text-amber-300 hover:bg-amber-500/10 transition-colors" title="Add Editable Sticky Note">
-            <StickyNote className="w-4 h-4" />
-          </button>
-          <button onClick={() => fileInputRef.current?.click()} className="p-2 rounded-lg text-emerald-400/90 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors" title="Upload PC Image">
-            <ImageIcon className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Fonts, Snap-to-Grid & Styling */}
-        <div className="flex items-center gap-3 bg-slate-900/90 p-1.5 px-3 rounded-xl border border-white/10">
-          <div className="flex items-center gap-1.5 text-xs">
+      {/* 🛠️ Top Mac-Style Glassmorphism Floating Control Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-slate-950/80 border-b border-white/10 backdrop-blur-xl z-20 shadow-lg">
+        {/* Left Section: Font & Grid Snap */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 bg-slate-900/90 p-1.5 px-3 rounded-xl border border-white/10 text-xs">
             <FontIcon className="w-3.5 h-3.5 text-cyan-400" />
             <select
               value={selectedFont}
               onChange={(e) => setSelectedFont(e.target.value)}
-              className="bg-slate-950 border border-white/10 text-slate-200 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-cyan-500"
+              className="bg-transparent text-slate-200 text-xs font-semibold focus:outline-none cursor-pointer"
             >
               {FONTS.map((font) => (
-                <option key={font.name} value={font.family}>
+                <option key={font.name} value={font.family} className="bg-slate-900 text-white">
                   {font.name}
                 </option>
               ))}
             </select>
           </div>
 
-          <div className="h-4 w-px bg-white/10" />
-
-          {/* Smart Grid Snapping Toggle */}
           <button
             onClick={() => {
               setSnapToGrid(!snapToGrid);
               showToast(`Grid Snapping ${!snapToGrid ? "Enabled (20px)" : "Disabled"}`, "info");
             }}
-            className={`p-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
-              snapToGrid ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40" : "text-slate-400 hover:text-white"
+            className={`p-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border ${
+              snapToGrid ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-lg shadow-cyan-500/20" : "bg-slate-900/90 text-slate-400 border-white/10 hover:text-white"
             }`}
             title="Snap Objects to 20px Grid Boundaries"
           >
             <Magnet className="w-3.5 h-3.5" />
-            <span className="hidden xl:inline">Snap Grid</span>
+            <span className="hidden sm:inline">Snap Grid</span>
           </button>
+        </div>
 
-          <div className="h-4 w-px bg-white/10" />
-
+        {/* Center Color Palette & Stroke Size */}
+        <div className="flex items-center gap-3 bg-slate-900/90 p-1.5 px-3 rounded-2xl border border-white/10 shadow-inner">
           <div className="flex items-center gap-1.5">
             {COLOR_PRESETS.map((color) => (
               <button
@@ -832,8 +733,8 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
                   setFillColor(color === "#ffffff" ? "rgba(255,255,255,0.1)" : `${color}25`);
                 }}
                 style={{ backgroundColor: color }}
-                className={`w-5 h-5 rounded-full transition-transform ${
-                  strokeColor === color ? "scale-125 ring-2 ring-white shadow-md" : "hover:scale-110 opacity-75 hover:opacity-100"
+                className={`w-5 h-5 rounded-full transition-all ${
+                  strokeColor === color ? "scale-125 ring-2 ring-white shadow-lg" : "hover:scale-110 opacity-75 hover:opacity-100"
                 }`}
               />
             ))}
@@ -849,12 +750,12 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
               max="30"
               value={strokeWidth}
               onChange={(e) => setStrokeWidth(Number(e.target.value))}
-              className="w-14 h-1 accent-rose-500 cursor-pointer"
+              className="w-16 h-1 accent-rose-500 cursor-pointer"
             />
           </div>
         </div>
 
-        {/* Alignment, History, Layering, Export & Fullscreen */}
+        {/* Right Section: Actions & Export */}
         <div className="flex items-center gap-1.5">
           <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-white/10">
             <button onClick={handleUndo} disabled={!canUndo} className={`p-2 rounded-lg transition-all ${canUndo ? "text-slate-300 hover:text-white hover:bg-white/10" : "text-slate-600 cursor-not-allowed"}`} title="Undo (Ctrl+Z)">
@@ -869,11 +770,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
             <button onClick={handleDuplicate} className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors" title="Duplicate Object (Ctrl+D)">
               <Copy className="w-4 h-4" />
             </button>
-
-            <button onClick={alignCenterHorizontal} className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors" title="Center Horizontally">
-              <AlignCenter className="w-4 h-4" />
-            </button>
-
             <button onClick={bringToFront} className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors" title="Bring to Front">
               <BringToFront className="w-4 h-4" />
             </button>
@@ -882,40 +778,130 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
             </button>
           </div>
 
-          <button onClick={() => setIsFullscreen(!isFullscreen)} className={`p-2 rounded-xl border transition-all ${isFullscreen ? "bg-amber-500 text-slate-950 border-amber-400" : "border-white/10 bg-white/5 text-amber-300 hover:bg-amber-500/10"}`} title="Toggle Canvas Fullscreen">
+          <button onClick={() => setIsFullscreen(!isFullscreen)} className={`p-2 rounded-xl border transition-all ${isFullscreen ? "bg-amber-500 text-slate-950 border-amber-400 shadow-lg shadow-amber-500/30" : "border-white/10 bg-white/5 text-amber-300 hover:bg-amber-500/10"}`} title="Toggle Canvas Fullscreen">
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </button>
 
-          <button onClick={() => jsonInputRef.current?.click()} className="p-2 rounded-xl border border-white/10 bg-white/5 text-cyan-400 hover:bg-cyan-500/10 transition-all text-xs font-bold flex items-center gap-1" title="Import JSON Project">
+          <button onClick={() => jsonInputRef.current?.click()} className="p-2 rounded-xl border border-white/10 bg-white/5 text-cyan-400 hover:bg-cyan-500/10 transition-all text-xs font-bold" title="Import JSON Project">
             <Upload className="w-4 h-4" />
           </button>
 
-          <button onClick={exportJSON} className="p-2 rounded-xl border border-white/10 bg-white/5 text-purple-400 hover:bg-purple-500/10 transition-all text-xs font-bold flex items-center gap-1" title="Export Editable JSON Project">
+          <button onClick={exportJSON} className="p-2 rounded-xl border border-white/10 bg-white/5 text-purple-400 hover:bg-purple-500/10 transition-all text-xs font-bold" title="Export Editable JSON Project">
             <Layers className="w-4 h-4" />
           </button>
 
-          <button onClick={deleteSelected} className="p-2 rounded-xl border border-rose-500/20 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 transition-all text-xs font-bold flex items-center gap-1" title="Delete Selected Items (Delete key)">
+          <button onClick={deleteSelected} className="p-2 rounded-xl border border-rose-500/20 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 transition-all text-xs font-bold" title="Delete Selected Items (Delete key)">
             <Trash2 className="w-4 h-4" />
           </button>
 
-          <button onClick={clearCanvas} className="p-2 rounded-xl border border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all text-xs font-bold flex items-center gap-1" title="Clear Entire Canvas">
+          <button onClick={clearCanvas} className="p-2 rounded-xl border border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all text-xs font-bold" title="Clear Canvas">
             <RotateCcw className="w-4 h-4" />
           </button>
 
-          <button onClick={exportImage} className="p-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 text-white font-bold text-xs shadow-lg flex items-center gap-1.5 hover:opacity-95 transition-all" title="Download High-Res PNG Image">
+          <button onClick={exportImage} className="p-2 px-3 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 text-white font-bold text-xs shadow-lg flex items-center gap-1.5 hover:opacity-95 transition-all">
             <Download className="w-4 h-4" />
-            <span>Export PNG</span>
+            <span>Export</span>
           </button>
         </div>
       </div>
 
-      {/* 🎨 Infinite Interactive Canvas Viewport */}
-      <div ref={containerRef} className="flex-1 w-full h-full relative cursor-crosshair">
+      {/* 🖌️ Left Vertical Floating Tools Dock */}
+      <div className="absolute left-4 top-20 z-20 flex flex-col gap-1.5 p-2 bg-slate-950/80 border border-white/10 backdrop-blur-xl rounded-2xl shadow-2xl">
+        <button
+          onClick={() => setActiveTool("draw")}
+          className={`p-2.5 rounded-xl transition-all ${
+            activeTool === "draw" ? "bg-rose-500 text-white shadow-lg shadow-rose-500/40 scale-110" : "text-slate-400 hover:text-white hover:bg-white/10"
+          }`}
+          title="Ultra-Smooth Pen (P)"
+        >
+          <Pencil className="w-4 h-4" />
+        </button>
+
+        <button
+          onClick={() => setActiveTool("highlighter")}
+          className={`p-2.5 rounded-xl transition-all ${
+            activeTool === "highlighter" ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/40 scale-110" : "text-slate-400 hover:text-white hover:bg-white/10"
+          }`}
+          title="Highlighter Marker"
+        >
+          <Highlighter className="w-4 h-4" />
+        </button>
+
+        <button
+          onClick={() => setActiveTool("laser")}
+          className={`p-2.5 rounded-xl transition-all ${
+            activeTool === "laser" ? "bg-rose-600 text-white shadow-lg shadow-rose-600/40 animate-pulse scale-110" : "text-slate-400 hover:text-white hover:bg-white/10"
+          }`}
+          title="Fading Laser Trail"
+        >
+          <Flame className="w-4 h-4 text-rose-400" />
+        </button>
+
+        <button
+          onClick={() => setActiveTool("select")}
+          className={`p-2.5 rounded-xl transition-all ${
+            activeTool === "select" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/40 scale-110" : "text-slate-400 hover:text-white hover:bg-white/10"
+          }`}
+          title="Lasso Box Select (V)"
+        >
+          <BoxSelect className="w-4 h-4" />
+        </button>
+
+        <button
+          onClick={() => setActiveTool("pan")}
+          className={`p-2.5 rounded-xl transition-all ${
+            activeTool === "pan" ? "bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/40 scale-110" : "text-slate-400 hover:text-white hover:bg-white/10"
+          }`}
+          title="360° Infinite Pan (H or Alt+Drag)"
+        >
+          <Hand className="w-4 h-4" />
+        </button>
+
+        <button
+          onClick={() => setActiveTool("erase")}
+          className={`p-2.5 rounded-xl transition-all ${
+            activeTool === "erase" ? "bg-rose-600 text-white shadow-lg shadow-rose-600/40 scale-110" : "text-slate-400 hover:text-white hover:bg-white/10"
+          }`}
+          title="Object Eraser"
+        >
+          <Eraser className="w-4 h-4" />
+        </button>
+
+        <div className="w-full h-px bg-white/10 my-0.5" />
+
+        <button onClick={() => addShape("rect")} className="p-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Rectangle">
+          <Square className="w-4 h-4" />
+        </button>
+        <button onClick={() => addShape("circle")} className="p-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Circle">
+          <Circle className="w-4 h-4" />
+        </button>
+        <button onClick={() => addShape("diamond")} className="p-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Diamond Decision">
+          <Diamond className="w-4 h-4" />
+        </button>
+        <button onClick={() => addShape("line")} className="p-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Line">
+          <Minus className="w-4 h-4" />
+        </button>
+        <button onClick={() => addShape("arrow")} className="p-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Arrow Connector">
+          <ArrowRight className="w-4 h-4" />
+        </button>
+        <button onClick={() => addShape("text")} className="p-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Text">
+          <Type className="w-4 h-4" />
+        </button>
+        <button onClick={() => addShape("note")} className="p-2.5 rounded-xl text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 transition-colors" title="Editable Sticky Note">
+          <StickyNote className="w-4 h-4" />
+        </button>
+        <button onClick={() => fileInputRef.current?.click()} className="p-2.5 rounded-xl text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors" title="Upload Local PC Image">
+          <ImageIcon className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* 🎨 Excalidraw Style Patterned Canvas Viewport */}
+      <div ref={containerRef} className="flex-1 w-full h-full relative cursor-crosshair bg-[radial-gradient(#ffffff15_1px,transparent_1px)] [background-size:24px_24px]">
         <canvas ref={canvasRef} />
       </div>
 
       {/* 🔍 Bottom Canvas View & Shortcuts Bar */}
-      <div className="absolute bottom-4 left-4 bg-slate-950/90 border border-white/10 backdrop-blur rounded-xl p-2 px-3 flex items-center gap-3 text-xs text-slate-400 z-10 shadow-xl">
+      <div className="absolute bottom-4 left-4 bg-slate-950/80 border border-white/10 backdrop-blur-xl rounded-xl p-2 px-3 flex items-center gap-3 text-xs text-slate-400 z-20 shadow-xl">
         <div className="flex items-center gap-2">
           <button onClick={() => changeZoom(1.25)} className="p-1 hover:text-white transition-colors" title="Zoom In">
             <ZoomIn className="w-4 h-4" />
@@ -931,7 +917,7 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
         <div className="h-3 w-px bg-white/20" />
 
         <span className="text-[11px] text-slate-400 hidden sm:inline">
-          🧲 <span className="font-semibold text-slate-300">Snap Grid</span> {snapToGrid ? "ON" : "OFF"} | <span className="font-semibold text-slate-300">Ctrl + D</span> Duplicate | <span className="font-semibold text-slate-300">Laser Pointer</span> presentation mode
+          ✨ <span className="font-semibold text-slate-300">Lasso Drag Box</span> select multiple items | <span className="font-semibold text-slate-300">Alt + Drag</span> 360° pan everywhere
         </span>
       </div>
     </div>
