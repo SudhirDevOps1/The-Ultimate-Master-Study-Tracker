@@ -44,11 +44,11 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
 
     fabricCanvasRef.current = canvas;
 
-    // Configure default brush
-    if (canvas.freeDrawingBrush) {
-      canvas.freeDrawingBrush.color = strokeColor;
-      canvas.freeDrawingBrush.width = strokeWidth;
-    }
+    // Configure Pencil Brush for Fabric v6
+    const brush = new fabric.PencilBrush(canvas);
+    brush.color = strokeColor;
+    brush.width = strokeWidth;
+    canvas.freeDrawingBrush = brush;
 
     // Load saved canvas data if available
     try {
@@ -100,10 +100,11 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
 
     if (activeTool === "draw") {
       canvas.isDrawingMode = true;
-      if (canvas.freeDrawingBrush) {
-        canvas.freeDrawingBrush.color = strokeColor;
-        canvas.freeDrawingBrush.width = strokeWidth;
+      if (!canvas.freeDrawingBrush) {
+        canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
       }
+      canvas.freeDrawingBrush.color = strokeColor;
+      canvas.freeDrawingBrush.width = strokeWidth;
     } else {
       canvas.isDrawingMode = false;
     }
