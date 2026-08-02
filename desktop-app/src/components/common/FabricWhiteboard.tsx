@@ -61,11 +61,15 @@ const STROKES = ["#f97316", "#ffffff", "#0f172a", "#ef4444", "#ec4899", "#a855f7
 const FILLS   = ["transparent", "#f9731633", "#ef444433", "#22c55e33", "#06b6d433", "#3b82f633", "#eab30833", "#8b5cf633", "#94a3b833"];
 
 const FONTS = [
-  { name: "Handwritten", family: "'Caveat', 'Comic Sans MS', cursive" },
-  { name: "Architect",   family: "'Architects Daughter', cursive" },
-  { name: "Sans",        family: "Inter, system-ui, sans-serif" },
-  { name: "Serif",       family: "Georgia, 'Times New Roman', serif" },
-  { name: "Mono",        family: "'JetBrains Mono', 'Courier New', monospace" },
+  { name: "Kalam (Notebook)",   family: "'Kalam', cursive" },
+  { name: "Caveat (Marker)",     family: "'Caveat', cursive" },
+  { name: "Architect (Draft)",   family: "'Architects Daughter', cursive" },
+  { name: "Pacifico (Brush)",    family: "'Pacifico', cursive" },
+  { name: "Dancing Script",      family: "'Dancing Script', cursive" },
+  { name: "Indie Flower",        family: "'Indie Flower', cursive" },
+  { name: "Patrick Hand",        family: "'Patrick Hand', cursive" },
+  { name: "Clean Sans",          family: "Inter, system-ui, sans-serif" },
+  { name: "Code Mono",           family: "'JetBrains Mono', 'Courier New', monospace" },
 ];
 
 const DASHES: Record<string, number[] | undefined> = {
@@ -302,7 +306,7 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
       const l = document.createElement("link");
       l.id = "wb-fonts";
       l.rel = "stylesheet";
-      l.href = "https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Caveat:wght@500;700&family=Inter:wght@500&display=swap";
+      l.href = "https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Caveat:wght@500;700&family=Dancing+Script:wght@600&family=Indie+Flower&family=Kalam:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Inter:wght@500;700&display=swap";
       document.head.appendChild(l);
     }
 
