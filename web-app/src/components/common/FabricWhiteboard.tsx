@@ -778,10 +778,6 @@ export function FabricWhiteboard({ storageKey = "flowtrack_fabric_whiteboard_v1"
             </button>
           </div>
 
-          <button onClick={() => setIsFullscreen(!isFullscreen)} className={`p-2 rounded-xl border transition-all ${isFullscreen ? "bg-amber-500 text-slate-950 border-amber-400 shadow-lg shadow-amber-500/30" : "border-white/10 bg-white/5 text-amber-300 hover:bg-amber-500/10"}`} title="Toggle Canvas Fullscreen">
-            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-          </button>
-
           <button onClick={() => jsonInputRef.current?.click()} className="p-2 rounded-xl border border-white/10 bg-white/5 text-cyan-400 hover:bg-cyan-500/10 transition-all text-xs font-bold" title="Import JSON Project">
             <Upload className="w-4 h-4" />
           </button>
