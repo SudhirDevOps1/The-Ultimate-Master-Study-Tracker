@@ -127,19 +127,20 @@ export function GuidePage() {
   ];
 
   const openSourceCredits = [
-    { name: "React 18", url: "https://react.dev", desc: "The library for web and native user interfaces", type: "Core UI Framework" },
-    { name: "Vite 7", url: "https://vitejs.dev", desc: "Next Generation Frontend Tooling & Fast HMR Bundler", type: "Build Engine" },
-    { name: "Framework7", url: "https://framework7.io", desc: "Full featured HTML framework for building iOS & Android style apps", type: "Mobile UI Framework" },
-    { name: "TypeScript 5", url: "https://www.typescriptlang.org", desc: "JavaScript with syntax for types and strict compile safety", type: "Compiler & Type System" },
-    { name: "Electron 43", url: "https://www.electronjs.org", desc: "Build cross-platform desktop apps with JavaScript, HTML, and CSS", type: "Desktop Runtime" },
-    { name: "Dexie.js / IndexedDB", url: "https://dexie.org", desc: "A Minimalistic Wrapper for IndexedDB offline local database", type: "Offline Storage" },
-    { name: "Excalidraw Engine", url: "https://excalidraw.com", desc: "Virtual whiteboard & diagramming tool engine for Mind Maps", type: "Canvas Engine" },
-    { name: "Lucide Icons", url: "https://lucide.dev", desc: "Beautiful & consistent open-source vector icon set", type: "UI Assets" },
-    { name: "Tailwind CSS", url: "https://tailwindcss.com", desc: "Utility-first CSS framework for rapid UI styling", type: "Design System" },
-    { name: "Framer Motion", url: "https://www.framer.com/motion", desc: "Production-ready motion library for React", type: "Animation Library" },
-    { name: "Recharts", url: "https://recharts.org", desc: "Redefined chart library built with React and D3", type: "Data Analytics Charts" },
-    { name: "Ollama AI", url: "https://ollama.com", desc: "Get up and running with Llama 3.2, DeepSeek & local LLMs", type: "Offline AI LLM Runtime" },
-    { name: "KaTeX Math", url: "https://katex.org", desc: "Fast math typesetting library for LaTeX formula rendering", type: "LaTeX Renderer" },
+    { name: "React 19", url: "https://react.dev", desc: "The core library for modern web and native user interfaces", type: "Core UI Framework" },
+    { name: "TypeScript 5.9", url: "https://www.typescriptlang.org", desc: "JavaScript with strict compile-time type safety & intellisense", type: "Type System & Compiler" },
+    { name: "Vite 7", url: "https://vitejs.dev", desc: "Next Generation Frontend Tooling & Instant HMR Bundler", type: "Build Engine" },
+    { name: "Fabric.js 7.4", url: "https://fabricjs.com", desc: "Interactive HTML5 canvas engine powering the Excalidraw Whiteboard", type: "Whiteboard Engine" },
+    { name: "Dexie.js 4", url: "https://dexie.org", desc: "Minimalistic wrapper for IndexedDB offline local database persistence", type: "Offline Database" },
+    { name: "Tailwind CSS 4", url: "https://tailwindcss.com", desc: "Utility-first CSS framework for rapid modern UI styling", type: "Design System" },
+    { name: "Framer Motion 12", url: "https://www.framer.com/motion", desc: "Production-ready motion & spring physics library for React", type: "Animation Library" },
+    { name: "Lucide React", url: "https://lucide.dev", desc: "Beautiful & consistent open-source vector icons", type: "UI Assets" },
+    { name: "Recharts 3", url: "https://recharts.org", desc: "Redefined chart library built with React and D3 for study analytics", type: "Data Visualization" },
+    { name: "Zustand 5", url: "https://github.com/pmndrs/zustand", desc: "Small, fast & scalable bear-necessities state-management solution", type: "Global State" },
+    { name: "PDF.js 6.1", url: "https://mozilla.github.io/pdf.js/", desc: "Mozilla's JavaScript PDF rendering engine for textbook reading", type: "PDF Viewer Engine" },
+    { name: "Tesseract.js 7.0", url: "https://tesseract.projectnaptha.com/", desc: "Pure JavaScript Optical Character Recognition (OCR) for Flashcards", type: "OCR Engine" },
+    { name: "Python REST Backend", url: "https://fastapi.tiangolo.com/", desc: "Local REST API backend with SQLite WAL journal mode for hybrid tracking", type: "REST API & Database" },
+    { name: "html2canvas", url: "https://html2canvas.hertzen.com/", desc: "HTML element to Canvas screenshot renderer", type: "Export Utility" },
   ];
 
   return (
