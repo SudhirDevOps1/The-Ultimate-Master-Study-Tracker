@@ -799,30 +799,37 @@ ipcMain.handle("get-running-apps", async () => {
     if (process.platform !== "win32") {
       return resolve({ success: true, apps: [] });
     }
-    const psScript = `Get-Process | Where-Object { $_.MainWindowTitle } | Select-Object ProcessName, MainWindowTitle | ConvertTo-Json -Compress`;
-    exec(`powershell -NoProfile -Command "${psScript}"`, { timeout: 3000 }, (err, stdout) => {
+    exec('tasklist /v /fo csv', { timeout: 4000, maxBuffer: 10 * 1024 * 1024 }, (err, stdout) => {
       if (err || !stdout) return resolve({ success: true, apps: [] });
       try {
-        let parsed = JSON.parse(stdout.trim());
-        if (!Array.isArray(parsed)) parsed = [parsed];
+        const lines = stdout.split(/\r?\n/);
         const appsMap = new Map();
-        for (const item of parsed) {
-          const proc = (item.ProcessName || "").trim();
-          const title = (item.MainWindowTitle || "").trim();
-          if (!proc) continue;
-          if (isSelf(proc, title) || proc.toLowerCase() === "explorer") continue;
-          const cleanName = normalizeAppName(proc) || proc;
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          const matches = line.match(/"([^"]*)"/g);
+          if (!matches || matches.length < 9) continue;
+          const proc = matches[0].replace(/"/g, "").trim();
+          const status = matches[5].replace(/"/g, "").trim();
+          const title = matches[8].replace(/"/g, "").trim();
+
+          if (!proc || status !== "Running") continue;
+          if (title === "N/A" || title === "OleMainThreadWndName" || title === "CiceroUIWndFrame" || title === "QTrayIconMessageWindow" || title === "ApMsgFwdWindow") continue;
+          if (isSelf(proc, title) || proc.toLowerCase() === "explorer.exe" || proc.toLowerCase() === "svchost.exe" || proc.toLowerCase() === "conhost.exe" || proc.toLowerCase() === "tasklist.exe") continue;
+
+          const cleanName = normalizeAppName(proc) || proc.replace(/\.exe$/i, "");
           if (!appsMap.has(proc.toLowerCase())) {
             appsMap.set(proc.toLowerCase(), {
               appName: cleanName,
-              processName: proc.toLowerCase().endsWith(".exe") ? proc.toLowerCase() : `${proc.toLowerCase()}.exe`,
+              processName: proc.toLowerCase(),
               title: title || cleanName,
             });
           }
         }
         const apps = Array.from(appsMap.values());
         resolve({ success: true, apps });
-      } catch {
+      } catch (e) {
+        console.error("[get-running-apps Error]", e);
         resolve({ success: true, apps: [] });
       }
     });
