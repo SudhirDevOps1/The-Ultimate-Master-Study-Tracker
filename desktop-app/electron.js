@@ -797,41 +797,79 @@ ipcMain.handle("save-block-rules", async (_e, { rules, globalEnabled }) => {
 ipcMain.handle("get-running-apps", async () => {
   return new Promise((resolve) => {
     if (process.platform !== "win32") {
-      return resolve({ success: true, apps: [] });
+      return resolve({ success: true, apps: [], installedApps: [] });
     }
     exec('tasklist /v /fo csv', { timeout: 4000, maxBuffer: 10 * 1024 * 1024 }, (err, stdout) => {
-      if (err || !stdout) return resolve({ success: true, apps: [] });
-      try {
-        const lines = stdout.split(/\r?\n/);
-        const appsMap = new Map();
-        for (let i = 1; i < lines.length; i++) {
-          const line = lines[i].trim();
-          if (!line) continue;
-          const matches = line.match(/"([^"]*)"/g);
-          if (!matches || matches.length < 9) continue;
-          const proc = matches[0].replace(/"/g, "").trim();
-          const status = matches[5].replace(/"/g, "").trim();
-          const title = matches[8].replace(/"/g, "").trim();
+      let runningApps = [];
+      if (!err && stdout) {
+        try {
+          const lines = stdout.split(/\r?\n/);
+          const appsMap = new Map();
+          for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            const matches = line.match(/"([^"]*)"/g);
+            if (!matches || matches.length < 9) continue;
+            const proc = matches[0].replace(/"/g, "").trim();
+            const status = matches[5].replace(/"/g, "").trim();
+            const title = matches[8].replace(/"/g, "").trim();
 
-          if (!proc || status !== "Running") continue;
-          if (title === "N/A" || title === "OleMainThreadWndName" || title === "CiceroUIWndFrame" || title === "QTrayIconMessageWindow" || title === "ApMsgFwdWindow") continue;
-          if (isSelf(proc, title) || proc.toLowerCase() === "explorer.exe" || proc.toLowerCase() === "svchost.exe" || proc.toLowerCase() === "conhost.exe" || proc.toLowerCase() === "tasklist.exe") continue;
+            if (!proc || status !== "Running") continue;
+            if (title === "N/A" || title === "OleMainThreadWndName" || title === "CiceroUIWndFrame" || title === "QTrayIconMessageWindow" || title === "ApMsgFwdWindow") continue;
+            if (isSelf(proc, title) || proc.toLowerCase() === "explorer.exe" || proc.toLowerCase() === "svchost.exe" || proc.toLowerCase() === "conhost.exe" || proc.toLowerCase() === "tasklist.exe") continue;
 
-          const cleanName = normalizeAppName(proc) || proc.replace(/\.exe$/i, "");
-          if (!appsMap.has(proc.toLowerCase())) {
-            appsMap.set(proc.toLowerCase(), {
-              appName: cleanName,
-              processName: proc.toLowerCase(),
-              title: title || cleanName,
-            });
+            const cleanName = normalizeAppName(proc) || proc.replace(/\.exe$/i, "");
+            if (!appsMap.has(proc.toLowerCase())) {
+              appsMap.set(proc.toLowerCase(), {
+                appName: cleanName,
+                processName: proc.toLowerCase(),
+                title: title || cleanName,
+              });
+            }
+          }
+          runningApps = Array.from(appsMap.values());
+        } catch (e) {
+          console.error("[get-running-apps Error]", e);
+        }
+      }
+
+      // Also scan Installed Windows Software via Get-StartApps
+      exec('powershell -NoProfile -NonInteractive -Command "Get-StartApps | ConvertTo-Json -Compress"', { timeout: 5000 }, (err2, stdout2) => {
+        let installedApps = [];
+        if (!err2 && stdout2) {
+          try {
+            const jsonMatch = stdout2.match(/\[[\s\S]*\]|\{[\s\S]*\}/);
+            if (jsonMatch) {
+              let parsed = JSON.parse(jsonMatch[0]);
+              if (!Array.isArray(parsed)) parsed = [parsed];
+              const instMap = new Map();
+              for (const item of parsed) {
+                const name = (item.Name || "").trim();
+                const appId = (item.AppID || "").trim();
+                if (!name || name.toLowerCase().includes("uninstall") || name.toLowerCase().includes("documentation") || name.toLowerCase().includes("license") || name.toLowerCase().includes("readme")) continue;
+                
+                let procName = name.toLowerCase().replace(/\s+/g, "") + ".exe";
+                if (appId.toLowerCase().endsWith(".exe")) {
+                  const parts = appId.split(/[\/\\]/);
+                  procName = parts[parts.length - 1].toLowerCase();
+                }
+                if (isSelf(procName, name)) continue;
+
+                if (!instMap.has(name.toLowerCase())) {
+                  instMap.set(name.toLowerCase(), {
+                    appName: name,
+                    processName: procName,
+                  });
+                }
+              }
+              installedApps = Array.from(instMap.values());
+            }
+          } catch (e) {
+            console.error("[InstalledApps Scan Error]", e);
           }
         }
-        const apps = Array.from(appsMap.values());
-        resolve({ success: true, apps });
-      } catch (e) {
-        console.error("[get-running-apps Error]", e);
-        resolve({ success: true, apps: [] });
-      }
+        resolve({ success: true, apps: runningApps, installedApps });
+      });
     });
   });
 });

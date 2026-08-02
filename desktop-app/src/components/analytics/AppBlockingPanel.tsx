@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Shield, ShieldAlert, Plus, Trash2, Check, RefreshCw, Monitor, Laptop } from "lucide-react";
+import { Shield, ShieldAlert, Plus, Trash2, Check, RefreshCw, Monitor, Laptop, Search, AppWindow } from "lucide-react";
 import { Panel } from "@/components/common/Panel";
 import { useAppStore, type AppState } from "@/store/useAppStore";
 import type { AppBlockRule, BlockStrictLevel } from "@/types/models";
@@ -8,7 +8,7 @@ import type { AppBlockRule, BlockStrictLevel } from "@/types/models";
 interface RunningApp {
   appName: string;
   processName: string;
-  title: string;
+  title?: string;
 }
 
 export function AppBlockingPanel() {
@@ -22,25 +22,29 @@ export function AppBlockingPanel() {
   const [schedule, setSchedule] = useState<"always" | "study_hours">("study_hours");
   const [loading, setLoading] = useState(false);
 
-  // Running Windows Apps state
+  // Apps state: Running Apps vs Installed PC Software (Control Panel)
   const [runningApps, setRunningApps] = useState<RunningApp[]>([]);
+  const [installedApps, setInstalledApps] = useState<RunningApp[]>([]);
+  const [activeTab, setActiveTab] = useState<"running" | "installed">("running");
+  const [searchFilter, setSearchFilter] = useState("");
   const [scanningApps, setScanningApps] = useState(false);
 
   const getIpc = () => (typeof window !== "undefined" ? (window as any).electron : null);
 
-  // Scan currently running Windows applications
-  const fetchRunningApps = async () => {
+  // Scan currently running & installed Windows applications
+  const fetchApps = async () => {
     setScanningApps(true);
     try {
       const ipc = getIpc();
       if (ipc) {
         const res = await ipc.invoke("get-running-apps");
-        if (res && Array.isArray(res.apps)) {
-          setRunningApps(res.apps);
+        if (res) {
+          if (Array.isArray(res.apps)) setRunningApps(res.apps);
+          if (Array.isArray(res.installedApps)) setInstalledApps(res.installedApps);
         }
       }
     } catch (e) {
-      console.error("Failed to fetch running apps:", e);
+      console.error("Failed to fetch apps:", e);
     }
     setScanningApps(false);
   };
@@ -71,7 +75,7 @@ export function AppBlockingPanel() {
 
   useEffect(() => {
     void loadRules();
-    void fetchRunningApps();
+    void fetchApps();
   }, [isBackendConnected]);
 
   const saveRulesToLocalAndBackend = async (updatedRules: AppBlockRule[], newGlobalEnabled?: boolean) => {
@@ -120,6 +124,12 @@ export function AppBlockingPanel() {
     await saveRulesToLocalAndBackend(nextRules);
   };
 
+  const displayedAppsList = (activeTab === "running" ? runningApps : installedApps).filter(a => {
+    if (!searchFilter.trim()) return true;
+    const q = searchFilter.toLowerCase().trim();
+    return a.appName.toLowerCase().includes(q) || a.processName.toLowerCase().includes(q);
+  });
+
   return (
     <div className="space-y-6">
       <Panel className="space-y-4 border border-rose-500/10">
@@ -156,34 +166,68 @@ export function AppBlockingPanel() {
           </div>
         </div>
 
-        {/* 💻 Windows Live Running Apps Picker Section */}
-        <div className="space-y-2.5 rounded-xl border border-white/10 bg-slate-950/60 p-3.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Monitor className="w-4 h-4 text-cyan-400" />
-              <span className="text-xs font-bold text-white uppercase tracking-wider">Detected Running Windows Apps</span>
-              <span className="rounded-full bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 text-[10px] font-bold text-cyan-300">
-                {runningApps.length} Apps Active
-              </span>
+        {/* 💻 Windows Live & Installed Apps Picker Section */}
+        <div className="space-y-3 rounded-xl border border-white/10 bg-slate-950/60 p-3.5">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-2.5">
+            {/* View Mode Tabs */}
+            <div className="flex items-center gap-1.5 bg-slate-900/80 p-1 rounded-lg border border-white/5">
+              <button
+                onClick={() => setActiveTab("running")}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold transition-all ${
+                  activeTab === "running"
+                    ? "bg-cyan-500 text-slate-950 shadow-md"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <Monitor className="w-3.5 h-3.5" />
+                <span>Open Apps ({runningApps.length})</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab("installed")}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold transition-all ${
+                  activeTab === "installed"
+                    ? "bg-cyan-500 text-slate-950 shadow-md"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <AppWindow className="w-3.5 h-3.5" />
+                <span>Installed PC Apps ({installedApps.length})</span>
+              </button>
             </div>
-            <button
-              onClick={() => void fetchRunningApps()}
-              disabled={scanningApps}
-              className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-cyan-300 transition-colors disabled:opacity-50"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${scanningApps ? "animate-spin text-cyan-400" : ""}`} />
-              <span>{scanningApps ? "Scanning..." : "Scan Apps"}</span>
-            </button>
+
+            {/* Search Filter & Refresh */}
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-slate-500" />
+                <input
+                  type="text"
+                  placeholder="Filter apps..."
+                  value={searchFilter}
+                  onChange={(e) => setSearchFilter(e.target.value)}
+                  className="rounded-lg border border-white/10 bg-slate-900 pl-8 pr-3 py-1 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400 w-36 sm:w-48"
+                />
+              </div>
+
+              <button
+                onClick={() => void fetchApps()}
+                disabled={scanningApps}
+                className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-cyan-300 transition-colors disabled:opacity-50 px-2 py-1 rounded-lg border border-white/5 bg-white/[0.02]"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${scanningApps ? "animate-spin text-cyan-400" : ""}`} />
+                <span className="hidden sm:inline">{scanningApps ? "Scanning..." : "Scan PC"}</span>
+              </button>
+            </div>
           </div>
 
-          {/* Running apps list picker */}
-          {runningApps.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[160px] overflow-y-auto pr-1 pretty-scrollbar">
-              {runningApps.map((app) => {
+          {/* Running / Installed apps list picker */}
+          {displayedAppsList.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[170px] overflow-y-auto pr-1 pretty-scrollbar">
+              {displayedAppsList.map((app) => {
                 const isAlreadyBlocked = rules.some(r => r.appName.toLowerCase() === app.processName.toLowerCase() || r.appName.toLowerCase() === app.appName.toLowerCase());
                 return (
                   <div
-                    key={app.processName}
+                    key={app.processName + app.appName}
                     className={`flex items-center justify-between gap-2 p-2 rounded-lg border transition-colors ${
                       isAlreadyBlocked ? "border-rose-500/20 bg-rose-500/5 opacity-60" : "border-white/5 bg-white/[0.02] hover:border-cyan-500/30"
                     }`}
@@ -209,7 +253,9 @@ export function AppBlockingPanel() {
               })}
             </div>
           ) : (
-            <p className="text-[11px] text-slate-500 italic py-2">Click "Scan Apps" to detect active Windows applications on your PC.</p>
+            <p className="text-[11px] text-slate-500 italic py-3 text-center">
+              {scanningApps ? "Scanning PC software and running applications..." : "No apps found matching your search filter."}
+            </p>
           )}
         </div>
 
@@ -225,7 +271,7 @@ export function AppBlockingPanel() {
                 onChange={(e) => setNewAppName(e.target.value)}
                 className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-rose-400"
               />
-              {runningApps.length > 0 && (
+              {(runningApps.length > 0 || installedApps.length > 0) && (
                 <select
                   onChange={(e) => {
                     if (e.target.value) setNewAppName(e.target.value);
@@ -233,12 +279,25 @@ export function AppBlockingPanel() {
                   value=""
                   className="rounded-lg border border-white/10 bg-slate-900 px-2 py-2 text-xs text-slate-300 focus:outline-none focus:border-cyan-400 max-w-[140px]"
                 >
-                  <option value="">Pick App...</option>
-                  {runningApps.map(a => (
-                    <option key={a.processName} value={a.processName}>
-                      {a.appName} ({a.processName})
-                    </option>
-                  ))}
+                  <option value="">Quick Pick...</option>
+                  {runningApps.length > 0 && (
+                    <optgroup label="🟢 Open Apps">
+                      {runningApps.map(a => (
+                        <option key={"run_" + a.processName} value={a.processName}>
+                          {a.appName} ({a.processName})
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {installedApps.length > 0 && (
+                    <optgroup label="💻 Installed Software">
+                      {installedApps.map(a => (
+                        <option key={"inst_" + a.processName} value={a.processName}>
+                          {a.appName} ({a.processName})
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
               )}
             </div>
@@ -308,4 +367,5 @@ export function AppBlockingPanel() {
     </div>
   );
 }
+
 
