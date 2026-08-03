@@ -924,17 +924,74 @@ ipcMain.handle("set-taskbar-progress", async (_e, { progress }) => {
   return { success: false };
 });
 
-ipcMain.handle("toggle-always-on-top", async (_e, { flag }) => {
+let normalWindowBounds = null;
+let desktopSettings = { alwaysOnTop: false, compactFloating: false, openAtLogin: false };
+
+function getDesktopSettingsFile() {
+  return path.join(app.getPath("userData"), "desktop-settings.json");
+}
+
+function loadDesktopSettings() {
+  try {
+    const file = getDesktopSettingsFile();
+    if (fs.existsSync(file)) {
+      desktopSettings = { ...desktopSettings, ...JSON.parse(fs.readFileSync(file, "utf8")) };
+    }
+  } catch (e) {
+    console.error("[DesktopSettings] Load error:", e);
+  }
+}
+
+function saveDesktopSettings() {
+  try {
+    fs.writeFileSync(getDesktopSettingsFile(), JSON.stringify(desktopSettings, null, 2), "utf8");
+  } catch (e) {
+    console.error("[DesktopSettings] Save error:", e);
+  }
+}
+
+ipcMain.handle("get-desktop-settings", async () => {
+  loadDesktopSettings();
+  const openAtLogin = app.getLoginItemSettings().openAtLogin;
+  const isAlwaysOnTop = mainWindow ? mainWindow.isAlwaysOnTop() : desktopSettings.alwaysOnTop;
+  return { success: true, settings: { ...desktopSettings, openAtLogin, alwaysOnTop: isAlwaysOnTop } };
+});
+
+ipcMain.handle("save-desktop-settings", async (_e, partial) => {
+  desktopSettings = { ...desktopSettings, ...partial };
+  saveDesktopSettings();
+  return { success: true, settings: desktopSettings };
+});
+
+ipcMain.handle("toggle-always-on-top", async (_e, { flag, compact }) => {
   if (mainWindow) {
-    mainWindow.setAlwaysOnTop(Boolean(flag), "screen-saver");
-    return { success: true, isAlwaysOnTop: mainWindow.isAlwaysOnTop() };
+    const isTop = Boolean(flag);
+    desktopSettings.alwaysOnTop = isTop;
+    if (typeof compact === "boolean") desktopSettings.compactFloating = compact;
+    
+    // Fix: Use non-intrusive 'floating' level instead of aggressive 'screen-saver' to allow user interaction with underlying apps
+    mainWindow.setAlwaysOnTop(isTop, "floating", 1);
+
+    if (isTop && desktopSettings.compactFloating) {
+      if (!normalWindowBounds) normalWindowBounds = mainWindow.getBounds();
+      mainWindow.setSize(380, 580);
+    } else if (!desktopSettings.compactFloating && normalWindowBounds) {
+      mainWindow.setBounds(normalWindowBounds);
+      normalWindowBounds = null;
+    }
+
+    saveDesktopSettings();
+    return { success: true, isAlwaysOnTop: mainWindow.isAlwaysOnTop(), compactFloating: desktopSettings.compactFloating };
   }
   return { success: false };
 });
 
 ipcMain.handle("set-open-at-login", async (_e, { openAtLogin }) => {
-  app.setLoginItemSettings({ openAtLogin: Boolean(openAtLogin) });
-  return { success: true, openAtLogin: app.getLoginItemSettings().openAtLogin };
+  const enabled = Boolean(openAtLogin);
+  app.setLoginItemSettings({ openAtLogin: enabled });
+  desktopSettings.openAtLogin = app.getLoginItemSettings().openAtLogin;
+  saveDesktopSettings();
+  return { success: true, openAtLogin: desktopSettings.openAtLogin };
 });
 
 ipcMain.handle("send-windows-toast", async (_e, { title, message }) => {

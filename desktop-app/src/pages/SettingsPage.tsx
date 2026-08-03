@@ -182,6 +182,36 @@ export function SettingsPage() {
   const [manualTags, setManualTags] = useState("manual");
   const [statusMessage, setStatusMessage] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const [isAlwaysOnTop, setIsAlwaysOnTop] = useState(() => {
+    return localStorage.getItem("flowtrack_always_on_top") === "true";
+  });
+  const [isCompactFloating, setIsCompactFloating] = useState(() => {
+    return localStorage.getItem("flowtrack_compact_floating") === "true";
+  });
+  const [isOpenAtLogin, setIsOpenAtLogin] = useState(() => {
+    return localStorage.getItem("flowtrack_open_at_login") === "true";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && (window as any).electron) {
+      (window as any).electron.ipcRenderer?.invoke?.("get-desktop-settings").then((res: any) => {
+        if (res?.success && res.settings) {
+          if (typeof res.settings.alwaysOnTop === "boolean") {
+            setIsAlwaysOnTop(res.settings.alwaysOnTop);
+            localStorage.setItem("flowtrack_always_on_top", String(res.settings.alwaysOnTop));
+          }
+          if (typeof res.settings.compactFloating === "boolean") {
+            setIsCompactFloating(res.settings.compactFloating);
+            localStorage.setItem("flowtrack_compact_floating", String(res.settings.compactFloating));
+          }
+          if (typeof res.settings.openAtLogin === "boolean") {
+            setIsOpenAtLogin(res.settings.openAtLogin);
+            localStorage.setItem("flowtrack_open_at_login", String(res.settings.openAtLogin));
+          }
+        }
+      });
+    }
+  }, []);
 
   useEffect(() => {
     if (profile) {
@@ -216,7 +246,7 @@ export function SettingsPage() {
             🖥️ Desktop Native App Controls
           </h3>
           <p className="mt-1 text-xs text-slate-400">
-            Configure system tray behavior, window floating modes, and background launch options.
+            Configure system tray behavior, non-intrusive floating HUD mode, and background launch options.
           </p>
         </div>
 
@@ -226,14 +256,17 @@ export function SettingsPage() {
             <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-white">
               <input
                 type="checkbox"
+                checked={isAlwaysOnTop}
                 onChange={(e) => {
                   const isChecked = e.target.checked;
+                  setIsAlwaysOnTop(isChecked);
+                  localStorage.setItem("flowtrack_always_on_top", String(isChecked));
                   if (typeof window !== "undefined" && (window as any).electron) {
-                    (window as any).electron.ipcRenderer?.invoke?.("toggle-always-on-top", { flag: isChecked });
+                    (window as any).electron.ipcRenderer?.invoke?.("toggle-always-on-top", { flag: isChecked, compact: isCompactFloating });
                   }
                   showMessage(isChecked ? "📌 Always-On-Top Floating Mode Enabled!" : "Always-On-Top Disabled.");
                 }}
-                className="h-5 w-5 rounded border-cyan-400 bg-slate-800 text-cyan-500 focus:ring-0"
+                className="h-5 w-5 rounded border-cyan-400 bg-slate-800 text-cyan-500 focus:ring-0 cursor-pointer"
               />
               📌 Always-On-Top Floating Mode
             </label>
@@ -242,19 +275,46 @@ export function SettingsPage() {
             </p>
           </div>
 
-          {/* 2. Launch on Startup */}
+          {/* 2. Compact Sized PIP Widget */}
           <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
             <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-white">
               <input
                 type="checkbox"
+                checked={isCompactFloating}
                 onChange={(e) => {
                   const isChecked = e.target.checked;
+                  setIsCompactFloating(isChecked);
+                  localStorage.setItem("flowtrack_compact_floating", String(isChecked));
+                  if (typeof window !== "undefined" && (window as any).electron) {
+                    (window as any).electron.ipcRenderer?.invoke?.("toggle-always-on-top", { flag: isAlwaysOnTop, compact: isChecked });
+                  }
+                  showMessage(isChecked ? "📐 Compact Floating Widget Sizing Activated!" : "Standard Window Size Restored.");
+                }}
+                className="h-5 w-5 rounded border-cyan-400 bg-slate-800 text-cyan-500 focus:ring-0 cursor-pointer"
+              />
+              📐 Compact PIP Widget Sizing (380x580)
+            </label>
+            <p className="text-xs text-slate-400 pl-8">
+              Shrink window into a sleek mini floating widget so it doesn't block your coding workspace.
+            </p>
+          </div>
+
+          {/* 3. Launch on Startup */}
+          <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
+            <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-white">
+              <input
+                type="checkbox"
+                checked={isOpenAtLogin}
+                onChange={(e) => {
+                  const isChecked = e.target.checked;
+                  setIsOpenAtLogin(isChecked);
+                  localStorage.setItem("flowtrack_open_at_login", String(isChecked));
                   if (typeof window !== "undefined" && (window as any).electron) {
                     (window as any).electron.ipcRenderer?.invoke?.("set-open-at-login", { openAtLogin: isChecked });
                   }
                   showMessage(isChecked ? "🚀 Windows Auto-Launch Enabled!" : "Windows Auto-Launch Disabled.");
                 }}
-                className="h-5 w-5 rounded border-cyan-400 bg-slate-800 text-cyan-500 focus:ring-0"
+                className="h-5 w-5 rounded border-cyan-400 bg-slate-800 text-cyan-500 focus:ring-0 cursor-pointer"
               />
               🚀 Launch on Windows Startup
             </label>
@@ -263,7 +323,7 @@ export function SettingsPage() {
             </p>
           </div>
 
-          {/* 3. System Tray Background Mode */}
+          {/* 4. System Tray Background Mode */}
           <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-white flex items-center gap-2">
@@ -278,7 +338,7 @@ export function SettingsPage() {
             </p>
           </div>
 
-          {/* 4. Native Toast Notifications */}
+          {/* 5. Native Toast Notifications */}
           <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-white flex items-center gap-2">

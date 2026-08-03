@@ -7,7 +7,18 @@
 
 ## 📌 Recent Modifications & Analysis Log
 
-### 1. [2026-08-03 13:19] Full Zero-Bug Stability & Safety Audit in `desktop-app`
+### 1. [2026-08-03 13:31] Fixed Always-On-Top Floating Mode & Added Compact PIP Overlay Mode + Settings Persistence
+- **User Request**: "📌 Always-On-Top Floating Mode ... na chhota hota hain na kuchh utna hi bada rahata hain uskebad top pe rahta hain dusra app ko khule bhi nahi deta ek bar sav setting save krne ke bad save nahi hota ..etc fix kro to bina kuchh hataye"
+- **Issues Fixed (Strict Rule 6 - `desktop-app` ONLY)**:
+  1. **Non-Intrusive Floating Window Level**: Changed Electron window level from aggressive `"screen-saver"` (which blocked OS mouse clicks & underlying app windows) to smooth non-intrusive `"floating"` level with window level 1 (`mainWindow.setAlwaysOnTop(isTop, "floating", 1)`).
+  2. **📐 Compact PIP Widget Sizing Mode (380x580)**: Added an interactive **"Compact PIP Widget Sizing"** setting toggle. When enabled, FlowTrack automatically resizes into a sleek mini floating widget (`380x580`), allowing students to code in VS Code or watch Zoom lectures without FlowTrack blocking their workspace. When disabled, original window dimensions are restored.
+  3. **100% Settings Persistence**: Added `desktop-settings.json` file storage in `userData` directory via IPC (`get-desktop-settings`, `save-desktop-settings`) & synced `localStorage` states (`flowtrack_always_on_top`, `flowtrack_compact_floating`, `flowtrack_open_at_login`). All settings remain 100% saved and checked across restarts/reloads.
+- **Files Modified**:
+  - `desktop-app/electron.js`
+  - `desktop-app/src/pages/SettingsPage.tsx`
+  - `rule/fixed.md`
+
+### 2. [2026-08-03 13:19] Full Zero-Bug Stability & Safety Audit in `desktop-app`
 - **User Request**: "aur bugs ..etc bina kuchh hataye fix kro bina kuchh hataye desktop folder"
 - **Audit Results & Verification (Strict Rule 6 - `desktop-app` ONLY)**:
   - **Zero Features Removed**: Preserved 100% of all existing components, stores, handlers, and whiteboards.
