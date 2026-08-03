@@ -7,7 +7,14 @@
 
 ## 📌 Recent Modifications & Analysis Log
 
-### 1. [2026-08-03 14:04] Built Separate Standalone Floating PiP BrowserWindow Engine
+### 1. [2026-08-03 15:10] Unified PiP Trigger Logic for 'Open Floating Timer' Button
+- **User Request**: "desktop app mein jo top mein lagaye ho na pip oo wala logixc desktop app mein hain jo screenshot usmein lagao yar"
+- **Root Cause & Fix (Strict Rule 6 - `desktop-app` ONLY)**:
+  1. **Unified PiP Launch System**: The user explicitly requested that the `Open Floating Timer` button in the timer card (`FloatingTimer.tsx`) should launch the **exact same** beautifully styled PiP widget as the top navbar `📺 PiP Mode` button (`PipOverlayWidget.tsx`). 
+  2. **Restored IPC Invocation**: Re-implemented `ipc.invoke("open-pip-window")` in `desktop-app/src/components/timer/FloatingTimer.tsx`. Both PiP buttons in the desktop app now properly invoke the centralized Electron `PipStandalonePage.tsx` window instead of using disparate web APIs.
+- **Files Modified**:
+  - `desktop-app/src/components/timer/FloatingTimer.tsx`
+  - `rule/fixed.md`
 - **User Request**: "click krne pr wahi button bada chhota hota hain" (Main window resizes instead of spawning a separate PiP window)
 - **Root Cause & Fix (Strict Rule 6 - `desktop-app` ONLY)**:
   1. **Separate Floating Child Window**: Created dedicated IPC handler `open-pip-window` in `electron.js` that spawns a **SEPARATE, independent frameless always-on-top BrowserWindow** (`pipWindow = new BrowserWindow({ width: 380, height: 540, alwaysOnTop: true, frame: false })`), leaving the main FlowTrack window untouched and full-size!

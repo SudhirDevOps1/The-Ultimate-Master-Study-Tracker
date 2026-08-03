@@ -69,11 +69,16 @@ export function App() {
           void state.pauseSession();
         }
       };
+      const handlePipClosed = () => {
+        useAppStore.getState().setIsPipActive(false);
+      };
       (window as any).electron.ipcRenderer.on("global-shortcut-toggle-timer", handleToggleTimer);
       (window as any).electron.ipcRenderer.on("save-session-state-sync", handleQuitSync);
+      (window as any).electron.ipcRenderer.on("pip-window-closed", handlePipClosed);
       return () => {
         (window as any).electron.ipcRenderer.off("global-shortcut-toggle-timer", handleToggleTimer);
         (window as any).electron.ipcRenderer.off("save-session-state-sync", handleQuitSync);
+        (window as any).electron.ipcRenderer.off("pip-window-closed", handlePipClosed);
       };
     }
   }, [initApp]);

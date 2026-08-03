@@ -23,6 +23,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   "scan-local-folder",
   "open-in-vlc",
   "get-block-rules",
+  "focus-main-window",
   "save-block-rules",
   "get-running-apps",
   // Webview Activity Tracking (Web Portals Browser page)
@@ -34,6 +35,8 @@ const ALLOWED_INVOKE_CHANNELS = [
   // Auto-Updater (electron-updater)
   "check-for-updates",
   "restart-and-install-update",
+  // PiP Window
+  "open-pip-window",
 ];
 
 const ALLOWED_LISTEN_CHANNELS = [

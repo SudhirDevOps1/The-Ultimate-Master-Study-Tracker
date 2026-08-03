@@ -49,6 +49,7 @@ export const PipOverlayWidget: React.FC = () => {
   const toggleDocumentPip = async () => {
     // 1. If running inside Electron Desktop App: Open SEPARATE floating PiP BrowserWindow!
     if (typeof window !== "undefined" && (window as any).electron) {
+      useAppStore.getState().setIsPipActive(true);
       (window as any).electron.ipcRenderer?.invoke?.("open-pip-window");
       return;
     }

@@ -143,29 +143,26 @@ export function FloatingTimer({ subject, elapsed, remaining, progress, onHeartbe
   useEffect(() => {
     if (!pipWindowRef.current) return;
     const doc = pipWindowRef.current.document;
-    const root = doc.getElementById("pip-root");
-    if (!root) return;
+    
+    const subjectEl = doc.getElementById("pip-subject");
+    const liveTimeEl = doc.getElementById("pip-live-time");
+    const elapsedEl = doc.getElementById("pip-elapsed");
+    const remainingEl = doc.getElementById("pip-remaining");
+    const progressEl = doc.getElementById("pip-progress");
+    const playPauseBtn = doc.getElementById("pip-btn-play-pause");
 
-    root.innerHTML = `
-      <div style="height:100%;padding:16px;background:linear-gradient(135deg,#0f172a,#111827,#1e1b4b);color:#fff;font-family:Inter,Arial,sans-serif;display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box;">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-          <div>
-            <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#a5b4fc;">FlowTrack</div>
-            <div style="font-size:20px;font-weight:700;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;">${subject}</div>
-          </div>
-          <div style="text-align:right;font-size:12px;color:#94a3b8;font-weight:500;">
-            ${liveTime}
-          </div>
-        </div>
-        <div>
-          <div style="font-size:36px;font-weight:800;line-height:1;">${ui.elapsedLabel}</div>
-          <div style="font-size:12px;color:#cbd5e1;margin-top:4px;">Remaining ${ui.remainingLabel}</div>
-          <div style="height:6px;background:rgba(255,255,255,0.12);border-radius:999px;overflow:hidden;margin-top:8px;">
-            <div style="height:100%;width:${Math.max(0, Math.min(100, progress))}%;background:linear-gradient(90deg,#818cf8,#22d3ee);"></div>
-          </div>
-        </div>
-      </div>
-    `;
+    if (subjectEl) subjectEl.innerText = subject;
+    if (liveTimeEl) liveTimeEl.innerText = liveTime;
+    if (elapsedEl) elapsedEl.innerText = ui.elapsedLabel;
+    if (remainingEl) remainingEl.innerText = `Remaining ${ui.remainingLabel}`;
+    if (progressEl) progressEl.style.width = `${Math.max(0, Math.min(100, progress))}%`;
+    
+    if (playPauseBtn) {
+      const isPaused = useAppStore.getState().timer.isPaused;
+      playPauseBtn.innerText = isPaused ? "▶️ Resume" : "⏸️ Pause";
+      playPauseBtn.style.background = isPaused ? "#34d399" : "#fbbf24";
+    }
+
   }, [mode, progress, subject, ui.elapsedLabel, ui.remainingLabel, liveTime]);
 
   useEffect(() => {
@@ -188,6 +185,7 @@ export function FloatingTimer({ subject, elapsed, remaining, progress, onHeartbe
     }
 
     try {
+      useAppStore.getState().setIsPipActive(true);
       drawCanvasFrame();
       await videoRef.current.play();
       await videoRef.current.requestPictureInPicture();
@@ -200,8 +198,8 @@ export function FloatingTimer({ subject, elapsed, remaining, progress, onHeartbe
         },
         { once: true }
       );
-      useAppStore.getState().setIsPipActive(true);
     } catch {
+      useAppStore.getState().setIsPipActive(false);
       setMode("fallback");
     }
   };
@@ -209,19 +207,39 @@ export function FloatingTimer({ subject, elapsed, remaining, progress, onHeartbe
   const openPiP = async () => {
     const ipc = getIpc();
     if (ipc) {
-      void ipc.invoke("set-always-on-top", { alwaysOnTop: true });
+      useAppStore.getState().setIsPipActive(true);
+      void ipc.invoke("open-pip-window");
+      return;
     }
 
     if (window.documentPictureInPicture) {
       try {
-        const pipWindow = await window.documentPictureInPicture.requestWindow({ width: 360, height: 220 });
+        useAppStore.getState().setIsPipActive(true);
+        const pipWindow = await window.documentPictureInPicture.requestWindow({ width: 360, height: 260 });
         pipWindow.document.body.style.margin = "0";
         pipWindow.document.body.style.height = "100vh";
-        pipWindow.document.body.innerHTML = '<div id="pip-root" style="height:100%"></div>';
+        pipWindow.document.body.innerHTML = `
+          <div id="pip-root" style="height:100%;padding:16px;background:linear-gradient(135deg,#0f172a,#111827,#1e1b4b);color:#fff;font-family:Inter,Arial,sans-serif;display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div>
+                <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#a5b4fc;">FlowTrack</div>
+                <div id="pip-subject" style="font-size:20px;font-weight:700;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;"></div>
+              </div>
+              <div id="pip-live-time" style="text-align:right;font-size:12px;color:#94a3b8;font-weight:500;"></div>
+            </div>
+            <div>
+              <div id="pip-elapsed" style="font-size:36px;font-weight:800;line-height:1;"></div>
+              <div id="pip-remaining" style="font-size:12px;color:#cbd5e1;margin-top:4px;"></div>
+              <div style="height:6px;background:rgba(255,255,255,0.12);border-radius:999px;overflow:hidden;margin-top:8px;">
+                <div id="pip-progress" style="height:100%;width:0%;background:linear-gradient(90deg,#818cf8,#22d3ee);"></div>
+              </div>
+            </div>
+          </div>
+        `;
+        
         pipWindowRef.current = pipWindow;
         setMode("document");
 
-        // Track real interaction inside PiP window
         const handlePipInteraction = () => {
           useAppStore.getState().markTimerInteraction();
         };
@@ -229,15 +247,12 @@ export function FloatingTimer({ subject, elapsed, remaining, progress, onHeartbe
           pipWindow.addEventListener(event, handlePipInteraction, { passive: true });
         });
 
-        // ✅ BUG FIX: Heartbeat every 10s (was 30s).
-        // With 30s interval, strict-focus inactivity check could fire between beats
-        // and auto-pause the session even while PiP is open.
         const heartbeat = setInterval(() => {
           useAppStore.getState().markTimerInteraction();
-        }, 10000); // Every 10 seconds
+        }, 10000);
 
         pipWindow.addEventListener("pagehide", () => {
-          clearInterval(heartbeat); // Clean up heartbeat on window close
+          clearInterval(heartbeat);
           pipWindowRef.current = null;
           setMode("none");
           useAppStore.getState().setIsPipActive(false);
@@ -246,14 +261,30 @@ export function FloatingTimer({ subject, elapsed, remaining, progress, onHeartbe
           }
         });
 
-        useAppStore.getState().setIsPipActive(true);
         return;
       } catch {
-        // Fallback to video PiP below.
+        useAppStore.getState().setIsPipActive(false);
       }
     }
 
-    await openVideoPiP();
+    try {
+      useAppStore.getState().setIsPipActive(true);
+      drawCanvasFrame();
+      await videoRef.current?.play();
+      await videoRef.current?.requestPictureInPicture();
+      setMode("video");
+      videoRef.current?.addEventListener(
+        "leavepictureinpicture",
+        () => {
+          setMode("none");
+          useAppStore.getState().setIsPipActive(false);
+        },
+        { once: true }
+      );
+    } catch {
+      useAppStore.getState().setIsPipActive(false);
+      setMode("fallback");
+    }
   };
 
   const closeFloating = async () => {

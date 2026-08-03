@@ -1043,9 +1043,19 @@ ipcMain.handle("open-pip-window", async (_e, { action } = {}) => {
 
   pipWindow.on("closed", () => {
     pipWindow = null;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("pip-window-closed");
+    }
   });
 
   return { success: true, isOpen: true };
+});
+
+ipcMain.handle("focus-main-window", () => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
 });
 
 ipcMain.handle("set-open-at-login", async (_e, { openAtLogin }) => {
