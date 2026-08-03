@@ -95,6 +95,8 @@ export interface UserProfile {
   goal?: string;
   age?: number | string;
   profession?: string;
+  dailyContext?: string;
+  goldenRule?: string;
 }
 
 export type ThemeName = "ocean" | "forest" | "sunset" | "galaxy" | "cyber" | "default" | "neon" | "paper" | string;

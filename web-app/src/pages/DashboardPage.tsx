@@ -81,7 +81,29 @@ function formatGoalMinutes(minutes: number): string {
 
 function DailyContextHeroCard() {
   const profile = useAppStore((state: AppState) => state.profile);
+  const sessions = useAppStore((state: AppState) => state.sessions);
+  const subjects = useAppStore((state: AppState) => state.subjects);
+  const weeklyTargetHours = useAppStore((state: AppState) => state.weeklyTargetHours);
   const streakData = useStreak();
+
+  const todayStr = useMemo(() => {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }, []);
+
+  const todaySessions = useMemo(() => {
+    return sessions
+      .filter((s) => {
+        const sDate = new Date(s.startTime);
+        const pad = (n: number) => String(n).padStart(2, "0");
+        const sDateStr = `${sDate.getFullYear()}-${pad(sDate.getMonth() + 1)}-${pad(sDate.getDate())}`;
+        return sDateStr === todayStr;
+      })
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  }, [sessions, todayStr]);
+
+  const quote = profile?.dailyContext || profile?.goldenRule || "🔥 Consistency & Focused Grind lead to top performance. Plan your sessions and track every focus hour!";
 
   return (
     <div className="relative overflow-hidden rounded-3xl border border-purple-500/20 bg-gradient-to-r from-purple-950/60 via-slate-900/90 to-indigo-950/60 p-6 shadow-2xl backdrop-blur-xl">
@@ -94,7 +116,7 @@ function DailyContextHeroCard() {
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-500/20 border border-purple-400/30 px-3 py-1 text-xs font-bold text-purple-300">
               <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-              Daily Context & Master Target
+              Daily Context & Target
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/20 border border-amber-500/30 px-3 py-1 text-xs font-extrabold text-amber-300">
               <Flame className="w-3.5 h-3.5 text-amber-400 animate-bounce" />
@@ -104,9 +126,9 @@ function DailyContextHeroCard() {
 
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
             <UserCheck className="w-4 h-4 text-cyan-400" />
-            <span>Developer: <strong className="text-white capitalize">{profile?.name || "Sudhir"}</strong> ({profile?.age || "18"} yrs)</span>
+            <span>Student: <strong className="text-white capitalize">{profile?.name || "Student Focus"}</strong> {profile?.age ? `(${profile.age} yrs)` : ""}</span>
             <span className="text-slate-500">•</span>
-            <span className="text-cyan-300 font-mono">Goal: {profile?.goal || "IT Sector"}</span>
+            <span className="text-cyan-300 font-mono">Target: {profile?.goal || `${weeklyTargetHours}h / Week`}</span>
           </div>
         </div>
 
@@ -117,31 +139,41 @@ function DailyContextHeroCard() {
               <Flame className="w-5 h-5 text-amber-400 animate-pulse" />
             </div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-amber-400">Golden Rule</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-amber-400">Golden Motivation</p>
               <p className="text-base sm:text-lg font-black text-white leading-snug mt-0.5">
-                "🔥 57 Hours/Week. 6 Months Grind. Target: Top 1% Developer in IT Sector. Breaks are managed manually, the app tracks only the grind!"
+                "{quote}"
               </p>
             </div>
           </div>
         </div>
 
-        {/* Daily Schedule Blocks */}
+        {/* Dynamic Daily Schedule Blocks or Subjects */}
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 pt-1">
-          {[
-            { time: "10:00 - 12:00", task: "Java Theory (Sigma 9.0 Videos)", color: "border-pink-500/30 bg-pink-500/5 text-pink-300" },
-            { time: "12:00 - 13:00", task: "Java Coding (LeetCode / IDE)", color: "border-purple-500/30 bg-purple-500/5 text-purple-300" },
-            { time: "13:30 - 15:00", task: "Web Dev Theory (MERN Concepts)", color: "border-indigo-500/30 bg-indigo-500/5 text-indigo-300" },
-            { time: "15:00 - 16:00", task: "Web Dev Coding (MegaKart Project)", color: "border-cyan-500/30 bg-cyan-500/5 text-cyan-300" },
-            { time: "17:00 - 19:00", task: "English Communication (HR Prep)", color: "border-rose-500/30 bg-rose-500/5 text-rose-300" },
-            { time: "19:00 - 21:00", task: "DSA & Aptitude (5 Problems/Day)", color: "border-amber-500/30 bg-amber-500/5 text-amber-300" },
-          ].map((block, i) => (
-            <div key={i} className={`flex items-center gap-2.5 p-2.5 rounded-xl border ${block.color}`}>
-              <div className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-black/40 border border-white/10 shrink-0">
-                {block.time}
+          {todaySessions.length > 0 ? (
+            todaySessions.slice(0, 6).map((session, i) => {
+              const sDate = new Date(session.startTime);
+              const eDate = new Date(sDate.getTime() + session.plannedMinutes * 60 * 1000);
+              const formatT = (d: Date) => d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+              const subObj = subjects.find(s => s.id === session.subjectId);
+              return (
+                <div key={session.id || i} className="flex items-center gap-2.5 p-2.5 rounded-xl border border-cyan-500/30 bg-cyan-500/5 text-cyan-300">
+                  <div className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-black/40 border border-white/10 shrink-0">
+                    {formatT(sDate)} - {formatT(eDate)}
+                  </div>
+                  <p className="text-xs font-semibold truncate text-white">{subObj?.emoji || "📚"} {session.notes || subObj?.name || "Study Session"}</p>
+                </div>
+              );
+            })
+          ) : (
+            subjects.slice(0, 6).map((sub, i) => (
+              <div key={sub.id || i} className="flex items-center gap-2.5 p-2.5 rounded-xl border border-purple-500/30 bg-purple-500/5 text-purple-300">
+                <div className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-black/40 border border-white/10 shrink-0">
+                  {sub.weeklyGoalMinutes ? `${Math.round(sub.weeklyGoalMinutes / 60)}h/wk` : "Active"}
+                </div>
+                <p className="text-xs font-semibold truncate text-white">{sub.emoji || "📚"} {sub.name}</p>
               </div>
-              <p className="text-xs font-semibold truncate text-white">{block.task}</p>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </div>
