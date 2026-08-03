@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEventHandler } from "
 import { formatSeconds } from "@/utils/time";
 import { useAppStore } from "@/store/useAppStore";
 
-const getIpc = () => (typeof window !== "undefined" ? (window as any).electron : null);
+const getIpc = () => (typeof window !== "undefined" && (window as any).electron ? (window as any).electron.ipcRenderer : null);
 
 interface FloatingTimerProps {
   subject: string;

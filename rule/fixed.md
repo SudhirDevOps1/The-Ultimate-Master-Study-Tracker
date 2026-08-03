@@ -7,6 +7,16 @@
 
 ## 📌 Recent Modifications & Analysis Log
 
+### 1. [2026-08-03 15:17] Fixed Broken 'Open Floating Timer' Button in Desktop App
+- **User Request**: "ye kam kyu nahi kr raha hain fix nahi kiye ho desktop app folder mein web app folder mein ye clcik krne pr km krta hain but desktop app folder mein kyu nahi fix kro jaldi samjhe..."
+- **Root Cause & Fix (Strict Rule 6 - `desktop-app` ONLY)**:
+  1. **IPC Context Invocation Bug**: The `getIpc` helper in `FloatingTimer.tsx` returned `window.electron` instead of `window.electron.ipcRenderer`. Consequently, attempting to invoke IPC via `ipc.invoke("open-pip-window")` failed with a silent `TypeError: ipc.invoke is not a function`. Fixed `getIpc` to return `(window as any).electron.ipcRenderer` safely.
+  2. **Preload Security Whitelist Bug**: The `"pip-window-closed"` IPC channel was not whitelisted in the preload script's `ALLOWED_LISTEN_CHANNELS` array. This prevented the main window from receiving close event notifications, leaving `isPipActive` stuck on `true`. Added `"pip-window-closed"` to the whitelist in `preload.js`.
+- **Files Modified**:
+  - `desktop-app/src/components/timer/FloatingTimer.tsx`
+  - `desktop-app/preload.js`
+  - `rule/fixed.md`
+
 ### 1. [2026-08-03 15:10] Unified PiP Trigger Logic for 'Open Floating Timer' Button
 - **User Request**: "desktop app mein jo top mein lagaye ho na pip oo wala logixc desktop app mein hain jo screenshot usmein lagao yar"
 - **Root Cause & Fix (Strict Rule 6 - `desktop-app` ONLY)**:

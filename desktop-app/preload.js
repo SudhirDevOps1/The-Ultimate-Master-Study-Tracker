@@ -44,6 +44,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   "save-session-state-sync",
   "toast-message",
   "update-status-event",
+  "pip-window-closed",
 ];
 
 contextBridge.exposeInMainWorld("electron", {
