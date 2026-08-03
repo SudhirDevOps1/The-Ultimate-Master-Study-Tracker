@@ -992,6 +992,62 @@ ipcMain.handle("toggle-always-on-top", async (_e, { flag, compact }) => {
   return { success: false };
 });
 
+let pipWindow = null;
+
+ipcMain.handle("open-pip-window", async (_e, { action } = {}) => {
+  if (action === "close") {
+    if (pipWindow && !pipWindow.isDestroyed()) {
+      pipWindow.close();
+      pipWindow = null;
+    }
+    return { success: true, isOpen: false };
+  }
+
+  if (action === "minimize") {
+    if (pipWindow && !pipWindow.isDestroyed()) {
+      pipWindow.minimize();
+    }
+    return { success: true };
+  }
+
+  if (pipWindow && !pipWindow.isDestroyed()) {
+    pipWindow.focus();
+    return { success: true, isOpen: true };
+  }
+
+  // Create SEPARATE floating always-on-top PiP child window so main window remains untouched!
+  pipWindow = new BrowserWindow({
+    width: 380,
+    height: 540,
+    alwaysOnTop: true,
+    frame: false,
+    transparent: false,
+    resizable: true,
+    skipTaskbar: false,
+    title: "FlowTrack PiP Focus",
+    backgroundColor: "#020617",
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  pipWindow.setAlwaysOnTop(true, "pop-up-menu");
+
+  const startUrl = process.env.VITE_DEV_SERVER_URL
+    ? `${process.env.VITE_DEV_SERVER_URL}#/pip-widget`
+    : `file://${path.join(__dirname, "dist", "index.html")}#/pip-widget`;
+
+  pipWindow.loadURL(startUrl);
+
+  pipWindow.on("closed", () => {
+    pipWindow = null;
+  });
+
+  return { success: true, isOpen: true };
+});
+
 ipcMain.handle("set-open-at-login", async (_e, { openAtLogin }) => {
   const enabled = Boolean(openAtLogin);
   app.setLoginItemSettings({ openAtLogin: enabled });

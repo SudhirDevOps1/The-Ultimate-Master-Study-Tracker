@@ -7,7 +7,20 @@
 
 ## 📌 Recent Modifications & Analysis Log
 
-### 1. [2026-08-03 13:55] Fixed `📺 PiP Mode` Trigger Button Click & Enabled Native Electron/Chromium PiP Engine
+### 1. [2026-08-03 14:04] Built Separate Standalone Floating PiP BrowserWindow Engine
+- **User Request**: "click krne pr wahi button bada chhota hota hain" (Main window resizes instead of spawning a separate PiP window)
+- **Root Cause & Fix (Strict Rule 6 - `desktop-app` ONLY)**:
+  1. **Separate Floating Child Window**: Created dedicated IPC handler `open-pip-window` in `electron.js` that spawns a **SEPARATE, independent frameless always-on-top BrowserWindow** (`pipWindow = new BrowserWindow({ width: 380, height: 540, alwaysOnTop: true, frame: false })`), leaving the main FlowTrack window untouched and full-size!
+  2. **Standalone Floating PiP Route (`/#/pip-widget`)**: Added `PipStandalonePage.tsx` and route `/#/pip-widget` in `App.tsx` which renders a draggable (`-webkit-app-region: drag`), frameless, glowing dark glassmorphism PiP widget with live Timer, Subject, Notes, Start/Pause/Stop, and Close (`X`) controls.
+  3. **Seamless Header Integration**: Connected top header `📺 PiP Mode` button in `PipOverlayWidget.tsx` to launch this separate floating window on 1-click!
+- **Files Created/Modified**:
+  - `desktop-app/src/pages/PipStandalonePage.tsx` [NEW]
+  - `desktop-app/electron.js`
+  - `desktop-app/src/App.tsx`
+  - `desktop-app/src/components/common/PipOverlayWidget.tsx`
+  - `rule/fixed.md`
+
+### 2. [2026-08-03 13:55] Fixed `📺 PiP Mode` Trigger Button Click & Enabled Native Electron/Chromium PiP Engine
 - **User Request**: "kaha ho raha hain timer wale ya app wale pip pr click krne pr" [with screenshot pointing to `📺 PiP Mode` button]
 - **Root Cause & Fix (Strict Rule 6 - `desktop-app` ONLY)**:
   1. **Direct Electron IPC Execution**: Fixed `toggleDocumentPip` in `PipOverlayWidget.tsx` so when clicked in Electron desktop app, it directly invokes Electron native IPC `toggle-always-on-top` with `flag: true` and `compact: true`.

@@ -25,6 +25,7 @@ import { SchedulerPage } from "@/pages/SchedulerPage";
 import { FlashcardsPage } from "@/pages/FlashcardsPage";
 import { MindMapPage } from "@/pages/MindMapPage";
 import { WebPortalsPage } from "@/pages/WebPortalsPage";
+import { PipStandalonePage } from "@/pages/PipStandalonePage";
 import { useTimer } from "@/hooks/useTimer";
 import { useScheduleReminder } from "@/hooks/useScheduleReminder";
 
@@ -134,13 +135,15 @@ export function App() {
     </ErrorBoundary>
   );
 }
-
 function AnimatedRoutes() {
   const location = useLocation();
 
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
+        {/* Standalone Picture-in-Picture Floating Window Route */}
+        <Route path="/pip-widget" element={<PipStandalonePage />} />
+
         <Route element={<AppShell />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route

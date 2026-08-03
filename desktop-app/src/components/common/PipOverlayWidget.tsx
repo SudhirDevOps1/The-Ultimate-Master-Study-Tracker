@@ -47,14 +47,9 @@ export const PipOverlayWidget: React.FC = () => {
   };
 
   const toggleDocumentPip = async () => {
-    // 1. If running inside Electron Desktop App: Use Electron Native Always-On-Top + Compact PIP Window Sizing!
+    // 1. If running inside Electron Desktop App: Open SEPARATE floating PiP BrowserWindow!
     if (typeof window !== "undefined" && (window as any).electron) {
-      const nextState = !isElectronPipActive;
-      setIsElectronPipActive(nextState);
-      (window as any).electron.ipcRenderer?.invoke?.("toggle-always-on-top", {
-        flag: nextState,
-        compact: nextState,
-      });
+      (window as any).electron.ipcRenderer?.invoke?.("open-pip-window");
       return;
     }
 
