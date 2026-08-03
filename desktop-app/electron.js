@@ -817,14 +817,41 @@ ipcMain.handle("get-running-apps", async () => {
         try {
           const lines = stdout.split(/\r?\n/);
           const appsMap = new Map();
+
+          const parseCSVRow = (line) => {
+            let fields = [];
+            let inQuotes = false;
+            let current = "";
+            for (let i = 0; i < line.length; i++) {
+              const char = line[i];
+              if (char === '"') {
+                if (inQuotes && line[i+1] === '"') {
+                  current += '"';
+                  i++; 
+                } else {
+                  inQuotes = !inQuotes;
+                }
+              } else if (char === ',' && !inQuotes) {
+                fields.push(current);
+                current = "";
+              } else {
+                current += char;
+              }
+            }
+            fields.push(current);
+            return fields;
+          };
+
           for (let i = 1; i < lines.length; i++) {
             const line = lines[i].trim();
             if (!line) continue;
-            const matches = line.match(/"([^"]*)"/g);
-            if (!matches || matches.length < 9) continue;
-            const proc = matches[0].replace(/"/g, "").trim();
-            const status = matches[5].replace(/"/g, "").trim();
-            const title = matches[8].replace(/"/g, "").trim();
+            
+            const fields = parseCSVRow(line);
+            if (fields.length < 9) continue;
+            
+            const proc = fields[0].trim();
+            const status = fields[5].trim();
+            const title = fields[8].trim();
 
             if (!proc) continue;
 

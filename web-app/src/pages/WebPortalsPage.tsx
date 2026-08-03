@@ -16,18 +16,18 @@ interface PortalSite {
 }
 
 const DEFAULT_PORTALS: PortalSite[] = [
-  { id: "apna-college",   name: "Apna College",     url: "https://www.apnacollege.in",       icon: "🎓", color: "#6366f1", category: "Course Portal" },
-  { id: "youtube",        name: "YouTube",           url: "https://www.youtube.com",          icon: "▶️", color: "#ef4444", category: "Video" },
-  { id: "pw",             name: "Physics Wallah",    url: "https://www.pw.live",              icon: "⚡", color: "#f59e0b", category: "Course Portal" },
-  { id: "coursera",       name: "Coursera",          url: "https://www.coursera.org",         icon: "🏫", color: "#0ea5e9", category: "Course Portal" },
-  { id: "udemy",          name: "Udemy",             url: "https://www.udemy.com",            icon: "🎯", color: "#a855f7", category: "Course Portal" },
-  { id: "khan",           name: "Khan Academy",      url: "https://www.khanacademy.org",      icon: "📚", color: "#10b981", category: "Course Portal" },
-  { id: "unacademy",      name: "Unacademy",         url: "https://unacademy.com",            icon: "🦉", color: "#06b6d4", category: "Course Portal" },
-  { id: "github",         name: "GitHub",            url: "https://github.com",               icon: "💻", color: "#64748b", category: "Dev Tools" },
-  { id: "stackoverflow",  name: "Stack Overflow",    url: "https://stackoverflow.com",        icon: "🔶", color: "#f97316", category: "Dev Tools" },
-  { id: "mdn",            name: "MDN Web Docs",      url: "https://developer.mozilla.org",    icon: "📖", color: "#3b82f6", category: "Dev Tools" },
-  { id: "chatgpt",        name: "ChatGPT",           url: "https://chat.openai.com",          icon: "🤖", color: "#22c55e", category: "AI Tools" },
-  { id: "gemini",         name: "Google Gemini",     url: "https://gemini.google.com",        icon: "✨", color: "#8b5cf6", category: "AI Tools" },
+  { id: "apna-college",   name: "Apna College",     url: "https://www.apnacollege.in",       icon: "https://www.google.com/s2/favicons?domain=apnacollege.in&sz=64", color: "#6366f1", category: "Course Portal" },
+  { id: "youtube",        name: "YouTube",           url: "https://www.youtube.com",          icon: "https://www.google.com/s2/favicons?domain=youtube.com&sz=64", color: "#ef4444", category: "Video" },
+  { id: "pw",             name: "Physics Wallah",    url: "https://www.pw.live",              icon: "https://www.google.com/s2/favicons?domain=pw.live&sz=64", color: "#f59e0b", category: "Course Portal" },
+  { id: "coursera",       name: "Coursera",          url: "https://www.coursera.org",         icon: "https://www.google.com/s2/favicons?domain=coursera.org&sz=64", color: "#0ea5e9", category: "Course Portal" },
+  { id: "udemy",          name: "Udemy",             url: "https://www.udemy.com",            icon: "https://www.google.com/s2/favicons?domain=udemy.com&sz=64", color: "#a855f7", category: "Course Portal" },
+  { id: "khan",           name: "Khan Academy",      url: "https://www.khanacademy.org",      icon: "https://www.google.com/s2/favicons?domain=khanacademy.org&sz=64", color: "#10b981", category: "Course Portal" },
+  { id: "unacademy",      name: "Unacademy",         url: "https://unacademy.com",            icon: "https://www.google.com/s2/favicons?domain=unacademy.com&sz=64", color: "#06b6d4", category: "Course Portal" },
+  { id: "github",         name: "GitHub",            url: "https://github.com",               icon: "https://www.google.com/s2/favicons?domain=github.com&sz=64", color: "#64748b", category: "Dev Tools" },
+  { id: "stackoverflow",  name: "Stack Overflow",    url: "https://stackoverflow.com",        icon: "https://www.google.com/s2/favicons?domain=stackoverflow.com&sz=64", color: "#f97316", category: "Dev Tools" },
+  { id: "mdn",            name: "MDN Web Docs",      url: "https://developer.mozilla.org",    icon: "https://www.google.com/s2/favicons?domain=developer.mozilla.org&sz=64", color: "#3b82f6", category: "Dev Tools" },
+  { id: "chatgpt",        name: "ChatGPT",           url: "https://chat.openai.com",          icon: "https://www.google.com/s2/favicons?domain=chat.openai.com&sz=64", color: "#22c55e", category: "AI Tools" },
+  { id: "gemini",         name: "Google Gemini",     url: "https://gemini.google.com",        icon: "https://www.google.com/s2/favicons?domain=gemini.google.com&sz=64", color: "#8b5cf6", category: "AI Tools" },
 ];
 
 const isElectron = typeof window !== "undefined" && !!(window as any).electron;
@@ -365,7 +365,11 @@ export function WebPortalsPage() {
                           className="h-9 w-9 rounded-xl flex items-center justify-center text-lg shadow-md"
                           style={{ backgroundColor: site.color + "25", border: `1px solid ${site.color}40` }}
                         >
-                          {site.icon}
+                          {site.icon.startsWith("http") ? (
+                            <img src={site.icon} alt={site.name} className="w-5 h-5 object-contain" />
+                          ) : (
+                            site.icon
+                          )}
                         </div>
                         <div className="w-full">
                           <p className="text-[12px] font-bold text-white truncate leading-tight">{site.name}</p>
