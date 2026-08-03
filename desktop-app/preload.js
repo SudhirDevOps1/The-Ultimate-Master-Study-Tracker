@@ -38,6 +38,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   // PiP Window
   "open-pip-window",
   "sync-timer-state",
+  "request-timer-sync",
 ];
 
 const ALLOWED_LISTEN_CHANNELS = [
@@ -47,6 +48,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   "update-status-event",
   "pip-window-closed",
   "timer-state-updated",
+  "request-timer-sync",
 ];
 
 contextBridge.exposeInMainWorld("electron", {

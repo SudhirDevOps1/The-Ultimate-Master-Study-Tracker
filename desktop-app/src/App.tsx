@@ -72,13 +72,36 @@ export function App() {
       const handlePipClosed = () => {
         useAppStore.getState().setIsPipActive(false);
       };
+      const handleRequestTimerSync = () => {
+        const state = useAppStore.getState();
+        const currentTimer = state.timer;
+        const activeSession = state.sessions.find(s => s.id === currentTimer.activeSessionId);
+        const subjectName = state.subjects.find(s => s.id === activeSession?.subjectId)?.name || "Study Focus";
+        const now = Date.now();
+        const elapsed = state.getActiveElapsed(now);
+        const plannedSeconds = (activeSession?.plannedMinutes ?? 0) * 60;
+        const remaining = Math.max(0, plannedSeconds - elapsed);
+        const progress = plannedSeconds > 0 ? Math.min(100, (elapsed / plannedSeconds) * 100) : 0;
+
+        (window as any).electron.ipcRenderer.send("sync-timer-state", {
+          subjectName,
+          elapsed,
+          remaining,
+          progress,
+          isPaused: currentTimer.isPaused,
+          isRunning: !!currentTimer.activeSessionId,
+        });
+      };
+
       (window as any).electron.ipcRenderer.on("global-shortcut-toggle-timer", handleToggleTimer);
       (window as any).electron.ipcRenderer.on("save-session-state-sync", handleQuitSync);
       (window as any).electron.ipcRenderer.on("pip-window-closed", handlePipClosed);
+      (window as any).electron.ipcRenderer.on("request-timer-sync", handleRequestTimerSync);
       return () => {
         (window as any).electron.ipcRenderer.off("global-shortcut-toggle-timer", handleToggleTimer);
         (window as any).electron.ipcRenderer.off("save-session-state-sync", handleQuitSync);
         (window as any).electron.ipcRenderer.off("pip-window-closed", handlePipClosed);
+        (window as any).electron.ipcRenderer.off("request-timer-sync", handleRequestTimerSync);
       };
     }
   }, [initApp]);

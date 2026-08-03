@@ -998,6 +998,12 @@ ipcMain.on("sync-timer-state", (event, data) => {
   }
 });
 
+ipcMain.on("request-timer-sync", () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("request-timer-sync");
+  }
+});
+
 let pipWindow = null;
 
 ipcMain.handle("open-pip-window", async (_e, { action } = {}) => {

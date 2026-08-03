@@ -1,15 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { useTimer } from "@/hooks/useTimer";
-import { useAppStore } from "@/store/useAppStore";
 import { formatSeconds } from "@/utils/time";
 import { format } from "date-fns";
 
 export function PipStandalonePage() {
-  const { activeSession, remainingSeconds, elapsedSeconds, progress } = useTimer();
-  const subjects = useAppStore((state) => state.subjects);
-  const activeSubjectName = subjects.find((s) => s.id === activeSession?.subjectId)?.name || "Java - Theory (Sigma)";
-
-  // Local synced state via Electron IPC for real-time live ticking across processes
   const [syncedState, setSyncedState] = useState<{
     subjectName: string;
     elapsed: number;
@@ -17,7 +10,14 @@ export function PipStandalonePage() {
     progress: number;
     isPaused: boolean;
     isRunning: boolean;
-  } | null>(null);
+  }>({
+    subjectName: "Study Focus",
+    elapsed: 0,
+    remaining: 0,
+    progress: 0,
+    isPaused: false,
+    isRunning: false,
+  });
 
   const [liveTimeStr, setLiveTimeStr] = useState("");
 
@@ -30,10 +30,15 @@ export function PipStandalonePage() {
 
   useEffect(() => {
     if (typeof window !== "undefined" && (window as any).electron?.ipcRenderer) {
+      // Request initial timer state immediately on mount
+      (window as any).electron.ipcRenderer.send("request-timer-sync");
+
       const unsubscribe = (window as any).electron.ipcRenderer.on(
         "timer-state-updated",
         (data: any) => {
-          setSyncedState(data);
+          if (data) {
+            setSyncedState(data);
+          }
         }
       );
       return () => {
@@ -42,42 +47,38 @@ export function PipStandalonePage() {
     }
   }, []);
 
-  // Use IPC synced values if available; fallback to local hooks
-  const subjectName = syncedState?.subjectName || activeSubjectName;
-  const currentElapsed = syncedState ? syncedState.elapsed : elapsedSeconds;
-  const currentRemaining = syncedState ? syncedState.remaining : remainingSeconds;
-  const currentProgress = syncedState ? syncedState.progress : progress;
-
   return (
-    <div className="h-screen w-screen bg-[#0b0f19] text-white p-4 flex flex-col justify-between border border-white/10 rounded-xl shadow-2xl overflow-hidden select-none">
-      {/* Top Bar: Brand & Date/Time */}
-      <div className="flex items-start justify-between">
+    <div
+      className="h-screen w-screen p-4 bg-gradient-to-br from-slate-900 via-slate-950 to-indigo-950 text-white flex flex-col justify-between select-none overflow-hidden border border-white/10 rounded-xl box-border"
+      style={{ WebkitAppRegion: "drag" } as any}
+    >
+      {/* Top Header: Brand & Live Date/Time */}
+      <div className="flex justify-between items-start">
         <div>
-          <span className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-indigo-400">
+          <div className="text-[11px] tracking-[0.18em] uppercase text-indigo-300 font-bold">
             FLOWTRACK
-          </span>
-          <h2 className="text-lg font-bold text-white mt-0.5 max-w-[200px] truncate leading-tight">
-            {subjectName}
-          </h2>
+          </div>
+          <div className="text-xl font-bold mt-1 text-white truncate max-w-[200px]">
+            {syncedState.subjectName}
+          </div>
         </div>
-        <span className="text-[11px] font-medium text-slate-400">
+        <div className="text-right text-xs text-slate-400 font-medium">
           {liveTimeStr}
-        </span>
+        </div>
       </div>
 
-      {/* Main Display: Live Ticking Elapsed Timer */}
-      <div className="my-auto">
-        <div className="text-4xl font-extrabold tracking-tight font-mono text-white">
-          {formatSeconds(currentElapsed)}
+      {/* Main Content: Live Ticking Elapsed Timer & Progress Bar */}
+      <div>
+        <div className="text-4xl font-extrabold leading-none text-white font-mono">
+          {formatSeconds(syncedState.elapsed)}
         </div>
-        <div className="text-xs font-medium text-slate-300 mt-1">
-          Remaining {formatSeconds(currentRemaining)}
+        <div className="text-xs text-slate-300 mt-1">
+          Remaining {formatSeconds(syncedState.remaining)}
         </div>
-        {/* Progress Bar */}
-        <div className="mt-3 h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden mt-2">
           <div
-            className="h-full bg-gradient-to-r from-indigo-500 via-cyan-400 to-teal-400 transition-all duration-300 rounded-full"
-            style={{ width: `${Math.max(0, Math.min(100, currentProgress))}%` }}
+            className="h-full bg-gradient-to-r from-indigo-400 to-cyan-400 transition-all duration-300 rounded-full"
+            style={{ width: `${Math.max(0, Math.min(100, syncedState.progress))}%` }}
           />
         </div>
       </div>
