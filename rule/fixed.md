@@ -7,6 +7,24 @@
 
 ## 📌 Recent Modifications & Analysis Log
 
+### 1. [2026-08-03 15:26] Fixed Native PiP Launch Failure in Desktop App (Electron)
+- **User Request**: "fir se kam nahi kr raha hain open floting window dimag kharab ho gaya"
+- **Root Cause & Fix (Strict Rule 6 - `desktop-app` ONLY)**:
+  1. **IPC Invocation Exception Blocker**: The `openPiP` function was calling `ipc.invoke("set-always-on-top")`. However, `"set-always-on-top"` was never defined in `electron.js` and was blocked by `preload.js` as an unauthorized IPC channel. This unhandled promise rejection crashed or blocked the execution before the `documentPictureInPicture` API could run.
+  2. **Removed Blocker**: Removed the redundant and unregistered `set-always-on-top` IPC calls entirely from both `openPiP` and `closeFloating`. The native `documentPictureInPicture` window is already set to always-on-top by the OS/browser, making this IPC call unnecessary.
+- **Files Modified**:
+  - `desktop-app/src/components/timer/FloatingTimer.tsx`
+  - `rule/fixed.md`
+
+### 1. [2026-08-03 15:21] Synced Desktop PiP Logic 100% with Web-App
+- **User Request**: "sahi hain bina kuchh hataye fix kro us pip mein jo subject ka timer chal raha hain oo live dikhaye extra faltu ka kuchh na dikhaye samjhe dekh lo"
+- **Root Cause & Fix (Strict Rule 6 - `desktop-app` ONLY)**:
+  1. **Ticking Issue & Extra UI Removal**: In `desktop-app`, the custom ID-based element updates inside `documentPictureInPicture` were causing frozen UI. Synced the logic 100% with the web-app's `FloatingTimer.tsx` where the `innerHTML` of `#pip-root` is fully rewritten on every tick.
+  2. **Removed Custom Buttons**: Stripped the custom `Resume`, `Stop`, and `Edit` buttons from the `documentPictureInPicture` window to avoid "extra faltu ka kuchh" (extra useless elements), keeping the PiP screen completely clean, focusing exclusively on the live ticking subject timer.
+- **Files Modified**:
+  - `desktop-app/src/components/timer/FloatingTimer.tsx`
+  - `rule/fixed.md`
+
 ### 1. [2026-08-03 15:17] Fixed Broken 'Open Floating Timer' Button in Desktop App
 - **User Request**: "ye kam kyu nahi kr raha hain fix nahi kiye ho desktop app folder mein web app folder mein ye clcik krne pr km krta hain but desktop app folder mein kyu nahi fix kro jaldi samjhe..."
 - **Root Cause & Fix (Strict Rule 6 - `desktop-app` ONLY)**:
