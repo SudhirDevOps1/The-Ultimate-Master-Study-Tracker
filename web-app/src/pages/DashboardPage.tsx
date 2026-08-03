@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { isSameDay, format, startOfWeek, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
+import { Flame, UserCheck, Sparkles } from "lucide-react";
 import { Panel } from "@/components/common/Panel";
 import { LevelSystem } from "@/components/gamification/LevelSystem";
 import { WeeklySummary } from "@/components/dashboard/WeeklySummary";
@@ -76,6 +77,75 @@ function formatGoalMinutes(minutes: number): string {
   if (h > 0 && m > 0) return `${h}h ${m}m`;
   if (h > 0) return `${h}h`;
   return `${m}m`;
+}
+
+function DailyContextHeroCard() {
+  const profile = useAppStore((state: AppState) => state.profile);
+  const streakData = useStreak();
+
+  return (
+    <div className="relative overflow-hidden rounded-3xl border border-purple-500/20 bg-gradient-to-r from-purple-950/60 via-slate-900/90 to-indigo-950/60 p-6 shadow-2xl backdrop-blur-xl">
+      <div className="absolute top-0 right-0 -mt-10 -mr-10 h-48 w-48 rounded-full bg-purple-500/10 blur-3xl" />
+      <div className="absolute bottom-0 left-0 -mb-10 -ml-10 h-48 w-48 rounded-full bg-cyan-500/10 blur-3xl" />
+
+      <div className="relative z-10 space-y-4">
+        {/* Header Badges */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-500/20 border border-purple-400/30 px-3 py-1 text-xs font-bold text-purple-300">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+              Daily Context & Master Target
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/20 border border-amber-500/30 px-3 py-1 text-xs font-extrabold text-amber-300">
+              <Flame className="w-3.5 h-3.5 text-amber-400 animate-bounce" />
+              {streakData.daily || 1}-Day Grind Streak
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
+            <UserCheck className="w-4 h-4 text-cyan-400" />
+            <span>Developer: <strong className="text-white capitalize">{profile?.name || "Sudhir"}</strong> ({profile?.age || "18"} yrs)</span>
+            <span className="text-slate-500">•</span>
+            <span className="text-cyan-300 font-mono">Goal: {profile?.goal || "IT Sector"}</span>
+          </div>
+        </div>
+
+        {/* Golden Rule Motivation Quote */}
+        <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 shrink-0">
+              <Flame className="w-5 h-5 text-amber-400 animate-pulse" />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-amber-400">Golden Rule</p>
+              <p className="text-base sm:text-lg font-black text-white leading-snug mt-0.5">
+                "🔥 57 Hours/Week. 6 Months Grind. Target: Top 1% Developer in IT Sector. Breaks are managed manually, the app tracks only the grind!"
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Daily Schedule Blocks */}
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 pt-1">
+          {[
+            { time: "10:00 - 12:00", task: "Java Theory (Sigma 9.0 Videos)", color: "border-pink-500/30 bg-pink-500/5 text-pink-300" },
+            { time: "12:00 - 13:00", task: "Java Coding (LeetCode / IDE)", color: "border-purple-500/30 bg-purple-500/5 text-purple-300" },
+            { time: "13:30 - 15:00", task: "Web Dev Theory (MERN Concepts)", color: "border-indigo-500/30 bg-indigo-500/5 text-indigo-300" },
+            { time: "15:00 - 16:00", task: "Web Dev Coding (MegaKart Project)", color: "border-cyan-500/30 bg-cyan-500/5 text-cyan-300" },
+            { time: "17:00 - 19:00", task: "English Communication (HR Prep)", color: "border-rose-500/30 bg-rose-500/5 text-rose-300" },
+            { time: "19:00 - 21:00", task: "DSA & Aptitude (5 Problems/Day)", color: "border-amber-500/30 bg-amber-500/5 text-amber-300" },
+          ].map((block, i) => (
+            <div key={i} className={`flex items-center gap-2.5 p-2.5 rounded-xl border ${block.color}`}>
+              <div className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-black/40 border border-white/10 shrink-0">
+                {block.time}
+              </div>
+              <p className="text-xs font-semibold truncate text-white">{block.task}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function DashboardPage() {
@@ -273,6 +343,9 @@ export function DashboardPage() {
     <div className="space-y-6 pb-12">
       {/* Weekly Summary Card */}
       <WeeklySummary sessions={sessions} subjects={subjects} theme={theme} />
+
+      {/* 🚀 Daily Context & Golden Rule Hero Card */}
+      <DailyContextHeroCard />
 
       {/* 🚀 Welcome & Changelog Modal overlay */}
       <WelcomeChangelogModal />

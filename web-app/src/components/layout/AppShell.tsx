@@ -21,7 +21,8 @@ import {
   Clock,
   Palette,
   FileText,
-  Globe2
+  Globe2,
+  ShieldCheck
 } from "lucide-react";
 
 const links = [
@@ -144,6 +145,12 @@ export function AppShell() {
                 <Globe className="w-4 h-4" />
                 <span className="hidden md:inline">Live Web</span>
               </a>
+              {useAppStore.getState().timer?.activeSessionId && !useAppStore.getState().timer?.isPaused && (
+                <div className="flex items-center gap-1.5 rounded-2xl bg-rose-500/20 border border-rose-500/40 px-3 py-2 text-xs font-black text-rose-300 animate-pulse shadow-lg shadow-rose-500/20">
+                  <ShieldCheck className="w-4 h-4 text-rose-400" />
+                  <span className="hidden sm:inline">🛡️ FOCUS SHIELD ACTIVE</span>
+                </div>
+              )}
               <div className={`soft-card rounded-2xl bg-gradient-to-r ${getGradientClass()} p-[2px]`}>
                 <div className="rounded-2xl bg-slate-900/95 px-4 py-3">
                   <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Current page</p>
