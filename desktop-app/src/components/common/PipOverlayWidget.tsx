@@ -3,7 +3,7 @@ import ReactDOM from "react-dom";
 import { useTimer } from "@/hooks/useTimer";
 import { useAppStore } from "@/store/useAppStore";
 import { formatSeconds } from "@/utils/time";
-import { Maximize2, X } from "lucide-react";
+import { Maximize2, X, MonitorSmartphone } from "lucide-react";
 import { format } from "date-fns";
 
 export const PipOverlayWidget: React.FC = () => {
@@ -90,40 +90,73 @@ export const PipOverlayWidget: React.FC = () => {
 
   // Clean, Pixel-Perfect Widget Content matching user's exact specification
   const widgetContent = (
-    <div className="h-full w-full p-4 bg-gradient-to-br from-slate-900 via-slate-950 to-indigo-950 text-white flex flex-col justify-between select-none overflow-hidden border border-white/10 rounded-xl box-border">
-      {/* Top Header: Brand & Live Date/Time */}
-      <div className="flex justify-between items-start">
-        <div>
+    <div className="relative h-full w-full p-4 bg-gradient-to-br from-slate-900 via-slate-950 to-indigo-950 text-white flex flex-col justify-between select-none overflow-hidden border border-white/10 rounded-xl box-border group">
+      {/* Chrome Native-like Hover Titlebar Overlay */}
+      <div 
+        className="absolute top-0 left-0 right-0 h-9 bg-black/80 flex items-center justify-between px-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50 rounded-t-xl"
+        style={{ WebkitAppRegion: "drag" } as any}
+      >
+        <div className="flex items-center gap-2 text-[11px] text-slate-300 font-medium">
+          <MonitorSmartphone size={12} className="text-slate-400" />
+          <span>flowtrack-desktop</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              if (typeof window !== "undefined" && (window as any).electron) {
+                (window as any).electron.ipcRenderer?.send("focus-main-window");
+              }
+            }}
+            className="text-slate-300 hover:text-white transition-colors hidden electron-only:block"
+            style={{ WebkitAppRegion: "no-drag" } as any}
+            title="Back to tab"
+          >
+            <Maximize2 size={13} />
+          </button>
+          <button
+            onClick={() => {
+              if (typeof window !== "undefined" && (window as any).electron) {
+                (window as any).electron.ipcRenderer?.invoke?.("open-pip-window", { action: "close" });
+              } else if (pipWindow) {
+                pipWindow.close();
+              }
+            }}
+            className="text-slate-300 hover:text-white transition-colors"
+            style={{ WebkitAppRegion: "no-drag" } as any}
+            title="Close"
+          >
+            <X size={15} />
+          </button>
+        </div>
+      </div>
+
+      {/* Top Header: Brand */}
+      <div className="flex justify-between items-start pt-2">
+        <div className="flex-1 min-w-0 pr-2">
           <div className="text-[11px] tracking-[0.18em] uppercase text-indigo-300 font-bold">
             FLOWTRACK
           </div>
-          <div className="text-xl font-bold mt-1 text-white truncate max-w-[200px]">
+          <div className="text-xl font-bold mt-1 text-white truncate">
             {activeSubjectName}
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-right text-xs text-slate-400 font-medium">
-            {liveTimeStr}
-          </span>
-          {pipWindow && (
-            <button
-              onClick={() => pipWindow.close()}
-              className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
-              title="Close PiP"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
         </div>
       </div>
 
       {/* Main Content: Live Ticking Elapsed Timer & Progress Bar */}
-      <div>
+      <div className="flex flex-col justify-end flex-1">
+        <div className="text-xs text-indigo-200/80 font-medium mb-1 truncate tracking-wide">
+          {liveTimeStr}
+        </div>
         <div className="text-4xl font-extrabold leading-none text-white font-mono">
           {formatSeconds(elapsedSeconds)}
         </div>
-        <div className="text-xs text-slate-300 mt-1">
-          Remaining {formatSeconds(remainingSeconds)}
+        <div className="flex justify-between items-end mt-1">
+          <div className="text-xs text-slate-300">
+            Remaining {formatSeconds(remainingSeconds)}
+          </div>
+          <div className="text-xs text-slate-400 font-medium">
+            {Math.round(progress)}%
+          </div>
         </div>
         <div className="h-1.5 bg-white/10 rounded-full overflow-hidden mt-2">
           <div
