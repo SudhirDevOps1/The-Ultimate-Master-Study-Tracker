@@ -149,6 +149,12 @@ export function App() {
     );
   }
 
+  const isPipWindow = window.location.hash.includes("pip-widget") || window.location.pathname.includes("pip-widget");
+
+  if (isPipWindow) {
+    return <PipStandalonePage />;
+  }
+
   return (
     <ErrorBoundary>
       <ToastProvider>
