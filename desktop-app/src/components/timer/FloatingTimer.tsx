@@ -207,6 +207,13 @@ export function FloatingTimer({ subject, elapsed, remaining, progress, onHeartbe
   };
 
   const openPiP = async () => {
+    const ipc = getIpc();
+    if (ipc) {
+      useAppStore.getState().setIsPipActive(true);
+      void ipc.invoke("open-pip-window");
+      return;
+    }
+
     if (window.documentPictureInPicture) {
       try {
         const pipWindow = await window.documentPictureInPicture.requestWindow({ width: 360, height: 220 });

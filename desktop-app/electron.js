@@ -992,6 +992,12 @@ ipcMain.handle("toggle-always-on-top", async (_e, { flag, compact }) => {
   return { success: false };
 });
 
+ipcMain.on("sync-timer-state", (event, data) => {
+  if (pipWindow && !pipWindow.isDestroyed()) {
+    pipWindow.webContents.send("timer-state-updated", data);
+  }
+});
+
 let pipWindow = null;
 
 ipcMain.handle("open-pip-window", async (_e, { action } = {}) => {
@@ -1017,8 +1023,8 @@ ipcMain.handle("open-pip-window", async (_e, { action } = {}) => {
 
   // Create SEPARATE floating always-on-top PiP child window so main window remains untouched!
   pipWindow = new BrowserWindow({
-    width: 380,
-    height: 540,
+    width: 360,
+    height: 240,
     alwaysOnTop: true,
     frame: false,
     transparent: false,

@@ -7,6 +7,20 @@
 
 ## 📌 Recent Modifications & Analysis Log
 
+### 1. [2026-08-03 15:35] Added Real-Time IPC Timer State Sync for Electron Executable (.exe) PiP
+- **User Request**: "ye kam kyu nahi kr raha hain fix nahi kiye ho desktop app folder mein... wo web api se kam krta hain but mera app .exe mein banega usmein kaise kam krega... same electron app mein bhi kam krein same subject time syns"
+- **Root Cause & Fix (Strict Rule 6 - `desktop-app` ONLY)**:
+  1. **Packaged .exe Protocol Limitations & Desync**: Standard browser web APIs (`documentPictureInPicture`) fail in packaged `.exe` builds running on `file://` protocol. Conversely, opening a separate Electron `BrowserWindow` caused state desynchronization because memory stores (Zustand) are isolated per renderer process.
+  2. **Inter-Process Timer Broadcasting**: Created a real-time IPC bridge. Every second in `useTimer.ts`, the main window emits `sync-timer-state` containing `subjectName`, `elapsed`, `remaining`, `progress`, and `isPaused`. `electron.js` forwards this payload to `pipWindow` via `timer-state-updated`.
+  3. **Live Syncing & Clean UI**: `PipStandalonePage.tsx` listens for `timer-state-updated` and renders live, ticking values with identical aesthetics to the web-app, while hiding unnecessary controls ("extra faltu ka kuchh").
+- **Files Modified**:
+  - `desktop-app/src/hooks/useTimer.ts`
+  - `desktop-app/preload.js`
+  - `desktop-app/electron.js`
+  - `desktop-app/src/pages/PipStandalonePage.tsx`
+  - `desktop-app/src/components/timer/FloatingTimer.tsx`
+  - `rule/fixed.md`
+
 ### 1. [2026-08-03 15:26] Fixed Native PiP Launch Failure in Desktop App (Electron)
 - **User Request**: "fir se kam nahi kr raha hain open floting window dimag kharab ho gaya"
 - **Root Cause & Fix (Strict Rule 6 - `desktop-app` ONLY)**:

@@ -37,6 +37,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   "restart-and-install-update",
   // PiP Window
   "open-pip-window",
+  "sync-timer-state",
 ];
 
 const ALLOWED_LISTEN_CHANNELS = [
@@ -45,6 +46,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   "toast-message",
   "update-status-event",
   "pip-window-closed",
+  "timer-state-updated",
 ];
 
 contextBridge.exposeInMainWorld("electron", {
