@@ -76,7 +76,7 @@ export function App() {
         const state = useAppStore.getState();
         const currentTimer = state.timer;
         const activeSession = state.sessions.find(s => s.id === currentTimer.activeSessionId);
-        const subjectName = state.subjects.find(s => s.id === activeSession?.subjectId)?.name || "Study Focus";
+        const subjectName = state.subjects.find(s => s.id === activeSession?.subjectId)?.name || (activeSession as any)?.title || (activeSession as any)?.subjectName || "Focus Session";
         const now = Date.now();
         const elapsed = state.getActiveElapsed(now);
         const plannedSeconds = (activeSession?.plannedMinutes ?? 0) * 60;

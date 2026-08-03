@@ -120,7 +120,7 @@ export function useTimer() {
 
       if (typeof window !== "undefined" && (window as any).electron) {
         const activeSession = state.sessions.find(s => s.id === currentTimer.activeSessionId);
-        const subjectName = state.subjects.find(s => s.id === activeSession?.subjectId)?.name || "Study Focus";
+        const subjectName = state.subjects.find(s => s.id === activeSession?.subjectId)?.name || (activeSession as any)?.title || (activeSession as any)?.subjectName || "Focus Session";
         const elapsed = state.getActiveElapsed(now);
         const plannedSeconds = (activeSession?.plannedMinutes ?? 0) * 60;
         const remaining = Math.max(0, plannedSeconds - elapsed);
