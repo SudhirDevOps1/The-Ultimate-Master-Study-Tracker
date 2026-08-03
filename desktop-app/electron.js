@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog, shell, protocol, net, session } = require("electron");
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog, shell, protocol, net, session, powerMonitor } = require("electron");
 
 // Enable Document Picture-in-Picture API & experimental web features in Electron Chromium engine
 app.commandLine.appendSwitch("enable-experimental-web-platform-features");
@@ -306,11 +306,15 @@ function getForegroundWindow() {
 }
 
 // ── Native System Idle Time (Lightweight Memory-Safe Call) ────────────────────
-// Using standard C# tracker exe integration if possible, fallback to 0. No expensive PowerShell processes.
+// Using Electron's native powerMonitor (100% accurate, zero CPU usage, no external scripts)
 function getSystemIdleMs() {
   return new Promise((resolve) => {
-    if (!fs.existsSync(trackerExePath)) return resolve(0);
-    resolve(0); 
+    try {
+      const idleTimeSeconds = powerMonitor.getSystemIdleTime();
+      resolve(idleTimeSeconds * 1000);
+    } catch (e) {
+      resolve(0);
+    }
   });
 }
 
@@ -367,14 +371,20 @@ function startActivityTracker() {
           blockCooldowns[exeName] = now;
 
           if (rule.strictLevel === "hard") {
-            // HARD: Terminate process immediately using taskkill with .exe extension
-            exec(`taskkill /F /IM "${exeName}" /T`, () => {});
+            // HARD: Terminate process immediately using taskkill with .exe extension (execFile prevents injection)
+            execFile("taskkill", ["/F", "/IM", exeName, "/T"], () => {});
             if (mainWindow) {
               mainWindow.webContents.send("toast-message", { message: `🛡️ Hard Blocked: Terminated ${appDisplayName}!` });
             }
           } else if (rule.strictLevel === "medium") {
             // MEDIUM: Close main window & restore FlowTrack Pro window to focus
-            exec(`powershell -NoProfile -Command "(Get-Process -Name '${cleanActive}' -ErrorAction SilentlyContinue) | ForEach-Object { $_.CloseMainWindow() }"`, () => {
+            const safeCleanActive = cleanActive.replace(/'/g, "''"); // escape for PowerShell
+            execFile("powershell.exe", [
+              "-NoProfile", 
+              "-NonInteractive",
+              "-Command", 
+              `(Get-Process -Name '${safeCleanActive}' -ErrorAction SilentlyContinue) | ForEach-Object { $_.CloseMainWindow() }`
+            ], () => {
               if (mainWindow) {
                 mainWindow.show();
                 mainWindow.focus();
