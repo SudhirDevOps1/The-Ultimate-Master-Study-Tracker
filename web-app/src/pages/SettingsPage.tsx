@@ -483,7 +483,15 @@ export function SettingsPage() {
                       try {
                         Object.entries(payload.wellbeingData).forEach(([key, value]) => {
                           localStorage.setItem(key, JSON.stringify(value));
+                          if (key === "app_block_rules" && Array.isArray(value)) {
+                            const win = window as any;
+                            const ipc = win.electron?.ipcRenderer || (win.electron?.invoke ? win.electron : null);
+                            if (ipc) {
+                              void ipc.invoke("save-block-rules", { rules: value, globalEnabled: true });
+                            }
+                          }
                         });
+                        window.dispatchEvent(new Event("app_block_rules_updated"));
                       } catch (err) {
                         console.error("Error importing wellbeing data", err);
                       }

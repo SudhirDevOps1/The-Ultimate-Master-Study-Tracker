@@ -814,9 +814,20 @@ ipcMain.handle("get-running-apps", async () => {
             const status = matches[5].replace(/"/g, "").trim();
             const title = matches[8].replace(/"/g, "").trim();
 
-            if (!proc || status !== "Running") continue;
-            if (title === "N/A" || title === "OleMainThreadWndName" || title === "CiceroUIWndFrame" || title === "QTrayIconMessageWindow" || title === "ApMsgFwdWindow") continue;
-            if (isSelf(proc, title) || proc.toLowerCase() === "explorer.exe" || proc.toLowerCase() === "svchost.exe" || proc.toLowerCase() === "conhost.exe" || proc.toLowerCase() === "tasklist.exe") continue;
+            if (!proc) continue;
+
+            const systemExes = [
+              "explorer.exe", "svchost.exe", "conhost.exe", "tasklist.exe",
+              "dwm.exe", "fontdrvhost.exe", "winlogon.exe", "csrss.exe", 
+              "lsass.exe", "services.exe", "smss.exe", "spoolsv.exe", 
+              "sihost.exe", "ctfmon.exe", "searchhost.exe", "startmenuexperiencehost.exe", 
+              "runtimebroker.exe", "systemsettingsbroker.exe", "textinputhost.exe", 
+              "cmd.exe", "powershell.exe", "pwsh.exe", "wmiprvse.exe", "audiodg.exe"
+            ];
+
+            if (systemExes.includes(proc.toLowerCase())) continue;
+            if (isSelf(proc, title)) continue;
+            if (title === "OleMainThreadWndName" || title === "CiceroUIWndFrame" || title === "QTrayIconMessageWindow" || title === "ApMsgFwdWindow") continue;
 
             const cleanName = normalizeAppName(proc) || proc.replace(/\.exe$/i, "");
             if (!appsMap.has(proc.toLowerCase())) {

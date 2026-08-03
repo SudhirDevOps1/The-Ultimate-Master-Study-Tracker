@@ -82,7 +82,26 @@ export function AppBlockingPanel() {
   useEffect(() => {
     void loadRules();
     void fetchApps();
+
+    const handleUpdate = () => {
+      void loadRules();
+    };
+
+    window.addEventListener("app_block_rules_updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    return () => {
+      window.removeEventListener("app_block_rules_updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
   }, [isBackendConnected]);
+
+  useEffect(() => {
+    if (runningApps.length > 0) {
+      setActiveTab("running");
+    } else if (installedApps.length > 0) {
+      setActiveTab("installed");
+    }
+  }, [runningApps.length, installedApps.length]);
 
   const saveRulesToLocalAndBackend = async (updatedRules: AppBlockRule[], newGlobalEnabled?: boolean) => {
     const isGlobal = typeof newGlobalEnabled === "boolean" ? newGlobalEnabled : globalEnabled;

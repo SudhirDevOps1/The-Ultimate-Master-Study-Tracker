@@ -7,6 +7,9 @@ export interface BackupPayload {
   sessions: StudySession[];
   settings?: { key: string; value: string }[];
   activities?: any[];
+  wellbeingData?: {
+    app_block_rules?: any[];
+  };
 }
 
 export function exportData(payload: BackupPayload): void {
@@ -29,6 +32,18 @@ export function exportData(payload: BackupPayload): void {
       }
       return setting;
     });
+  }
+
+  // Include app_block_rules from localStorage if present
+  try {
+    const storedBlockRules = localStorage.getItem("app_block_rules");
+    if (storedBlockRules) {
+      cleanedPayload.wellbeingData = {
+        app_block_rules: JSON.parse(storedBlockRules)
+      };
+    }
+  } catch (e) {
+    console.error("Failed to append app_block_rules to export:", e);
   }
 
   const blob = new Blob([JSON.stringify(cleanedPayload, null, 2)], { type: "application/json" });
@@ -107,6 +122,25 @@ export async function importBackup(file: File): Promise<BackupPayload> {
 
       return true;
     });
+  }
+
+  // Import wellbeingData app_block_rules if present in backup file
+  if (parsed.wellbeingData && Array.isArray(parsed.wellbeingData.app_block_rules)) {
+    const validRules = parsed.wellbeingData.app_block_rules.filter((rule: any) => {
+      return rule && typeof rule === "object" && rule.appName;
+    });
+    
+    if (validRules.length > 0) {
+      localStorage.setItem("app_block_rules", JSON.stringify(validRules));
+      if (typeof window !== "undefined") {
+        const win = window as any;
+        const ipc = win.electron?.ipcRenderer || (win.electron?.invoke ? win.electron : null);
+        if (ipc) {
+          void ipc.invoke("save-block-rules", { rules: validRules, globalEnabled: true });
+        }
+        window.dispatchEvent(new Event("app_block_rules_updated"));
+      }
+    }
   }
 
   // Ensure standard fields exist. If missing, initialize them to prevent UI crashes.
