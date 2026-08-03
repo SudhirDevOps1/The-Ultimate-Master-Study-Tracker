@@ -218,6 +218,21 @@ export function WebPortalsPage() {
     }
   }, [activeUrl, isElectron]);
 
+  // Handle IPC block event
+  useEffect(() => {
+    if (!isElectron) return;
+    const handleBlocked = (_e: any, _target: string) => {
+      setActiveUrl(null);
+      setIsFullscreen(false);
+    };
+    (window as any).electron?.ipcRenderer?.on("webview-blocked", handleBlocked);
+    return () => {
+      if ((window as any).electron?.ipcRenderer?.removeListener) {
+        (window as any).electron.ipcRenderer.removeListener("webview-blocked", handleBlocked);
+      }
+    };
+  }, [isElectron]);
+
   // ── Find matching credentials for currently active URL ──────────────────
   const activeDomain = useMemo(() => {
     if (!activeUrl) return "";
@@ -497,14 +512,17 @@ export function WebPortalsPage() {
       )} {/* end !isFullscreen header */}
 
       {/* ── Two-column layout: Portal Grid + Browser ── */}
-      <div className={`gap-4 ${isFullscreen ? "flex flex-col flex-1 min-h-0" : "grid grid-cols-1 lg:grid-cols-[320px_1fr]"}`}>
+      <div 
+        className={`gap-4 ${isFullscreen ? "flex flex-col flex-1 min-h-0" : "grid grid-cols-1 lg:grid-cols-[320px_1fr]"}`}
+        style={isFullscreen ? {} : { height: "calc(100vh - 180px)" }}
+      >
 
         {/* ── Left: Portal Cards Grid — hidden in fullscreen ── */}
         {!isFullscreen && (
         <motion.div
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
-          className="glass rounded-3xl p-4 space-y-4 max-h-[80vh] overflow-y-auto custom-scrollbar"
+          className="glass rounded-3xl p-4 space-y-4 h-full overflow-y-auto custom-scrollbar"
         >
           {categories.map(cat => (
             <div key={cat}>
@@ -567,8 +585,7 @@ export function WebPortalsPage() {
         <motion.div
           initial={{ opacity: 0, x: 10 }}
           animate={{ opacity: 1, x: 0 }}
-          className={`glass rounded-3xl overflow-hidden flex flex-col ${isFullscreen ? "flex-1 min-h-0" : ""}`}
-          style={isFullscreen ? {} : { minHeight: "80vh" }}
+          className={`glass rounded-3xl overflow-hidden flex flex-col ${isFullscreen ? "flex-1 min-h-0" : "h-full"}`}
         >
           {/* Browser Chrome / Navigation Bar */}
           <div className="flex items-center gap-2 px-4 py-3 border-b border-white/8 bg-slate-900/60 flex-wrap gap-y-2">

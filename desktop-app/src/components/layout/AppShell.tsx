@@ -1,5 +1,4 @@
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
-import { PipOverlayWidget } from "../common/PipOverlayWidget";
 import { motion } from "framer-motion";
 import { cn } from "@/utils/cn";
 import { useAppStore, type AppState } from "@/store/useAppStore";
@@ -43,6 +42,7 @@ const links = [
 
   // 3. Tracking & Performance
   { to: "/app-tracking", label: "App Tracking", Icon: Monitor },
+  { to: "/blocker", label: "App & Web Blocker", Icon: ShieldCheck },
   { to: "/analytics", label: "Analytics", Icon: BarChart2 },
   { to: "/achievements", label: "Achievements", Icon: Award },
   { to: "/history", label: "History", Icon: HistoryIcon },
@@ -113,40 +113,6 @@ export function AppShell() {
               </p>
             </div>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              <PipOverlayWidget />
-              {!(typeof window !== "undefined" && (window as any).electron) && (
-                <a 
-                  href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-500 to-indigo-600 border border-purple-400/40 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-purple-500/25 hover:scale-[1.03] transition-all duration-200 active:scale-95"
-                  title="Download FlowTrack Pro Desktop App (.exe / mac / linux)"
-                >
-                  <Monitor className="w-4 h-4 text-cyan-300" />
-                  <span>💻 Download Desktop App</span>
-                </a>
-              )}
-
-              <a 
-                href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-white/10 hover:text-white transition-all duration-200 active:scale-95 shadow-md"
-                title="View GitHub Repository"
-              >
-                <Github className="w-4 h-4" />
-                <span className="hidden md:inline">GitHub</span>
-              </a>
-              <a 
-                href="https://the-ultimate-master-study-tracker.vercel.app/" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-white/10 hover:text-white transition-all duration-200 active:scale-95 shadow-md"
-                title="View Live Web App"
-              >
-                <Globe className="w-4 h-4" />
-                <span className="hidden md:inline">Live Web</span>
-              </a>
               {useAppStore.getState().timer?.activeSessionId && !useAppStore.getState().timer?.isPaused && (
                 <div className="flex items-center gap-1.5 rounded-2xl bg-rose-500/20 border border-rose-500/40 px-3 py-2 text-xs font-black text-rose-300 animate-pulse shadow-lg shadow-rose-500/20">
                   <ShieldCheck className="w-4 h-4 text-rose-400" />

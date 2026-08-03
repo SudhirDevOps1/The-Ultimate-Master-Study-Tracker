@@ -9,7 +9,9 @@ export interface BackupPayload {
   activities?: any[];
   wellbeingData?: {
     app_block_rules?: any[];
+    [key: string]: any;
   };
+  localStorageData?: Record<string, string>;
 }
 
 export function exportData(payload: BackupPayload): void {
@@ -124,7 +126,7 @@ export async function importBackup(file: File): Promise<BackupPayload> {
     });
   }
 
-  // Import wellbeingData app_block_rules if present in backup file
+  // Import wellbeingData app_block_rules if present in backup file (Legacy support)
   if (parsed.wellbeingData && Array.isArray(parsed.wellbeingData.app_block_rules)) {
     const validRules = parsed.wellbeingData.app_block_rules.filter((rule: any) => {
       return rule && typeof rule === "object" && rule.appName;
@@ -141,6 +143,29 @@ export async function importBackup(file: File): Promise<BackupPayload> {
         window.dispatchEvent(new Event("app_block_rules_updated"));
       }
     }
+  }
+
+  // Import all raw localStorage data
+  if (parsed.localStorageData) {
+    Object.entries(parsed.localStorageData).forEach(([key, value]) => {
+      if (typeof value === "string") {
+        localStorage.setItem(key, value);
+        // Special case for app_block_rules if it was in localStorageData
+        if (key === "app_block_rules") {
+          try {
+            const rules = JSON.parse(value);
+            if (Array.isArray(rules) && typeof window !== "undefined") {
+              const win = window as any;
+              const ipc = win.electron?.ipcRenderer || (win.electron?.invoke ? win.electron : null);
+              if (ipc) {
+                void ipc.invoke("save-block-rules", { rules, globalEnabled: true });
+              }
+              window.dispatchEvent(new Event("app_block_rules_updated"));
+            }
+          } catch(e) {}
+        }
+      }
+    });
   }
 
   // Ensure standard fields exist. If missing, initialize them to prevent UI crashes.

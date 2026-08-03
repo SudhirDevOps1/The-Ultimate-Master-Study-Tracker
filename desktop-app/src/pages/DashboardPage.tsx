@@ -950,14 +950,14 @@ function WelcomeChangelogModal() {
 
   useEffect(() => {
     // Show only once per major release version update
-    const seenVersion = localStorage.getItem("flowtrack_changelog_v7.4.1");
+    const seenVersion = localStorage.getItem("flowtrack_changelog_v7.5.0");
     if (!seenVersion) {
       setIsOpen(true);
     }
   }, []);
 
   const handleClose = () => {
-    localStorage.setItem("flowtrack_changelog_v7.4.1", "true");
+    localStorage.setItem("flowtrack_changelog_v7.5.0", "true");
     setIsOpen(false);
   };
 
@@ -973,10 +973,10 @@ function WelcomeChangelogModal() {
           >
             <div className="space-y-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">
-                🚀 Shipped: v7.4.1
+                🚀 Shipped: v7.5.0
               </span>
               <h3 className="text-2xl font-black text-white">
-                What&apos;s New in FlowTrack Pro v7.4.1!
+                What&apos;s New in FlowTrack Pro v7.5.0!
               </h3>
               <p className="text-xs text-slate-400">
                 Explore the latest premium features and security updates added to your tracker.

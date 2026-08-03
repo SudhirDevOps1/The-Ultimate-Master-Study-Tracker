@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Shield, ShieldAlert, Plus, Trash2, Check, RefreshCw, Monitor, Laptop, Search, AppWindow } from "lucide-react";
+import { Shield, ShieldAlert, Plus, Trash2, Check, RefreshCw, Monitor, Laptop, Search, AppWindow, Globe } from "lucide-react";
 import { Panel } from "@/components/common/Panel";
 import { useAppStore, type AppState } from "@/store/useAppStore";
 import type { AppBlockRule, BlockStrictLevel } from "@/types/models";
@@ -18,14 +18,15 @@ export function AppBlockingPanel() {
   const [rules, setRules] = useState<AppBlockRule[]>([]);
   const [globalEnabled, setGlobalEnabled] = useState(true);
   const [newAppName, setNewAppName] = useState("");
-  const [strictLevel, setStrictLevel] = useState<BlockStrictLevel>("medium");
+  const [newRuleType, setNewRuleType] = useState<"app" | "website">("app");
+  const [strictLevel, setStrictLevel] = useState<BlockStrictLevel>("hard");
   const [schedule, setSchedule] = useState<"always" | "study_hours">("study_hours");
   const [loading, setLoading] = useState(false);
 
   // Apps state: Running Apps vs Installed PC Software (Control Panel)
   const [runningApps, setRunningApps] = useState<RunningApp[]>([]);
   const [installedApps, setInstalledApps] = useState<RunningApp[]>([]);
-  const [activeTab, setActiveTab] = useState<"running" | "installed">("running");
+  const [activeTab, setActiveTab] = useState<"running" | "installed" | "websites">("running");
   const [searchFilter, setSearchFilter] = useState("");
   const [scanningApps, setScanningApps] = useState(false);
 
@@ -115,7 +116,7 @@ export function AppBlockingPanel() {
     }
   };
 
-  const addRule = async (nameToAdd?: string) => {
+  const addRule = async (nameToAdd?: string, ruleTypeOverride?: "app" | "website") => {
     const targetName = (nameToAdd || newAppName).trim();
     if (!targetName) return;
 
@@ -128,6 +129,7 @@ export function AppBlockingPanel() {
     const newRule: AppBlockRule = {
       id: crypto.randomUUID(),
       appName: targetName,
+      ruleType: ruleTypeOverride || newRuleType,
       blocked: true,
       strictLevel,
       schedule,
@@ -137,6 +139,7 @@ export function AppBlockingPanel() {
     const nextRules = [...rules, newRule];
     await saveRulesToLocalAndBackend(nextRules);
     setNewAppName("");
+    setNewRuleType("app");
   };
 
   const toggleRuleBlocked = async (id: string) => {
@@ -149,10 +152,31 @@ export function AppBlockingPanel() {
     await saveRulesToLocalAndBackend(nextRules);
   };
 
+  const POPULAR_WEBSITES = [
+    { name: "YouTube", domain: "youtube.com", icon: "▶️" },
+    { name: "Instagram", domain: "instagram.com", icon: "📸" },
+    { name: "Facebook", domain: "facebook.com", icon: "📘" },
+    { name: "Netflix", domain: "netflix.com", icon: "🍿" },
+    { name: "Twitter / X", domain: "twitter.com", icon: "🐦" },
+    { name: "Reddit", domain: "reddit.com", icon: "🤖" },
+    { name: "TikTok", domain: "tiktok.com", icon: "🎵" },
+    { name: "Twitch", domain: "twitch.tv", icon: "🎮" },
+    { name: "Discord Web", domain: "discord.com", icon: "💬" },
+    { name: "WhatsApp Web", domain: "web.whatsapp.com", icon: "📱" },
+    { name: "Pinterest", domain: "pinterest.com", icon: "📌" },
+    { name: "Amazon", domain: "amazon.com", icon: "🛒" }
+  ];
+
   const displayedAppsList = (activeTab === "running" ? runningApps : installedApps).filter(a => {
     if (!searchFilter.trim()) return true;
     const q = searchFilter.toLowerCase().trim();
     return a.appName.toLowerCase().includes(q) || a.processName.toLowerCase().includes(q);
+  });
+
+  const displayedWebsitesList = POPULAR_WEBSITES.filter(w => {
+    if (!searchFilter.trim()) return true;
+    const q = searchFilter.toLowerCase().trim();
+    return w.name.toLowerCase().includes(q) || w.domain.toLowerCase().includes(q);
   });
 
   return (
@@ -219,6 +243,18 @@ export function AppBlockingPanel() {
                 <AppWindow className="w-3.5 h-3.5" />
                 <span>Installed PC Apps ({installedApps.length})</span>
               </button>
+
+              <button
+                onClick={() => setActiveTab("websites")}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold transition-all ${
+                  activeTab === "websites"
+                    ? "bg-cyan-500 text-slate-950 shadow-md"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <Globe className="w-3.5 h-3.5" />
+                <span>Popular Websites</span>
+              </button>
             </div>
 
             {/* Search Filter & Refresh */}
@@ -246,46 +282,88 @@ export function AppBlockingPanel() {
           </div>
 
           {/* Running / Installed apps list picker */}
-          {displayedAppsList.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[170px] overflow-y-auto pr-1 pretty-scrollbar">
-              {displayedAppsList.map((app) => {
-                const isAlreadyBlocked = rules.some(r => r.appName.toLowerCase() === app.processName.toLowerCase() || r.appName.toLowerCase() === app.appName.toLowerCase());
-                return (
-                  <div
-                    key={app.processName + app.appName}
-                    className={`flex items-center justify-between gap-2 p-2 rounded-lg border transition-colors ${
-                      isAlreadyBlocked ? "border-rose-500/20 bg-rose-500/5 opacity-60" : "border-white/5 bg-white/[0.02] hover:border-cyan-500/30"
-                    }`}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold text-white truncate">{app.appName}</p>
-                      <p className="text-[10px] text-slate-400 truncate">{app.processName}</p>
+          {activeTab !== "websites" ? (
+            displayedAppsList.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[170px] overflow-y-auto pr-1 pretty-scrollbar">
+                {displayedAppsList.map((app) => {
+                  const isAlreadyBlocked = rules.some(r => r.appName.toLowerCase() === app.processName.toLowerCase() || r.appName.toLowerCase() === app.appName.toLowerCase());
+                  return (
+                    <div
+                      key={app.processName + app.appName}
+                      className={`flex items-center justify-between gap-2 p-2 rounded-lg border transition-colors ${
+                        isAlreadyBlocked ? "border-rose-500/20 bg-rose-500/5 opacity-60" : "border-white/5 bg-white/[0.02] hover:border-cyan-500/30"
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-white truncate">{app.appName}</p>
+                        <p className="text-[10px] text-slate-400 truncate">{app.processName}</p>
+                      </div>
+                      {isAlreadyBlocked ? (
+                        <span className="text-[10px] font-bold text-rose-400 shrink-0 flex items-center gap-0.5">
+                          <Check className="w-3 h-3" /> Blocked
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => void addRule(app.processName, "app")}
+                          className="flex items-center gap-1 rounded-md bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 px-2 py-1 text-[10px] font-bold text-cyan-300 transition-all shrink-0 active:scale-95"
+                        >
+                          <Plus className="w-3 h-3" /> Block
+                        </button>
+                      )}
                     </div>
-                    {isAlreadyBlocked ? (
-                      <span className="text-[10px] font-bold text-rose-400 shrink-0 flex items-center gap-0.5">
-                        <Check className="w-3 h-3" /> Blocked
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => void addRule(app.processName)}
-                        className="flex items-center gap-1 rounded-md bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 px-2 py-1 text-[10px] font-bold text-cyan-300 transition-all shrink-0 active:scale-95"
-                      >
-                        <Plus className="w-3 h-3" /> Block
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-[11px] text-slate-500 italic py-3 text-center">
+                {scanningApps ? "Scanning PC software and running applications..." : "No apps found matching your search filter."}
+              </p>
+            )
           ) : (
-            <p className="text-[11px] text-slate-500 italic py-3 text-center">
-              {scanningApps ? "Scanning PC software and running applications..." : "No apps found matching your search filter."}
-            </p>
+            displayedWebsitesList.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[170px] overflow-y-auto pr-1 pretty-scrollbar">
+                {displayedWebsitesList.map((site) => {
+                  const isAlreadyBlocked = rules.some(r => r.appName.toLowerCase() === site.domain.toLowerCase());
+                  return (
+                    <div
+                      key={site.domain}
+                      className={`flex items-center justify-between gap-2 p-2 rounded-lg border transition-colors ${
+                        isAlreadyBlocked ? "border-rose-500/20 bg-rose-500/5 opacity-60" : "border-white/5 bg-white/[0.02] hover:border-cyan-500/30"
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1 flex items-center gap-2">
+                        <span className="text-lg">{site.icon}</span>
+                        <div>
+                          <p className="text-xs font-bold text-white truncate">{site.name}</p>
+                          <p className="text-[10px] text-slate-400 truncate">{site.domain}</p>
+                        </div>
+                      </div>
+                      {isAlreadyBlocked ? (
+                        <span className="text-[10px] font-bold text-rose-400 shrink-0 flex items-center gap-0.5">
+                          <Check className="w-3 h-3" /> Blocked
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => void addRule(site.domain, "website")}
+                          className="flex items-center gap-1 rounded-md bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 px-2 py-1 text-[10px] font-bold text-cyan-300 transition-all shrink-0 active:scale-95"
+                        >
+                          <Plus className="w-3 h-3" /> Block
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-[11px] text-slate-500 italic py-3 text-center">
+                No websites found matching your search filter.
+              </p>
+            )
           )}
         </div>
 
         {/* Add custom rule form */}
-        <div className="grid gap-3 sm:grid-cols-4 items-end bg-white/[0.02] border border-white/5 p-3 rounded-xl">
+        <div className="grid gap-3 sm:grid-cols-5 items-end bg-white/[0.02] border border-white/5 p-3 rounded-xl">
           <div className="space-y-1 sm:col-span-2">
             <label className="block text-[10px] uppercase font-bold text-slate-400">Process / App Name</label>
             <div className="flex gap-2">
@@ -328,6 +406,17 @@ export function AppBlockingPanel() {
             </div>
           </div>
           <div className="space-y-1">
+            <label className="block text-[10px] uppercase font-bold text-slate-400">Rule Type</label>
+            <select
+              value={newRuleType}
+              onChange={(e) => setNewRuleType(e.target.value as "app" | "website")}
+              className="w-full rounded-lg border border-white/10 bg-slate-950 px-2 py-2 text-xs text-white focus:outline-none focus:border-cyan-400"
+            >
+              <option value="app">Desktop App</option>
+              <option value="website">Website / URL</option>
+            </select>
+          </div>
+          <div className="space-y-1">
             <label className="block text-[10px] uppercase font-bold text-slate-400">Strictness</label>
             <select
               value={strictLevel}
@@ -351,9 +440,11 @@ export function AppBlockingPanel() {
         {/* Blocking list */}
         <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 pretty-scrollbar">
           {rules.length === 0 ? (
-            <p className="text-xs text-slate-500 text-center py-6">No active application block rules defined.</p>
+            <p className="text-xs text-slate-500 text-center py-6">No active application or website block rules defined.</p>
           ) : (
-            rules.map((rule) => (
+            rules.map((rule) => {
+              const isWebsite = rule.ruleType === "website" || rule.appName.includes('.') || ["instagram", "facebook", "twitter", "netflix", "youtube", "reddit"].includes(rule.appName.toLowerCase());
+              return (
               <div
                 key={rule.id}
                 className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${
@@ -361,21 +452,35 @@ export function AppBlockingPanel() {
                 }`}
               >
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-white">{rule.appName}</p>
+                  <div className="flex items-center gap-1.5">
+                    {isWebsite ? <Globe className="w-3.5 h-3.5 text-cyan-400" /> : <AppWindow className="w-3.5 h-3.5 text-indigo-400" />}
+                    <p className="text-sm font-bold text-white truncate">{rule.appName}</p>
+                  </div>
                   <p className="text-[10px] text-slate-400 mt-0.5">
-                    Strictness: <span className="text-rose-400 font-bold capitalize">{rule.strictLevel}</span> • Active {rule.schedule.replace("_", " ")}
+                    Type: <span className="font-bold text-slate-300">{isWebsite ? "Website / URL" : "Desktop App"}</span> • Strictness: <span className="text-rose-400 font-bold capitalize">{rule.strictLevel}</span>
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     onClick={() => toggleRuleBlocked(rule.id)}
-                    className={`p-1.5 rounded-lg border transition-colors ${
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-colors ${
                       rule.blocked 
                         ? "bg-rose-500/20 border-rose-500/30 text-rose-300 hover:bg-rose-500/30"
-                        : "bg-white/5 border-white/10 text-slate-400 hover:bg-white/10"
+                        : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
                     }`}
+                    title={rule.blocked ? "Click to Unblock" : "Click to Block"}
                   >
-                    <Check className="w-4 h-4" />
+                    {rule.blocked ? (
+                      <>
+                        <ShieldAlert className="w-4 h-4" />
+                        <span className="text-xs font-bold">Blocked</span>
+                      </>
+                    ) : (
+                      <>
+                        <Shield className="w-4 h-4" />
+                        <span className="text-xs font-bold">Unblocked</span>
+                      </>
+                    )}
                   </button>
                   <button
                     onClick={() => deleteRule(rule.id)}
@@ -385,7 +490,8 @@ export function AppBlockingPanel() {
                   </button>
                 </div>
               </div>
-            ))
+              );
+            })
           )}
         </div>
       </Panel>

@@ -465,15 +465,17 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction, isP
       </div>
 
       {/* 🌐 In-App Desktop Chromium Webview & Course Portal Navigation Bar */}
-      <div className="mb-3 flex items-center gap-2 p-2 rounded-xl bg-slate-900/90 border border-cyan-500/20 flex-wrap">
-        <div className="flex items-center gap-1.5 shrink-0">
-          <Globe className="w-4 h-4 text-cyan-400" />
-          <span className="text-xs font-bold text-white hidden sm:inline">Webview Engine:</span>
+      <div className="mb-4 flex items-center gap-3 p-3 rounded-2xl bg-slate-900/60 border border-white/10 shadow-lg backdrop-blur-md flex-wrap">
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="h-8 w-8 rounded-full bg-cyan-500/20 flex items-center justify-center border border-cyan-500/30">
+            <Globe className="w-4 h-4 text-cyan-400" />
+          </div>
+          <span className="text-xs font-bold text-slate-300 hidden sm:inline">Load URL:</span>
         </div>
 
         <input
           type="text"
-          placeholder="Paste course link e.g. www.apnacollege.in or YouTube link..."
+          placeholder="Paste course link e.g. youtube.com/watch?v=..."
           value={activeInputUrl}
           onChange={(e) => setActiveInputUrl(e.target.value)}
           onKeyDown={(e) => {
@@ -481,26 +483,16 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction, isP
               loadCustomWebUrl(activeInputUrl.trim());
             }
           }}
-          className="flex-1 min-w-[200px] px-3 py-1.5 text-xs rounded-lg bg-slate-950 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400"
+          className="flex-1 min-w-[200px] px-4 py-2 text-xs rounded-xl bg-slate-950 border border-white/5 text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all"
         />
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => activeInputUrl.trim() && loadCustomWebUrl(activeInputUrl.trim())}
-            className="px-3 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-r from-cyan-500 to-indigo-500 text-white hover:opacity-95 shadow-md active:scale-95 transition-all"
+            className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 text-white shadow-lg shadow-cyan-500/20 hover:opacity-90 active:scale-95 transition-all"
           >
-            ▶️ Load Site / Video
-          </button>
-
-          {/* Quick Preset Button */}
-          <button
-            type="button"
-            onClick={() => loadCustomWebUrl("https://www.apnacollege.in")}
-            className="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:text-cyan-300 hover:bg-white/10 transition-all"
-            title="Load Apna College Portal"
-          >
-            Apna College
+            <Play className="w-3 h-3 fill-current" /> Play
           </button>
         </div>
       </div>
@@ -657,22 +649,28 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction, isP
           )}
 
           {mediaType === "video" && localSourceUrl && (
-            <video
-              ref={videoRef}
-              key={localSourceUrl}
-              src={localSourceUrl}
-              className="h-full w-full object-contain"
-              controls
-              autoPlay
-              onEnded={handleNextTrack}
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
-            />
+            <div className="h-full w-full relative group">
+              <video
+                ref={videoRef}
+                key={localSourceUrl}
+                src={localSourceUrl}
+                className="h-full w-full object-contain bg-black"
+                controls
+                autoPlay
+                onEnded={handleNextTrack}
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+              />
+              <div className="absolute inset-0 pointer-events-none rounded-xl border border-white/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]"></div>
+            </div>
           )}
 
           {/* Premium Audio Player with Dynamic Equalizer Visualizer */}
           {mediaType === "audio" && localSourceUrl && (
-            <div className="flex flex-col items-center justify-center h-full p-6 bg-slate-950 relative overflow-hidden">
+            <div className="flex flex-col items-center justify-center h-full p-8 bg-slate-950 relative overflow-hidden rounded-xl border border-white/5">
+              {/* Background ambient glow based on playing state */}
+              <div className={`absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-indigo-500/5 transition-opacity duration-1000 ${isPlaying ? 'opacity-100' : 'opacity-0'}`}></div>
+              
               <audio
                 ref={audioRef}
                 key={localSourceUrl}
@@ -685,26 +683,36 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction, isP
               />
 
               {/* Vinyl Record Disc Animation */}
-              <div className="relative mb-4">
-                <div className={`w-28 h-28 rounded-full bg-gradient-to-tr from-slate-900 via-slate-800 to-slate-950 border-4 border-cyan-500/40 shadow-2xl flex items-center justify-center ${isPlaying ? 'animate-spin' : ''}`} style={{ animationDuration: '6s' }}>
-                  <Disc className="w-12 h-12 text-cyan-400" />
+              <div className="relative mb-6 z-10">
+                <div className={`w-32 h-32 rounded-full bg-gradient-to-tr from-slate-900 via-slate-800 to-slate-950 border-[6px] border-slate-800 shadow-2xl flex items-center justify-center relative overflow-hidden ${isPlaying ? 'animate-spin' : ''}`} style={{ animationDuration: '4s' }}>
+                  {/* Grooves */}
+                  <div className="absolute inset-2 rounded-full border border-white/5"></div>
+                  <div className="absolute inset-4 rounded-full border border-white/5"></div>
+                  <div className="absolute inset-6 rounded-full border border-white/5"></div>
+                  
+                  {/* Center Label */}
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center shadow-inner">
+                     <div className="w-2 h-2 rounded-full bg-slate-900"></div>
+                  </div>
                 </div>
                 {isPlaying && (
-                  <span className="absolute -top-1 -right-1 flex h-4 w-4">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-4 w-4 bg-cyan-500"></span>
-                  </span>
+                  <div className="absolute -bottom-2 -right-2 bg-slate-900 p-1.5 rounded-full border border-cyan-500/30">
+                    <span className="flex h-3 w-3 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
+                    </span>
+                  </div>
                 )}
               </div>
 
               {/* Dynamic Neon Audio Frequency Bar Visualizer */}
-              <div className="flex items-end gap-1.5 h-12 mb-4">
-                {[40, 75, 50, 90, 60, 100, 45, 80, 65, 95, 55, 85, 40, 70, 60, 90].map((h, idx) => (
+              <div className="flex items-end gap-1.5 h-12 mb-6 z-10 w-full max-w-[200px] justify-center">
+                {[40, 75, 50, 90, 60, 100, 45, 80, 65, 95, 55, 85].map((h, idx) => (
                   <div
                     key={idx}
-                    className={`w-1.5 rounded-full bg-gradient-to-t from-cyan-500 to-indigo-500 transition-all duration-300 ${isPlaying ? 'animate-pulse' : 'opacity-40'}`}
+                    className={`w-2 rounded-t-sm bg-gradient-to-t from-cyan-500 to-indigo-400 transition-all duration-300 ${isPlaying ? 'animate-pulse' : 'opacity-30'}`}
                     style={{
-                      height: isPlaying ? `${Math.max(20, (h * Math.random()) + 20)}%` : "20%",
+                      height: isPlaying ? `${Math.max(15, (h * Math.random()) + 15)}%` : "15%",
                       animationDelay: `${idx * 80}ms`
                     }}
                   />
@@ -712,10 +720,15 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction, isP
               </div>
 
               {/* Track Title */}
-              <p className="text-xs font-bold text-white truncate max-w-md flex items-center gap-1.5">
-                <Radio className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
-                <span>{playlist.length > 0 ? playlist[playlistIndex]?.name : url}</span>
-              </p>
+              <div className="z-10 text-center w-full px-4">
+                <p className="text-sm font-bold text-white truncate w-full flex items-center justify-center gap-2">
+                  <Radio className={`w-4 h-4 text-cyan-400 ${isPlaying ? 'animate-pulse' : ''}`} />
+                  <span className="truncate">{playlist.length > 0 ? playlist[playlistIndex]?.name : url}</span>
+                </p>
+                {playlist.length > 1 && (
+                   <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">Track {playlistIndex + 1} of {playlist.length}</p>
+                )}
+              </div>
             </div>
           )}
 

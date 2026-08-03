@@ -281,5 +281,6 @@ export interface AppBlockRule {
   customStartTime?: string; // HH:mm
   customEndTime?: string; // HH:mm
   category: string;
+  ruleType?: "app" | "website";
   createdAt: string;
 }

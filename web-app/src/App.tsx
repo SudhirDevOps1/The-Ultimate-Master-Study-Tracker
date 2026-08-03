@@ -18,6 +18,7 @@ import { GuidePage } from "@/pages/GuidePage";
 import { AIAssistantPage } from "@/pages/AIAssistantPage";
 import { TodayTasksPage } from "@/pages/TodayTasksPage";
 import { AppTrackingPage } from "@/pages/AppTrackingPage";
+import { AppBlockerPage } from "@/pages/AppBlockerPage";
 import { StudyNotesPage } from "@/pages/StudyNotesPage";
 import { StudyNotesBoardPage } from "@/pages/StudyNotesBoardPage";
 import { ExamCountdownPage } from "@/pages/ExamCountdownPage";
@@ -350,6 +351,20 @@ function AnimatedRoutes() {
                 className="w-full"
               >
                 <ExamCountdownPage />
+              </motion.div>
+            }
+          />
+          <Route
+            path="/blocker"
+            element={
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
+                className="w-full h-full"
+              >
+                <AppBlockerPage />
               </motion.div>
             }
           />

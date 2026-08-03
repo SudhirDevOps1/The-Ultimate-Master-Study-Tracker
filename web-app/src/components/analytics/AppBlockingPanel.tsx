@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Shield, ShieldAlert, Plus, Trash2 } from "lucide-react";
+import { Shield, ShieldAlert, Plus, Trash2, Globe, AppWindow } from "lucide-react";
 import { Panel } from "@/components/common/Panel";
 import { useAppStore, type AppState } from "@/store/useAppStore";
 import type { AppBlockRule, BlockStrictLevel } from "@/types/models";
@@ -11,7 +11,8 @@ export function AppBlockingPanel() {
   const [rules, setRules] = useState<AppBlockRule[]>([]);
   const [globalEnabled, setGlobalEnabled] = useState(true);
   const [newAppName, setNewAppName] = useState("");
-  const [strictLevel, setStrictLevel] = useState<BlockStrictLevel>("medium");
+  const [newRuleType, setNewRuleType] = useState<"app" | "website">("app");
+  const [strictLevel, setStrictLevel] = useState<BlockStrictLevel>("hard");
   const [schedule, setSchedule] = useState<"always" | "study_hours">("study_hours");
   const [loading, setLoading] = useState(false);
 
@@ -73,6 +74,7 @@ export function AppBlockingPanel() {
     const newRule: AppBlockRule = {
       id: crypto.randomUUID(),
       appName: newAppName.trim(),
+      ruleType: newRuleType,
       blocked: true,
       strictLevel,
       schedule,
@@ -82,6 +84,7 @@ export function AppBlockingPanel() {
     const nextRules = [...rules, newRule];
     await saveRulesToLocalAndBackend(nextRules);
     setNewAppName("");
+    setNewRuleType("app");
   };
 
   const toggleRuleBlocked = async (id: string) => {
@@ -131,16 +134,27 @@ export function AppBlockingPanel() {
         </div>
 
         {/* Add custom rule form */}
-        <div className="grid gap-3 sm:grid-cols-4 items-end bg-white/[0.02] border border-white/5 p-3 rounded-xl">
+        <div className="grid gap-3 sm:grid-cols-5 items-end bg-white/[0.02] border border-white/5 p-3 rounded-xl">
           <div className="space-y-1 sm:col-span-2">
-            <label className="block text-[10px] uppercase font-bold text-slate-400">Process/App Name</label>
+            <label className="block text-[10px] uppercase font-bold text-slate-400">Process / App / Website Name</label>
             <input
               type="text"
-              placeholder="e.g., discord.exe, Spotify, instagram"
+              placeholder="e.g., discord.exe, spotify, instagram, youtube"
               value={newAppName}
               onChange={(e) => setNewAppName(e.target.value)}
               className="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
             />
+          </div>
+          <div className="space-y-1">
+            <label className="block text-[10px] uppercase font-bold text-slate-400">Rule Type</label>
+            <select
+              value={newRuleType}
+              onChange={(e) => setNewRuleType(e.target.value as "app" | "website")}
+              className="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
+            >
+              <option value="app">Desktop App</option>
+              <option value="website">Website / URL</option>
+            </select>
           </div>
           <div className="space-y-1">
             <label className="block text-[10px] uppercase font-bold text-slate-400">Strictness</label>
@@ -165,9 +179,11 @@ export function AppBlockingPanel() {
         {/* Rules list */}
         <div className="space-y-2 pt-2">
           {rules.length === 0 ? (
-            <p className="text-xs text-slate-500 text-center py-6">No active application block rules defined.</p>
+            <p className="text-xs text-slate-500 text-center py-6">No active application or website block rules defined.</p>
           ) : (
-            rules.map((rule) => (
+            rules.map((rule) => {
+              const isWebsite = rule.appName.includes('.') || ["instagram", "facebook", "twitter", "netflix", "youtube", "reddit"].includes(rule.appName.toLowerCase());
+              return (
               <div
                 key={rule.id}
                 className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
@@ -176,7 +192,7 @@ export function AppBlockingPanel() {
               >
                 <div className="flex items-center gap-3">
                   <div className={`p-2 rounded-lg ${rule.blocked ? "bg-rose-500/20 text-rose-400" : "bg-slate-800 text-slate-500"}`}>
-                    <Shield className="w-4 h-4" />
+                    {isWebsite ? <Globe className="w-4 h-4" /> : <AppWindow className="w-4 h-4" />}
                   </div>
                   <div>
                     <p className="text-xs font-bold text-white">{rule.appName}</p>
@@ -191,11 +207,11 @@ export function AppBlockingPanel() {
                     onClick={() => toggleRuleBlocked(rule.id)}
                     className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
                       rule.blocked 
-                        ? "bg-rose-500/20 text-rose-300 border border-rose-500/30" 
-                        : "bg-slate-800 text-slate-400 border border-white/5"
+                        ? "bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30" 
+                        : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20"
                     }`}
                   >
-                    {rule.blocked ? "Blocked" : "Allowed"}
+                    {rule.blocked ? "Blocked" : "Unblocked"}
                   </button>
                   <button
                     onClick={() => deleteRule(rule.id)}
@@ -205,7 +221,8 @@ export function AppBlockingPanel() {
                   </button>
                 </div>
               </div>
-            ))
+              );
+            })
           )}
         </div>
       </Panel>

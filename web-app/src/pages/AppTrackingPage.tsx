@@ -7,7 +7,6 @@ import {
 } from "lucide-react";
 import { Panel } from "@/components/common/Panel";
 import { useAppStore } from "@/store/useAppStore";
-import { AppBlockingPanel } from "@/components/analytics/AppBlockingPanel";
 import { db } from "@/lib/db";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -300,7 +299,6 @@ export function AppTrackingPage() {
   const [liveApp, setLiveApp]           = useState<{ process: string; title: string } | null>(null);
   const [liveIdleMs, setLiveIdleMs]     = useState(0);
   const [loading, setLoading]           = useState(false);
-  const [showBlocker, setShowBlocker]   = useState(false);
   const [activeTab, setActiveTab]       = useState<"overview"|"timeline"|"websites"|"windows">("overview");
   const [exportStatus, setExportStatus] = useState<"idle"|"exporting"|"importing">("idle");
   const [weeklyOverview, setWeeklyOverview] = useState<{ date: string; seconds: number }[]>([]);
@@ -660,10 +658,7 @@ export function AppTrackingPage() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <button onClick={() => setShowBlocker(!showBlocker)}
-            className="flex items-center gap-1.5 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-500/20 transition-all">
-            <ShieldAlert className="w-4 h-4" /> {showBlocker ? "Tracking" : "App Blocker"}
-          </button>
+
 
           {/* Date navigation */}
           <div className="flex items-center gap-1 rounded-xl bg-slate-900 border border-white/10 px-1 py-1">
@@ -833,12 +828,7 @@ export function AppTrackingPage() {
       )}
 
       <AnimatePresence mode="wait">
-        {showBlocker ? (
-          <motion.div key="blocker" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }}>
-            <AppBlockingPanel />
-          </motion.div>
-        ) : (
-          <motion.div key="usage" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} className="space-y-5">
+        <motion.div key="usage" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} className="space-y-5">
 
             {/* ── Tabs ── */}
             <div className="flex gap-1 bg-slate-900/60 border border-white/10 rounded-2xl p-1 w-fit">
@@ -1031,8 +1021,7 @@ export function AppTrackingPage() {
                 </div>
               </Panel>
             )}
-          </motion.div>
-        )}
+        </motion.div>
       </AnimatePresence>
     </div>
   );

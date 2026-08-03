@@ -370,6 +370,41 @@ function startActivityTracker() {
           }
           blockCooldowns[exeName] = now;
 
+          // 🌐 SMART WEBSITE BLOCKER: If it's a browser and the match is only in the title (e.g. "Instagram - Google Chrome")
+          const isBrowser = ["chrome", "msedge", "firefox", "brave", "opera", "vivaldi", "safari"].some(b => cleanActive.includes(b));
+          const isInternalWebview = cleanActive === "web-portal-browser";
+          const isTitleMatchOnly = !cleanActive.includes(cleanTarget) && activeTitle.includes(cleanTarget);
+          const isExplicitWebsiteRule = rule.ruleType === "website";
+
+          if (isInternalWebview && (isTitleMatchOnly || isExplicitWebsiteRule)) {
+            // Block internal web portal by sending IPC to close it
+            if (mainWindow) {
+              mainWindow.webContents.send("webview-blocked", target);
+              mainWindow.webContents.send("toast-message", { message: `🚫 Website Blocked: Closed internal webview for '${target}'!` });
+            }
+            break;
+          }
+
+          if (isBrowser && (isTitleMatchOnly || isExplicitWebsiteRule)) {
+             // It's a website tab! Safely send Ctrl+W to close the active tab instead of killing the browser.
+             // Using a slight delay ensures the browser remains the active window when keys are sent.
+             execFile("powershell.exe", [
+               "-NoProfile", 
+               "-NonInteractive",
+               "-WindowStyle", "Hidden",
+               "-Command", 
+               `Start-Sleep -Milliseconds 50; $wshell = New-Object -ComObject wscript.shell; $wshell.SendKeys('^{w}')`
+             ], () => {
+               if (mainWindow) {
+                 mainWindow.showInactive();
+               }
+             });
+             if (mainWindow) {
+               mainWindow.webContents.send("toast-message", { message: `🚫 Website Blocked: Closed tab for '${target}'!` });
+             }
+             break;
+          }
+
           if (rule.strictLevel === "hard") {
             // HARD: Terminate process immediately using taskkill with .exe extension (execFile prevents injection)
             execFile("taskkill", ["/F", "/IM", exeName, "/T"], () => {});

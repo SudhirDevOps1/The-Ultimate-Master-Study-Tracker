@@ -441,12 +441,17 @@ export function SettingsPage() {
 
                 // Pack all Local Wellbeing & System App usage lists from localStorage
                 const localWellbeingData: Record<string, any> = {};
+                const allLocalStorageData: Record<string, string> = {};
                 try {
                   for (let i = 0; i < localStorage.length; i++) {
                     const key = localStorage.key(i);
-                    if (key && (key.startsWith("wellbeing_usage_") || key.startsWith("app_activity_") || key === "app_block_rules")) {
-                      const val = localStorage.getItem(key);
-                      if (val) localWellbeingData[key] = JSON.parse(val);
+                    if (key) {
+                      const val = localStorage.getItem(key) || "";
+                      allLocalStorageData[key] = val;
+                      
+                      if (key.startsWith("wellbeing_usage_") || key.startsWith("app_activity_") || key === "app_block_rules") {
+                        if (val) localWellbeingData[key] = JSON.parse(val);
+                      }
                     }
                   }
                 } catch (err) {
@@ -460,7 +465,8 @@ export function SettingsPage() {
                   sessions,
                   settings: settingsList,
                   activities: backendActivities,
-                  wellbeingData: localWellbeingData
+                  wellbeingData: localWellbeingData,
+                  localStorageData: allLocalStorageData
                 } as any);
                 showMessage("Backup exported successfully.");
               }}
@@ -478,8 +484,8 @@ export function SettingsPage() {
                 if (!file) return;
                 void importBackup(file).then((payload: any) => {
                   void importAll(payload.subjects, payload.sessions, payload.settings, (payload as any).activities).then(() => {
-                    // Restore Local Wellbeing, App Activity logs and App Blocking Rules
-                    if (payload.wellbeingData) {
+                    // Restore Local Wellbeing, App Activity logs and App Blocking Rules (Legacy support in case localStorageData is missing)
+                    if (payload.wellbeingData && !payload.localStorageData) {
                       try {
                         Object.entries(payload.wellbeingData).forEach(([key, value]) => {
                           localStorage.setItem(key, JSON.stringify(value));
@@ -736,7 +742,7 @@ export function SettingsPage() {
               <p className="text-xs text-slate-400">Subjects</p>
             </div>
             <div className="rounded-xl bg-white/5 px-4 py-2 text-center">
-              <p className="text-lg font-bold text-purple-400">v7.4.1</p>
+              <p className="text-lg font-bold text-purple-400">v7.5.0</p>
               <p className="text-xs text-slate-400">Version</p>
             </div>
           </div>
@@ -822,7 +828,7 @@ export function SettingsPage() {
 
 // ─── UpdateChecker Helper Component (electron-updater + GitHub Releases) ─────────
 function UpdateChecker({ showMessage }: { showMessage: (msg: string) => void }) {
-  const [currentVersion, setCurrentVersion] = useState("7.4.1");
+  const [currentVersion, setCurrentVersion] = useState("7.5.0");
   const [updateStatus, setUpdateStatus]     = useState<string>("idle"); // idle | checking | available | downloading | downloaded | error
   const [newVersion, setNewVersion]         = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState<number>(0);
