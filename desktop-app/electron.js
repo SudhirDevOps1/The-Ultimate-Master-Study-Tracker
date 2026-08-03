@@ -1,4 +1,9 @@
 const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog, shell, protocol, net, session } = require("electron");
+
+// Enable Document Picture-in-Picture API & experimental web features in Electron Chromium engine
+app.commandLine.appendSwitch("enable-experimental-web-platform-features");
+app.commandLine.appendSwitch("enable-features", "DocumentPictureInPictureAPI");
+
 const { autoUpdater } = require("electron-updater");
 const path = require("path");
 const fs   = require("fs");
@@ -969,14 +974,15 @@ ipcMain.handle("toggle-always-on-top", async (_e, { flag, compact }) => {
     desktopSettings.alwaysOnTop = isTop;
     if (typeof compact === "boolean") desktopSettings.compactFloating = compact;
     
-    // Fix: Use non-intrusive 'floating' level instead of aggressive 'screen-saver' to allow user interaction with underlying apps
-    mainWindow.setAlwaysOnTop(isTop, "floating", 1);
+    mainWindow.setAlwaysOnTop(isTop, "pop-up-menu");
 
     if (isTop && desktopSettings.compactFloating) {
       if (!normalWindowBounds) normalWindowBounds = mainWindow.getBounds();
+      mainWindow.setMinimumSize(360, 480);
       mainWindow.setSize(380, 580);
     } else if (!desktopSettings.compactFloating && normalWindowBounds) {
-      mainWindow.setBounds(normalWindowBounds);
+      mainWindow.setMinimumSize(800, 550);
+      if (normalWindowBounds) mainWindow.setBounds(normalWindowBounds);
       normalWindowBounds = null;
     }
 

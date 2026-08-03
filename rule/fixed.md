@@ -7,7 +7,18 @@
 
 ## 📌 Recent Modifications & Analysis Log
 
-### 1. [2026-08-03 13:46] Implemented Native Document Picture-in-Picture (PiP) Floating Widget Mode
+### 1. [2026-08-03 13:55] Fixed `📺 PiP Mode` Trigger Button Click & Enabled Native Electron/Chromium PiP Engine
+- **User Request**: "kaha ho raha hain timer wale ya app wale pip pr click krne pr" [with screenshot pointing to `📺 PiP Mode` button]
+- **Root Cause & Fix (Strict Rule 6 - `desktop-app` ONLY)**:
+  1. **Direct Electron IPC Execution**: Fixed `toggleDocumentPip` in `PipOverlayWidget.tsx` so when clicked in Electron desktop app, it directly invokes Electron native IPC `toggle-always-on-top` with `flag: true` and `compact: true`.
+  2. **Chromium Engine Flags Added**: Added `app.commandLine.appendSwitch("enable-experimental-web-platform-features")` and `app.commandLine.appendSwitch("enable-features", "DocumentPictureInPictureAPI")` to `electron.js`.
+  3. **Window Level & Sizing**: Updated `toggle-always-on-top` in `electron.js` to set window level `"pop-up-menu"` and set `setMinimumSize(360, 480)` before resizing to compact mini widget (`380x580`).
+- **Files Modified**:
+  - `desktop-app/src/components/common/PipOverlayWidget.tsx`
+  - `desktop-app/electron.js`
+  - `rule/fixed.md`
+
+### 2. [2026-08-03 13:46] Implemented Native Document Picture-in-Picture (PiP) Floating Widget Mode
 - **User Request**: "📌 Always-On-Top Floating Mode ... 📐 Compact PIP Widget Sizing (380x580) ... live web research ... HTMLVideoElement / DocumentPictureInPicture API ..."
 - **Features Implemented (Strict Rule 6 - `desktop-app` ONLY)**:
   1. **📺 Chromium Native Document Picture-in-Picture API (`documentPictureInPicture.requestWindow`)**:

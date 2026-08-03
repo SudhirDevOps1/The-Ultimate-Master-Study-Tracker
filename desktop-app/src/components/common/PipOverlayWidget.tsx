@@ -47,13 +47,24 @@ export const PipOverlayWidget: React.FC = () => {
   };
 
   const toggleDocumentPip = async () => {
+    // 1. If running inside Electron Desktop App: Use Electron Native Always-On-Top + Compact PIP Window Sizing!
+    if (typeof window !== "undefined" && (window as any).electron) {
+      const nextState = !isElectronPipActive;
+      setIsElectronPipActive(nextState);
+      (window as any).electron.ipcRenderer?.invoke?.("toggle-always-on-top", {
+        flag: nextState,
+        compact: nextState,
+      });
+      return;
+    }
+
+    // 2. If running in Web Browser: Use Document Picture-in-Picture API (Chrome 116+)
     if (pipWindow) {
       pipWindow.close();
       setPipWindow(null);
       return;
     }
 
-    // Check Document Picture-in-Picture API (Chrome 116+ / Electron 26+)
     if ("documentPictureInPicture" in window) {
       try {
         const pipWin = await (window as any).documentPictureInPicture.requestWindow({
@@ -68,20 +79,11 @@ export const PipOverlayWidget: React.FC = () => {
         });
 
         setPipWindow(pipWin);
-        return;
       } catch (err) {
         console.error("Document PiP request error:", err);
       }
-    }
-
-    // Fallback: Use Electron IPC native window PIP floating mode
-    if (typeof window !== "undefined" && (window as any).electron) {
-      const nextState = !isElectronPipActive;
-      setIsElectronPipActive(nextState);
-      (window as any).electron.ipcRenderer?.invoke?.("toggle-always-on-top", {
-        flag: nextState,
-        compact: nextState,
-      });
+    } else {
+      alert("Document Picture-in-Picture API is supported in Chrome 116+ or FlowTrack Desktop App!");
     }
   };
 
