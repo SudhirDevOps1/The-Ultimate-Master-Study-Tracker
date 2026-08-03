@@ -221,6 +221,7 @@ export function SettingsPage() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
+          {/* 1. Always-On-Top */}
           <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
             <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-white">
               <input
@@ -241,6 +242,7 @@ export function SettingsPage() {
             </p>
           </div>
 
+          {/* 2. Launch on Startup */}
           <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
             <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-white">
               <input
@@ -260,24 +262,58 @@ export function SettingsPage() {
               Automatically start background tracker in System Tray when PC boots up.
             </p>
           </div>
+
+          {/* 3. System Tray Background Mode */}
+          <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-white flex items-center gap-2">
+                🛡️ System Tray Background Mode
+              </span>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/30">
+                ACTIVE
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">
+              Clicking <strong className="text-white">X</strong> minimizes app to Windows System Tray (near clock) without stopping process blocking.
+            </p>
+          </div>
+
+          {/* 4. Native Toast Notifications */}
+          <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-white flex items-center gap-2">
+                🔔 Windows Toast Alerts
+              </span>
+              <button
+                onClick={() => {
+                  if (typeof window !== "undefined" && (window as any).electron) {
+                    (window as any).electron.ipcRenderer?.invoke?.("send-windows-toast", {
+                      title: "FlowTrack Pro Alert",
+                      message: "Windows Native Balloon Toast Notifications are active!"
+                    });
+                    showMessage("Test Windows Toast sent to System Tray!");
+                  }
+                }}
+                className="px-2.5 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-bold hover:bg-cyan-500/30 transition-all"
+              >
+                Test Alert
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">
+              Receive native OS slide-in notifications when study sessions complete or rules trigger.
+            </p>
+          </div>
         </div>
 
-        <div className="p-3 rounded-xl bg-slate-900/60 border border-white/5 flex items-center justify-between text-xs">
-          <span className="text-slate-300 font-mono">⚡ Global System Hotkey: <kbd className="px-2 py-0.5 rounded bg-slate-800 text-cyan-300 font-bold border border-white/10">Ctrl + Alt + P</kbd> (Pause / Resume Study Timer)</span>
-          <button
-            onClick={() => {
-              if (typeof window !== "undefined" && (window as any).electron) {
-                (window as any).electron.ipcRenderer?.invoke?.("send-windows-toast", {
-                  title: "FlowTrack Pro Test Alert",
-                  message: "Windows Native Balloon Toast Notifications are active!"
-                });
-                showMessage("Test Windows Toast sent to System Tray!");
-              }
-            }}
-            className="px-3 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-semibold hover:bg-cyan-500/30 transition-all"
-          >
-            🔔 Test Windows Toast
-          </button>
+        <div className="p-3.5 rounded-xl bg-slate-900/80 border border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-cyan-400 text-sm">⚡</span>
+            <span className="text-slate-200 font-medium">Global System Hotkey:</span>
+            <kbd className="px-2.5 py-1 rounded-lg bg-slate-950 text-cyan-300 font-mono font-extrabold border border-cyan-500/30 shadow-inner">
+              Ctrl + Alt + P
+            </kbd>
+            <span className="text-slate-400">(Pause / Resume Study Timer from any app)</span>
+          </div>
         </div>
 
         {/* 🚀 New Update Checker Card */}

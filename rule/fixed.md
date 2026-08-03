@@ -7,7 +7,19 @@
 
 ## 📌 Recent Modifications & Analysis Log
 
-### 1. [2026-08-03 13:09] Polished `rule/03-08-2026.json` While Preserving 100% Exact Timings
+### 1. [2026-08-03 13:16] Enhanced All 4 Desktop Native App Controls in `desktop-app`
+- **User Request**: "suno desktop add mein batao desktop folder oonly ... 4 ro ko add kro samjhe"
+- **Features Verified & Added (Strict Rule 6 - `desktop-app` ONLY)**:
+  1. **🛡️ System Tray Background Mode**: Verified Electron `Tray` context menu & `close` window event minimization to Windows System Tray (clock area) so background process tracking runs continuously.
+  2. **🔔 Windows Toast Notifications**: Integrated native Windows balloon toast notifications via Electron IPC (`send-windows-toast`), complete with an interactive test alert button in Settings.
+  3. **🚀 Launch on Windows Startup**: Added Windows login startup launch setting (`set-open-at-login`) in `SettingsPage.tsx`.
+  4. **⚡ Global System Hotkey**: Registered OS-level `Ctrl + Alt + P` shortcut to toggle timer pause/resume from any active application (VS Code, IntelliJ, etc.).
+- **Files Modified**:
+  - `desktop-app/src/pages/SettingsPage.tsx`
+  - `desktop-app/electron.js`
+  - `rule/fixed.md`
+
+### 2. [2026-08-03 13:09] Polished `rule/03-08-2026.json` While Preserving 100% Exact Timings
 - **User Request**: "rule mein json hainuse achha bano samjhe timing same ho oo personal hai mera kuchh bhi edhr udhr nahi krna samjhe"
 - **Enhancements Made**:
   - Validated and formatted `rule/03-08-2026.json` into clean, production-standard JSON.
