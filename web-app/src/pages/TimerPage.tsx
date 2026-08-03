@@ -38,6 +38,7 @@ export function TimerPage() {
   useInactivityDetector(); // Enable 10-minute auto-pause when Strict Focus Mode is on
   const [editingSession, setEditingSession] = useState<StudySession | null>(null);
   const [filter, setFilter] = useState<"all" | "planned" | "completed" | "in_progress">("all");
+  const [dateScope, setDateScope] = useState<"today" | "all">("today");
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   const showMessage = (msg: string) => {
@@ -50,11 +51,35 @@ export function TimerPage() {
     [activeSession?.subjectId, subjects]
   );
 
+  const todayStr = useMemo(() => {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }, []);
+
+  const scopedSessions = useMemo(() => {
+    if (dateScope === "all") return sessions;
+    return sessions.filter((s) => {
+      const sDate = new Date(s.startTime);
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const sDateStr = `${sDate.getFullYear()}-${pad(sDate.getMonth() + 1)}-${pad(sDate.getDate())}`;
+      return sDateStr === todayStr;
+    });
+  }, [sessions, dateScope, todayStr]);
+
+  const counts = useMemo(() => {
+    const all = scopedSessions.length;
+    const planned = scopedSessions.filter(s => s.status === "planned").length;
+    const active = scopedSessions.filter(s => s.status === "in_progress").length;
+    const completed = scopedSessions.filter(s => s.status === "completed").length;
+    return { all, planned, active, completed };
+  }, [scopedSessions]);
+
   const filteredSessions = useMemo(() => {
-    const sorted = [...sessions].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    const sorted = [...scopedSessions].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
     if (filter === "all") return sorted;
     return sorted.filter((s) => s.status === filter);
-  }, [sessions, filter]);
+  }, [scopedSessions, filter]);
 
   // Redundant visibility listener removed as it is now handled by useTimer hook with PiP awareness.
 
@@ -299,22 +324,60 @@ export function TimerPage() {
         <Panel className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h3 className="text-xl font-semibold text-white">📋 Study Sessions</h3>
-              <p className="text-sm text-slate-400">All tasks visible with 12-hour timing • Click Edit for reschedule/clone</p>
+              <div className="flex items-center gap-2">
+                <h3 className="text-xl font-semibold text-white">📋 Study Sessions</h3>
+                <span className="rounded-full bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-0.5 text-[11px] font-bold text-cyan-300">
+                  {dateScope === "today" ? "Today Only" : "All Dates"}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-1">Showing 12-hour session blocks • Click Edit to reschedule or clone</p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {(["all", "planned", "in_progress", "completed"] as const).map((f) => (
+
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Date Scope Selector */}
+              <div className="flex items-center rounded-xl bg-white/5 p-1 border border-white/10">
                 <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={`rounded-xl px-3 py-1.5 text-xs font-medium transition-all ${filter === f
-                    ? `bg-gradient-to-r ${getThemeGradient()} text-white`
-                    : "bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"
-                    }`}
+                  onClick={() => setDateScope("today")}
+                  className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+                    dateScope === "today"
+                      ? "bg-cyan-500 text-slate-950 shadow"
+                      : "text-slate-400 hover:text-white"
+                  }`}
                 >
-                  {f === "all" ? "All" : f === "in_progress" ? "Active" : f.charAt(0).toUpperCase() + f.slice(1)}
+                  📅 Today ({counts.all})
                 </button>
-              ))}
+                <button
+                  onClick={() => setDateScope("all")}
+                  className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+                    dateScope === "all"
+                      ? "bg-cyan-500 text-slate-950 shadow"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  🌐 All Dates ({sessions.length})
+                </button>
+              </div>
+
+              {/* Status Filter Pills */}
+              <div className="flex items-center gap-1.5">
+                {(["all", "planned", "in_progress", "completed"] as const).map((f) => {
+                  const countVal = f === "all" ? counts.all : f === "planned" ? counts.planned : f === "in_progress" ? counts.active : counts.completed;
+                  const label = f === "all" ? "All" : f === "in_progress" ? "Active" : f.charAt(0).toUpperCase() + f.slice(1);
+                  return (
+                    <button
+                      key={f}
+                      onClick={() => setFilter(f)}
+                      className={`rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-all ${
+                        filter === f
+                          ? `bg-gradient-to-r ${getThemeGradient()} text-white shadow-md`
+                          : "bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"
+                      }`}
+                    >
+                      {label} ({countVal})
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
