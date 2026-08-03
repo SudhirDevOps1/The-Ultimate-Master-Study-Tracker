@@ -7,7 +7,23 @@
 
 ## 📌 Recent Modifications & Analysis Log
 
-### 1. [2026-08-03 13:31] Fixed Always-On-Top Floating Mode & Added Compact PIP Overlay Mode + Settings Persistence
+### 1. [2026-08-03 13:46] Implemented Native Document Picture-in-Picture (PiP) Floating Widget Mode
+- **User Request**: "📌 Always-On-Top Floating Mode ... 📐 Compact PIP Widget Sizing (380x580) ... live web research ... HTMLVideoElement / DocumentPictureInPicture API ..."
+- **Features Implemented (Strict Rule 6 - `desktop-app` ONLY)**:
+  1. **📺 Chromium Native Document Picture-in-Picture API (`documentPictureInPicture.requestWindow`)**:
+     - Built `PipOverlayWidget.tsx` utilizing modern Chromium / Electron 26+ `documentPictureInPicture.requestWindow({ width: 380, height: 540 })` API.
+     - Automatically copies all document CSS stylesheets into `pipWindow.document.head` and renders live interactive React Timer controls via React Portals (`ReactDOM.createPortal`).
+     - Allows students to float a sleek, OS-native Picture-in-Picture mini timer widget directly over VS Code, Zoom, or PDF lectures!
+  2. **Top Navbar Header Integration**:
+     - Added an interactive glowing **`📺 PiP Mode`** trigger button directly in the main top navbar of `AppShell.tsx` for 1-click access.
+  3. **Electron Native IPC Fallback**:
+     - Automatically falls back to Electron's native `toggle-always-on-top` with compact resizing (`380x580`) if Document PiP is unavailable.
+- **Files Created/Modified**:
+  - `desktop-app/src/components/common/PipOverlayWidget.tsx` [NEW]
+  - `desktop-app/src/components/layout/AppShell.tsx`
+  - `rule/fixed.md`
+
+### 2. [2026-08-03 13:31] Fixed Always-On-Top Floating Mode & Added Compact PIP Overlay Mode + Settings Persistence
 - **User Request**: "📌 Always-On-Top Floating Mode ... na chhota hota hain na kuchh utna hi bada rahata hain uskebad top pe rahta hain dusra app ko khule bhi nahi deta ek bar sav setting save krne ke bad save nahi hota ..etc fix kro to bina kuchh hataye"
 - **Issues Fixed (Strict Rule 6 - `desktop-app` ONLY)**:
   1. **Non-Intrusive Floating Window Level**: Changed Electron window level from aggressive `"screen-saver"` (which blocked OS mouse clicks & underlying app windows) to smooth non-intrusive `"floating"` level with window level 1 (`mainWindow.setAlwaysOnTop(isTop, "floating", 1)`).

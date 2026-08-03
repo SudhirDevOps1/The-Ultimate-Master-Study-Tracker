@@ -1,4 +1,5 @@
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { PipOverlayWidget } from "../common/PipOverlayWidget";
 import { motion } from "framer-motion";
 import { cn } from "@/utils/cn";
 import { useAppStore, type AppState } from "@/store/useAppStore";
@@ -112,6 +113,7 @@ export function AppShell() {
               </p>
             </div>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <PipOverlayWidget />
               {!(typeof window !== "undefined" && (window as any).electron) && (
                 <a 
                   href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases" 
