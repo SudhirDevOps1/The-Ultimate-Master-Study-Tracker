@@ -276,20 +276,10 @@ function cleanWindowTitle(title) {
 // ── Direct Native Win32 Active Window Fetcher via win-tracker.exe ─────────────
 function getForegroundWindowFallback() {
   return new Promise((resolve) => {
-    if (process.platform !== "win32") return resolve(null);
-    const psScript = `$code = '[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);'; Add-Type -MemberDefinition $code -Name Win32Utils -Namespace Native; $hwnd = [Native.Win32Utils]::GetForegroundWindow(); $pid = 0; [Native.Win32Utils]::GetWindowThreadProcessId($hwnd, [ref]$pid); if ($pid -gt 0) { $p = Get-Process -Id $pid -ErrorAction SilentlyContinue; if ($p) { @{ process = $p.ProcessName; title = $p.MainWindowTitle } | ConvertTo-Json -Compress } }`;
-    exec(`powershell -NoProfile -Command "${psScript}"`, { timeout: 1200 }, (err, stdout) => {
-      if (err || !stdout) return resolve(null);
-      try {
-        const parsed = JSON.parse(stdout.trim());
-        resolve({
-          title:   parsed.title   || "",
-          process: parsed.process || "unknown"
-        });
-      } catch {
-        resolve(null);
-      }
-    });
+    // FIX: Removed heavy PowerShell fallback to keep app ultra-lightweight.
+    // If the native C# tracker is missing, we gracefully return null 
+    // to avoid massive CPU spikes every 5 seconds.
+    resolve(null);
   });
 }
 
@@ -326,6 +316,8 @@ function getSystemIdleMs() {
 
 // ── Background Activity Tracker Loop (Every 1.5 seconds) ──────────────────────
 function startActivityTracker() {
+  const blockCooldowns = {};
+  
   setInterval(async () => {
     let rawInfo = await getForegroundWindow();
     if (!rawInfo || !rawInfo.process) return;
@@ -368,6 +360,11 @@ function startActivityTracker() {
         if (isMatch && !isSelf(processName, windowTitle) && activeProc !== "explorer.exe" && cleanActive !== "explorer") {
           const exeName = processName.toLowerCase().endsWith(".exe") ? processName : `${processName}.exe`;
           const appDisplayName = normalizeAppName(processName) || cleanActive;
+
+          if (blockCooldowns[exeName] && (now - blockCooldowns[exeName] < 10000)) {
+            break;
+          }
+          blockCooldowns[exeName] = now;
 
           if (rule.strictLevel === "hard") {
             // HARD: Terminate process immediately using taskkill with .exe extension
@@ -969,27 +966,21 @@ ipcMain.handle("save-desktop-settings", async (_e, partial) => {
 });
 
 ipcMain.handle("toggle-always-on-top", async (_e, { flag, compact }) => {
-  if (mainWindow) {
-    const isTop = Boolean(flag);
-    desktopSettings.alwaysOnTop = isTop;
-    if (typeof compact === "boolean") desktopSettings.compactFloating = compact;
-    
-    mainWindow.setAlwaysOnTop(isTop, "pop-up-menu");
-
-    if (isTop && desktopSettings.compactFloating) {
-      if (!normalWindowBounds) normalWindowBounds = mainWindow.getBounds();
-      mainWindow.setMinimumSize(360, 480);
-      mainWindow.setSize(380, 580);
-    } else if (!desktopSettings.compactFloating && normalWindowBounds) {
-      mainWindow.setMinimumSize(800, 550);
-      if (normalWindowBounds) mainWindow.setBounds(normalWindowBounds);
-      normalWindowBounds = null;
+  const isTop = Boolean(flag);
+  desktopSettings.alwaysOnTop = isTop;
+  if (typeof compact === "boolean") desktopSettings.compactFloating = compact;
+  
+  if (pipWindow && !pipWindow.isDestroyed()) {
+    pipWindow.setAlwaysOnTop(isTop, "pop-up-menu");
+    if (desktopSettings.compactFloating) {
+      pipWindow.setSize(380, 580);
+    } else {
+      pipWindow.setSize(360, 240);
     }
-
-    saveDesktopSettings();
-    return { success: true, isAlwaysOnTop: mainWindow.isAlwaysOnTop(), compactFloating: desktopSettings.compactFloating };
   }
-  return { success: false };
+
+  saveDesktopSettings();
+  return { success: true, isAlwaysOnTop: desktopSettings.alwaysOnTop, compactFloating: desktopSettings.compactFloating };
 });
 
 ipcMain.on("sync-timer-state", (event, data) => {
@@ -1029,9 +1020,9 @@ ipcMain.handle("open-pip-window", async (_e, { action } = {}) => {
 
   // Create SEPARATE floating always-on-top PiP child window so main window remains untouched!
   pipWindow = new BrowserWindow({
-    width: 360,
-    height: 240,
-    alwaysOnTop: true,
+    width: desktopSettings.compactFloating ? 380 : 360,
+    height: desktopSettings.compactFloating ? 580 : 240,
+    alwaysOnTop: desktopSettings.alwaysOnTop !== false, // default true if not set
     frame: false,
     transparent: false,
     resizable: true,
@@ -1045,7 +1036,9 @@ ipcMain.handle("open-pip-window", async (_e, { action } = {}) => {
     },
   });
 
-  pipWindow.setAlwaysOnTop(true, "pop-up-menu");
+  if (desktopSettings.alwaysOnTop !== false) {
+    pipWindow.setAlwaysOnTop(true, "pop-up-menu");
+  }
 
   const startUrl = process.env.VITE_DEV_SERVER_URL
     ? `${process.env.VITE_DEV_SERVER_URL}#/pip-widget`

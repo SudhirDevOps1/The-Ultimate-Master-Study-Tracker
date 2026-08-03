@@ -119,21 +119,24 @@ export function useTimer() {
       void syncActiveSession(now);
 
       if (typeof window !== "undefined" && (window as any).electron) {
-        const activeSession = state.sessions.find(s => s.id === currentTimer.activeSessionId);
-        const subjectName = state.subjects.find(s => s.id === activeSession?.subjectId)?.name || (activeSession as any)?.title || (activeSession as any)?.subjectName || "Focus Session";
-        const elapsed = state.getActiveElapsed(now);
-        const plannedSeconds = (activeSession?.plannedMinutes ?? 0) * 60;
-        const remaining = Math.max(0, plannedSeconds - elapsed);
-        const progress = plannedSeconds > 0 ? Math.min(100, (elapsed / plannedSeconds) * 100) : 0;
+        const isPipWindow = window.location.hash.includes("pip-widget") || window.location.pathname.includes("pip-widget");
+        if (!isPipWindow && state.isPipActive) {
+          const activeSession = state.sessions.find(s => s.id === currentTimer.activeSessionId);
+          const subjectName = state.subjects.find(s => s.id === activeSession?.subjectId)?.name || (activeSession as any)?.title || (activeSession as any)?.subjectName || "Focus Session";
+          const elapsed = state.getActiveElapsed(now);
+          const plannedSeconds = (activeSession?.plannedMinutes ?? 0) * 60;
+          const remaining = Math.max(0, plannedSeconds - elapsed);
+          const progress = plannedSeconds > 0 ? Math.min(100, (elapsed / plannedSeconds) * 100) : 0;
 
-        (window as any).electron.ipcRenderer.send("sync-timer-state", {
-          subjectName,
-          elapsed,
-          remaining,
-          progress,
-          isPaused: currentTimer.isPaused,
-          isRunning: !!currentTimer.activeSessionId,
-        });
+          (window as any).electron.ipcRenderer.send("sync-timer-state", {
+            subjectName,
+            elapsed,
+            remaining,
+            progress,
+            isPaused: currentTimer.isPaused,
+            isRunning: !!currentTimer.activeSessionId,
+          });
+        }
       }
     };
 

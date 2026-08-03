@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { formatSeconds } from "@/utils/time";
 import { format } from "date-fns";
+import { X } from "lucide-react";
 
 export function PipStandalonePage() {
   const [syncedState, setSyncedState] = useState<{
@@ -47,9 +48,15 @@ export function PipStandalonePage() {
     }
   }, []);
 
+  const handleClose = () => {
+    if (typeof window !== "undefined" && (window as any).electron?.ipcRenderer) {
+      (window as any).electron.ipcRenderer.invoke("open-pip-window", { action: "close" });
+    }
+  };
+
   return (
     <div
-      className="h-screen w-screen p-4 bg-gradient-to-br from-slate-900 via-slate-950 to-indigo-950 text-white flex flex-col justify-between select-none overflow-hidden border border-white/10 rounded-xl box-border"
+      className="h-screen w-screen p-4 bg-gradient-to-br from-slate-900 via-slate-950 to-indigo-950 text-white flex flex-col justify-between select-none overflow-hidden border border-white/10 rounded-xl box-border group"
       style={{ WebkitAppRegion: "drag" } as any}
     >
       {/* Top Header: Brand & Live Date/Time */}
@@ -62,8 +69,18 @@ export function PipStandalonePage() {
             {syncedState.subjectName}
           </div>
         </div>
-        <div className="text-right text-xs text-slate-400 font-medium">
-          {liveTimeStr}
+        <div className="flex flex-col items-end gap-1">
+          <button
+            onClick={handleClose}
+            className="text-slate-500 hover:text-white transition-colors p-1 -mr-1 -mt-1 opacity-0 group-hover:opacity-100"
+            style={{ WebkitAppRegion: "no-drag" } as any}
+            title="Close PiP"
+          >
+            <X size={14} />
+          </button>
+          <div className="text-right text-xs text-slate-400 font-medium">
+            {liveTimeStr}
+          </div>
         </div>
       </div>
 

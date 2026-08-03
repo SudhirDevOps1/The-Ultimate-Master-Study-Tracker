@@ -73,6 +73,9 @@ export function App() {
         useAppStore.getState().setIsPipActive(false);
       };
       const handleRequestTimerSync = () => {
+        const isPipWindow = window.location.hash.includes("pip-widget") || window.location.pathname.includes("pip-widget");
+        if (isPipWindow) return;
+
         const state = useAppStore.getState();
         const currentTimer = state.timer;
         const activeSession = state.sessions.find(s => s.id === currentTimer.activeSessionId);

@@ -6,7 +6,7 @@ All notable changes, version updates, feature additions, architectural improveme
 
 ## 🏷️ Version History Summary
 
-- [v7.4.0 (2026-08-02)](#v740---2026-08-02) — 🎨 Excalidraw Whiteboard v2: Lasso Selection, Sketchy Hand-Drawn Mode & 12 Handwriting Fonts
+- [v7.4.1 (2026-08-02)](#v740---2026-08-02) — 🎨 Excalidraw Whiteboard v2: Lasso Selection, Sketchy Hand-Drawn Mode & 12 Handwriting Fonts
 - [v7.3.1 (2026-08-02)](#v731---2026-08-02) — 🎨 Ultra-Lightweight Fabric Whiteboard Engine & Package Vulnerability Overrides
 - [v7.3.0 (2026-08-01)](#v730---2026-08-01) — ⚡ Repository Categorization & Web-App Hybrid Tracking Engine Release
 - [v7.0.0 (2026-07-31)](#v700---2026-07-31) — 🌐 Web Portals Browser, Fullscreen Study Mode, Webview Activity Tracking, Bug Audit
@@ -23,7 +23,7 @@ All notable changes, version updates, feature additions, architectural improveme
 
 ---
 
-## [v7.4.0] — 2026-08-02
+## [v7.4.1] — 2026-08-02
 
 ### 🎨 Excalidraw Whiteboard Engine Overhaul & Porting
 - **Lasso Selection Tool (`Q`)**: Freehand loop selection tool using ray-casting point-in-polygon algorithm to group objects without individual target dragging.
