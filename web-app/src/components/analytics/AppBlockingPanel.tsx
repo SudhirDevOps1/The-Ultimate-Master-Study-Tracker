@@ -92,6 +92,24 @@ export function AppBlockingPanel() {
     await saveRulesToLocalAndBackend(nextRules);
   };
 
+  const syncSystemHosts = async () => {
+    const ipc = getIpc();
+    if (ipc) {
+      try {
+        const res = await ipc.invoke("sync-hosts-file");
+        if (res.success) {
+          alert("System hosts file synchronized successfully!");
+        } else {
+          alert("Failed to sync system hosts: " + (res.error || "Unknown error"));
+        }
+      } catch (err: any) {
+        alert("Error syncing hosts: " + err.message);
+      }
+    } else {
+      alert("System sync is only supported on the desktop app.");
+    }
+  };
+
   const deleteRule = async (id: string) => {
     const nextRules = rules.filter(r => r.id !== id);
     await saveRulesToLocalAndBackend(nextRules);
@@ -105,8 +123,17 @@ export function AppBlockingPanel() {
             <Shield className="w-5 h-5 text-rose-400" />
             <h3 className="text-base font-bold text-white">App Blocking Dashboard</h3>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400">Global Blocker Status:</span>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={syncSystemHosts}
+              className="text-xs px-3 py-1.5 bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 rounded-lg transition-colors border border-rose-500/30 flex items-center gap-1.5 font-medium"
+              title="Apply website rules to Windows Hosts file (requires Admin)"
+            >
+              <Globe className="w-3.5 h-3.5" />
+              Sync Hosts (Admin)
+            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400">Global Blocker Status:</span>
             <button
               onClick={() => void saveRulesToLocalAndBackend(rules, !globalEnabled)}
               className={`relative w-11 h-6 rounded-full transition-colors ${
@@ -119,6 +146,7 @@ export function AppBlockingPanel() {
             </button>
           </div>
         </div>
+      </div>
 
         {/* Info card */}
         <div className="rounded-xl bg-rose-500/5 border border-rose-500/10 p-3 flex gap-3 text-xs text-rose-300">
