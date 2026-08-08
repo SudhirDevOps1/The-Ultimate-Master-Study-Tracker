@@ -235,7 +235,7 @@ export function WebPortalsPage() {
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="glass rounded-2xl px-4 py-3 flex items-center gap-3 shadow-lg"
+          className="bg-gradient-to-r from-slate-900/90 to-slate-800/90 backdrop-blur-xl border border-white/10 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-[0_4px_25px_rgba(0,0,0,0.5)]"
         >
           {/* Navigation Controls */}
           <div className="flex items-center gap-1">
@@ -361,7 +361,7 @@ export function WebPortalsPage() {
                     placeholder="Filter your study portals..."
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    className="w-full pl-12 pr-4 py-4 text-base rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 focus:bg-white/10 shadow-lg transition-all"
+                    className="w-full pl-12 pr-4 py-4 text-base rounded-2xl bg-slate-900/50 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/50 focus:bg-slate-900 shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-all"
                   />
                 </div>
 
@@ -373,7 +373,7 @@ export function WebPortalsPage() {
                     
                     return (
                       <div key={cat} className="w-full">
-                        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-3">
+                        <h2 className="text-sm font-bold text-cyan-400 uppercase tracking-widest mb-4 flex items-center gap-3 drop-shadow-[0_0_8px_rgba(6,182,212,0.5)]">
                           {cat}
                           <div className="h-px bg-white/10 flex-1"></div>
                         </h2>
@@ -388,7 +388,7 @@ export function WebPortalsPage() {
                                 className="relative group cursor-pointer"
                                 onClick={() => loadSite(site)}
                               >
-                                <div className="flex flex-col items-center p-4 rounded-3xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 transition-all shadow-md hover:shadow-xl">
+                                <div className="flex flex-col items-center p-4 rounded-3xl bg-gradient-to-br from-white/5 to-white/0 hover:from-cyan-500/20 hover:to-blue-600/10 border border-white/10 hover:border-cyan-400 transition-all duration-300 shadow-[0_4px_20px_rgba(0,0,0,0.2)] hover:shadow-[0_0_20px_rgba(6,182,212,0.3)] backdrop-blur-md">
                                   <div
                                     className="h-14 w-14 rounded-2xl flex items-center justify-center text-2xl shadow-inner mb-3 bg-white"
                                   >

@@ -4,8 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Globe, Plus, Trash2, RefreshCw, ArrowLeft, ArrowRight,
   ExternalLink, X, ChevronRight, Search, Maximize2, Minimize2,
-  Key, Lock, Eye, EyeOff, ShieldCheck, Check
-} from "lucide-react";
+  Key, Lock, Eye, EyeOff, ShieldCheck, Check, Filter } from "lucide-react";
 
 interface PortalSite {
   id: string;
@@ -110,6 +109,7 @@ export function WebPortalsPage() {
   const [newUrl, setNewUrl]             = useState("");
   const [newIcon, setNewIcon]           = useState("🌐");
   const [newColor, setNewColor]         = useState("#6366f1");
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [searchQuery, setSearchQuery]   = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -434,7 +434,7 @@ export function WebPortalsPage() {
                 placeholder="Search portals..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-48 pl-9 pr-3 py-2 text-xs rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400"
+                className="w-56 pl-9 pr-3 py-2 text-xs rounded-xl bg-slate-900/50 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 focus:bg-slate-900 shadow-inner transition-all"
               />
             </div>
             <button
@@ -545,7 +545,7 @@ export function WebPortalsPage() {
                     >
                       <div className="flex flex-col items-start gap-2">
                         <div
-                          className="h-9 w-9 rounded-xl flex items-center justify-center text-lg shadow-md"
+                          className="h-10 w-10 rounded-xl flex items-center justify-center text-xl shadow-lg backdrop-blur-md group-hover:scale-110 transition-transform duration-300"
                           style={{ backgroundColor: site.color + "25", border: `1px solid ${site.color}40` }}
                         >
                           {site.icon}
@@ -588,7 +588,7 @@ export function WebPortalsPage() {
           className={`glass rounded-3xl overflow-hidden flex flex-col ${isFullscreen ? "flex-1 min-h-0" : "h-full"}`}
         >
           {/* Browser Chrome / Navigation Bar */}
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-white/8 bg-slate-900/60 flex-wrap gap-y-2">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10 bg-gradient-to-r from-slate-900/90 to-slate-800/90 backdrop-blur-xl flex-wrap gap-y-2 shadow-sm">
             <button
               type="button"
               onClick={() => webviewNav("back")}
