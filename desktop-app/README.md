@@ -1,6 +1,6 @@
 # 🖥️ FlowTrack Pro — Standalone Desktop App (Electron Edition)
 
-> **Version**: `v7.5.0` | **Platform**: Windows 10/11 (64-bit) & macOS | **License**: MIT
+> **Version**: `v7.5.1` | **Platform**: Windows 10/11 (64-bit) & macOS | **License**: MIT
 
 Welcome to the **Standalone Desktop Application** module of FlowTrack Pro. This edition is packaged with Electron 43, embedded C# Win32 active window tracking (`win-tracker.exe`), local Encrypted Password Vault with Chromium DOM Auto-Fill, and silent background auto-updates (`electron-updater`).
 
@@ -14,7 +14,7 @@ Welcome to the **Standalone Desktop Application** module of FlowTrack Pro. This 
 
 ---
 
-## ✨ Key Desktop Features in `v7.5.0`
+## ✨ Key Desktop Features in `v7.5.1`
 
 - 🔐 **Encrypted Password Vault & Auto-Fill**: Store login credentials locally with XOR ciphers and auto-fill embedded `<webview>` portal login forms with 1-click.
 - 🔄 **Background Silent Auto-Updater**: Checks GitHub Releases automatically post-launch and provides 1-click restart & install.

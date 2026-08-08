@@ -12,7 +12,7 @@ export function GuidePage() {
 
   const appInfo = {
     name: "FlowTrack Pro – Smart Study & Productivity Tracker",
-    version: "v7.5.0 (Latest 2026 Release)",
+    version: "v7.5.1 (Latest 2026 Release)",
     developer: "Sudhir DevOps (FlowTrack Engineering Team)",
     repo: "SudhirDevOps1/The-Ultimate-Master-Study-Tracker",
     techStack: [
@@ -24,7 +24,7 @@ export function GuidePage() {
   };
 
   const appMeta = {
-    version: "v7.5.0 (Latest 2026 Release)",
+    version: "v7.5.1 (Latest 2026 Release)",
     builtBy: "Sudhir DevOps (Google Antigravity Pair Programmed)",
     platform: "React 19 + TypeScript 5.9 + Vite 7 + Electron 43 + Fabric.js 7.4 + Tailwind CSS 4 + Dexie DB + C# Win32 Tracker",
   };
@@ -33,7 +33,7 @@ export function GuidePage() {
     { id: "overview", label: "🌟 App Overview", icon: <BookOpen className="w-4 h-4" /> },
     { id: "features", label: "🚀 Feature Matrix", icon: <Zap className="w-4 h-4" /> },
     { id: "tech", label: "🛠️ Tech Architecture", icon: <Cpu className="w-4 h-4" /> },
-    { id: "fixes", label: "✨ New in v7.5.0", icon: <CheckCircle2 className="w-4 h-4 text-emerald-400" /> },
+    { id: "fixes", label: "✨ New in v7.5.1", icon: <CheckCircle2 className="w-4 h-4 text-emerald-400" /> },
     { id: "storage", label: "📂 Data Storage Paths", icon: <HardDrive className="w-4 h-4" /> },
     { id: "limitations", label: "⚠️ System Requirements", icon: <AlertTriangle className="w-4 h-4 text-amber-400" /> },
     { id: "developer", label: "👨‍💻 Developer & Credits", icon: <UserCheck className="w-4 h-4" /> },

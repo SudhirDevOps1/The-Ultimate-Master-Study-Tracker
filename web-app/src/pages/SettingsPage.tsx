@@ -742,7 +742,7 @@ export function SettingsPage() {
               <p className="text-xs text-slate-400">Subjects</p>
             </div>
             <div className="rounded-xl bg-white/5 px-4 py-2 text-center">
-              <p className="text-lg font-bold text-purple-400">v7.5.0</p>
+              <p className="text-lg font-bold text-purple-400">v7.5.1</p>
               <p className="text-xs text-slate-400">Version</p>
             </div>
           </div>
@@ -828,7 +828,7 @@ export function SettingsPage() {
 
 // ─── UpdateChecker Helper Component (electron-updater + GitHub Releases) ─────────
 function UpdateChecker({ showMessage }: { showMessage: (msg: string) => void }) {
-  const [currentVersion, setCurrentVersion] = useState("7.5.0");
+  const [currentVersion, setCurrentVersion] = useState("7.5.1");
   const [updateStatus, setUpdateStatus]     = useState<string>("idle"); // idle | checking | available | downloading | downloaded | error
   const [newVersion, setNewVersion]         = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState<number>(0);
