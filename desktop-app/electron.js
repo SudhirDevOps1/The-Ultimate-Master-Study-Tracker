@@ -889,7 +889,7 @@ if ($hosts -match "(?s)$startMarker.*?$endMarker") {
       fs.writeFileSync(tempScriptPath, scriptContent, "utf8");
 
       // Execute powershell with runas (UAC Prompt)
-      const command = \`powershell -Command "Start-Process powershell -ArgumentList '-ExecutionPolicy Bypass -WindowStyle Hidden -File \\"\${tempScriptPath}\\"' -Verb RunAs -Wait"\`;
+      const command = `powershell -Command "Start-Process powershell -ArgumentList '-ExecutionPolicy Bypass -WindowStyle Hidden -File "${tempScriptPath}"' -Verb RunAs -Wait"`;
       
       exec(command, (error, stdout, stderr) => {
         if (error) {
