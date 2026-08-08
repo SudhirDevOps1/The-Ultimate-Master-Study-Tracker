@@ -25,6 +25,7 @@
     ],
     "asar": true,
     "compression": "maximum",
+    "artifactName": "${productName} Setup ${version}.${ext}",
     "win": {
       "verifyUpdateCodeSignature": false,
       "target": [

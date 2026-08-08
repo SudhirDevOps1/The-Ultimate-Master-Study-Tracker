@@ -841,6 +841,70 @@ ipcMain.handle("save-block-rules", async (_e, { rules, globalEnabled }) => {
   return { success: true, blockRulesData };
 });
 
+ipcMain.handle("sync-hosts-file", async () => {
+  return new Promise((resolve) => {
+    if (process.platform !== "win32") {
+      return resolve({ success: false, error: "System Hosts block is only supported on Windows." });
+    }
+
+    try {
+      const activeWebBlocks = (blockRulesData.rules || [])
+        .filter(r => r.ruleType === "website" && r.blocked && blockRulesData.globalEnabled)
+        .map(r => r.appName.trim())
+        .filter(Boolean);
+
+      let entries = "";
+      if (activeWebBlocks.length > 0) {
+        entries = activeWebBlocks.map(domain => `127.0.0.1 ${domain}\r\n127.0.0.1 www.${domain}`).join("\r\n");
+      }
+
+      const scriptContent = `
+$ErrorActionPreference = "Stop"
+$hostsPath = "$env:windir\\System32\\drivers\\etc\\hosts"
+$startMarker = "# --- FlowTrack Pro Blocks Start ---"
+$endMarker = "# --- FlowTrack Pro Blocks End ---"
+
+$newContent = @"
+$startMarker
+${entries}
+$endMarker
+"@
+
+$hosts = Get-Content $hostsPath -Raw
+if ($hosts -match "(?s)$startMarker.*?$endMarker") {
+    if ("${entries}" -eq "") {
+        $hosts = $hosts -replace "(?s)\\s*$startMarker.*?$endMarker\\s*", "\r\n"
+    } else {
+        $hosts = $hosts -replace "(?s)$startMarker.*?$endMarker", $newContent
+    }
+} else {
+    if ("${entries}" -ne "") {
+        $hosts = $hosts + "\r\n" + $newContent + "\r\n"
+    }
+}
+[IO.File]::WriteAllText($hostsPath, $hosts)
+`;
+      
+      const tempScriptPath = path.join(app.getPath("userData"), "update_hosts.ps1");
+      fs.writeFileSync(tempScriptPath, scriptContent, "utf8");
+
+      // Execute powershell with runas (UAC Prompt)
+      const command = \`powershell -Command "Start-Process powershell -ArgumentList '-ExecutionPolicy Bypass -WindowStyle Hidden -File \\"\${tempScriptPath}\\"' -Verb RunAs -Wait"\`;
+      
+      exec(command, (error, stdout, stderr) => {
+        if (error) {
+          console.error("Hosts Sync Error:", error);
+          resolve({ success: false, error: "Failed to elevate or modify hosts file. Did you click Yes on the admin prompt?" });
+        } else {
+          resolve({ success: true });
+        }
+      });
+    } catch (err) {
+      resolve({ success: false, error: err.message });
+    }
+  });
+});
+
 ipcMain.handle("get-running-apps", async () => {
   return new Promise((resolve) => {
     if (process.platform !== "win32") {

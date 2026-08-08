@@ -25,6 +25,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   "get-block-rules",
   "focus-main-window",
   "save-block-rules",
+  "sync-hosts-file",
   "get-running-apps",
   // Webview Activity Tracking (Web Portals Browser page)
   "webview-activity-report",
