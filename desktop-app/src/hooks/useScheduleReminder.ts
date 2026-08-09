@@ -1,3 +1,4 @@
+import { sendNotification } from '@/utils/notification';
 import { useEffect, useRef } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import type { StudySession } from "@/types/models";
@@ -102,7 +103,7 @@ export function useScheduleReminder() {
 
         // HTML5 Web Notification Fallback
         try {
-          const notification = new Notification(title, {
+          const notification = sendNotification(title, {
             body,
             icon: "/icon-192.png",
             tag: milestoneKey, // Tag guarantees OS deduplication/replacement

@@ -98,11 +98,16 @@ function saveCustomSites(sites: PortalSite[]) {
   try { localStorage.setItem(DB_KEY, JSON.stringify(sites)); } catch { /**/ }
 }
 
+export interface WebTab { id: string; url: string; title: string; icon: string; color: string; }
+
 export function WebPortalsPage() {
   const location = useLocation();
   const [customSites, setCustomSites]   = useState<PortalSite[]>([]);
-  const [activeUrl, setActiveUrl]       = useState<string | null>(null);
-  const [activeName, setActiveName]     = useState("");
+  const [tabs, setTabs] = useState<WebTab[]>([]);
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const activeTab = useMemo(() => tabs.find(t => t.id === activeTabId), [tabs, activeTabId]);
+  const activeUrl = activeTab?.url || null;
+  const activeName = activeTab?.title || "";
   const [inputUrl, setInputUrl]         = useState("");
   const [showAddForm, setShowAddForm]   = useState(false);
   const [newName, setNewName]           = useState("");
@@ -124,7 +129,8 @@ export function WebPortalsPage() {
   const [showPassMap, setShowPassMap]           = useState<Record<string, boolean>>({});
   const [fillToast, setFillToast]               = useState<string | null>(null);
 
-  const webviewRef = useRef<any>(null);
+  const webviewRefs = useRef<Record<string, any>>({});
+  const getWebview = () => activeTabId ? webviewRefs.current[activeTabId] : null;
 
   useEffect(() => {
     void loadCustomSites().then(setCustomSites);
@@ -155,9 +161,10 @@ export function WebPortalsPage() {
     const state = location.state as { url?: string; name?: string } | null;
     if (state?.url) {
       const url = normalizePortalUrl(state.url);
-      setActiveUrl(url);
-      setActiveName(state.name || state.url);
-      setInputUrl(state.url);
+      const newTab = { id: crypto.randomUUID(), url, title: state.name || state.url, icon: "🌐", color: "#6366f1" };
+      setTabs(prev => [...prev, newTab]);
+      setActiveTabId(newTab.id);
+      setInputUrl(url);
       // Clear state so navigating back doesn't re-trigger
       window.history.replaceState({}, "");
     }
@@ -178,8 +185,8 @@ export function WebPortalsPage() {
   // This makes the Activity Tracker log the actual study site (apnacollege.in,
   // youtube.com etc.) instead of FlowTrack itself, when Web Portals is active.
   useEffect(() => {
-    if (!isElectron || !webviewRef.current || !activeUrl) return;
-    const wv = webviewRef.current;
+    const wv = getWebview();
+    if (!isElectron || !wv || !activeUrl) return;
 
     function reportToMain(url: string, title?: string) {
       (window as any).electron?.ipcRenderer?.invoke("webview-activity-report", { url, title: title || "" })
@@ -222,7 +229,7 @@ export function WebPortalsPage() {
   useEffect(() => {
     if (!isElectron) return;
     const handleBlocked = (_e: any, _target: string) => {
-      setActiveUrl(null);
+      closeBrowser();
       setIsFullscreen(false);
     };
     (window as any).electron?.ipcRenderer?.on("webview-blocked", handleBlocked);
@@ -280,7 +287,7 @@ export function WebPortalsPage() {
   }
 
   function autoFillWebview(cred: VaultCredential) {
-    const wv = webviewRef.current;
+    const wv = getWebview();
     const username = cred.username;
     const password = decryptVal(cred.passwordEnc);
 
@@ -352,25 +359,39 @@ export function WebPortalsPage() {
   const categories = [...new Set(filtered.map(s => s.category))];
 
   function loadSite(site: PortalSite) {
-    setActiveUrl(site.url);
-    setActiveName(site.name);
-    setInputUrl(site.url);
+    const url = normalizePortalUrl(site.url);
+    const newTab = { id: crypto.randomUUID(), url, title: site.name, icon: site.icon || "🌐", color: site.color || "#6366f1" };
+    setTabs(prev => [...prev, newTab]);
+    setActiveTabId(newTab.id);
+    setInputUrl(url);
   }
 
   function handleGoUrl() {
     if (!inputUrl.trim()) return;
     const url = normalizePortalUrl(inputUrl);
-    setActiveUrl(url);
-    setActiveName(inputUrl.trim());
-    setInputUrl(inputUrl.trim());
+    if (activeTabId) {
+      setTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, url, title: url } : t));
+    } else {
+      const newTab = { id: crypto.randomUUID(), url, title: url, icon: "🌐", color: "#6366f1" };
+      setTabs(prev => [...prev, newTab]);
+      setActiveTabId(newTab.id);
+    }
+    setInputUrl(url);
   }
 
-  function closeBrowser() {
-    setActiveUrl(null);
-    setActiveName("");
-    setInputUrl("");
-    // Clear webview tracking in electron main process
-    if (isElectron) {
+  function closeBrowser(tabId?: string) {
+    const targetId = tabId || activeTabId;
+    if (!targetId) return;
+    setTabs(prev => {
+      const next = prev.filter(t => t.id !== targetId);
+      if (targetId === activeTabId) {
+        const newActiveId = next.length > 0 ? next[next.length - 1].id : null;
+        setActiveTabId(newActiveId);
+        setInputUrl(next.length > 0 ? next[next.length - 1].url : "");
+      }
+      return next;
+    });
+    if (isElectron && (!tabs.length || (tabs.length === 1 && targetId === tabs[0].id))) {
       (window as any).electron?.ipcRenderer?.invoke("webview-activity-clear").catch(() => {});
     }
   }
@@ -400,10 +421,11 @@ export function WebPortalsPage() {
   }
 
   const webviewNav = (action: "back" | "forward" | "reload") => {
-    if (!webviewRef.current) return;
-    if (action === "back")    webviewRef.current.goBack?.();
-    if (action === "forward") webviewRef.current.goForward?.();
-    if (action === "reload")  webviewRef.current.reload?.();
+    const wv = getWebview();
+    if (!wv) return;
+    if (action === "back")    wv.goBack?.();
+    if (action === "forward") wv.goForward?.();
+    if (action === "reload")  wv.reload?.();
   };
 
   return (
@@ -588,6 +610,39 @@ export function WebPortalsPage() {
           className={`glass rounded-3xl overflow-hidden flex flex-col ${isFullscreen ? "flex-1 min-h-0" : "h-full"}`}
         >
           {/* Browser Chrome / Navigation Bar */}
+          {tabs.length > 0 && (
+            <div className="flex items-center gap-1 bg-slate-950/80 px-2 pt-2 border-b border-white/5 overflow-x-auto custom-scrollbar">
+              {tabs.map((tab) => (
+                <div
+                  key={tab.id}
+                  onClick={() => { setActiveTabId(tab.id); setInputUrl(tab.url); }}
+                  className={`group relative flex items-center gap-2 px-3 py-1.5 min-w-[120px] max-w-[200px] rounded-t-xl cursor-pointer border-t border-x transition-all ${
+                    activeTabId === tab.id
+                      ? "bg-slate-900 border-white/10 text-white z-10 shadow-sm"
+                      : "bg-slate-950 border-transparent text-slate-400 hover:bg-slate-900/50 hover:text-slate-300"
+                  }`}
+                >
+                  <span className="text-[10px] shrink-0">{tab.icon || "🌐"}</span>
+                  <span className="text-xs font-semibold truncate flex-1">{tab.title}</span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); closeBrowser(tab.id); }}
+                    className={`shrink-0 p-0.5 rounded-md hover:bg-white/10 transition-colors ${activeTabId === tab.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                  {activeTabId === tab.id && (
+                    <div className="absolute bottom-[-1px] left-0 w-full h-[1px] bg-slate-900" />
+                  )}
+                </div>
+              ))}
+              <button
+                onClick={() => { const newTab = { id: crypto.randomUUID(), url: "https://google.com", title: "New Tab", icon: "🌐", color: "#6366f1" }; setTabs(prev => [...prev, newTab]); setActiveTabId(newTab.id); setInputUrl("https://google.com"); }}
+                className="ml-1 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+          )}
           <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10 bg-gradient-to-r from-slate-900/90 to-slate-800/90 backdrop-blur-xl flex-wrap gap-y-2 shadow-sm">
             <button
               type="button"
@@ -737,13 +792,18 @@ export function WebPortalsPage() {
                   className="absolute inset-0"
                 >
                   {isElectron ? (
-                    <webview
-                      ref={webviewRef}
-                      src={activeUrl}
-                      className="w-full h-full border-0"
-                      allowpopups
-                      webpreferences="allowRunningInsecureContent, javascript=true"
-                    />
+                    <div className="w-full h-full relative bg-slate-950">
+                      {tabs.map((tab) => (
+                        <webview
+                          key={tab.id}
+                          ref={(el) => { if (el) webviewRefs.current[tab.id] = el; }}
+                          src={tab.url}
+                          className={`w-full h-full border-0 absolute top-0 left-0 ${activeTabId === tab.id ? "z-10" : "opacity-0 pointer-events-none z-0"}`}
+                          allowpopups
+                          webpreferences="allowRunningInsecureContent, javascript=true"
+                        />
+                      ))}
+                    </div>
                   ) : (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-8 text-center bg-slate-950">
                       <div className="h-16 w-16 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">

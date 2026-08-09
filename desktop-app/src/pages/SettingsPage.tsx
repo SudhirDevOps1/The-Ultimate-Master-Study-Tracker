@@ -30,7 +30,7 @@ function PomodoroSettingsPanel() {
           max={90}
           value={settings.workMinutes}
           onChange={(e) => updateSetting('workMinutes', parseInt(e.target.value))}
-          className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white"
+          className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white"
         />
       </div>
       <div className="space-y-2">
@@ -41,7 +41,7 @@ function PomodoroSettingsPanel() {
           max={30}
           value={settings.shortBreakMinutes}
           onChange={(e) => updateSetting('shortBreakMinutes', parseInt(e.target.value))}
-          className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white"
+          className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white"
         />
       </div>
       <div className="space-y-2">
@@ -52,7 +52,7 @@ function PomodoroSettingsPanel() {
           max={45}
           value={settings.longBreakMinutes}
           onChange={(e) => updateSetting('longBreakMinutes', parseInt(e.target.value))}
-          className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white"
+          className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white"
         />
       </div>
       <div className="space-y-2">
@@ -63,7 +63,7 @@ function PomodoroSettingsPanel() {
           max={10}
           value={settings.cyclesBeforeLongBreak}
           onChange={(e) => updateSetting('cyclesBeforeLongBreak', parseInt(e.target.value))}
-          className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white"
+          className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white"
         />
       </div>
       <div className="space-y-2">
@@ -164,6 +164,17 @@ export function SettingsPage() {
   const setBackendUrl = useAppStore((state: AppState) => state.setBackendUrl);
   const isBackendConnected = useAppStore((state: AppState) => state.isBackendConnected);
 
+  const dbConnectionString = useAppStore((state: AppState) => state.dbConnectionString);
+  const setDbConnectionString = useAppStore((state: AppState) => state.setDbConnectionString);
+  const syncToCloud = useAppStore((state: AppState) => state.syncToCloud);
+
+  const [inputDbConnectionString, setInputDbConnectionString] = useState(dbConnectionString);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  useEffect(() => {
+    setInputDbConnectionString(dbConnectionString);
+  }, [dbConnectionString]);
+
   const [profileName, setProfileName] = useState(profile?.name ?? "");
   const [inputBackendUrl, setInputBackendUrl] = useState(backendUrl);
 
@@ -240,7 +251,7 @@ export function SettingsPage() {
   return (
     <div className="space-y-5">
       {/* 🖥️ Desktop Native Controls & Floating HUD Panel */}
-      <Panel className="border-l-4 border-cyan-400 bg-gradient-to-r from-slate-900 via-cyan-950/20 to-slate-900 space-y-4">
+      <Panel className="border-l-4 border-cyan-400 bg-slate-900/40 backdrop-blur-md space-y-4">
         <div>
           <h3 className="text-xl font-bold text-white flex items-center gap-2">
             🖥️ Desktop Native App Controls
@@ -252,7 +263,7 @@ export function SettingsPage() {
 
         <div className="grid gap-4 sm:grid-cols-2">
           {/* 1. Always-On-Top */}
-          <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
+          <div className="p-4 rounded-2xl bg-slate-900/40 backdrop-blur-md shadow-inner transition-all hover:bg-slate-900/50 border border-white/10 space-y-2">
             <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-white">
               <input
                 type="checkbox"
@@ -276,7 +287,7 @@ export function SettingsPage() {
           </div>
 
           {/* 2. Compact Sized PIP Widget */}
-          <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
+          <div className="p-4 rounded-2xl bg-slate-900/40 backdrop-blur-md shadow-inner transition-all hover:bg-slate-900/50 border border-white/10 space-y-2">
             <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-white">
               <input
                 type="checkbox"
@@ -300,7 +311,7 @@ export function SettingsPage() {
           </div>
 
           {/* 3. Launch on Startup */}
-          <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
+          <div className="p-4 rounded-2xl bg-slate-900/40 backdrop-blur-md shadow-inner transition-all hover:bg-slate-900/50 border border-white/10 space-y-2">
             <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-white">
               <input
                 type="checkbox"
@@ -324,7 +335,7 @@ export function SettingsPage() {
           </div>
 
           {/* 4. System Tray Background Mode */}
-          <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
+          <div className="p-4 rounded-2xl bg-slate-900/40 backdrop-blur-md shadow-inner transition-all hover:bg-slate-900/50 border border-white/10 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-white flex items-center gap-2">
                 🛡️ System Tray Background Mode
@@ -339,7 +350,7 @@ export function SettingsPage() {
           </div>
 
           {/* 5. Native Toast Notifications */}
-          <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
+          <div className="p-4 rounded-2xl bg-slate-900/40 backdrop-blur-md shadow-inner transition-all hover:bg-slate-900/50 border border-white/10 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-white flex items-center gap-2">
                 🔔 Windows Toast Alerts
@@ -365,7 +376,7 @@ export function SettingsPage() {
           </div>
         </div>
 
-        <div className="p-3.5 rounded-xl bg-slate-900/80 border border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="p-3.5 rounded-xl bg-slate-900/40 backdrop-blur-md shadow-inner border border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2">
             <span className="text-cyan-400 text-sm">⚡</span>
             <span className="text-slate-200 font-medium">Global System Hotkey:</span>
@@ -436,7 +447,7 @@ export function SettingsPage() {
               type="text"
               value={profileName}
               onChange={(e) => setProfileName(e.target.value)}
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white focus:border-cyan-400 focus:outline-none"
+              className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white focus:border-cyan-400 focus:outline-none"
               placeholder="e.g. Aarav"
             />
           </div>
@@ -446,7 +457,7 @@ export function SettingsPage() {
               type="text"
               value={profileAge}
               onChange={(e) => setProfileAge(e.target.value)}
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white focus:border-cyan-400 focus:outline-none"
+              className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white focus:border-cyan-400 focus:outline-none"
               placeholder="e.g. 20"
             />
           </div>
@@ -456,7 +467,7 @@ export function SettingsPage() {
               type="text"
               value={profileProfession}
               onChange={(e) => setProfileProfession(e.target.value)}
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white focus:border-cyan-400 focus:outline-none"
+              className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white focus:border-cyan-400 focus:outline-none"
               placeholder="e.g. JEE Aspirant / Web Developer"
             />
           </div>
@@ -466,7 +477,7 @@ export function SettingsPage() {
               type="text"
               value={profileGoal}
               onChange={(e) => setProfileGoal(e.target.value)}
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white focus:border-cyan-400 focus:outline-none"
+              className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white focus:border-cyan-400 focus:outline-none"
               placeholder="e.g. Crack JEE Mains / Get a React Job"
             />
           </div>
@@ -651,7 +662,7 @@ export function SettingsPage() {
             <h3 className="text-xl font-semibold text-white">✏️ Manual Time Entry</h3>
             <p className="mt-1 text-sm text-slate-400">Add missed study time manually.</p>
           </div>
-          <select value={manualSubjectId} onChange={(event) => setManualSubjectId(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white">
+          <select value={manualSubjectId} onChange={(event) => setManualSubjectId(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white">
             <option value="">Select Subject</option>
             {subjects.map((subject) => (
               <option key={subject.id} value={subject.id}>
@@ -660,12 +671,12 @@ export function SettingsPage() {
             ))}
           </select>
           <div className="grid gap-3 sm:grid-cols-2">
-            <input type="number" min={0.25} step={0.25} value={manualHours} onChange={(event) => setManualHours(Number(event.target.value))} className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white" placeholder="Hours" />
-            <input type="time" value={manualTime} onChange={(event) => setManualTime(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white" />
+            <input type="number" min={0.25} step={0.25} value={manualHours} onChange={(event) => setManualHours(Number(event.target.value))} className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white" placeholder="Hours" />
+            <input type="time" value={manualTime} onChange={(event) => setManualTime(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white" />
           </div>
-          <input type="date" value={manualDate} onChange={(event) => setManualDate(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white" />
-          <input value={manualNotes} onChange={(event) => setManualNotes(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white" placeholder="Notes" />
-          <input value={manualTags} onChange={(event) => setManualTags(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white" placeholder="Tags (comma separated)" />
+          <input type="date" value={manualDate} onChange={(event) => setManualDate(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white" />
+          <input value={manualNotes} onChange={(event) => setManualNotes(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white" placeholder="Notes" />
+          <input value={manualTags} onChange={(event) => setManualTags(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white" placeholder="Tags (comma separated)" />
           <button
             onClick={() => {
               if (!manualSubjectId || manualHours <= 0) {
@@ -695,6 +706,58 @@ export function SettingsPage() {
         </Panel>
       </div>
 
+      {/* Cloud Sync Settings */}
+      <Panel className="space-y-4">
+        <div>
+          <h3 className="text-xl font-semibold text-white">☁️ Cloud Sync (PostgreSQL)</h3>
+          <p className="mt-1 text-sm text-slate-400">Sync your local data to a Neon serverless PostgreSQL database.</p>
+        </div>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="block text-sm text-slate-300">Database Connection String</label>
+            <input
+              type="password"
+              value={inputDbConnectionString}
+              onChange={(e) => setInputDbConnectionString(e.target.value)}
+              className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white focus:border-cyan-400 focus:outline-none"
+              placeholder="postgresql://user:password@endpoint/dbname"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={async () => {
+                await setDbConnectionString(inputDbConnectionString.trim());
+                showMessage("Database connection string saved successfully.");
+              }}
+              className="rounded-2xl bg-slate-800 px-6 py-2.5 font-bold text-white shadow-lg transition-transform hover:scale-105 border border-white/10"
+            >
+              💾 Save String
+            </button>
+            <button
+              onClick={async () => {
+                setIsSyncing(true);
+                try {
+                  await syncToCloud();
+                  showMessage("Sync completed successfully!");
+                } catch (e: any) {
+                  showMessage(`Sync failed: ${e.message}`);
+                } finally {
+                  setIsSyncing(false);
+                }
+              }}
+              disabled={!dbConnectionString || isSyncing}
+              className={`rounded-2xl px-6 py-2.5 font-bold shadow-lg transition-all ${
+                !dbConnectionString || isSyncing
+                  ? "bg-slate-700 text-slate-400 cursor-not-allowed"
+                  : "bg-gradient-to-r from-cyan-500 to-blue-500 text-slate-950 hover:scale-105"
+              }`}
+            >
+              {isSyncing ? "🔄 Syncing..." : "☁️ Sync Now"}
+            </button>
+          </div>
+        </div>
+      </Panel>
+
       {/* Goals and Notifications */}
       <Panel className="space-y-4">
         <div>
@@ -711,7 +774,7 @@ export function SettingsPage() {
               max={12}
               value={dailyGoalHours}
               onChange={(event) => setDailyGoalHours(Number(event.target.value))}
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+              className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-3 py-3 text-white"
             />
           </div>
           <div className="space-y-2">
@@ -722,7 +785,7 @@ export function SettingsPage() {
               max={80}
               value={weeklyTargetHours}
               onChange={(e) => setWeeklyTargetHours(Number(e.target.value))}
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+              className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-3 py-3 text-white"
             />
           </div>
           <div className="space-y-2">

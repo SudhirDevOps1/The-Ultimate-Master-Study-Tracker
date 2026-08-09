@@ -400,6 +400,12 @@ export function AppBlockingPanel() {
                 placeholder="e.g., discord.exe, spotify, chrome"
                 value={newAppName}
                 onChange={(e) => setNewAppName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void addRule();
+                  }
+                }}
                 className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-rose-400"
               />
               {(runningApps.length > 0 || installedApps.length > 0) && (

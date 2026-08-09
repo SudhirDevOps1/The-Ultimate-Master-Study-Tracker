@@ -354,12 +354,18 @@ function startActivityTracker() {
 
         const cleanTarget = target.replace(/\.exe$/i, "");
 
+        let matchTarget = cleanTarget;
+        // If it's a website rule, the window title usually just contains the brand name, not the TLD.
+        if (rule.ruleType === "website" && matchTarget.includes(".")) {
+          matchTarget = matchTarget.split(".")[0];
+        }
+
         // Flexible matching: handles "chrome", "google chrome", "chrome.exe", "code", "vs code", etc.
-        const isMatch = cleanActive === cleanTarget ||
-                        activeProc.includes(cleanTarget) ||
-                        cleanTarget.includes(cleanActive) ||
-                        activeTitle.includes(cleanTarget) ||
-                        (cleanTarget.length > 3 && (activeProc.includes(cleanTarget) || activeTitle.includes(cleanTarget)));
+        const isMatch = cleanActive === matchTarget ||
+                        activeProc.includes(matchTarget) ||
+                        matchTarget.includes(cleanActive) ||
+                        activeTitle.includes(matchTarget) ||
+                        (matchTarget.length > 3 && (activeProc.includes(matchTarget) || activeTitle.includes(matchTarget)));
 
         if (isMatch && !isSelf(processName, windowTitle) && activeProc !== "explorer.exe" && cleanActive !== "explorer") {
           const exeName = processName.toLowerCase().endsWith(".exe") ? processName : `${processName}.exe`;
@@ -407,18 +413,38 @@ function startActivityTracker() {
 
           if (rule.strictLevel === "hard") {
             // HARD: Terminate process immediately using taskkill with .exe extension (execFile prevents injection)
-            execFile("taskkill", ["/F", "/IM", exeName, "/T"], () => {});
+            // Prevent killing ApplicationFrameHost completely, which hosts all UWP apps. Just close window instead.
+            if (cleanActive === "applicationframehost" || cleanActive === "explorer") {
+                const safeTitle = activeTitle.replace(/'/g, "''");
+                execFile("powershell.exe", [
+                    "-NoProfile", 
+                    "-NonInteractive",
+                    "-Command", 
+                    `(Get-Process | Where-Object {$_.MainWindowTitle -eq '${safeTitle}'}) | ForEach-Object { $_.CloseMainWindow() }`
+                ], () => {});
+            } else {
+                execFile("taskkill", ["/F", "/IM", exeName, "/T"], () => {});
+            }
             if (mainWindow) {
               mainWindow.webContents.send("toast-message", { message: `🛡️ Hard Blocked: Terminated ${appDisplayName}!` });
             }
           } else if (rule.strictLevel === "medium") {
             // MEDIUM: Close main window & restore FlowTrack Pro window to focus
             const safeCleanActive = cleanActive.replace(/'/g, "''"); // escape for PowerShell
+            const safeTitle = activeTitle.replace(/'/g, "''");
+            
+            // Prefer targeting by title if it's ApplicationFrameHost
+            let psCommand = `(Get-Process -Name '${safeCleanActive}' -ErrorAction SilentlyContinue) | ForEach-Object { $_.CloseMainWindow() }`;
+            if (cleanActive === "applicationframehost") {
+                psCommand = `(Get-Process | Where-Object {$_.MainWindowTitle -eq '${safeTitle}'}) | ForEach-Object { $_.CloseMainWindow() }`;
+            }
+
             execFile("powershell.exe", [
               "-NoProfile", 
               "-NonInteractive",
+              "-WindowStyle", "Hidden",
               "-Command", 
-              `(Get-Process -Name '${safeCleanActive}' -ErrorAction SilentlyContinue) | ForEach-Object { $_.CloseMainWindow() }`
+              psCommand
             ], () => {
               if (mainWindow) {
                 mainWindow.show();
@@ -805,6 +831,12 @@ app.whenReady().then(() => {
         }
       }
     });
+
+    globalShortcut.register("CommandOrControl+Shift+I", () => {
+      if (mainWindow) {
+        mainWindow.webContents.toggleDevTools();
+      }
+    });
   } catch (err) {
     console.error("[Shortcut Error]", err);
   }
@@ -861,6 +893,7 @@ ipcMain.handle("sync-hosts-file", async () => {
       const scriptContent = `
 $ErrorActionPreference = "Stop"
 $hostsPath = "$env:windir\\System32\\drivers\\etc\\hosts"
+$logPath = "$env:TEMP\\flowtrack_hosts_sync.log"
 $startMarker = "# --- FlowTrack Pro Blocks Start ---"
 $endMarker = "# --- FlowTrack Pro Blocks End ---"
 
@@ -870,34 +903,56 @@ ${entries}
 $endMarker
 "@
 
-$hosts = Get-Content $hostsPath -Raw
-if ($hosts -match "(?s)$startMarker.*?$endMarker") {
-    if ("${entries}" -eq "") {
-        $hosts = $hosts -replace "(?s)\\s*$startMarker.*?$endMarker\\s*", "\r\n"
+try {
+    $hosts = Get-Content $hostsPath -Raw
+    if ($hosts -match "(?s)$startMarker.*?$endMarker") {
+        if ("${entries}" -eq "") {
+            $hosts = $hosts -replace "(?s)\\s*$startMarker.*?$endMarker\\s*", "\r\n"
+        } else {
+            $hosts = $hosts -replace "(?s)$startMarker.*?$endMarker", $newContent
+        }
     } else {
-        $hosts = $hosts -replace "(?s)$startMarker.*?$endMarker", $newContent
+        if ("${entries}" -ne "") {
+            $hosts = $hosts + "\r\n" + $newContent + "\r\n"
+        }
     }
-} else {
-    if ("${entries}" -ne "") {
-        $hosts = $hosts + "\r\n" + $newContent + "\r\n"
-    }
+    [IO.File]::WriteAllText($hostsPath, $hosts)
+    ipconfig /flushdns | Out-Null
+    "SUCCESS" | Out-File -FilePath $logPath -Encoding utf8
+} catch {
+    $errorMsg = $_.Exception.Message
+    "ERROR: $errorMsg" | Out-File -FilePath $logPath -Encoding utf8
+    exit 1
 }
-[IO.File]::WriteAllText($hostsPath, $hosts)
 `;
       
       const tempScriptPath = path.join(app.getPath("userData"), "update_hosts.ps1");
+      const logPath = path.join(require('os').tmpdir(), "flowtrack_hosts_sync.log");
+      if (fs.existsSync(logPath)) fs.unlinkSync(logPath);
+
       fs.writeFileSync(tempScriptPath, scriptContent, "utf8");
 
       // Execute powershell with runas (UAC Prompt)
       const command = `powershell -Command "Start-Process powershell -ArgumentList '-ExecutionPolicy Bypass -WindowStyle Hidden -File "${tempScriptPath}"' -Verb RunAs -Wait"`;
       
       exec(command, (error, stdout, stderr) => {
-        if (error) {
-          console.error("Hosts Sync Error:", error);
-          resolve({ success: false, error: "Failed to elevate or modify hosts file. Did you click Yes on the admin prompt?" });
-        } else {
-          resolve({ success: true });
+        let errorReason = "Unknown Error";
+        if (fs.existsSync(logPath)) {
+            const logContent = fs.readFileSync(logPath, "utf8").trim();
+            if (logContent === "SUCCESS") {
+                return resolve({ success: true });
+            }
+            if (logContent.startsWith("ERROR:")) {
+                errorReason = logContent.replace("ERROR:", "").trim();
+            }
         }
+        
+        console.error("Hosts Sync Error:", error || errorReason);
+        dialog.showErrorBox(
+          "Hosts Sync Failed",
+          `Failed to update system blocks.\n\nReason: ${errorReason}\n\nMake sure your Antivirus is not blocking modifications to the hosts file.`
+        );
+        resolve({ success: false, error: errorReason });
       });
     } catch (err) {
       resolve({ success: false, error: err.message });

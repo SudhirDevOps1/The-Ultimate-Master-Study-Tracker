@@ -1,3 +1,4 @@
+import { sendNotification } from '@/utils/notification';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { db } from '@/lib/db';
@@ -107,7 +108,7 @@ export function usePomodoro() {
     setCycle(newCycle);
 
     if (settings.desktopNotifications && Notification.permission === 'granted') {
-      new Notification(`Pomodoro ${nextPhase === 'work' ? 'Work' : 'Break'} ${nextPhase === 'longBreak' ? '(Long)' : ''}`, {
+      sendNotification(`Pomodoro ${nextPhase === 'work' ? 'Work' : 'Break'} ${nextPhase === 'longBreak' ? '(Long)' : ''}`, {
         body: `${nextPhase === 'work' ? 'Time to focus!' : 'Time to relax!'}`,
         icon: '/icon-192.png',
       });
@@ -127,7 +128,7 @@ export function usePomodoro() {
 
     if (cycle.remainingSeconds === cycle.durationSeconds) {
       if (settings.desktopNotifications && Notification.permission === 'granted') {
-        new Notification(`Pomodoro ${cycle.phase === 'work' ? 'Work' : 'Break'} Started`, {
+        sendNotification(`Pomodoro ${cycle.phase === 'work' ? 'Work' : 'Break'} Started`, {
           body: `Focus for ${Math.floor(cycle.durationSeconds / 60)} minutes`,
           icon: '/icon-192.png',
         });

@@ -1358,6 +1358,54 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
     showToast("Board file exported", "success");
   };
 
+  const exportNotesToStickyBoard = () => {
+    const c = fcRef.current;
+    if (!c) return;
+    setExportOpen(false);
+    
+    // Find all textboxes and IText
+    const objects = c.getObjects();
+    const textObjects = objects.filter(o => o.type === "textbox" || o.type === "i-text" || o.type === "text") as (fabric.Textbox | fabric.IText)[];
+    
+    if (textObjects.length === 0) {
+      showToast("No notes found on the whiteboard to save", "warning");
+      return;
+    }
+
+    try {
+      const existing = localStorage.getItem("workspace_sticky_notes");
+      const currentNotes = existing ? JSON.parse(existing) : [];
+      
+      const newNotes = textObjects.map(tb => {
+        const text = tb.text || "";
+        const now = new Date();
+        return {
+          id: crypto.randomUUID(),
+          title: "From Whiteboard",
+          text: text.replace("📌 Sticky Note\\n", "").replace("📌 Sticky Note", "").trim(),
+          color: "bg-yellow-500/15 border-yellow-400/35",
+          textColor: "text-amber-200",
+          font: "font-sans",
+          date: now.toLocaleDateString(),
+          time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          subject: "Whiteboard Extract",
+          pinned: false
+        };
+      }).filter(n => n.text.length > 0);
+
+      if (newNotes.length === 0) {
+        showToast("No valid text found to save", "warning");
+        return;
+      }
+
+      localStorage.setItem("workspace_sticky_notes", JSON.stringify([...newNotes, ...currentNotes]));
+      showToast(`Successfully saved ${newNotes.length} note(s) to Sticky Board!`, "success");
+    } catch (err) {
+      console.error("Failed to save notes", err);
+      showToast("Failed to save notes to Sticky Board", "warning");
+    }
+  };
+
   const clearBoard = () => {
     const c = fcRef.current;
     if (!c) return;
@@ -1616,6 +1664,7 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
                     { label: "PNG · transparent",    icon: FileImage, fn: () => exportPNG(2, true) },
                     { label: "SVG (vector)",         icon: FileCode2, fn: exportSVG },
                     { label: "Board file (.json)",   icon: FileJson,  fn: exportJSON },
+                    { label: "Save Notes to Sticky Board", icon: StickyNote, fn: exportNotesToStickyBoard },
                   ].map(({ label, icon: I, fn }) => (
                     <button
                       key={label}

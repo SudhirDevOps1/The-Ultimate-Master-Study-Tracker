@@ -1,3 +1,4 @@
+import { sendNotification } from '@/utils/notification';
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -59,7 +60,7 @@ export function useTimer() {
         if (inactiveMs >= 10 * 60 * 1000) { // 10 minutes
           void state.pauseSession();
           if (state.notificationsEnabled && typeof Notification !== "undefined" && Notification.permission === "granted") {
-            new Notification("FlowTrack - Inactivity Auto-Pause", {
+            sendNotification("FlowTrack - Inactivity Auto-Pause", {
               body: "Your study session was auto-paused due to 10 minutes of inactivity. Stay focused! 🔒",
               icon: "/icon-192.png",
             });
@@ -92,12 +93,12 @@ export function useTimer() {
                     } as any);
                   });
                 } else {
-                  new Notification(title, { body, icon: "/icon-192.png" });
+                  sendNotification(title, { body, icon: "/icon-192.png" });
                 }
               } else if (Notification.permission === "default") {
                 Notification.requestPermission().then(permission => {
                   if (permission === "granted") {
-                    new Notification(title, { body, icon: "/icon-192.png" });
+                    sendNotification(title, { body, icon: "/icon-192.png" });
                   }
                 });
               }

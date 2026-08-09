@@ -1,3 +1,4 @@
+import { sendNotification } from '@/utils/notification';
 import { useEffect, useState, useRef } from "react";
 import { Play, Pause, Camera, AlertCircle, ExternalLink, Globe, SkipBack, SkipForward, ListVideo, Folder, Upload, Disc, Radio, Tv } from "lucide-react";
 import html2canvas from "html2canvas";
@@ -304,7 +305,7 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction, isP
       } catch { /* ignore */ }
     }
     if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-      new Notification("FlowTrack", { body: message, icon: "/icon-192.png" });
+      sendNotification("FlowTrack", { body: message, icon: "/icon-192.png" });
     }
   };
 

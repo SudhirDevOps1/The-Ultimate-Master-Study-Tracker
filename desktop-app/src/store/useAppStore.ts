@@ -57,6 +57,9 @@ export interface AppState {
   isBackendConnected: boolean;
   backendUrl: string;
   setBackendUrl: (url: string) => Promise<void>;
+  dbConnectionString: string;
+  setDbConnectionString: (url: string) => Promise<void>;
+  syncToCloud: () => Promise<void>;
   fetchBackendData: () => Promise<void>;
   updateDailyGoalStreak: (newSessions: StudySession[]) => Promise<void>;
   initApp: () => Promise<void>;
@@ -142,6 +145,15 @@ async function saveTimer(timer: TimerSnapshot): Promise<void> {
   await db.settings.put({ key: "timer", value: JSON.stringify(timer) });
 }
 
+// Debounced Sync Helper
+let syncTimeout: NodeJS.Timeout | null = null;
+function scheduleSync(get: any) {
+  if (syncTimeout) clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(() => {
+    get().syncToCloud().catch(console.error);
+  }, 5000); // 5 seconds debounce
+}
+
 function sortSessions(sessions: StudySession[]) {
   return [...sessions].sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
 }
@@ -220,6 +232,18 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
     set({ backendUrl: cleanUrl });
     void get().fetchBackendData();
   },
+  dbConnectionString: "",
+  setDbConnectionString: async (url: string) => {
+    await db.settings.put({ key: "dbConnectionString", value: url });
+    set({ dbConnectionString: url });
+  },
+  syncToCloud: async () => {
+    const url = get().dbConnectionString;
+    if (url) {
+      const { syncToNeonDB } = await import('@/lib/neonSync');
+      await syncToNeonDB(url);
+    }
+  },
   fetchBackendData: async () => {
     const url = get().backendUrl;
     if (!url) {
@@ -250,7 +274,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
 
   initApp: async () => {
     try {
-      const [subjects, sessions, timerSetting, pomodoroSetting, goalSetting, strictFocusSetting, weeklyTargetSetting, focusMusicSetting, notificationsSetting, keyboardShortcutsSetting, themeSetting, achievementsSetting, dailyGoalHitStreakSetting, autoPauseOnHiddenSetting, profileSetting, aiConfigSetting, autoCarryForwardSetting, backendUrlSetting] = await Promise.all([
+      const [subjects, sessions, timerSetting, pomodoroSetting, goalSetting, strictFocusSetting, weeklyTargetSetting, focusMusicSetting, notificationsSetting, keyboardShortcutsSetting, themeSetting, achievementsSetting, dailyGoalHitStreakSetting, autoPauseOnHiddenSetting, profileSetting, aiConfigSetting, autoCarryForwardSetting, backendUrlSetting, dbConnectionStringSetting] = await Promise.all([
         db.subjects.toArray(),
         db.sessions.toArray(),
         db.settings.get("timer"),
@@ -269,6 +293,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
         db.settings.get("ai_config"),
         db.settings.get("autoCarryForward"),
         db.settings.get("backendUrl"),
+        db.settings.get("dbConnectionString"),
       ]);
 
       let finalSessions = [...sessions];
@@ -418,6 +443,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
         aiConfig: aiConfigSetting ? JSON.parse(aiConfigSetting.value) : { provider: "local_rules", apiKey: "", model: "", ollamaUrl: "http://localhost:11434" },
         autoCarryForward: autoCarryEnabled,
         backendUrl: backendUrlSetting?.value ?? "http://localhost:5001",
+        dbConnectionString: dbConnectionStringSetting?.value ?? "",
         loading: false,
       });
       void get().fetchBackendData();
@@ -439,6 +465,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
     };
     await db.subjects.add(newSubject);
     set((state: AppState) => ({ subjects: [...state.subjects, newSubject] }));
+    scheduleSync(get);
   },
 
   updateSubject: async (id: string, name: string, color: string, emoji?: string, weeklyGoalMinutes?: number, url?: string) => {
@@ -447,6 +474,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
       subjects: state.subjects.map((s) => (s.id === id ? { ...s, name, color, emoji, weeklyGoalMinutes, url } : s)),
       sessions: state.sessions.map((session) => (session.subjectId === id ? { ...session, colorTag: color } : session)),
     }));
+    scheduleSync(get);
   },
 
   deleteSubject: async (id: string) => {
@@ -468,6 +496,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
           ...calculateGamificationStats(newSessions)
         };
       });
+      scheduleSync(get);
   },
 
   createSession: async (input: CreateSessionInput) => {
@@ -495,6 +524,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
         ...calculateGamificationStats(newSessions)
       };
     });
+    scheduleSync(get);
   },
 
   updateSession: async (session: StudySession) => {
@@ -525,6 +555,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
       sessions: sortSessions(newSessionsList),
       ...calculateGamificationStats(newSessionsList)
     });
+    scheduleSync(get);
   },
 
   deleteSession: async (id: string) => {
@@ -549,14 +580,14 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
         ...calculateGamificationStats(newSessions)
       };
     });
+    scheduleSync(get);
   },
 
   importAll: async (subjects: Subject[], sessions: StudySession[], settings?: { key: string; value: string }[], activities?: any[]) => {
     await (db as any).transaction("rw", [db.subjects, db.sessions, db.settings], async () => {
-      await db.subjects.clear();
-      await db.sessions.clear();
-      await db.subjects.bulkAdd(subjects);
-      await db.sessions.bulkAdd(sessions);
+      // Safe merge (Upsert): Do not clear existing data
+      await db.subjects.bulkPut(subjects);
+      await db.sessions.bulkPut(sessions);
       if (settings && settings.length > 0) {
         for (const setting of settings) {
           if (setting.key === "ai_config") {
@@ -636,6 +667,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
       sessions: sortSessions(newSessions),
       ...calculateGamificationStats(newSessions)
     });
+    scheduleSync(get);
   },
 
   startSession: async (sessionId: string) => {
@@ -765,6 +797,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
         sessions: sortSessions(newSessions),
         ...calculateGamificationStats(newSessions)
       });
+      scheduleSync(get);
     });
   },
 
@@ -1192,6 +1225,8 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
 
     await db.settings.put({ key: "dailyGoalHitStreak", value: String(streak) });
     set({ dailyGoalHitStreak: streak });
+
+    scheduleSync(get);
     get().recalculateAchievements();
   },
 }));

@@ -1,3 +1,4 @@
+import { sendNotification } from '@/utils/notification';
 import { useEffect, useRef, useCallback } from "react";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -112,7 +113,7 @@ export function useInactivityDetector() {
               }
             } else if (typeof Notification !== "undefined" && Notification.permission === "granted") {
               try {
-                new Notification(title, {
+                sendNotification(title, {
                   body,
                   icon: "/icon-192.png",
                   tag: "flowtrack-autopause",
