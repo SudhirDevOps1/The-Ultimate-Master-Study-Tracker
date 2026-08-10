@@ -136,7 +136,8 @@ export async function syncToNeonDB(connectionString: string) {
     }
 
     console.log("NeonDB Sync Complete");
-  } catch (error) {
+  } catch (error: any) {
     console.error("NeonDB Sync Failed:", error);
+    throw new Error(error.message || "Failed to sync to NeonDB. Check your connection string and internet.");
   }
 }
