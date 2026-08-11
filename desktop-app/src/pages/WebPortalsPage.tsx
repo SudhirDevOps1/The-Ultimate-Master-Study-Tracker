@@ -792,7 +792,7 @@ export function WebPortalsPage() {
                   className="absolute inset-0"
                 >
                   {isElectron ? (
-                    <div className="w-full h-full relative bg-slate-950">
+                    <div className={`w-full h-full relative bg-slate-950 ${showVaultModal ? "hidden" : ""}`}>
                       {tabs.map((tab) => (
                         <webview
                           key={tab.id}
