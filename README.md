@@ -1,14 +1,14 @@
 <div align="center">
 
-<!-- Animated wave header -->
-<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=200&section=header&text=FlowTrack%20Pro&fontSize=70&fontColor=ffffff&animation=fadeIn&fontAlignY=38&desc=The%20Ultimate%20Master%20Study%20%26%20Productivity%20Ecosystem&descAlignY=60&descSize=18" width="100%" />
-
-<br />
-
 <img src="public/images/flowtrack-logo.png" alt="FlowTrack Pro Official App Logo" width="120" />
 
 <h1>🚀 FlowTrack Pro <code>v7.5.1</code></h1>
 <h3>💎 The Ultimate Master Study &amp; Productivity Ecosystem — 2026 Enterprise Edition</h3>
+
+<!-- Animated Typing SVG -->
+<a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker">
+  <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=18&pause=1000&color=10B981&center=true&vCenter=true&multiline=true&width=700&height=60&lines=⏱️+Smart+Timer+%7C+🎨+MindMap+%7C+🔐+Vault+%7C+🌐+Web+Portals;🖤+OLED+Dark+Theme+%7C+☁️+NeonDB+Cloud+Sync+%7C+🔄+Auto+Update" alt="Typing SVG" />
+</a>
 
 <!-- Primary Action Badges -->
 <p>
@@ -388,6 +388,31 @@ npm run electron:build
 
 <div align="center">
 
+<!-- GitHub Trophies -->
+### 🏆 GitHub Trophies
+
+<a href="https://github.com/ryo-ma/github-profile-trophy">
+  <img src="https://github-profile-trophy.vercel.app/?username=SudhirDevOps1&theme=radical&no-frame=true&no-bg=true&margin-w=6&column=7" alt="GitHub Trophies" />
+</a>
+
+<br />
+
+---
+
+### 📊 GitHub Activity
+
+<p>
+  <img src="https://github-readme-stats.vercel.app/api?username=SudhirDevOps1&show_icons=true&theme=radical&hide_border=true&include_all_commits=true&count_private=true" height="160" alt="GitHub Stats" />
+  &nbsp;
+  <img src="https://github-readme-streak-stats.herokuapp.com/?user=SudhirDevOps1&theme=radical&hide_border=true" height="160" alt="GitHub Streak" />
+</p>
+
+<img src="https://github-readme-stats.vercel.app/api/top-langs/?username=SudhirDevOps1&layout=compact&theme=radical&hide_border=true&langs_count=8" alt="Top Languages" />
+
+<br />
+
+---
+
 Designed & Architected with ❤️ by **Sudhir Singh** ([@SudhirDevOps1](https://github.com/SudhirDevOps1))
 
 Licensed under the [MIT Open Source License](LICENSE)
@@ -398,9 +423,5 @@ Licensed under the [MIT Open Source License](LICENSE)
 
 <a href="#-executive-navigation--table-of-contents">⬆️ Back to Top</a>
 
-<br />
-
-<!-- Animated wave footer -->
-<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=120&section=footer" width="100%" />
-
 </div>
+
