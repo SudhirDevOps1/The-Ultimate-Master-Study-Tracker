@@ -128,6 +128,18 @@ export function WebPortalsPage() {
   const [vPassword, setVPassword]               = useState("");
   const [showPassMap, setShowPassMap]           = useState<Record<string, boolean>>({});
   const [fillToast, setFillToast]               = useState<string | null>(null);
+  const [filledDomains, setFilledDomains]       = useState<string[]>([]);
+
+  // Master Password State
+  const [masterPassword, setMasterPassword] = useState<string | null>(null);
+  const [isVaultUnlocked, setIsVaultUnlocked] = useState(false);
+  const [vaultUnlockInput, setVaultUnlockInput] = useState("");
+  const [vaultSetupInput, setVaultSetupInput] = useState("");
+
+  useEffect(() => {
+    const saved = localStorage.getItem("vault_master_password");
+    if (saved) setMasterPassword(saved);
+  }, []);
 
   const webviewRefs = useRef<Record<string, any>>({});
   const getWebview = () => activeTabId ? webviewRefs.current[activeTabId] : null;
@@ -188,34 +200,136 @@ export function WebPortalsPage() {
     const wv = getWebview();
     if (!isElectron || !wv || !activeUrl) return;
 
-    function reportToMain(url: string, title?: string) {
-      (window as any).electron?.ipcRenderer?.invoke("webview-activity-report", { url, title: title || "" })
-        .catch(() => {});
+    try {
+      function reportToMain(url: string, title?: string) {
+        (window as any).electron?.ipcRenderer?.invoke("webview-activity-report", { url, title: title || "" })
+          .catch(() => {});
+      }
+
+      function onNavigate(e: any) {
+        const url = e.url || activeUrl || "";
+        reportToMain(url);
+        setInputUrl(url);
+        setTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, url } : t));
+      }
+      function onTitleUpdate(e: any) {
+        const url = wv.getURL?.() || activeUrl || "";
+        reportToMain(url, e.title || "");
+      }
+      function onNewWindow(e: any) {
+        e.preventDefault();
+        if (wv.loadURL) {
+          wv.loadURL(e.url);
+        } else {
+          wv.src = e.url;
+        }
+      }
+
+      // Report immediately when webview first loads
+      reportToMain(activeUrl);
+
+      function onConsoleMessage(e: any) {
+        if (e.message === '__FLOWTRACK_SCREENSHOT__' && typeof wv.capturePage === 'function') {
+          wv.capturePage().then((image: any) => {
+            const a = document.createElement('a');
+            a.href = image.toDataURL();
+            a.download = `FlowTrack_Note_${Date.now()}.png`;
+            a.click();
+            setFillToast("📸 Screenshot saved!");
+            setTimeout(() => setFillToast(null), 3000);
+          }).catch(() => {});
+        }
+        if (e.message === '__FLOWTRACK_DEVTOOLS__' && typeof wv.openDevTools === 'function') {
+          wv.openDevTools();
+        }
+      }
+
+      function injectShortcuts() {
+        const script = `
+          if (!window.__flowtrack_shortcuts) {
+            window.__flowtrack_shortcuts = true;
+            
+            window.open = function(url) {
+              window.location.href = url;
+              return null;
+            };
+            
+            document.addEventListener('click', (e) => {
+              const a = e.target.closest('a');
+              if (a && a.target === '_blank') {
+                a.target = '_self';
+              }
+            }, true);
+
+            window.addEventListener('keydown', (e) => {
+              if (e.code === 'F12' || (e.ctrlKey && e.shiftKey && e.code === 'KeyI')) {
+                 console.log('__FLOWTRACK_DEVTOOLS__');
+                 e.preventDefault();
+                 return;
+              }
+
+              const tag = (e.target.tagName || '').toLowerCase();
+              if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return;
+              
+              if (e.code === 'KeyS' && e.shiftKey) {
+                 console.log('__FLOWTRACK_SCREENSHOT__');
+                 e.preventDefault();
+                 return;
+              }
+
+              const videos = Array.from(document.querySelectorAll('video'));
+              document.querySelectorAll('iframe').forEach(ifr => {
+                try { videos.push(...Array.from(ifr.contentDocument.querySelectorAll('video'))); } catch(e) {}
+              });
+              const v = videos[0];
+              if (!v) return;
+
+              if (e.code === 'ArrowRight' || e.key === 'l') {
+                v.currentTime = Math.min(v.duration || 0, v.currentTime + 10);
+                e.preventDefault();
+              } else if (e.code === 'ArrowLeft' || e.key === 'j') {
+                v.currentTime = Math.max(0, v.currentTime - 10);
+                e.preventDefault();
+              } else if (e.code === 'Space' || e.key === 'k') {
+                if (v.paused) v.play(); else v.pause();
+                e.preventDefault();
+              }
+            }, true);
+          }
+        `;
+        try {
+          wv.executeJavaScript(script).catch(() => {});
+        } catch (e) {
+          // Ignore
+        }
+      }
+
+      wv.addEventListener("did-navigate", onNavigate);
+      wv.addEventListener("did-navigate-in-page", onNavigate);
+      wv.addEventListener("page-title-updated", onTitleUpdate);
+      wv.addEventListener("new-window", onNewWindow);
+      wv.addEventListener("console-message", onConsoleMessage);
+      wv.addEventListener("dom-ready", injectShortcuts);
+      wv.addEventListener("did-navigate-in-page", injectShortcuts);
+      
+      // Delay immediate execution to prevent DOM attachment errors
+      setTimeout(injectShortcuts, 500);
+
+      return () => {
+        wv.removeEventListener("did-navigate", onNavigate);
+        wv.removeEventListener("did-navigate-in-page", onNavigate);
+        wv.removeEventListener("page-title-updated", onTitleUpdate);
+        wv.removeEventListener("new-window", onNewWindow);
+        wv.removeEventListener("console-message", onConsoleMessage);
+        wv.removeEventListener("dom-ready", injectShortcuts);
+        wv.removeEventListener("did-navigate-in-page", injectShortcuts);
+      };
+    } catch (err) {
+      console.error("Webview setup error:", err);
+      return () => {};
     }
-
-    function onNavigate(e: any) {
-      const url = e.url || activeUrl || "";
-      reportToMain(url);
-    }
-    function onTitleUpdate(e: any) {
-      const url = wv.getURL?.() || activeUrl || "";
-      reportToMain(url, e.title || "");
-    }
-
-    // Report immediately when webview first loads
-    reportToMain(activeUrl);
-
-    wv.addEventListener("did-navigate", onNavigate);
-    wv.addEventListener("did-navigate-in-page", onNavigate);
-    wv.addEventListener("page-title-updated", onTitleUpdate);
-
-    return () => {
-      wv.removeEventListener("did-navigate", onNavigate);
-      wv.removeEventListener("did-navigate-in-page", onNavigate);
-      wv.removeEventListener("page-title-updated", onTitleUpdate);
-    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeUrl, isElectron]);
+  }, [activeUrl, isElectron, activeTabId]);
 
   // Clear tracking when webview is closed
   useEffect(() => {
@@ -254,9 +368,9 @@ export function WebPortalsPage() {
     if (!activeDomain) return null;
     return vaultCredentials.find(c => {
       const d = (c.domain || "").toLowerCase().replace(/^www\./, "").replace(/^https?:\/\//, "");
-      return activeDomain.includes(d) || d.includes(activeDomain);
+      return (activeDomain.includes(d) || d.includes(activeDomain)) && !filledDomains.includes(c.domain);
     });
-  }, [activeDomain, vaultCredentials]);
+  }, [activeDomain, vaultCredentials, filledDomains]);
 
   function handleAddVaultCred() {
     if (!vUsername.trim() || !vPassword.trim()) return;
@@ -286,6 +400,28 @@ export function WebPortalsPage() {
     saveVaultCredentials(updated);
   }
 
+  function handleUnlockVault() {
+    if (masterPassword && vaultUnlockInput === masterPassword) {
+      setIsVaultUnlocked(true);
+      setVaultUnlockInput("");
+    } else {
+      setFillToast("❌ Incorrect Master Password!");
+      setTimeout(() => setFillToast(null), 3000);
+    }
+  }
+
+  function handleSetupMasterPassword() {
+    if (vaultSetupInput.length < 4) {
+      setFillToast("⚠️ Password must be at least 4 chars.");
+      setTimeout(() => setFillToast(null), 3000);
+      return;
+    }
+    localStorage.setItem("vault_master_password", vaultSetupInput);
+    setMasterPassword(vaultSetupInput);
+    setIsVaultUnlocked(true);
+    setVaultSetupInput("");
+  }
+
   function autoFillWebview(cred: VaultCredential) {
     const wv = getWebview();
     const username = cred.username;
@@ -302,23 +438,68 @@ export function WebPortalsPage() {
       (function() {
         const u = ${JSON.stringify(username)};
         const p = ${JSON.stringify(password)};
-        const userInput = document.querySelector('input[type="email"], input[type="text"][name*="user"], input[name*="login"], input[name*="email"], input[id*="email"], input[id*="user"]');
-        const passInput = document.querySelector('input[type="password"]');
+        
+        function setNativeValue(element, value) {
+          try {
+            const valueSetter = Object.getOwnPropertyDescriptor(element, 'value')?.set;
+            const prototype = Object.getPrototypeOf(element);
+            const prototypeValueSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+            
+            if (valueSetter && valueSetter !== prototypeValueSetter) {
+              prototypeValueSetter.call(element, value);
+            } else if (valueSetter) {
+              valueSetter.call(element, value);
+            } else {
+              element.value = value;
+            }
+            element.dispatchEvent(new Event('input', { bubbles: true }));
+            element.dispatchEvent(new Event('change', { bubbles: true }));
+          } catch(e) {
+            element.value = value;
+          }
+        }
+
+        const allInputs = Array.from(document.querySelectorAll('input:not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="search"])')).filter(el => {
+          const style = window.getComputedStyle(el);
+          return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0' && !el.disabled;
+        });
+
+        const passInputs = allInputs.filter(el => el.type === 'password');
+        const userInputs = allInputs.filter(el => el.type !== 'password');
+        
         let filled = 0;
-        if (userInput) {
-          userInput.value = u;
-          userInput.dispatchEvent(new Event('input', { bubbles: true }));
-          userInput.dispatchEvent(new Event('change', { bubbles: true }));
-          userInput.style.border = "2px dashed #10b981";
+        
+        let bestUserInput = null;
+        for(let el of userInputs) {
+           const t = el.type.toLowerCase();
+           const n = (el.name || '').toLowerCase();
+           const i = (el.id || '').toLowerCase();
+           const pl = (el.placeholder || '').toLowerCase();
+           
+           if (t === 'email' || n.includes('email') || i.includes('email') || pl.includes('email')) { 
+             bestUserInput = el; 
+             break; 
+           }
+           if (n.includes('user') || i.includes('user') || n.includes('login') || pl.includes('phone') || t === 'tel') {
+             if (!bestUserInput) bestUserInput = el;
+           }
+           if (!bestUserInput) bestUserInput = el;
+        }
+
+        if (bestUserInput) {
+          setNativeValue(bestUserInput, u);
+          bestUserInput.style.border = "2px dashed #10b981";
+          bestUserInput.style.backgroundColor = "rgba(16, 185, 129, 0.1)";
           filled++;
         }
-        if (passInput) {
-          passInput.value = p;
-          passInput.dispatchEvent(new Event('input', { bubbles: true }));
-          passInput.dispatchEvent(new Event('change', { bubbles: true }));
-          passInput.style.border = "2px dashed #10b981";
-          filled++;
+        
+        for(let el of passInputs) {
+           setNativeValue(el, p);
+           el.style.border = "2px dashed #10b981";
+           el.style.backgroundColor = "rgba(16, 185, 129, 0.1)";
+           filled++;
         }
+        
         return filled;
       })();
     `;
@@ -328,6 +509,7 @@ export function WebPortalsPage() {
         .then((count: number) => {
           if (count > 0) {
             setFillToast(`⚡ Auto-filled credentials for ${cred.label || cred.domain}!`);
+            setFilledDomains(prev => [...prev, cred.domain]);
           } else {
             setFillToast(`📋 Password copied to clipboard. Paste into login form.`);
             navigator.clipboard?.writeText(password);
@@ -429,7 +611,7 @@ export function WebPortalsPage() {
   };
 
   return (
-    <div className={`space-y-4 ${isFullscreen ? "fixed inset-0 z-50 bg-slate-950 p-0 flex flex-col" : "mx-auto max-w-7xl px-2 py-4"}`}>
+    <div className={isFullscreen ? "fixed inset-0 z-50 bg-slate-950 flex flex-col" : "space-y-4 mx-auto max-w-7xl px-2 py-4"}>
       {/* ── Header — hidden in fullscreen ── */}
       {!isFullscreen && (
       <motion.div
@@ -535,7 +717,7 @@ export function WebPortalsPage() {
 
       {/* ── Two-column layout: Portal Grid + Browser ── */}
       <div 
-        className={`gap-4 ${isFullscreen ? "flex flex-col flex-1 min-h-0" : "grid grid-cols-1 lg:grid-cols-[320px_1fr]"}`}
+        className={isFullscreen ? "flex flex-col flex-1 min-h-0" : "gap-4 grid grid-cols-1 lg:grid-cols-[320px_1fr]"}
         style={isFullscreen ? {} : { height: "calc(100vh - 180px)" }}
       >
 
@@ -607,7 +789,7 @@ export function WebPortalsPage() {
         <motion.div
           initial={{ opacity: 0, x: 10 }}
           animate={{ opacity: 1, x: 0 }}
-          className={`glass rounded-3xl overflow-hidden flex flex-col ${isFullscreen ? "flex-1 min-h-0" : "h-full"}`}
+          className={`overflow-hidden flex flex-col ${isFullscreen ? "flex-1 min-h-0 bg-slate-950" : "glass rounded-3xl h-full"}`}
         >
           {/* Browser Chrome / Navigation Bar */}
           {tabs.length > 0 && (
@@ -786,7 +968,7 @@ export function WebPortalsPage() {
                 </motion.div>
               ) : (
                 <motion.div
-                  key={activeUrl}
+                  key="webviews-container"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   className="absolute inset-0"
@@ -798,9 +980,10 @@ export function WebPortalsPage() {
                           key={tab.id}
                           ref={(el) => { if (el) webviewRefs.current[tab.id] = el; }}
                           src={tab.url}
-                          className={`w-full h-full border-0 absolute top-0 left-0 ${activeTabId === tab.id ? "z-10" : "opacity-0 pointer-events-none z-0"}`}
-                          allowpopups
-                          webpreferences="allowRunningInsecureContent, javascript=true"
+                          className={`w-full h-full border-0 absolute top-0 left-0 ${activeTabId === tab.id ? "z-10 pointer-events-auto" : "opacity-0 pointer-events-none z-0"}`}
+                          allowpopups="true"
+                          partition="persist:browser_session"
+                          webpreferences="allowRunningInsecureContent=true, javascript=true"
                         />
                       ))}
                     </div>
@@ -872,12 +1055,54 @@ export function WebPortalsPage() {
                   </div>
                 </div>
                 <button
-                  onClick={() => setShowVaultModal(false)}
+                  onClick={() => { setShowVaultModal(false); setIsVaultUnlocked(false); setVaultUnlockInput(""); }}
                   className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
+
+              {!masterPassword ? (
+                <div className="p-6 text-center space-y-4">
+                  <ShieldCheck className="w-12 h-12 text-cyan-400 mx-auto" />
+                  <h4 className="text-white font-bold text-lg">Set up Master Password</h4>
+                  <p className="text-xs text-slate-400">Protect your encrypted credentials with a master password so only you can access them.</p>
+                  <input
+                    type="password"
+                    placeholder="Enter new master password"
+                    value={vaultSetupInput}
+                    onChange={e => setVaultSetupInput(e.target.value)}
+                    className="w-full bg-slate-950/50 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:border-cyan-400 focus:outline-none"
+                  />
+                  <button
+                    onClick={handleSetupMasterPassword}
+                    className="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold py-2.5 rounded-xl transition-all"
+                  >
+                    Save & Unlock Vault
+                  </button>
+                </div>
+              ) : !isVaultUnlocked ? (
+                <div className="p-6 text-center space-y-4">
+                  <Lock className="w-12 h-12 text-amber-400 mx-auto" />
+                  <h4 className="text-white font-bold text-lg">Vault is Locked</h4>
+                  <p className="text-xs text-slate-400">Enter your master password to view and manage credentials.</p>
+                  <input
+                    type="password"
+                    placeholder="Master Password"
+                    value={vaultUnlockInput}
+                    onChange={e => setVaultUnlockInput(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && handleUnlockVault()}
+                    className="w-full bg-slate-950/50 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:border-cyan-400 focus:outline-none"
+                  />
+                  <button
+                    onClick={handleUnlockVault}
+                    className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2.5 rounded-xl transition-all"
+                  >
+                    Unlock Vault
+                  </button>
+                </div>
+              ) : (
+                <>
 
               {/* Saved Credentials List */}
               <div className="space-y-3 max-h-[50vh] overflow-y-auto custom-scrollbar pr-1">
@@ -1011,6 +1236,8 @@ export function WebPortalsPage() {
                   <Plus className="w-4 h-4 text-cyan-400" /> Save Credential for Current Site
                 </button>
               )}
+            </>
+          )}
             </motion.div>
           </motion.div>
         )}

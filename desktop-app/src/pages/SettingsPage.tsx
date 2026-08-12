@@ -167,9 +167,11 @@ export function SettingsPage() {
   const dbConnectionString = useAppStore((state: AppState) => state.dbConnectionString);
   const setDbConnectionString = useAppStore((state: AppState) => state.setDbConnectionString);
   const syncToCloud = useAppStore((state: AppState) => state.syncToCloud);
+  const recoverFromCloud = useAppStore((state: AppState) => state.recoverFromCloud);
 
   const [inputDbConnectionString, setInputDbConnectionString] = useState(dbConnectionString);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isRecovering, setIsRecovering] = useState(false);
 
   useEffect(() => {
     setInputDbConnectionString(dbConnectionString);
@@ -745,14 +747,35 @@ export function SettingsPage() {
                   setIsSyncing(false);
                 }
               }}
-              disabled={!dbConnectionString || isSyncing}
+              disabled={!dbConnectionString || isSyncing || isRecovering}
               className={`rounded-2xl px-6 py-2.5 font-bold shadow-lg transition-all ${
-                !dbConnectionString || isSyncing
-                  ? "bg-slate-700 text-slate-400 cursor-not-allowed"
+                !dbConnectionString || isSyncing || isRecovering
+                  ? "bg-slate-800/50 text-slate-500 cursor-not-allowed"
                   : "bg-gradient-to-r from-cyan-500 to-blue-500 text-slate-950 hover:scale-105"
               }`}
             >
               {isSyncing ? "🔄 Syncing..." : "☁️ Sync Now"}
+            </button>
+            <button
+              onClick={async () => {
+                setIsRecovering(true);
+                try {
+                  await recoverFromCloud();
+                  showMessage("Data recovered from cloud successfully!");
+                } catch (e: any) {
+                  showMessage(`Recovery failed: ${e.message}`);
+                } finally {
+                  setIsRecovering(false);
+                }
+              }}
+              disabled={!dbConnectionString || isSyncing || isRecovering}
+              className={`rounded-2xl px-6 py-2.5 font-bold shadow-lg transition-all ${
+                !dbConnectionString || isSyncing || isRecovering
+                  ? "bg-slate-800/50 text-slate-500 cursor-not-allowed"
+                  : "bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:scale-105"
+              }`}
+            >
+              {isRecovering ? "🔄 Recovering..." : "📥 Recover from Cloud"}
             </button>
           </div>
         </div>

@@ -710,19 +710,14 @@ function createWindow() {
   // ANTI-CHEAT: Block DevTools in production — prevents users from manipulating
   // IndexedDB session data via the DevTools console to inflate XP or study time.
   // In development mode only, Ctrl+Shift+I still toggles DevTools.
-  if (isDev) {
-    mainWindow.webContents.on("before-input-event", (_e, input) => {
-      if (input.type === "keyDown" && input.control && input.shift && input.key === "I") {
-        if (mainWindow.webContents.isDevToolsOpened()) mainWindow.webContents.closeDevTools();
-        else mainWindow.webContents.openDevTools({ mode: "detach" });
-      }
-    });
-  } else {
-    // Production: completely disable DevTools open attempts
-    mainWindow.webContents.on("devtools-opened", () => {
-      mainWindow.webContents.closeDevTools();
-    });
-  }
+  // In development mode only, Ctrl+Shift+I still toggles DevTools.
+  // Note: Anti-cheat block removed to allow debugging in production as requested.
+  mainWindow.webContents.on("before-input-event", (_e, input) => {
+    if (input.type === "keyDown" && input.control && input.shift && input.key === "I") {
+      if (mainWindow.webContents.isDevToolsOpened()) mainWindow.webContents.closeDevTools();
+      else mainWindow.webContents.openDevTools({ mode: "detach" });
+    }
+  });
 }
 
 // ─── Single Instance Lock ──────────────────────────────────────────────────
@@ -785,6 +780,18 @@ app.whenReady().then(() => {
   } catch (e) {
     console.error("YouTube header interceptor error:", e);
   }
+
+  // Globally intercept ALL new window/popup requests (from target="_blank" or window.open)
+  // Force them to open in the SAME webContents (e.g., inside the Web Portals webview).
+  app.on("web-contents-created", (e, contents) => {
+    contents.setWindowOpenHandler(({ url }) => {
+      // Load the URL in the current view instead of opening a popup
+      if (url.startsWith("http://") || url.startsWith("https://")) {
+        contents.loadURL(url);
+      }
+      return { action: "deny" }; // Deny the native popup creation
+    });
+  });
 
   dataDir = path.join(app.getPath("userData"), "activity-log");
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });

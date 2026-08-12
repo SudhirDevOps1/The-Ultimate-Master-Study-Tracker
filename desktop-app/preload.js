@@ -27,6 +27,8 @@ const ALLOWED_INVOKE_CHANNELS = [
   "save-block-rules",
   "sync-hosts-file",
   "get-running-apps",
+  "get-desktop-settings",
+  "save-desktop-settings",
   // Webview Activity Tracking (Web Portals Browser page)
   "webview-activity-report",
   "webview-activity-clear",

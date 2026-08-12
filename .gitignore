@@ -116,3 +116,9 @@ FINAL_STATUS.txt
 PROJECT_STATUS.txt
 fixes.md
 suggestions.md
+
+# Ignore rules folder
+rules/
+
+# Ignore rule folder
+rule/

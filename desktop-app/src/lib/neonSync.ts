@@ -9,7 +9,7 @@ export async function syncToNeonDB(connectionString: string) {
   if (!connectionString) return;
 
   try {
-    const sql = neon(connectionString);
+    const sql = neon(connectionString, { disableWarningInBrowsers: true } as any);
 
     // Ensure schema exists
     await sql`
@@ -139,5 +139,69 @@ export async function syncToNeonDB(connectionString: string) {
   } catch (error: any) {
     console.error("NeonDB Sync Failed:", error);
     throw new Error(error.message || "Failed to sync to NeonDB. Check your connection string and internet.");
+  }
+}
+
+// This function recovers data from NeonDB to local Dexie and main process
+export async function recoverFromNeonDB(connectionString: string) {
+  if (!connectionString) return;
+
+  try {
+    const sql = neon(connectionString, { disableWarningInBrowsers: true } as any);
+
+    // 1. Recover Subjects
+    const remoteSubjects = await sql`SELECT * FROM subjects`;
+    if (remoteSubjects && remoteSubjects.length > 0) {
+      const subjectsToPut = remoteSubjects.map(sub => ({
+        ...sub,
+        createdAt: sub.createdAt ? new Date(sub.createdAt).toISOString() : new Date().toISOString()
+      }));
+      await db.subjects.bulkPut(subjectsToPut as any);
+    }
+
+    // 2. Recover Sessions
+    const remoteSessions = await sql`SELECT * FROM sessions`;
+    if (remoteSessions && remoteSessions.length > 0) {
+      const sessionsToPut = remoteSessions.map(ses => ({
+        ...ses,
+        startTime: ses.starttime ? new Date(ses.starttime).toISOString() : new Date().toISOString(),
+        endTime: ses.endtime ? new Date(ses.endtime).toISOString() : new Date().toISOString(),
+        createdAt: ses.createdat ? new Date(ses.createdat).toISOString() : new Date().toISOString(),
+        updatedAt: ses.updatedat ? new Date(ses.updatedat).toISOString() : new Date().toISOString(),
+        plannedMinutes: ses.plannedminutes,
+        actualSeconds: ses.actualseconds,
+        subjectId: ses.subjectid
+      }));
+      // Delete Postgres lowercase keys to prevent duplicates if strict
+      sessionsToPut.forEach((s: any) => {
+        delete s.starttime; delete s.endtime; delete s.createdat; delete s.updatedat;
+        delete s.plannedminutes; delete s.actualseconds; delete s.subjectid;
+      });
+      await db.sessions.bulkPut(sessionsToPut as any);
+    }
+
+    // 3. Recover Block Rules
+    const ipc = getIpc();
+    if (ipc) {
+      const remoteRules = await sql`SELECT * FROM block_rules`;
+      if (remoteRules && remoteRules.length > 0) {
+        const rulesToPut = remoteRules.map(rule => ({
+          ...rule,
+          appName: rule.appname,
+          strictLevel: rule.strictlevel,
+          ruleType: rule.ruletype
+        }));
+        rulesToPut.forEach((r: any) => {
+          delete r.appname; delete r.strictlevel; delete r.ruletype;
+        });
+        await ipc.invoke("save-block-rules", { rules: rulesToPut, globalEnabled: true });
+        window.dispatchEvent(new Event("app_block_rules_updated"));
+      }
+    }
+
+    console.log("NeonDB Recovery Complete");
+  } catch (error: any) {
+    console.error("NeonDB Recovery Failed:", error);
+    throw new Error(error.message || "Failed to recover from NeonDB. Check your connection string and internet.");
   }
 }

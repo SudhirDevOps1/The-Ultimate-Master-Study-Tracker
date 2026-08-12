@@ -60,6 +60,7 @@ export interface AppState {
   dbConnectionString: string;
   setDbConnectionString: (url: string) => Promise<void>;
   syncToCloud: () => Promise<void>;
+  recoverFromCloud: () => Promise<void>;
   fetchBackendData: () => Promise<void>;
   updateDailyGoalStreak: (newSessions: StudySession[]) => Promise<void>;
   initApp: () => Promise<void>;
@@ -242,6 +243,18 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
     if (url) {
       const { syncToNeonDB } = await import('@/lib/neonSync');
       await syncToNeonDB(url);
+    }
+  },
+  recoverFromCloud: async () => {
+    const url = get().dbConnectionString;
+    if (url) {
+      const { recoverFromNeonDB } = await import('@/lib/neonSync');
+      await recoverFromNeonDB(url);
+      
+      // Refresh subjects and sessions from Dexie to UI
+      const subjects = await db.subjects.toArray();
+      const sessions = await db.sessions.toArray();
+      set({ subjects, sessions });
     }
   },
   fetchBackendData: async () => {
