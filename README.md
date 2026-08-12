@@ -229,15 +229,41 @@
 
 ## 📂 Comprehensive Documentation Directory
 
-Every component of the FlowTrack Pro ecosystem is thoroughly documented across specialized markdown guides:
+Every component of the FlowTrack Pro ecosystem is thoroughly documented across specialized markdown guides. All files are located within this repository:
 
-| Document / Specs | Direct Link | Description & Key Topics Covered |
+### 🗂️ Root & Core Docs
+
+| Document | Link | Description |
 |:---|:---|:---|
-| 🖥️ **Desktop App Guide** | [`desktop-app/README.md`](desktop-app/README.md) | Dedicated guide for Standalone Desktop App, Electron IPC API, and C# active window tracker. |
-| 🌐 **Web App Guide** | [`web-app/README.md`](web-app/README.md) | Architectural setup for Serverless Web App on Vercel CDN with PWA offline caching. |
-| 📊 **Analytics & Tracking Policy** | [`docs/ANALYTICS_AND_TRACKING_POLICY.md`](docs/ANALYTICS_AND_TRACKING_POLICY.md) | Data privacy specification, Win32 active window tracking mechanisms, and local storage safety. |
-| 📖 **Full System Architecture** | [`docs/FULL_SYSTEM_GUIDE.md`](docs/FULL_SYSTEM_GUIDE.md) | Complete deep dive into Zustand state stores, IndexedDB schema, and procedural audio synthesis. |
-| 📝 **Changelog & History** | [`web-app/CHANGELOG.md`](web-app/CHANGELOG.md) | Chronological version release logs from `v1.0.0` to `v7.5.1`. |
+| 📖 **Full System Architecture Guide** | [`docs/FULL_SYSTEM_GUIDE.md`](docs/FULL_SYSTEM_GUIDE.md) | Complete deep dive into Zustand state stores, IndexedDB schema, procedural audio synthesis & all 3 operational tiers. |
+| 📊 **Analytics & Tracking Policy** | [`docs/ANALYTICS_AND_TRACKING_POLICY.md`](docs/ANALYTICS_AND_TRACKING_POLICY.md) | Exact data privacy specification — what is tracked, why, where it lives, and what is NEVER tracked. |
+| 🗺️ **Future Roadmap (2026–2027)** | [`docs/FUTURE_ROADMAP.md`](docs/FUTURE_ROADMAP.md) | Planned features, upcoming modules, and enhancement roadmap across all 3 operational categories. |
+| ☁️ **Cloud Architecture** | [`docs/cloud-architecture.md`](docs/cloud-architecture.md) | Guest Mode vs Cloud Mode architecture — IndexedDB local storage vs NeonDB/Firebase cloud sync. |
+| 🔑 **Environment Setup Guide** | [`docs/ENV_SETUP_GUIDE.md`](docs/ENV_SETUP_GUIDE.md) | Step-by-step Firebase & Vercel environment variable setup for cloud sync deployment. |
+
+---
+
+### 🖥️ Desktop App Docs
+
+| Document | Link | Description |
+|:---|:---|:---|
+| 🖥️ **Desktop App Guide** | [`desktop-app/README.md`](desktop-app/README.md) | Standalone Electron Desktop App guide — IPC API, C# Win32 active window tracker, Password Vault & Auto-Updater. |
+
+---
+
+### 🌐 Web App Docs
+
+| Document | Link | Description |
+|:---|:---|:---|
+| 🌐 **Web App Overview** | [`web-app/README.md`](web-app/README.md) | Web Application module overview — IndexedDB offline persistence, PWA install, zero-signup architecture. |
+| 🚀 **Quick Start Guide** | [`web-app/QUICK_START.md`](web-app/QUICK_START.md) | 1-click Windows launch guide using `START.bat` — auto-starts Python backend & Web UI together. |
+| ⚙️ **Complete Setup Guide** | [`web-app/SETUP_GUIDE.md`](web-app/SETUP_GUIDE.md) | Full cross-platform setup for Windows, macOS & Linux — app tracking, browser analytics & productivity scoring. |
+| 👤 **User Guide** | [`web-app/USER_GUIDE.md`](web-app/USER_GUIDE.md) | End-user guide covering Dashboard, Analytics, App Monitor, Timer, AI Study Assistant & Offline Mode. |
+| ⌨️ **Cheat Sheet** | [`web-app/CHEAT_SHEET.md`](web-app/CHEAT_SHEET.md) | Quick-reference keyboard shortcuts, feature map, and common workflows at a glance. |
+| 🔗 **Backend Integration Guide** | [`web-app/BACKEND_INTEGRATION.md`](web-app/BACKEND_INTEGRATION.md) | Architecture for optional Python backend (`backend.py`) hybrid connection on `localhost:5001`. |
+| 📚 **Documentation Index** | [`web-app/DOCUMENTATION_INDEX.md`](web-app/DOCUMENTATION_INDEX.md) | Master index to navigate all web-app docs — choose your path by role (user / developer / contributor). |
+| 🛡️ **System Rules & Privacy Policy** | [`web-app/SYSTEM_RULES.md`](web-app/SYSTEM_RULES.md) | Core system rules, activity detection, auto-pause logic, privacy-first guarantees & data handling policy. |
+| 📝 **Changelog & Release History** | [`web-app/CHANGELOG.md`](web-app/CHANGELOG.md) | Chronological version release logs with full feature & bugfix notes from `v1.0.0` → `v7.5.1`. |
 
 ---
 
