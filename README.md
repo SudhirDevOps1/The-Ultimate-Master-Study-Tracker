@@ -40,7 +40,9 @@
   <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases">
     <img src="https://img.shields.io/github/downloads/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/total?style=for-the-badge&logo=github&color=8e44ad&logoColor=white" alt="Total Downloads" />
   </a>
+  <img src="https://hits.sh/github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.svg?style=for-the-badge&label=Repo+Views&color=1abc9c&logoColor=white" alt="Repo Views" />
 </p>
+
 
 <!-- Tech Stack Badges -->
 <p>
