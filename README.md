@@ -7,7 +7,7 @@
 
 <!-- Animated Typing SVG -->
 <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker">
-  <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=18&pause=1000&color=10B981&center=true&vCenter=true&multiline=true&width=700&height=60&lines=⏱️+Smart+Timer+%7C+🎨+MindMap+%7C+🔐+Vault+%7C+🌐+Web+Portals;🖤+OLED+Dark+Theme+%7C+☁️+NeonDB+Cloud+Sync+%7C+🔄+Auto+Update" alt="Typing SVG" />
+  <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=20&pause=1200&color=10B981&center=true&vCenter=true&multiline=true&width=750&height=70&lines=Smart+Timer+%7C+MindMap+%7C+Encrypted+Vault+%7C+Web+Portals;OLED+Dark+Theme+%7C+NeonDB+Cloud+Sync+%7C+Auto+Updater" alt="FlowTrack Pro Features" />
 </a>
 
 <!-- Primary Action Badges -->
