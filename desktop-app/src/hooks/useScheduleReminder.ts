@@ -103,24 +103,31 @@ export function useScheduleReminder() {
 
         // HTML5 Web Notification Fallback
         try {
-          const notification = sendNotification(title, {
-            body,
-            icon: "/icon-192.png",
-            tag: milestoneKey, // Tag guarantees OS deduplication/replacement
-            requireInteraction: false, // Auto-dismiss after 6s to prevent stacking windows
-          });
+          if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+            const notification = new Notification(title, {
+              body,
+              icon: "/icon-192.png",
+              tag: milestoneKey, // Tag guarantees OS deduplication/replacement
+              requireInteraction: false, // Auto-dismiss after 6s to prevent stacking windows
+            });
 
-          notification.onclick = () => {
-            try {
-              window.focus();
-              notification.close();
-              setTimeout(() => {
-                void startSession(session.id);
-              }, 100);
-            } catch (err) {
-              console.error("Failed to start session via notification click:", err);
-            }
-          };
+            notification.onclick = () => {
+              try {
+                window.focus();
+                notification.close();
+                setTimeout(() => {
+                  void startSession(session.id);
+                }, 100);
+              } catch (err) {
+                console.error("Failed to start session via notification click:", err);
+              }
+            };
+          } else {
+            void sendNotification(title, {
+              body,
+              icon: "/icon-192.png",
+            });
+          }
         } catch (err) {
           console.error("HTML5 Notification creation failed:", err);
         }

@@ -981,7 +981,7 @@ export function WebPortalsPage() {
                           ref={(el) => { if (el) webviewRefs.current[tab.id] = el; }}
                           src={tab.url}
                           className={`w-full h-full border-0 absolute top-0 left-0 ${activeTabId === tab.id ? "z-10 pointer-events-auto" : "opacity-0 pointer-events-none z-0"}`}
-                          allowpopups="true"
+                          allowpopups={true}
                           partition="persist:browser_session"
                           webpreferences="allowRunningInsecureContent=true, javascript=true"
                         />

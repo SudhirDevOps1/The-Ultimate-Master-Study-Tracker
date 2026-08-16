@@ -413,7 +413,6 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
           aiConfig: aiConfigSetting ? JSON.parse(aiConfigSetting.value) : { provider: "local_rules", apiKey: "", model: "", ollamaUrl: "http://localhost:11434" },
           autoCarryForward: autoCarryEnabled,
           backendUrl: backendUrlSetting?.value ?? "http://localhost:5001",
-          dbConnectionString: dbConnectionStringSetting?.value ?? "",
         });
         return;
       }
