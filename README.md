@@ -388,26 +388,21 @@ npm run electron:build
 
 <div align="center">
 
-<!-- GitHub Trophies -->
-### 🏆 GitHub Trophies
+### 📊 Developer GitHub Activity & Streak
 
-<a href="https://github.com/ryo-ma/github-profile-trophy">
-  <img src="https://github-profile-trophy.vercel.app/?username=SudhirDevOps1&theme=radical&no-frame=true&no-bg=true&margin-w=6&column=7" alt="GitHub Trophies" />
-</a>
-
-<br />
-
----
-
-### 📊 GitHub Activity
-
-<p>
-  <img src="https://github-readme-stats.vercel.app/api?username=SudhirDevOps1&show_icons=true&theme=radical&hide_border=true&include_all_commits=true&count_private=true" height="160" alt="GitHub Stats" />
-  &nbsp;
-  <img src="https://github-readme-streak-stats.herokuapp.com/?user=SudhirDevOps1&theme=radical&hide_border=true" height="160" alt="GitHub Streak" />
+<p align="center">
+  <a href="https://github.com/SudhirDevOps1">
+    <img src="https://github-readme-streak-stats.herokuapp.com/?user=SudhirDevOps1&theme=radical&hide_border=true" alt="Sudhir's GitHub Streak" />
+  </a>
 </p>
 
-<img src="https://github-readme-stats.vercel.app/api/top-langs/?username=SudhirDevOps1&layout=compact&theme=radical&hide_border=true&langs_count=8" alt="Top Languages" />
+<p align="center">
+  <img src="https://img.shields.io/badge/Total%20Contributions-2%2C100%2B-10B981?style=for-the-badge&logo=github&logoColor=white" alt="Total Contributions" />
+  &nbsp;
+  <img src="https://img.shields.io/badge/Primary%20Stack-TypeScript%20%7C%20React%2019%20%7C%20Electron-6366F1?style=for-the-badge&logo=typescript&logoColor=white" alt="Primary Stack" />
+  &nbsp;
+  <img src="https://img.shields.io/badge/Open%20Source-Active%20Builder-F59E0B?style=for-the-badge&logo=git&logoColor=white" alt="Open Source" />
+</p>
 
 <br />
 
