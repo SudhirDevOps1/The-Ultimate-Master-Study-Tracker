@@ -145,8 +145,52 @@ async function saveTimer(timer: TimerSnapshot): Promise<void> {
   await db.settings.put({ key: "timer", value: JSON.stringify(timer) });
 }
 
+export function normalizeSession(s: any): StudySession {
+  if (!s) {
+    return {
+      id: crypto.randomUUID(),
+      subjectId: "",
+      startTime: new Date().toISOString(),
+      endTime: new Date().toISOString(),
+      plannedMinutes: 0,
+      actualSeconds: 0,
+      status: "planned",
+      colorTag: "",
+      notes: "",
+      tags: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      manualEntry: false,
+    };
+  }
+  return {
+    ...s,
+    id: s.id || crypto.randomUUID(),
+    subjectId: s.subjectId || "",
+    startTime: s.startTime ? new Date(s.startTime).toISOString() : new Date().toISOString(),
+    endTime: s.endTime ? new Date(s.endTime).toISOString() : new Date().toISOString(),
+    plannedMinutes: Number(s.plannedMinutes) || 0,
+    actualSeconds: Number(s.actualSeconds) || 0,
+    status: s.status || "planned",
+    colorTag: s.colorTag || "",
+    notes: s.notes || "",
+    tags: Array.isArray(s.tags)
+      ? s.tags
+      : (typeof s.tags === "string" && s.tags.trim()
+          ? s.tags.split(",").map((t: string) => t.trim()).filter(Boolean)
+          : []),
+    createdAt: s.createdAt ? new Date(s.createdAt).toISOString() : new Date().toISOString(),
+    updatedAt: s.updatedAt ? new Date(s.updatedAt).toISOString() : new Date().toISOString(),
+    manualEntry: Boolean(s.manualEntry),
+  };
+}
+
 function sortSessions(sessions: StudySession[]) {
-  return [...sessions].sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+  if (!Array.isArray(sessions)) return [];
+  return sessions
+    .filter(Boolean)
+    .map(normalizeSession)
+    .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
 }
 
 function calculateTotalActiveDays(sessions: StudySession[]): number {
@@ -363,7 +407,13 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
           level: 1,
           rank: "Seeker",
           xpToNextLevel: 1000,
-          xpProgress: 0
+          xpProgress: 0,
+          achievements: getInitialAchievements(),
+          profile: profileSetting ? JSON.parse(profileSetting.value) : { name: "", age: "", profession: "", goal: "" },
+          aiConfig: aiConfigSetting ? JSON.parse(aiConfigSetting.value) : { provider: "local_rules", apiKey: "", model: "", ollamaUrl: "http://localhost:11434" },
+          autoCarryForward: autoCarryEnabled,
+          backendUrl: backendUrlSetting?.value ?? "http://localhost:5001",
+          dbConnectionString: dbConnectionStringSetting?.value ?? "",
         });
         return;
       }

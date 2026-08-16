@@ -26,8 +26,8 @@ import { SessionEditor } from "@/components/session/SessionEditor";
 import type { StudySession } from "@/types/models";
 
 export function CalendarPage() {
-  const sessions = useAppStore((state) => state.sessions);
-  const subjects = useAppStore((state) => state.subjects);
+  const sessions = useAppStore((state) => state.sessions) || [];
+  const subjects = useAppStore((state) => state.subjects) || [];
   const theme = useAppStore((state) => state.theme);
   const startSession = useAppStore((state) => state.startSession);
   const cloneSession = useAppStore((state) => state.cloneSession);
@@ -50,11 +50,12 @@ export function CalendarPage() {
   // Stats for week view
   const weekStats = useMemo(() => {
     const weekEnd = addDays(weekStart, 6);
-    const weekSessions = sessions.filter(s => {
+    const safeSessions = Array.isArray(sessions) ? sessions : [];
+    const weekSessions = safeSessions.filter(s => {
       const d = new Date(s.startTime);
       return d >= weekStart && d <= weekEnd;
     });
-    const totalMinutes = Math.round(weekSessions.reduce((sum, s) => sum + s.actualSeconds, 0) / 60);
+    const totalMinutes = Math.round(weekSessions.reduce((sum, s) => sum + (s.actualSeconds || 0), 0) / 60);
     const completedCount = weekSessions.filter(s => s.status === "completed").length;
     const plannedCount = weekSessions.length;
     return { totalMinutes, completedCount, plannedCount };

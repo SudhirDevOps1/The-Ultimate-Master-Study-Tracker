@@ -24,8 +24,8 @@ import { SessionEditor } from "@/components/session/SessionEditor";
 import type { StudySession } from "@/types/models";
 
 export function CalendarPage() {
-  const sessions = useAppStore((state) => state.sessions);
-  const subjects = useAppStore((state) => state.subjects);
+  const sessions = useAppStore((state) => state.sessions) || [];
+  const subjects = useAppStore((state) => state.subjects) || [];
   const theme = useAppStore((state) => state.theme);
   const startSession = useAppStore((state) => state.startSession);
   const cloneSession = useAppStore((state) => state.cloneSession);

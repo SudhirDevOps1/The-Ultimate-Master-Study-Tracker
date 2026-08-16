@@ -58,6 +58,7 @@ const links = [
 export function AppShell() {
   const location = useLocation();
   const theme = useAppStore((state: AppState) => state.theme);
+  const timer = useAppStore((state: AppState) => state.timer);
   const currentLink = links.find((link) => link.to === location.pathname);
   const current = currentLink ? currentLink.label : "Dashboard";
 
@@ -113,7 +114,7 @@ export function AppShell() {
               </p>
             </div>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              {useAppStore.getState().timer?.activeSessionId && !useAppStore.getState().timer?.isPaused && (
+              {timer?.activeSessionId && !timer?.isPaused && (
                 <div className="flex items-center gap-1.5 rounded-2xl bg-rose-500/20 border border-rose-500/40 px-3 py-2 text-xs font-black text-rose-300 animate-pulse shadow-lg shadow-rose-500/20">
                   <ShieldCheck className="w-4 h-4 text-rose-400" />
                   <span className="hidden sm:inline">🛡️ FOCUS SHIELD ACTIVE</span>

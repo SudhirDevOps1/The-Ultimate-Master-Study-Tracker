@@ -94,7 +94,8 @@ export function FloatingTimer({ subject, elapsed, remaining, progress, onHeartbe
 
     context.fillStyle = "#ffffff";
     context.font = "700 28px Inter, Arial, sans-serif";
-    const title = subject.length > 22 ? `${subject.slice(0, 22)}…` : subject;
+    const safeSubject = subject || "FlowTrack";
+    const title = safeSubject.length > 22 ? `${safeSubject.slice(0, 22)}…` : safeSubject;
     context.fillText(title, 32, 84);
 
     context.font = "700 58px Inter, Arial, sans-serif";

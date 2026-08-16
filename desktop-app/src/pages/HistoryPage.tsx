@@ -62,9 +62,9 @@ export function HistoryPage() {
         if (endMs !== null && sessionDate > endMs) return false;
 
         if (query) {
-          const notesMatch = session.notes.toLowerCase().includes(query);
+          const notesMatch = (session.notes || "").toLowerCase().includes(query);
           if (notesMatch) return true;
-          const tagMatch = session.tags.some((tag) => tag.toLowerCase().includes(query));
+          const tagMatch = Array.isArray(session.tags) && session.tags.some((tag) => (tag || "").toLowerCase().includes(query));
           if (tagMatch) return true;
           const subName = subjectMap.get(session.subjectId);
           if (subName && subName.includes(query)) return true;
@@ -273,7 +273,7 @@ export function HistoryPage() {
 
                     {session.notes && <p className="mt-3 break-words text-sm text-slate-400">💬 {session.notes}</p>}
                     
-                    {session.tags.length > 0 && (
+                    {Array.isArray(session.tags) && session.tags.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1">
                         {session.tags.map((tag) => (
                           <span key={tag} className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-slate-300">

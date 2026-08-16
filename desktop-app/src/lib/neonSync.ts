@@ -37,6 +37,14 @@ export async function syncToNeonDB(connectionString: string) {
         updatedAt TIMESTAMP
       );
     `;
+    try {
+      await sql`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS notes TEXT;`;
+      await sql`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS tags TEXT;`;
+      await sql`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS colorTag TEXT;`;
+      await sql`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS manualEntry BOOLEAN;`;
+    } catch {
+      // Columns may already exist
+    }
 
     await sql`
       CREATE TABLE IF NOT EXISTS app_usage (
@@ -81,19 +89,24 @@ export async function syncToNeonDB(connectionString: string) {
 
     // Sync sessions
     for (const ses of sessions) {
+      const tagsStr = Array.isArray(ses.tags) ? ses.tags.join(", ") : (ses.tags || "");
       await sql`
-        INSERT INTO sessions (id, subjectId, startTime, endTime, plannedMinutes, actualSeconds, status, createdAt, updatedAt)
+        INSERT INTO sessions (id, subjectId, startTime, endTime, plannedMinutes, actualSeconds, status, notes, tags, colorTag, manualEntry, createdAt, updatedAt)
         VALUES (
           ${ses.id}, ${ses.subjectId}, 
           ${ses.startTime ? new Date(ses.startTime) : new Date()}, 
           ${ses.endTime ? new Date(ses.endTime) : new Date()}, 
-          ${ses.plannedMinutes}, ${ses.actualSeconds}, ${ses.status}, 
+          ${ses.plannedMinutes || 0}, ${ses.actualSeconds || 0}, ${ses.status || 'planned'},
+          ${ses.notes || ''}, ${tagsStr}, ${ses.colorTag || ''}, ${Boolean(ses.manualEntry)},
           ${ses.createdAt ? new Date(ses.createdAt) : new Date()}, 
           ${ses.updatedAt ? new Date(ses.updatedAt) : new Date()}
         )
         ON CONFLICT (id) DO UPDATE SET
           actualSeconds = EXCLUDED.actualSeconds,
           status = EXCLUDED.status,
+          notes = EXCLUDED.notes,
+          tags = EXCLUDED.tags,
+          colorTag = EXCLUDED.colorTag,
           updatedAt = EXCLUDED.updatedAt
       `;
     }
@@ -162,20 +175,28 @@ export async function recoverFromNeonDB(connectionString: string) {
     // 2. Recover Sessions
     const remoteSessions = await sql`SELECT * FROM sessions`;
     if (remoteSessions && remoteSessions.length > 0) {
-      const sessionsToPut = remoteSessions.map(ses => ({
-        ...ses,
-        startTime: ses.starttime ? new Date(ses.starttime).toISOString() : new Date().toISOString(),
-        endTime: ses.endtime ? new Date(ses.endtime).toISOString() : new Date().toISOString(),
-        createdAt: ses.createdat ? new Date(ses.createdat).toISOString() : new Date().toISOString(),
-        updatedAt: ses.updatedat ? new Date(ses.updatedat).toISOString() : new Date().toISOString(),
-        plannedMinutes: ses.plannedminutes,
-        actualSeconds: ses.actualseconds,
-        subjectId: ses.subjectid
-      }));
-      // Delete Postgres lowercase keys to prevent duplicates if strict
-      sessionsToPut.forEach((s: any) => {
-        delete s.starttime; delete s.endtime; delete s.createdat; delete s.updatedat;
-        delete s.plannedminutes; delete s.actualseconds; delete s.subjectid;
+      const sessionsToPut = remoteSessions.map(ses => {
+        const rawTags = ses.tags || "";
+        const tagsArray = Array.isArray(rawTags)
+          ? rawTags
+          : (typeof rawTags === "string" && rawTags.trim()
+              ? rawTags.split(",").map((t: string) => t.trim()).filter(Boolean)
+              : []);
+        return {
+          id: ses.id,
+          subjectId: ses.subjectid || ses.subjectId || "",
+          startTime: ses.starttime ? new Date(ses.starttime).toISOString() : (ses.startTime ? new Date(ses.startTime).toISOString() : new Date().toISOString()),
+          endTime: ses.endtime ? new Date(ses.endtime).toISOString() : (ses.endTime ? new Date(ses.endTime).toISOString() : new Date().toISOString()),
+          createdAt: ses.createdat ? new Date(ses.createdat).toISOString() : (ses.createdAt ? new Date(ses.createdAt).toISOString() : new Date().toISOString()),
+          updatedAt: ses.updatedat ? new Date(ses.updatedat).toISOString() : (ses.updatedAt ? new Date(ses.updatedAt).toISOString() : new Date().toISOString()),
+          plannedMinutes: Number(ses.plannedminutes ?? ses.plannedMinutes ?? 0),
+          actualSeconds: Number(ses.actualseconds ?? ses.actualSeconds ?? 0),
+          status: ses.status || "planned",
+          notes: ses.notes || "",
+          tags: tagsArray,
+          colorTag: ses.colortag || ses.colorTag || "",
+          manualEntry: Boolean(ses.manualentry ?? ses.manualEntry ?? false),
+        };
       });
       await db.sessions.bulkPut(sessionsToPut as any);
     }

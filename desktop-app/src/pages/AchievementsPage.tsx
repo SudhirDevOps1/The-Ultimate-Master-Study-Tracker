@@ -13,7 +13,7 @@ export function AchievementsPage() {
   }, [recalculateAchievements]);
 
   const { unlockedCount, overallProgress } = useMemo(() => {
-    if (!achievements.length) return { unlockedCount: 0, overallProgress: 0 };
+    if (!Array.isArray(achievements) || achievements.length === 0) return { unlockedCount: 0, overallProgress: 0 };
     const unlocked = achievements.filter((a) => a.unlockedAt).length;
     const totalProgress = achievements.reduce((sum, a) => sum + Math.min(100, (a.progress / a.maxProgress) * 100), 0);
     return {

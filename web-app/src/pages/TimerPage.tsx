@@ -451,7 +451,7 @@ export function TimerPage() {
 
                         {session.notes && <p className="mt-3 break-words text-sm text-slate-400">💬 {session.notes}</p>}
 
-                        {session.tags.length > 0 && (
+                        {Array.isArray(session.tags) && session.tags.length > 0 && (
                           <div className="mt-2 flex flex-wrap gap-1">
                             {session.tags.map((tag) => (
                               <span key={tag} className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-slate-300">
