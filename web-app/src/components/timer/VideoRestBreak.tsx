@@ -36,17 +36,34 @@ export function VideoRestBreak() {
   const [showSettings, setShowSettings] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const lastTriggeredSecondRef = useRef<number>(-1);
+  const currentSessionIdRef = useRef<string | null>(null);
+
+  // Reset trigger milestone if session changes
+  useEffect(() => {
+    if (activeSession?.id !== currentSessionIdRef.current) {
+      currentSessionIdRef.current = activeSession?.id ?? null;
+      lastTriggeredSecondRef.current = -1;
+    }
+  }, [activeSession?.id]);
 
   // Monitor continuous study time and trigger break
   useEffect(() => {
-    if (!schedule.enabled || !activeSession || elapsedSeconds <= 0) return;
+    if (!schedule.enabled || !activeSession || elapsedSeconds <= 0 || showOverlay) return;
 
     const thresholdSeconds = schedule.intervalMinutes * 60;
-    // Check if we hit the study interval milestone
-    if (elapsedSeconds > 0 && elapsedSeconds % thresholdSeconds === 0) {
+    if (thresholdSeconds <= 0) return;
+
+    // Check if we hit the study interval milestone and haven't triggered for this milestone yet
+    if (
+      elapsedSeconds > 0 &&
+      elapsedSeconds % thresholdSeconds === 0 &&
+      lastTriggeredSecondRef.current !== elapsedSeconds
+    ) {
+      lastTriggeredSecondRef.current = elapsedSeconds;
       void triggerBreak();
     }
-  }, [elapsedSeconds, activeSession, schedule.enabled, schedule.intervalMinutes]);
+  }, [elapsedSeconds, activeSession, schedule.enabled, schedule.intervalMinutes, showOverlay]);
 
   const triggerBreak = async () => {
     // Pause focus session

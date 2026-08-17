@@ -1,0 +1,175 @@
+{
+  "app": "FlowTrack",
+  "version": "7.5.1",
+  "exportedAt": "2026-08-17T11:41:00",
+  "subjects": [
+    {
+      "id": "e36fc217-8f6a-4a7d-4c7f-666666666666",
+      "name": "DSA & Aptitude Practice",
+      "color": "#f59e0b",
+      "emoji": "🧠",
+      "weeklyGoalMinutes": 720,
+      "url": "https://leetcode.com",
+      "createdAt": "2026-08-17T00:00:00"
+    },
+    {
+      "id": "a92b8e73-4b2c-4c3f-8e3b-222222222222",
+      "name": "Java - Coding (Practice)",
+      "color": "#d946ef",
+      "emoji": "💻",
+      "weeklyGoalMinutes": 360,
+      "url": "https://leetcode.com",
+      "createdAt": "2026-08-17T00:00:00"
+    },
+    {
+      "id": "c14da095-6d4e-4e5b-6a5d-444444444444",
+      "name": "Web Dev - Coding (Project)",
+      "color": "#3b82f6",
+      "emoji": "🚀",
+      "weeklyGoalMinutes": 360,
+      "url": "https://github.com",
+      "createdAt": "2026-08-17T00:00:00"
+    },
+    {
+      "id": "b03c9f84-5c3d-4d4a-7f4c-333333333333",
+      "name": "Web Dev - Theory (Sigma)",
+      "color": "#8b5cf6",
+      "emoji": "🌐",
+      "weeklyGoalMinutes": 540,
+      "url": "https://developer.mozilla.org",
+      "createdAt": "2026-08-17T00:00:00"
+    },
+    {
+      "id": "e81d7f62-3f1a-4a2e-9d2a-111111111111",
+      "name": "Java - Theory (Sigma)",
+      "color": "#ec4899",
+      "emoji": "☕",
+      "weeklyGoalMinutes": 720,
+      "url": "https://www.apnacollege.in",
+      "createdAt": "2026-08-17T00:00:00"
+    },
+    {
+      "id": "d25eb106-7e5f-4f6c-5b6e-555555555555",
+      "name": "English - Communication",
+      "color": "#ef4444",
+      "emoji": "🗣️",
+      "weeklyGoalMinutes": 720,
+      "url": "",
+      "createdAt": "2026-08-17T00:00:00"
+    }
+  ],
+  "sessions": [
+    {
+      "id": "f47ad328-9a7b-4b8e-3d8a-777777777771",
+      "subjectId": "e36fc217-8f6a-4a7d-4c7f-666666666666",
+      "startTime": "2026-08-17T10:00:00",
+      "endTime": "2026-08-17T12:00:00",
+      "plannedMinutes": 120,
+      "actualSeconds": 0,
+      "status": "planned",
+      "colorTag": "#f59e0b",
+      "notes": "DSA & Aptitude - Peak morning brainpower for complex problem solving",
+      "tags": ["DSA", "Aptitude", "LeetCode"],
+      "manualEntry": false,
+      "createdAt": "2026-08-17T10:00:00",
+      "updatedAt": "2026-08-17T10:00:00"
+    },
+    {
+      "id": "f47ad328-9a7b-4b8e-3d8a-777777777772",
+      "subjectId": "a92b8e73-4b2c-4c3f-8e3b-222222222222",
+      "startTime": "2026-08-17T12:00:00",
+      "endTime": "2026-08-17T13:00:00",
+      "plannedMinutes": 60,
+      "actualSeconds": 0,
+      "status": "planned",
+      "colorTag": "#d946ef",
+      "notes": "Java Coding Practice - Fast hands-on implementations",
+      "tags": ["Java", "Coding", "Practice"],
+      "manualEntry": false,
+      "createdAt": "2026-08-17T12:00:00",
+      "updatedAt": "2026-08-17T12:00:00"
+    },
+    {
+      "id": "f47ad328-9a7b-4b8e-3d8a-777777777773",
+      "subjectId": "c14da095-6d4e-4e5b-6a5d-444444444444",
+      "startTime": "2026-08-17T13:30:00",
+      "endTime": "2026-08-17T14:30:00",
+      "plannedMinutes": 60,
+      "actualSeconds": 0,
+      "status": "planned",
+      "colorTag": "#3b82f6",
+      "notes": "Web Dev Coding (Project) - Active building to kill post-lunch drowsiness",
+      "tags": ["WebDev", "Project", "Coding"],
+      "manualEntry": false,
+      "createdAt": "2026-08-17T13:30:00",
+      "updatedAt": "2026-08-17T13:30:00"
+    },
+    {
+      "id": "f47ad328-9a7b-4b8e-3d8a-777777777774",
+      "subjectId": "b03c9f84-5c3d-4d4a-7f4c-333333333333",
+      "startTime": "2026-08-17T14:30:00",
+      "endTime": "2026-08-17T16:00:00",
+      "plannedMinutes": 90,
+      "actualSeconds": 0,
+      "status": "planned",
+      "colorTag": "#8b5cf6",
+      "notes": "Web Dev Theory (Sigma) - Core architecture & concepts",
+      "tags": ["WebDev", "Sigma", "Theory"],
+      "manualEntry": false,
+      "createdAt": "2026-08-17T14:30:00",
+      "updatedAt": "2026-08-17T14:30:00"
+    },
+    {
+      "id": "f47ad328-9a7b-4b8e-3d8a-777777777775",
+      "subjectId": "e81d7f62-3f1a-4a2e-9d2a-111111111111",
+      "startTime": "2026-08-17T17:00:00",
+      "endTime": "2026-08-17T19:00:00",
+      "plannedMinutes": 120,
+      "actualSeconds": 0,
+      "status": "planned",
+      "colorTag": "#ec4899",
+      "notes": "Java Theory (Sigma) - High focus evening session with fresh tea energy",
+      "tags": ["Java", "Sigma", "Theory"],
+      "manualEntry": false,
+      "createdAt": "2026-08-17T17:00:00",
+      "updatedAt": "2026-08-17T17:00:00"
+    },
+    {
+      "id": "f47ad328-9a7b-4b8e-3d8a-777777777776",
+      "subjectId": "d25eb106-7e5f-4f6c-5b6e-555555555555",
+      "startTime": "2026-08-17T19:00:00",
+      "endTime": "2026-08-17T21:00:00",
+      "plannedMinutes": 120,
+      "actualSeconds": 0,
+      "status": "planned",
+      "colorTag": "#ef4444",
+      "notes": "English - Communication, Speaking & Reading practice (Zero screen strain before bed)",
+      "tags": ["English", "Communication", "Speaking"],
+      "manualEntry": false,
+      "createdAt": "2026-08-17T19:00:00",
+      "updatedAt": "2026-08-17T19:00:00"
+    }
+  ],
+  "settings": [
+    {
+      "key": "dailyGoalHours",
+      "value": "8"
+    },
+    {
+      "key": "weeklyTargetHours",
+      "value": "48"
+    },
+    {
+      "key": "theme",
+      "value": "oled"
+    },
+    {
+      "key": "autoCarryForward",
+      "value": "true"
+    },
+    {
+      "key": "strictFocusMode",
+      "value": "true"
+    }
+  ]
+}
