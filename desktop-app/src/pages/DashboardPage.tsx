@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { format } from "date-fns";
+import { format, startOfWeek, endOfWeek } from "date-fns";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { 
@@ -21,14 +21,29 @@ export function DashboardPage() {
 
   const todaySessions = useMemo(() => {
     const todayStr = format(new Date(), "yyyy-MM-dd");
-    return sessions.filter((s) => format(new Date(s.startTime), "yyyy-MM-dd") === todayStr);
+    return (sessions || []).filter((s) => format(new Date(s.startTime), "yyyy-MM-dd") === todayStr);
   }, [sessions]);
 
   const totalTodayMinutes = useMemo(() => 
     Math.floor(todaySessions.reduce((acc, s) => acc + (s.actualSeconds || 0), 0) / 60), 
   [todaySessions]);
 
-  const weeklyProgress = Math.min(100, Math.round((totalTodayMinutes / (weeklyTargetHours * 60)) * 100)) || 0;
+  const thisWeekSessions = useMemo(() => {
+    const now = new Date();
+    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+    const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+    return (sessions || []).filter((s) => {
+      const d = new Date(s.startTime);
+      return d >= weekStart && d <= weekEnd;
+    });
+  }, [sessions]);
+
+  const totalWeeklyMinutes = useMemo(() => 
+    Math.floor(thisWeekSessions.reduce((acc, s) => acc + (s.actualSeconds || 0), 0) / 60), 
+  [thisWeekSessions]);
+
+  const weeklyProgress = Math.min(100, Math.round((totalWeeklyMinutes / Math.max(1, weeklyTargetHours * 60)) * 100)) || 0;
+  const weeklyActualHours = (totalWeeklyMinutes / 60).toFixed(1);
   
   const quote = profile?.dailyContext || profile?.goldenRule || "Consistency & Focused Grind lead to top performance. Track every focus hour!";
 
@@ -141,7 +156,10 @@ export function DashboardPage() {
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-3xl font-black text-white">{weeklyProgress}%</span>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Completed</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Completed</span>
+                <span className="text-[11px] font-semibold text-indigo-300 mt-1.5 px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20">
+                  {weeklyActualHours}h / {weeklyTargetHours}h done
+                </span>
               </div>
             </div>
           </div>
@@ -165,24 +183,37 @@ export function DashboardPage() {
             {todaySessions.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-slate-500">
                 <BookOpen className="w-8 h-8 mb-2 opacity-50" />
-                <p className="text-sm font-medium">No sessions today yet.</p>
-                <p className="text-xs">Time to hit the books!</p>
+                <p className="text-sm font-medium">No sessions scheduled for today.</p>
+                <p className="text-xs">Plan new sessions in Calendar!</p>
               </div>
             ) : (
               todaySessions.map((session) => {
                 const sub = subjects.find(s => s.id === session.subjectId);
                 const durationMinutes = Math.floor((session.actualSeconds || 0) / 60);
+                const plannedMin = session.plannedMinutes || 0;
+                const isCompleted = session.status === "completed" || (plannedMin > 0 && durationMinutes >= plannedMin);
                 return (
                   <div key={session.id} className="p-3 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between hover:bg-white/10 transition-colors">
                     <div className="flex items-center gap-3">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: sub?.color || '#6366f1' }} />
+                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: sub?.color || '#6366f1' }} />
                       <div>
-                        <div className="text-sm font-bold text-white">{sub?.name || "Focus Session"}</div>
-                        <div className="text-xs text-slate-400">{formatTime12Hour(session.startTime)} {session.endTime ? `- ${formatTime12Hour(session.endTime)}` : ''}</div>
+                        <div className="text-sm font-bold text-white flex items-center gap-2">
+                          <span>{sub?.name || "Focus Session"}</span>
+                          {isCompleted && (
+                            <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                              ✓ Done
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-slate-400">
+                          {formatTime12Hour(session.startTime)} {session.endTime ? `- ${formatTime12Hour(session.endTime)}` : ''} • Planned: {plannedMin >= 60 ? `${(plannedMin / 60).toFixed(1)}h` : `${plannedMin}m`}
+                        </div>
                       </div>
                     </div>
-                    <div className="text-sm font-black text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-lg">
-                      {durationMinutes}m
+                    <div className="text-right">
+                      <div className={`text-xs font-bold px-2 py-1 rounded-lg ${durationMinutes > 0 ? "text-emerald-400 bg-emerald-500/10" : "text-slate-400 bg-white/5"}`}>
+                        {durationMinutes}m {plannedMin > 0 ? `/ ${plannedMin >= 60 ? `${(plannedMin/60).toFixed(1)}h` : `${plannedMin}m`}` : ''}
+                      </div>
                     </div>
                   </div>
                 );
