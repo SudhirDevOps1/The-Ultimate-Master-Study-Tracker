@@ -243,6 +243,17 @@ export function calculateDetailedStreaks(sessions: StudySession[]): DetailedStre
   // Weekly streak
   let weekly = 0;
   let weekCursor = startOfWeek(now, { weekStartsOn: 1 });
+  
+  // Check if current week has focus yet; if not, start checking from last week
+  const currentWeekStart = startOfWeek(now, { weekStartsOn: 1 });
+  const currentWeekEnd = endOfWeek(now, { weekStartsOn: 1 });
+  const hasCurrentWeekFocus = sessions.some((session) =>
+    isWithinInterval(new Date(session.startTime), { start: currentWeekStart, end: currentWeekEnd }) && session.actualSeconds > 0
+  );
+  if (!hasCurrentWeekFocus) {
+    weekCursor = subWeeks(weekCursor, 1);
+  }
+
   while (true) {
     const weekStart = startOfWeek(weekCursor, { weekStartsOn: 1 });
     const weekEnd = endOfWeek(weekCursor, { weekStartsOn: 1 });
@@ -269,8 +280,6 @@ export function calculateDetailedStreaks(sessions: StudySession[]): DetailedStre
     .reduce((sum, s) => sum + s.actualSeconds / 3600, 0);
 
   // Current week hours
-  const currentWeekStart = startOfWeek(now, { weekStartsOn: 1 });
-  const currentWeekEnd = endOfWeek(now, { weekStartsOn: 1 });
   const currentWeekHours = sessions
     .filter((s) => isWithinInterval(new Date(s.startTime), { start: currentWeekStart, end: currentWeekEnd }))
     .reduce((sum, s) => sum + s.actualSeconds / 3600, 0);

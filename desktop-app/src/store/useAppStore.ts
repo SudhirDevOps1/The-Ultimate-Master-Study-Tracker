@@ -1020,14 +1020,30 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
 
     const originalStart = new Date(session.startTime);
     const originalEnd = new Date(session.endTime);
-    const targetDateObj = new Date(targetDate);
+    
+    let targetYear = originalStart.getFullYear();
+    let targetMonth = originalStart.getMonth();
+    let targetDay = originalStart.getDate();
+
+    if (typeof targetDate === "string" && targetDate.includes("-") && !targetDate.includes("T")) {
+      const parts = targetDate.split("-").map(Number);
+      if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+        targetYear = parts[0];
+        targetMonth = parts[1] - 1;
+        targetDay = parts[2];
+      }
+    } else {
+      const parsed = new Date(targetDate);
+      if (!isNaN(parsed.getTime())) {
+        targetYear = parsed.getFullYear();
+        targetMonth = parsed.getMonth();
+        targetDay = parsed.getDate();
+      }
+    }
 
     // Keep same time, change date
-    const newStart = new Date(targetDateObj);
-    newStart.setHours(originalStart.getHours(), originalStart.getMinutes(), 0, 0);
-
-    const newEnd = new Date(targetDateObj);
-    newEnd.setHours(originalEnd.getHours(), originalEnd.getMinutes(), 0, 0);
+    const newStart = new Date(targetYear, targetMonth, targetDay, originalStart.getHours(), originalStart.getMinutes(), 0, 0);
+    const newEnd = new Date(targetYear, targetMonth, targetDay, originalEnd.getHours(), originalEnd.getMinutes(), 0, 0);
 
     // Handle overnight sessions
     if (newEnd <= newStart) {
@@ -1066,14 +1082,30 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
 
     const originalStart = new Date(session.startTime);
     const originalEnd = new Date(session.endTime);
-    const targetDateObj = new Date(targetDate);
+    
+    let targetYear = originalStart.getFullYear();
+    let targetMonth = originalStart.getMonth();
+    let targetDay = originalStart.getDate();
+
+    if (typeof targetDate === "string" && targetDate.includes("-") && !targetDate.includes("T")) {
+      const parts = targetDate.split("-").map(Number);
+      if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+        targetYear = parts[0];
+        targetMonth = parts[1] - 1;
+        targetDay = parts[2];
+      }
+    } else {
+      const parsed = new Date(targetDate);
+      if (!isNaN(parsed.getTime())) {
+        targetYear = parsed.getFullYear();
+        targetMonth = parsed.getMonth();
+        targetDay = parsed.getDate();
+      }
+    }
 
     // Keep same time, change date
-    const newStart = new Date(targetDateObj);
-    newStart.setHours(originalStart.getHours(), originalStart.getMinutes(), 0, 0);
-
-    const newEnd = new Date(targetDateObj);
-    newEnd.setHours(originalEnd.getHours(), originalEnd.getMinutes(), 0, 0);
+    const newStart = new Date(targetYear, targetMonth, targetDay, originalStart.getHours(), originalStart.getMinutes(), 0, 0);
+    const newEnd = new Date(targetYear, targetMonth, targetDay, originalEnd.getHours(), originalEnd.getMinutes(), 0, 0);
 
     // Handle overnight sessions
     if (newEnd <= newStart) {
@@ -1107,7 +1139,8 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
     const nextDay = new Date(currentStart);
     nextDay.setDate(nextDay.getDate() + 1);
 
-    await get().rescheduleSession(sessionId, nextDay.toISOString().split("T")[0]);
+    const targetDateStr = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, '0')}-${String(nextDay.getDate()).padStart(2, '0')}`;
+    await get().rescheduleSession(sessionId, targetDateStr);
   },
 
   createRecurringSessions: async (sessionId: string, config: RecurrenceConfig) => {
