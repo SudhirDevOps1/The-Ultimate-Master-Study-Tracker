@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate } from "react-router-dom";
 import { 
   HelpCircle, X, Send, Mail, User, MessageSquare, ShieldCheck, CheckCircle2, 
   AlertCircle, Loader2, Github, Linkedin, Instagram, ExternalLink, Sparkles,
@@ -70,7 +69,6 @@ export function AppGuide() {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"guide" | "contact">("guide");
   const [status, setStatus] = useState<"" | "submitting" | "success" | "failed">("");
-  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -196,7 +194,7 @@ export function AppGuide() {
                       <button
                         onClick={() => {
                           setIsOpen(false);
-                          navigate("/guide");
+                          window.location.hash = "#/guide";
                         }}
                         className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs shrink-0 transition-all active:scale-95 shadow-md shadow-cyan-500/20"
                       >

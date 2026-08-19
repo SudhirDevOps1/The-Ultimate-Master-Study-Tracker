@@ -165,9 +165,9 @@ export function App() {
         <ConfirmProvider>
           <HashRouter>
             <AnimatedRoutes />
+            <AppGuide />
+            <VideoRestBreak />
           </HashRouter>
-          <AppGuide />
-          <VideoRestBreak />
         </ConfirmProvider>
       </ToastProvider>
     </ErrorBoundary>
