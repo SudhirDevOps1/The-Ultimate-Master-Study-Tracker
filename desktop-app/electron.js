@@ -1299,10 +1299,25 @@ ipcMain.handle("get-activity-log", async (_e, { date } = {}) => {
   const today = new Date().toISOString().split("T")[0];
   const requested = date || today;
 
+  const fileEntries = loadLogFromFile(requested) || [];
+
   if (requested === today) {
-    return activityLog;
+    // Only return entries for today from in-memory tracking
+    const memTodayEntries = activityLog.filter(e => !e.date || e.date === today);
+    // Combine file entries and memory entries without duplicates
+    const combined = [...fileEntries];
+    for (const m of memTodayEntries) {
+      if (m.isLive) {
+        combined.push(m);
+      } else {
+        const exists = combined.some(f => f.startTime === m.startTime && f.appName === m.appName);
+        if (!exists) combined.push(m);
+      }
+    }
+    return combined;
   }
-  return loadLogFromFile(requested);
+
+  return fileEntries.filter(e => !e.date || e.date === requested);
 });
 
 ipcMain.handle("open-activity-log-folder", async () => {
@@ -1331,13 +1346,17 @@ ipcMain.handle("get-data-directory-path", async () => {
 
 ipcMain.handle("get-tracked-dates", async () => {
   try {
-    if (!dataDir || !fs.existsSync(dataDir)) return [];
-    return fs.readdirSync(dataDir)
-      .filter(f => f.endsWith(".json"))
-      .map(f => f.replace(".json", ""))
-      .sort()
-      .reverse();
-  } catch { return []; }
+    const today = new Date().toISOString().split("T")[0];
+    const set = new Set();
+    set.add(today);
+    if (dataDir && fs.existsSync(dataDir)) {
+      const files = fs.readdirSync(dataDir)
+        .filter(f => f.endsWith(".json"))
+        .map(f => f.replace(".json", ""));
+      for (const f of files) set.add(f);
+    }
+    return Array.from(set).sort().reverse();
+  } catch { return [new Date().toISOString().split("T")[0]]; }
 });
 
 ipcMain.handle("clear-activity-log", async () => {

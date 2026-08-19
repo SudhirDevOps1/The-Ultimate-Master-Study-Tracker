@@ -453,10 +453,15 @@ export function AppTrackingPage() {
     return () => clearInterval(id);
   }, [selectedDate, today, fetchLog]);
 
+  // ── Strict Date Filtered Log ───────────────────────────────────────────
+  const dailyLog = useMemo(() => {
+    return rawLog.filter(e => !e.date || e.date === selectedDate);
+  }, [rawLog, selectedDate]);
+
   // ── App Aggregations ───────────────────────────────────────────────────
   const appSummaries: AppSummary[] = useMemo(() => {
     const map = new Map<string, AppSummary>();
-    for (const e of rawLog) {
+    for (const e of dailyLog) {
       const key = e.appName.toLowerCase();
       if (!map.has(key)) map.set(key, { appName: e.appName, totalSeconds: 0, sessions: 0, category: classifyApp(e.appName, e.title), isLive: false });
       const r = map.get(key)!;
@@ -465,12 +470,12 @@ export function AppTrackingPage() {
       if (e.isLive) r.isLive = true;
     }
     return [...map.values()].sort((a, b) => b.totalSeconds - a.totalSeconds);
-  }, [rawLog]);
+  }, [dailyLog]);
 
   // ── Web Sites & Tabs Aggregations ──────────────────────────────────────
   const webTabSummaries: WebTabSummary[] = useMemo(() => {
     const map = new Map<string, WebTabSummary>();
-    for (const e of rawLog) {
+    for (const e of dailyLog) {
       const extracted = extractWebDomain(e.title, e.appName, (e as any).rawProcess);
       if (!extracted) continue;
 
@@ -489,18 +494,18 @@ export function AppTrackingPage() {
       r.visitCount++;
     }
     return [...map.values()].sort((a, b) => b.totalSeconds - a.totalSeconds);
-  }, [rawLog]);
+  }, [dailyLog]);
 
   const totalSeconds = useMemo(() => appSummaries.reduce((s, a) => s + a.totalSeconds, 0), [appSummaries]);
 
   const categoryTotals = useMemo(() => {
     const m: Record<string, number> = {};
-    for (const e of rawLog) {
+    for (const e of dailyLog) {
       const cat = classifyApp(e.appName, e.title);
       m[cat] = (m[cat] ?? 0) + e.durationSeconds;
     }
     return Object.entries(m).sort((a, b) => b[1] - a[1]);
-  }, [rawLog]);
+  }, [dailyLog]);
 
   // ── Date navigation ────────────────────────────────────────────────────
   const dateIdx   = trackedDates.indexOf(selectedDate);
