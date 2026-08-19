@@ -614,19 +614,326 @@ export function GuidePage() {
         </Panel>
       )}
 
-      {/* TAB 8: OPEN SOURCE CREDITS */}
+      {/* TAB 8: OPEN SOURCE CREDITS & ACKNOWLEDGMENTS */}
       {activeTab === "credits" && (
-        <Panel className="space-y-6 p-6 border-l-4 border-rose-500">
-          <div className="border-b border-white/10 pb-4">
-            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-              <Heart className="w-6 h-6 text-rose-400 fill-rose-400" />
-              Open-Source Acknowledgments & Special Thanks
-            </h2>
-            <p className="text-xs text-slate-400 mt-1">
-              FlowTrack Pro is built by <strong>Sudhir DevOps</strong> on top of world-class open-source libraries: React 19, Vite, Electron, Fabric.js, Dexie.js, Framer Motion, and Tailwind CSS.
-            </p>
+        <div className="space-y-6">
+          {/* Header Banner */}
+          <Panel className="p-6 sm:p-8 bg-gradient-to-br from-rose-950/40 via-slate-900 to-indigo-950/40 border border-rose-500/30 relative overflow-hidden">
+            <div className="relative z-10 space-y-3">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs font-bold">
+                <Heart className="w-3.5 h-3.5 fill-rose-400 text-rose-400" />
+                <span>Open-Source Honors & Community Gratitude</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                Built on the Shoulders of Open-Source Giants
+              </h2>
+              <p className="text-sm text-slate-300 max-w-3xl leading-relaxed">
+                <strong className="text-white">FlowTrack Pro</strong> was crafted with utmost passion & precision by <strong className="text-rose-400">Sudhir DevOps</strong>. This application is powered by an ecosystem of world-class, battle-tested open-source libraries that make fast, privacy-first, 100% offline study tracking possible.
+              </p>
+              <div className="flex flex-wrap items-center gap-4 pt-2 text-xs text-slate-400">
+                <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
+                  <ShieldCheck className="w-4 h-4" /> 100% Free & Open-Source Foundation
+                </span>
+                <span>•</span>
+                <span className="flex items-center gap-1.5 text-cyan-400 font-semibold">
+                  <Lock className="w-4 h-4" /> Privacy-First (No Data Selling)
+                </span>
+                <span>•</span>
+                <span className="flex items-center gap-1.5 text-purple-400 font-semibold">
+                  <Zap className="w-4 h-4" /> 16 Core Open-Source Libraries
+                </span>
+              </div>
+            </div>
+          </Panel>
+
+          {/* Cards Grid */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              {
+                name: "React 19",
+                version: "v19.2",
+                role: "Frontend Component Engine & Concurrent UI",
+                color: "from-cyan-500/10 to-blue-500/10 border-cyan-500/30 text-cyan-400",
+                badgeColor: "bg-cyan-500/10 text-cyan-300 border-cyan-500/20",
+                docs: "https://react.dev",
+                github: "https://github.com/facebook/react",
+                license: "MIT",
+                icon: "⚛️",
+                desc: "Declarative component-based user interface architecture with concurrent mode, high-speed virtual DOM reconciliation, and instant responsive states."
+              },
+              {
+                name: "Electron",
+                version: "v43.1",
+                role: "Cross-Platform Native Desktop Shell",
+                color: "from-sky-500/10 to-indigo-500/10 border-sky-500/30 text-sky-400",
+                badgeColor: "bg-sky-500/10 text-sky-300 border-sky-500/20",
+                docs: "https://www.electronjs.org",
+                github: "https://github.com/electron/electron",
+                license: "MIT",
+                icon: "⚡",
+                desc: "Powers FlowTrack Pro's desktop application runtime, multi-windowing, Picture-in-Picture floating widget, IPC communications, and background win-tracker daemon."
+              },
+              {
+                name: "Vite",
+                version: "v7.3",
+                role: "Next-Generation Frontend Tooling & Bundler",
+                color: "from-purple-500/10 to-pink-500/10 border-purple-500/30 text-purple-400",
+                badgeColor: "bg-purple-500/10 text-purple-300 border-purple-500/20",
+                docs: "https://vite.dev",
+                github: "https://github.com/vitejs/vite",
+                license: "MIT",
+                icon: "⚡",
+                desc: "Next-gen lightning fast dev server with Hot Module Replacement (HMR) and optimized Rollup-based asset packaging for zero-lag performance."
+              },
+              {
+                name: "Tailwind CSS",
+                version: "v4.1",
+                role: "Utility-First Modern Styling Engine",
+                color: "from-teal-500/10 to-cyan-500/10 border-teal-500/30 text-teal-400",
+                badgeColor: "bg-teal-500/10 text-teal-300 border-teal-500/20",
+                docs: "https://tailwindcss.com",
+                github: "https://github.com/tailwindlabs/tailwindcss",
+                license: "MIT",
+                icon: "🎨",
+                desc: "Powers FlowTrack Pro's sleek dark theme, glassmorphism backdrop blurs, responsive grids, custom scrollbars, and fluid print layouts."
+              },
+              {
+                name: "Fabric.js",
+                version: "v7.4",
+                role: "HTML5 Canvas & Mind Mapping Engine",
+                color: "from-amber-500/10 to-orange-500/10 border-amber-500/30 text-amber-400",
+                badgeColor: "bg-amber-500/10 text-amber-300 border-amber-500/20",
+                docs: "http://fabricjs.com",
+                github: "https://github.com/fabricjs/fabric.js",
+                license: "MIT",
+                icon: "🖌️",
+                desc: "High-performance object-oriented canvas drawing engine behind the interactive Mind Mapping, Whiteboard notes, freehand sketches, and SVG exports."
+              },
+              {
+                name: "Dexie.js",
+                version: "v4.3",
+                role: "IndexedDB Storage for 100% Offline Persistence",
+                color: "from-emerald-500/10 to-teal-500/10 border-emerald-500/30 text-emerald-400",
+                badgeColor: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
+                docs: "https://dexie.org",
+                github: "https://github.com/dexie/Dexie.js",
+                license: "Apache-2.0",
+                icon: "💾",
+                desc: "Minimalist, blazingly fast IndexedDB wrapper that safely stores all study sessions, subject records, local timetables, and flashcards on your hard drive."
+              },
+              {
+                name: "Framer Motion",
+                version: "v12.35",
+                role: "Physics-Based Fluid Animations & Gestures",
+                color: "from-fuchsia-500/10 to-rose-500/10 border-fuchsia-500/30 text-fuchsia-400",
+                badgeColor: "bg-fuchsia-500/10 text-fuchsia-300 border-fuchsia-500/20",
+                docs: "https://motion.dev",
+                github: "https://github.com/motiondivision/motion",
+                license: "MIT",
+                icon: "✨",
+                desc: "Enables silky-smooth page transitions, modal spring entrances, interactive hover feedback, card expansions, and progress bar animations."
+              },
+              {
+                name: "Zustand",
+                version: "v5.0",
+                role: "Reactive Global State Management with Persist Sync",
+                color: "from-yellow-500/10 to-amber-500/10 border-yellow-500/30 text-yellow-400",
+                badgeColor: "bg-yellow-500/10 text-yellow-300 border-yellow-500/20",
+                docs: "https://zustand-demo.pmnd.rs",
+                github: "https://github.com/pmndrs/zustand",
+                license: "MIT",
+                icon: "🐻",
+                desc: "Ultra-fast global state engine managing active timer ticks, level progression, XP calculations, streak records, and audio soundscapes."
+              },
+              {
+                name: "Lucide React",
+                version: "v0.474",
+                role: "Crisp & Consistent Vector SVG Icon Library",
+                color: "from-indigo-500/10 to-violet-500/10 border-indigo-500/30 text-indigo-400",
+                badgeColor: "bg-indigo-500/10 text-indigo-300 border-indigo-500/20",
+                docs: "https://lucide.dev",
+                github: "https://github.com/lucide-icons/lucide",
+                license: "ISC",
+                icon: "🎯",
+                desc: "Provides 400+ clean, accessible, pixel-perfect icons across navigation sidebars, study cards, audio controls, and modal headers."
+              },
+              {
+                name: "Recharts",
+                version: "v3.8",
+                role: "Composable D3-Based Interactive Study Charts",
+                color: "from-blue-500/10 to-cyan-500/10 border-blue-500/30 text-blue-400",
+                badgeColor: "bg-blue-500/10 text-blue-300 border-blue-500/20",
+                docs: "https://recharts.org",
+                github: "https://github.com/recharts/recharts",
+                license: "MIT",
+                icon: "📊",
+                desc: "Renders interactive analytics curves, planned vs actual focus bar charts, subject time distribution rings, and weekly volume graphs."
+              },
+              {
+                name: "Tesseract.js",
+                version: "v7.0",
+                role: "Client-Side Neural OCR & Text Extraction",
+                color: "from-violet-500/10 to-purple-500/10 border-violet-500/30 text-violet-400",
+                badgeColor: "bg-violet-500/10 text-violet-300 border-violet-500/20",
+                docs: "https://tesseract.projectnaptha.com",
+                github: "https://github.com/naptha/tesseract.js",
+                license: "Apache-2.0",
+                icon: "👁️",
+                desc: "WebAssembly optical character recognition port running directly in the browser to extract text from textbook images for instant flashcard creation."
+              },
+              {
+                name: "PDF.js",
+                version: "v6.1",
+                role: "Mozilla Standards-Compliant PDF Rendering Engine",
+                color: "from-red-500/10 to-rose-500/10 border-red-500/30 text-red-400",
+                badgeColor: "bg-red-500/10 text-red-300 border-red-500/20",
+                docs: "https://mozilla.github.io/pdf.js",
+                github: "https://github.com/mozilla/pdf.js",
+                license: "Apache-2.0",
+                icon: "📑",
+                desc: "Mozilla's high-performance standard PDF reader rendering textbooks with high-resolution zooming, text selection, and annotation tools."
+              },
+              {
+                name: "Date-fns",
+                version: "v4.1",
+                role: "Modular JavaScript Date Arithmetic & Time Engine",
+                color: "from-pink-500/10 to-rose-500/10 border-pink-500/30 text-pink-400",
+                badgeColor: "bg-pink-500/10 text-pink-300 border-pink-500/20",
+                docs: "https://date-fns.org",
+                github: "https://github.com/date-fns/date-fns",
+                license: "MIT",
+                icon: "📅",
+                desc: "Calculates streak continuities, routine slot timelines (10:00 AM – 09:00 PM), and formats timestamps for executive study reports."
+              },
+              {
+                name: "React Router",
+                version: "v7.18",
+                role: "Declarative Single-Page Routing & History Manager",
+                color: "from-orange-500/10 to-amber-500/10 border-orange-500/30 text-orange-400",
+                badgeColor: "bg-orange-500/10 text-orange-300 border-orange-500/20",
+                docs: "https://reactrouter.com",
+                github: "https://github.com/remix-run/react-router",
+                license: "MIT",
+                icon: "🧭",
+                desc: "Handles client-side navigation, deep hash URL state synchronisation, sub-route rendering, and standalone PiP window routes."
+              },
+              {
+                name: "Neon Serverless Postgres",
+                version: "v1.1",
+                role: "Serverless SQL Client for Cloud Sync",
+                color: "from-emerald-500/10 to-green-500/10 border-emerald-500/30 text-emerald-400",
+                badgeColor: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
+                docs: "https://neon.tech",
+                github: "https://github.com/neondatabase/serverless",
+                license: "Apache-2.0",
+                icon: "☁️",
+                desc: "Powers optional end-to-end encrypted multi-device study record synchronization over ultra-low-latency WebSockets."
+              },
+              {
+                name: "HTML2Canvas",
+                version: "v1.4",
+                role: "High-Resolution DOM to Canvas Snapshot Renderer",
+                color: "from-blue-500/10 to-indigo-500/10 border-blue-500/30 text-blue-400",
+                badgeColor: "bg-blue-500/10 text-blue-300 border-blue-500/20",
+                docs: "https://html2canvas.hertzen.com",
+                github: "https://github.com/niklasvh/html2canvas",
+                license: "MIT",
+                icon: "📸",
+                desc: "Captures visual HTML study snapshots and notes into crisp, high-resolution PNG images for offline sharing and archiving."
+              }
+            ].map((pkg, idx) => (
+              <div
+                key={idx}
+                className={`p-5 rounded-2xl bg-gradient-to-b ${pkg.color} bg-slate-900/80 border flex flex-col justify-between hover:scale-[1.02] transition-all group`}
+              >
+                <div className="space-y-3">
+                  {/* Top Row: Icon, Name & License */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-2xl p-2 rounded-xl bg-slate-950/80 border border-white/10 shrink-0">
+                        {pkg.icon}
+                      </span>
+                      <div>
+                        <h3 className="font-bold text-white text-base group-hover:text-cyan-300 transition-colors flex items-center gap-1.5">
+                          {pkg.name}
+                        </h3>
+                        <span className="text-[11px] text-slate-400 font-mono">
+                          {pkg.version}
+                        </span>
+                      </div>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${pkg.badgeColor}`}>
+                      {pkg.license}
+                    </span>
+                  </div>
+
+                  {/* Role Header */}
+                  <div className="text-xs font-semibold text-slate-300">
+                    {pkg.role}
+                  </div>
+
+                  {/* Description */}
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    {pkg.desc}
+                  </p>
+                </div>
+
+                {/* Footer Action Links */}
+                <div className="pt-4 mt-4 border-t border-white/5 flex items-center justify-between gap-2 text-xs">
+                  <a
+                    href={pkg.docs}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors"
+                  >
+                    <span>Official Docs</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                  <a
+                    href={pkg.github}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors"
+                  >
+                    <span>GitHub Repo</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              </div>
+            ))}
           </div>
-        </Panel>
+
+          {/* Bottom Special Thanks & Philosophy Box */}
+          <Panel className="p-6 bg-slate-900/90 border border-white/10 space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">🤝</span>
+              <div>
+                <h3 className="text-base font-bold text-white">
+                  A Heartfelt Thank You to the Global Open-Source Community
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Every contributor, maintainer, and issue reporter who builds and maintains these foundational tools makes software development accessible and joyful for developers worldwide.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-xl bg-slate-950/60 border border-white/5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-300">
+              <div className="flex items-center gap-2">
+                <span className="text-rose-400">❤️</span>
+                <span>Crafted with devotion for students & developers worldwide by <strong>Sudhir DevOps</strong></span>
+              </div>
+              <a
+                href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-white font-bold transition-all shrink-0"
+              >
+                <span>Star on GitHub</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          </Panel>
+        </div>
       )}
     </motion.div>
   );
