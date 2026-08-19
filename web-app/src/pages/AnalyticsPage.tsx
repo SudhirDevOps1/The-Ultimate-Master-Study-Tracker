@@ -196,8 +196,9 @@ export function AnalyticsPage() {
               cursor.setDate(cursor.getDate() - 1);
             }
 
+            const todayStr = format(new Date(), "yyyy-MM-dd");
             const studiedCount = dates.filter(d => dayMap.has(d)).length;
-            const skippedCount = dates.length - studiedCount;
+            const skippedCount = dates.filter(d => d !== todayStr && !dayMap.has(d)).length;
 
             return (
               <Panel className="space-y-4">
@@ -220,24 +221,37 @@ export function AnalyticsPage() {
 
                 <div className="pretty-scrollbar max-h-56 overflow-y-auto space-y-1.5 pr-1">
                   {dates.map(dateStr => {
+                    const isToday = dateStr === todayStr;
                     const hasStudied = dayMap.has(dateStr);
                     const totalSec = dayMap.get(dateStr) ?? 0;
                     const hoursVal = (totalSec / 3600).toFixed(1);
                     const parsedDate = new Date(dateStr + "T12:00:00");
 
+                    let statusBadge = <span className="font-mono font-bold text-rose-400">❌ Missed</span>;
+                    let rowClasses = "bg-rose-950/10 border-rose-500/10 text-rose-300";
+
+                    if (hasStudied) {
+                      statusBadge = <span className="font-mono font-bold text-emerald-400">✅ {hoursVal}h</span>;
+                      rowClasses = "bg-emerald-950/10 border-emerald-500/10 text-emerald-300";
+                    } else if (isToday) {
+                      statusBadge = <span className="font-mono font-bold text-amber-400">⏳ In Progress</span>;
+                      rowClasses = "bg-amber-950/10 border-amber-500/10 text-amber-300";
+                    }
+
                     return (
                       <div 
                         key={dateStr}
-                        className={`flex items-center justify-between rounded-lg p-2 text-xs border ${
-                          hasStudied 
-                            ? "bg-emerald-950/10 border-emerald-500/10 text-emerald-300"
-                            : "bg-rose-950/10 border-rose-500/10 text-rose-300"
-                        }`}
+                        className={`flex items-center justify-between rounded-lg p-2 text-xs border ${rowClasses}`}
                       >
-                        <span className="font-medium">{format(parsedDate, "EEE, MMM dd, yyyy")}</span>
-                        <span className="font-mono font-bold">
-                          {hasStudied ? `✅ ${hoursVal}h` : "❌ Missed"}
+                        <span className="font-medium flex items-center gap-1.5">
+                          {format(parsedDate, "EEE, MMM dd, yyyy")}
+                          {isToday && (
+                            <span className="text-[9px] uppercase font-bold text-cyan-300 px-1.5 py-0.5 rounded bg-cyan-500/15 border border-cyan-500/25">
+                              Today
+                            </span>
+                          )}
                         </span>
+                        {statusBadge}
                       </div>
                     );
                   })}
