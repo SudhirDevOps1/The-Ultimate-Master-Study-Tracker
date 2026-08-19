@@ -4,34 +4,226 @@ import { Panel } from "@/components/common/Panel";
 import { 
   BookOpen, Sparkles, Cpu, HardDrive, ShieldCheck, Bug, HelpCircle, 
   UserCheck, Terminal, Layers, Code, Zap, CheckCircle2, AlertTriangle, 
-  FolderOpen, ExternalLink, Activity, Search, RefreshCw, FileText, ArrowRight, Heart 
+  FolderOpen, ExternalLink, Activity, Search, RefreshCw, FileText, ArrowRight, Heart,
+  Clock, Calendar, Monitor, Globe, Lock, Brain, FileCheck, Keyboard, Download, Play, Sliders
 } from "lucide-react";
 
 export function GuidePage() {
-  const [activeTab, setActiveTab] = useState<"overview" | "features" | "tech" | "fixes" | "storage" | "limitations" | "developer" | "credits">("overview");
+  const [activeTab, setActiveTab] = useState<"howToUse" | "overview" | "features" | "shortcuts" | "storage" | "fixes" | "tech" | "credits">("howToUse");
+  const [selectedGuideFeature, setSelectedGuideFeature] = useState<string>("routine");
 
   const appInfo = {
     name: "FlowTrack Pro – Smart Study & Productivity Tracker",
-    version: "v7.5.1 (Latest 2026 Release)",
+    version: "v7.5.1 (Production Release)",
     developer: "Sudhir DevOps (FlowTrack Engineering Team)",
     repo: "SudhirDevOps1/The-Ultimate-Master-Study-Tracker",
     techStack: [
-      "React 19", "TypeScript 5.9", "Vite 7", "TailwindCSS 4",
+      "React 19", "TypeScript 5.9", "Vite 7", "Electron 43", "TailwindCSS 4",
       "Fabric.js 7.4 (Whiteboard Engine)", "Dexie.js 4 (IndexedDB)", "Zustand 5",
-      "Framer Motion 12", "Python REST Backend (SQLite WAL)",
-      "PDF.js 6.1 (PDF Viewer)", "Tesseract.js 7.0 (OCR Flashcards)", "Web Audio API"
+      "Framer Motion 12", "C# Win32 Active Window Tracker", "Python REST Backend (SQLite WAL)",
+      "PDF.js 6.1 (PDF Viewer)", "Tesseract.js 7.0 (OCR Flashcards)", "electron-updater", "Web Audio API"
     ],
   };
 
   const tabs = [
-    { id: "overview", label: "🌟 App Overview", icon: <BookOpen className="w-4 h-4" /> },
-    { id: "features", label: "🚀 Feature Matrix", icon: <Zap className="w-4 h-4" /> },
-    { id: "tech", label: "🛠️ Tech Architecture", icon: <Cpu className="w-4 h-4" /> },
+    { id: "howToUse", label: "📖 Kaise Use Karein (User Manual)", icon: <BookOpen className="w-4 h-4 text-cyan-400" /> },
+    { id: "overview", label: "🌟 App Overview", icon: <Sparkles className="w-4 h-4" /> },
+    { id: "features", label: "🚀 All Features Matrix", icon: <Zap className="w-4 h-4 text-amber-400" /> },
+    { id: "shortcuts", label: "⌨️ Keyboard Shortcuts & Tips", icon: <Keyboard className="w-4 h-4 text-indigo-400" /> },
     { id: "fixes", label: "✨ New in v7.5.1", icon: <CheckCircle2 className="w-4 h-4 text-emerald-400" /> },
-    { id: "storage", label: "📂 Data Storage Paths", icon: <HardDrive className="w-4 h-4" /> },
-    { id: "limitations", label: "⚠️ System Requirements", icon: <AlertTriangle className="w-4 h-4 text-amber-400" /> },
-    { id: "developer", label: "👨‍💻 Developer & Credits", icon: <UserCheck className="w-4 h-4" /> },
-    { id: "credits", label: "🎁 Open-Source Thanks & Links", icon: <Heart className="w-4 h-4 text-rose-400 animate-pulse" /> },
+    { id: "storage", label: "📂 Data Storage & Privacy", icon: <HardDrive className="w-4 h-4 text-purple-400" /> },
+    { id: "tech", label: "🛠️ Tech Architecture", icon: <Cpu className="w-4 h-4" /> },
+    { id: "credits", label: "🎁 Open-Source Credits", icon: <Heart className="w-4 h-4 text-rose-400 animate-pulse" /> },
+  ];
+
+  const howToGuides = [
+    {
+      id: "routine",
+      icon: "🎯",
+      title: "Daily Master Routine (10:00 AM – 09:00 PM)",
+      subtitle: "दिन भर का सही स्टडी रूटीन और फ्लो कैसे फॉलो करें",
+      steps: [
+        {
+          title: "1. सुबह 10:00 AM पर ऐप खोलें",
+          desc: "Dashboard या Today Tasks पर जाएं। आज के 6 टाइम ब्लॉक्स (10:00 AM से 09:00 PM) अपने आप लोड हो जाएंगे।",
+          proTip: "अगर आज नया टाइमटेबल चाहिए तो AI Scheduler में जाकर 1-क्लिक में रीजेनेरेट कर सकते हैं।"
+        },
+        {
+          title: "2. Today Tasks में जाकर सेशन स्टार्ट करें",
+          desc: "वर्तमान टाइम स्लॉट के आगे 'Start Session' या Play बटन दबाएं। Study Timer तुरंत उस विषय के साथ शुरू हो जाएगा।",
+          proTip: "अगर आप कोडिंग कर रहे हैं या PDF पढ़ रहे हैं, तो 'Open Floating Timer' (PiP) बटन दबाकर टाइमर को हमेशा स्क्रीन के ऊपर रखें।"
+        },
+        {
+          title: "3. लंच और टी ब्रेक्स का ऑटोमैटिक शेड्यूल",
+          desc: "01:30 PM - 02:30 PM (Lunch Break) और 05:30 PM - 06:00 PM (Tea/Rest Break) में टाइमर अपने आप रिलैक्स स्टेट में रहेगा।",
+          proTip: "ब्रेक खत्म होते ही फ्लोट्रैक प्रो आपको नोटिफाई करेगा ताकि आपकी कंसिस्टेंसी बनी रहे।"
+        },
+        {
+          title: "4. रात 09:00 PM पर Daily Review & Streak",
+          desc: "रात को Analytics पेज पर जाएं। आज का Planned vs Actual Focus Time देखें और Streak बनाए रखें।",
+          proTip: "Executive PDF Report पर क्लिक करके आज का या पूरे महीने का स्टडी रिपोर्ट PDF में प्रिंट/डाउनलोड कर सकते हैं।"
+        }
+      ]
+    },
+    {
+      id: "timer",
+      icon: "⏱️",
+      title: "Study Timer, PiP Floating Widget & Offline Audio",
+      subtitle: "सटीक टाइम ट्रैकिंग, फ्लोटिंग विजेट और बैकग्राउंड म्यूजिक",
+      steps: [
+        {
+          title: "1. Zero-Lag Timestamp Timer",
+          desc: "टाइमर साधारण टिक-टिक पर नहीं बल्कि Unix absolute timestamps पर चलता है, जिससे बैकग्राउंड में भी एक सेकंड का भी अंतर नहीं आता।",
+          proTip: "स्पेसबार (Spacebar) दबाकर कभी भी टाइमर Pause या Resume कर सकते हैं।"
+        },
+        {
+          title: "2. Always-On-Top Floating Timer (PiP Mode)",
+          desc: "Timer पेज पर '📺 Open Floating Timer' पर क्लिक करें। यह छोटा विजेट आपके VS Code, Chrome या PDF के ऊपर हमेशा दिखता रहेगा।",
+          proTip: "फ्लोटिंग टाइमर को ड्रैग करके स्क्रीन के किसी भी कोने में रख सकते हैं।"
+        },
+        {
+          title: "3. 100% Offline Focus Soundscapes & Binaural Beats",
+          desc: "टाइमर के साथ Alpha Binaural Beats (10Hz) और Deep Rain साउंड्स सुनें। यह वेब ऑडियो सिंथेसाइज़र से बिना इंटरनेट भी चलता है।",
+          proTip: "ईयरफोन लगाकर अल्फा बीट्स सुनने से फोकस और कॉन्संट्रेशन दोगुना बढ़ जाता है।"
+        }
+      ]
+    },
+    {
+      id: "apptracking",
+      icon: "🖥️",
+      title: "App & Website Tracking (Screen Time Analytics)",
+      subtitle: "कौन सी ऐप और वेबसाइट कितनी देर इस्तेमाल की, सब ट्रैक करें",
+      steps: [
+        {
+          title: "1. ऑटोमैटिक बैकग्राउंड ट्रैकिंग",
+          desc: "जैसे ही आप Chrome, VS Code, YouTube या कोई भी ऐप खोलते हैं, फ्लोट्रैक प्रो बैकग्राउंड में उसका एक्टिव टाइम सेकंड-दर-सेकंड नोट करता है।",
+          proTip: "जब आप कंप्यूटर छोड़ते हैं (10 मिनट कोई हलचल नहीं), तो टाइमर ऑटो-पॉज़ हो जाता है ताकि फेक स्क्रीन टाइम न जुड़े।"
+        },
+        {
+          title: "2. Today vs Past 7 Days vs 30 Days vs All-Time Switcher",
+          desc: "App Tracking पेज पर ऊपर दिए गए पिल्स (📅 Single Day, 📆 Past 7 Days, 📊 Past 30 Days, ♾️ All Time) पर क्लिक करके किसी भी समय सीमा का कुल समय देख सकते हैं।",
+          proTip: "किसी भी दिन की तारीख पर क्लिक करके उस दिन का विस्तृत ऐप व वेबसाइट ब्रेकडाउन देख सकते हैं।"
+        },
+        {
+          title: "3. Productive vs Distracting Classification",
+          desc: "कोडिंग टूल्स और बुक्स को Productive (हरा), सोशल मीडिया को Distracting (लाल), और ब्राउज़र को Neutral रंग में क्लासिफाई किया जाता है।",
+          proTip: "Distraction Alert बार आपको सतर्क करता है जब आप तय सीमा से ज्यादा भटकाव वाले ऐप्स पर समय बिताते हैं।"
+        }
+      ]
+    },
+    {
+      id: "scheduler",
+      icon: "🤖",
+      title: "AI Study Scheduler & Smart Routine Generator",
+      subtitle: "अपने विषयों और प्राथमिकताओं के हिसाब से स्मार्ट टाइमटेबल बनाएं",
+      steps: [
+        {
+          title: "1. 1-Click Smart Schedule Generation",
+          desc: "AI Scheduler में जाएं और 'Generate AI Schedule' दबाएं। यह आपके कठिन विषयों को सुबह के पीक फोकस घंटों में सेट करता है।",
+          proTip: "शेड्यूल 10:00 AM से 09:00 PM के दायरे में आपके लंच और टी ब्रेक को सुरक्षित रखते हुए बनता है।"
+        },
+        {
+          title: "2. Custom Subject Target Hours & Weights",
+          desc: "Subjects पेज पर जाकर हर विषय का वीकली टारगेट (जैसे Java 12h, DSA 10h, English 6h) और डिफिकल्टी लेवल सेट करें।",
+          proTip: "AI उसी हिसाब से ज्यादा समय कठिन विषयों को और रिवीजन का समय आसान विषयों को देता है।"
+        }
+      ]
+    },
+    {
+      id: "workspace",
+      icon: "📚",
+      title: "Study Workspace (PDF Reader & OCR Flashcards)",
+      subtitle: "बुक्स पढ़ें, हाइलाइट करें और सीधे फ्लैशकार्ड्स बनाएं",
+      steps: [
+        {
+          title: "1. PDF बुक्स और नोट्स खोलें",
+          desc: "Study Workspace में कोई भी PDF ड्रैग और ड्रॉप करें। यह सुपर-फास्ट इन-ऐप PDF.js इंजन के साथ तुरंत लोड होता है।",
+          proTip: "रीडिंग प्रोग्रेस और पेज नंबर अपने आप याद रखा जाता है।"
+        },
+        {
+          title: "2. OCR Text Extraction & Flashcards",
+          desc: "PDF के किसी भी हिस्से को सेलेक्ट करके 'Create Flashcard' दबाएं। Tesseract OCR इंजन तुरंत टेक्स्ट निकाल लेगा।",
+          proTip: "यह फ्लैशकार्ड्स सीधे SRS Flashcards डेक में जुड़ जाते हैं।"
+        }
+      ]
+    },
+    {
+      id: "srs",
+      icon: "🗂️",
+      title: "SRS Flashcards (Spaced Repetition System)",
+      subtitle: "सुपरमेमो-2 अल्गोरिदम से कभी न भूलने वाला रिवीजन",
+      steps: [
+        {
+          title: "1. फ्लैशकार्ड्स से रिवीजन करें",
+          desc: "SRS Flashcards में 'Start Review' दबाएं। प्रश्न देखें, उत्तर याद करें और 'Show Answer' दबाएं।",
+          proTip: "अपने आत्मविश्वास के आधार पर Easy, Good, Hard या Again चुनें।"
+        },
+        {
+          title: "2. साइंटिफिक स्पैस्ड रिपीटिशन",
+          desc: "SuperMemo-2 अल्गोरिदम तय करता है कि कौन सा कार्ड आपको 1 दिन बाद, 3 दिन बाद या 15 दिन बाद दोबारा दिखाना है।",
+          proTip: "रोजाना सिर्फ 10 मिनट फ्लैशकार्ड्स दोहराने से परीक्षा तक 95%+ बातें याद रहती हैं।"
+        }
+      ]
+    },
+    {
+      id: "portals",
+      icon: "🌐",
+      title: "In-App Web Portals & Encrypted Password Vault",
+      subtitle: "बिना ऐप छोड़े अपना कॉलेज, PW या यूट्यूब चलाएं और पासवर्ड ऑटो-फिल करें",
+      steps: [
+        {
+          title: "1. इन-ऐप वेब ब्राउज़र",
+          desc: "Web Portals Browser में जाकर Apna College, Physics Wallah, Coursera या YouTube 1-क्लिक में खोलें।",
+          proTip: "यह क्रोमियम इंजन पर चलता है, इसलिए वीडियो लैग-फ्री 1080p में चलती हैं।"
+        },
+        {
+          title: "2. 1-Click Encrypted Password Auto-Fill",
+          desc: "अपने पासवर्ड्स को लोकल एन्क्रिप्टेड वॉल्ट में सेव करें। पोर्टल लॉगिन पेज पर '🔑 Fill Login' दबाते ही फॉर्म ऑटो-फिल हो जाता है।",
+          proTip: "पासवर्ड केवल आपके कंप्यूटर पर एन्क्रिप्टेड रूप में रहते हैं, कभी किसी सर्वर पर नहीं जाते।"
+        }
+      ]
+    },
+    {
+      id: "analytics",
+      icon: "📊",
+      title: "Study Analytics, Streaks & Executive PDF Reports",
+      subtitle: "अपनी पढ़ाई की प्रगति, स्ट्रीक और एक्सक्लूसिव PDF रिपोर्ट देखें",
+      steps: [
+        {
+          title: "1. Planned vs Actual Focus Hours",
+          desc: "Analytics पेज पर बार चार्ट्स आपको दिखाते हैं कि आपने किस विषय में कितना प्लान किया था और वास्तव में कितना पढ़ा।",
+          proTip: "टूलटिप्स में सटीक घंटे, पूर्णता दर (Completion %) और तारीखें दिखती हैं।"
+        },
+        {
+          title: "2. Active vs Skipped Days & Streak Log",
+          desc: "पूरे 30 दिनों का कैलेंडर लॉग देखें। आज का दिन '⏳ In Progress' दिखता है और जिस दिन आपने पढ़ा उस दिन हरा टिक मार्क आता है।",
+          proTip: "लगातार पढ़ने से आपकी Streak और Level (जैसे Seeker Lv.1 -> Master Lv.5) बढ़ता है।"
+        },
+        {
+          title: "3. Executive PDF Report Export",
+          desc: "ऊपर '📄 Executive PDF Report' बटन दबाएं। सुंदर डार्क/लाइट फॉर्मेटेड रिपोर्ट खुलेगी। 'Print / Save PDF' दबाकर PDF डाउनलोड करें।",
+          proTip: "Escape (Esc) बटन दबाकर या बाहर क्लिक करके आसानी से रिपोर्ट बंद कर सकते हैं।"
+        }
+      ]
+    },
+    {
+      id: "backup",
+      icon: "🔄",
+      title: "Data Backup, Restore & Background Auto-Updater",
+      subtitle: "डेटा कभी न खोएं और ऐप को हमेशा लेटेस्ट वर्जन पर रखें",
+      steps: [
+        {
+          title: "1. 1-Click JSON Backup & Restore",
+          desc: "Settings या App Tracking पेज पर 'Backup' बटन दबाकर अपना पूरा डेटा एक JSON फाइल में एक्सपोर्ट कर लें।",
+          proTip: "कंप्यूटर बदलने पर 'Restore' बटन दबाकर पूरी प्रोग्रेस वापस ला सकते हैं।"
+        },
+        {
+          title: "2. Silent Background Auto-Updater",
+          desc: "जैसे ही नया अपडेट आता है, ऐप बैकग्राउंड में डाउनलोड कर लेता है। आपको सिर्फ 'Restart & Install' का प्रॉम्प्ट मिलता है।",
+          proTip: "बिना किसी मैन्युअल डाउनलोड या डेटा लॉस के ऐप अपने आप अपग्रेड हो जाता है।"
+        }
+      ]
+    }
   ];
 
   const features = [
@@ -43,32 +235,11 @@ export function GuidePage() {
       tag: "Chromium Engine"
     },
     {
-      title: "🔐 Encrypted Password Vault & Proton Pass Auto-Fill",
-      descEn: "Local encrypted credential manager (Base64 + XOR cipher). 1-click '🔑 Fill Login' button auto-injects saved logins into portal forms.",
+      title: "🔐 Encrypted Password Vault & Auto-Fill",
+      descEn: "Local encrypted credential manager. 1-click '🔑 Fill Login' button auto-injects saved logins into study portal forms.",
       descHi: "लोकल एन्क्रिप्टेड पासवर्ड वॉल्ट: अपना कॉलेज या अन्य स्टडी साइट्स पर 1-क्लिक में यूजरनेम और पासवर्ड ऑटो-फिल करता है।",
       icon: "🔐",
       tag: "1-Click AutoFill"
-    },
-    {
-      title: "🔄 Background Silent Auto-Updater",
-      descEn: "Powered by electron-updater. Checks GitHub Releases silently in background, downloads updates, and provides 1-click 'Restart & Install'.",
-      descHi: "ऑटो-अपडेटर: बैकग्राउंड में नया वर्जन ऑटोमैटिकली डाउनलोड करता है और 1-क्लिक में ऐप अपडेट कर देता है।",
-      icon: "🔄",
-      tag: "electron-updater"
-    },
-    {
-      title: "🛡️ Anti-Cheat System Clock Guard",
-      descEn: "Protects study timer against system clock manual manipulation. Caps unexpected time jumps and enforces absolute timestamp validation.",
-      descHi: "सिस्टम क्लॉक एंटी-चीट गार्ड: टाइमर में सिस्टम का टाइम आगे बढ़ाकर फेक स्टडी आवर्स जोड़ने की कोशिश को रोकता है।",
-      icon: "🛡️",
-      tag: "Anti-Tamper Engine"
-    },
-    {
-      title: "🔍 Live Application & Active Window Tracking",
-      descEn: "Background process hook monitors active windows (Chrome, VS Code, Zoom, etc.), records time spent, and classifies apps into Productive, Distracting, or Neutral categories.",
-      descHi: "बैकग्राउंड प्रोसेस ऑटोमैटिकली एक्टिव विंडोज (Chrome, VS Code, आदि) को ट्रैक करता है और टाइम को Productive, Distracting या Neutral कैटेगरीज में बांटता है।",
-      icon: "🖥️",
-      tag: "Native Desktop Hook"
     },
     {
       title: "⏱️ Timestamp-Based Strict Study Timer",
@@ -78,70 +249,65 @@ export function GuidePage() {
       tag: "Zero Lag Engine"
     },
     {
-      title: "📺 Floating Picture-in-Picture (PiP) Mode",
+      title: "📺 Floating Picture-in-Picture (PiP) Widget",
       descEn: "Opens a mini floating widget that stays on top of all Windows applications (PDFs, coding IDEs, lectures) so you can pause/play without switching windows.",
       descHi: "एक फ्लोटिंग विजेट खोलता है जो सभी ऐप्स के ऊपर रहता है, ताकि आप PDF पढ़ते या कोडिंग करते समय आसानी से टाइमर कंट्रोल कर सकें।",
       icon: "📺",
       tag: "Always-On-Top"
     },
     {
+      title: "🖥️ Live Application & Web Tab Tracking",
+      descEn: "Monitors active windows (VS Code, Chrome, YouTube), records screen time, and classifies apps into Productive, Distracting, or Neutral categories.",
+      descHi: "सक्रिय ऐप्स और ब्राउज़र टैब्स को ऑटो-ट्रैक करता है और आज, 7 दिन, 30 दिन या ऑल-टाइम का कुल स्क्रीन टाइम दिखाता है।",
+      icon: "🖥️",
+      tag: "Multi-Scope Analytics"
+    },
+    {
       title: "🎵 100% Offline AI Focus Soundscapes",
-      descEn: "Features a dual-engine sound player. Web Audio API Native Synthesizer automatically generates procedural binaural 10Hz alpha focus beats and rain noise.",
-      descHi: "डुअल-इंजन साउंड प्लेयर: ऑनलाइन स्ट्रीम फेल होने या इंटरनेट बंद होने पर Web Audio API अपने आप 100% ऑफलाइन बाइन्यूरल बीट्स और रेन साउंड्स जनरेट करता है।",
+      descEn: "Procedural Web Audio API sound generator produces binaural 10Hz alpha focus beats and rain soundscapes offline with zero internet required.",
+      descHi: "100% ऑफलाइन बाइन्यूरल बीट्स और रेन साउंड्स जो बिना इंटरनेट के भी बैकग्राउंड में चलती हैं और ध्यान केंद्रित रखने में मदद करती हैं।",
       icon: "🎵",
-      tag: "Offline Synthesizer"
-    },
-  ];
-
-  const fixesv550 = [
-    {
-      title: "Encrypted Password Vault & Proton Pass AutoFill",
-      issue: "Users had to manually type credentials into Web Portals every time.",
-      solution: "Added local XOR encrypted Password Vault with 1-click JS DOM injection auto-fill button in browser toolbar.",
-      icon: "🔑"
+      tag: "Offline Audio"
     },
     {
-      title: "electron-updater Background Auto-Update Integration",
-      issue: "Users had to manually check and re-download installer .exe files from GitHub.",
-      solution: "Integrated electron-updater service for background silent downloading and 1-click 'Restart & Install Update' action.",
-      icon: "🔄"
+      title: "🤖 AI Study Scheduler (10 AM - 09 PM)",
+      descEn: "Automatically plans daily sessions within 10:00 AM - 09:00 PM, safeguarding lunch & tea breaks while prioritizing weak/challenging topics.",
+      descHi: "10:00 AM से 09:00 PM के बीच लंच और टी ब्रेक का ध्यान रखते हुए कठिन विषयों को सुबह के पीक आवर्स में ऑटो-शेड्यूल करता है।",
+      icon: "🤖",
+      tag: "Smart Scheduler"
     },
     {
-      title: "System Clock Tampering & Anti-Cheat Guard",
-      issue: "Changing system time forward artificially completed study sessions instantly.",
-      solution: "Implemented absolute timestamp delta validation and overshoot capping in getActiveElapsed timer store.",
-      icon: "🛡️"
+      title: "🗂️ SRS Flashcards & Spaced Repetition",
+      descEn: "SuperMemo-2 (SM-2) algorithm calculates review intervals (1d, 3d, 15d, 30d) for permanent memory retention.",
+      descHi: "स्पैस्ड रिपीटिशन तकनीक से कठिन टॉपिक्स को सही अंतराल पर दोहराकर 100% याद रखने की प्रणाली।",
+      icon: "🗂️",
+      tag: "SM-2 Algorithm"
     },
     {
-      title: "External Link Protocol Security Hardening",
-      issue: "Open-external-link IPC channel accepted arbitrary protocol strings.",
-      solution: "Added strict protocol whitelist filter (http://, https://, mailto: only) in main electron.js process.",
-      icon: "🔒"
+      title: "📄 Executive PDF Performance Reports",
+      descEn: "Generates beautiful printable study performance reports with subject mastery tables, focus hours, completion rates, and rank badges.",
+      descHi: "1-क्लिक में आधिकारिक स्टडी परफॉर्मेंस रिपोर्ट तैयार करता है जिसे PDF में प्रिंट या सेव किया जा सकता है।",
+      icon: "📄",
+      tag: "Print & PDF"
     },
     {
-      title: "Release Build Size Compression Optimization",
-      issue: "Electron-builder uncompressed store mode produced 700MB+ zip bundles.",
-      solution: "Enabled asar archiving and maximum LZMA compression settings in package.json, reducing build sizes to ~150MB.",
-      icon: "⚡"
+      title: "🔄 Background Silent Auto-Updater",
+      descEn: "Powered by electron-updater. Checks GitHub Releases silently in background, downloads updates, and provides 1-click 'Restart & Install'.",
+      descHi: "ऑटो-अपडेटर: बैकग्राउंड में नया वर्जन ऑटोमैटिकली डाउनलोड करता है और 1-क्लिक में बिना डेटा खोए ऐप अपडेट कर देता है।",
+      icon: "🔄",
+      tag: "electron-updater"
     }
   ];
 
-  const openSourceCredits = [
-    { name: "React 19", url: "https://react.dev", desc: "The core library for modern web and native user interfaces", type: "Core UI Framework" },
-    { name: "TypeScript 5.9", url: "https://www.typescriptlang.org", desc: "JavaScript with strict compile-time type safety & intellisense", type: "Type System & Compiler" },
-    { name: "Vite 7", url: "https://vitejs.dev", desc: "Next Generation Frontend Tooling & Instant HMR Bundler", type: "Build Engine" },
-    { name: "Fabric.js 7.4", url: "https://fabricjs.com", desc: "Interactive HTML5 canvas engine powering the Excalidraw Whiteboard", type: "Whiteboard Engine" },
-    { name: "Dexie.js 4", url: "https://dexie.org", desc: "Minimalistic wrapper for IndexedDB offline local database persistence", type: "Offline Database" },
-    { name: "Tailwind CSS 4", url: "https://tailwindcss.com", desc: "Utility-first CSS framework for rapid modern UI styling", type: "Design System" },
-    { name: "Framer Motion 12", url: "https://www.framer.com/motion", desc: "Production-ready motion & spring physics library for React", type: "Animation Library" },
-    { name: "Lucide React", url: "https://lucide.dev", desc: "Beautiful & consistent open-source vector icons", type: "UI Assets" },
-    { name: "Recharts 3", url: "https://recharts.org", desc: "Redefined chart library built with React and D3 for study analytics", type: "Data Visualization" },
-    { name: "Zustand 5", url: "https://github.com/pmndrs/zustand", desc: "Small, fast & scalable bear-necessities state-management solution", type: "Global State" },
-    { name: "PDF.js 6.1", url: "https://mozilla.github.io/pdf.js/", desc: "Mozilla's JavaScript PDF rendering engine for textbook reading", type: "PDF Viewer Engine" },
-    { name: "Tesseract.js 7.0", url: "https://tesseract.projectnaptha.com/", desc: "Pure JavaScript Optical Character Recognition (OCR) for Flashcards", type: "OCR Engine" },
-    { name: "Python REST Backend", url: "https://fastapi.tiangolo.com/", desc: "Local REST API backend with SQLite WAL journal mode for hybrid tracking", type: "REST API & Database" },
-    { name: "html2canvas", url: "https://html2canvas.hertzen.com/", desc: "HTML element to Canvas screenshot renderer", type: "Export Utility" },
+  const shortcuts = [
+    { key: "Space", desc: "Start / Pause Study Timer (टाइमर शुरू या रोकें)", area: "Study Timer" },
+    { key: "Esc", desc: "Close Modals / Exit PDF Report (पॉपअप या रिपोर्ट बंद करें)", area: "Global" },
+    { key: "Ctrl + S", desc: "Save Mind Map / Note (नोट्स या माइंड मैप सेव करें)", area: "Notes & Mind Maps" },
+    { key: "Ctrl + F", desc: "Search in Flashcards or PDF (सर्च करें)", area: "Workspace" },
+    { key: "Alt + Tab", desc: "Switch Apps while PiP Timer Stays on Top (फ्लोटिंग टाइमर ऊपर रहेगा)", area: "PiP Widget" }
   ];
+
+  const currentGuide = howToGuides.find(g => g.id === selectedGuideFeature) || howToGuides[0];
 
   return (
     <motion.div
@@ -159,7 +325,7 @@ export function GuidePage() {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="inline-flex items-center gap-2 rounded-full bg-cyan-500/10 border border-cyan-400/20 px-3.5 py-1 text-xs font-bold text-cyan-300">
               <Sparkles className="w-3.5 h-3.5 animate-pulse" />
-              Official Documentation & User Master Guide
+              Official Documentation & Master User Guide
             </div>
             <span className="rounded-full bg-white/10 px-3.5 py-1 text-xs font-mono font-bold text-slate-300 border border-white/10">
               {appInfo.version}
@@ -167,17 +333,17 @@ export function GuidePage() {
           </div>
 
           <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-            FlowTrack Pro <span className="bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent italic">Desktop Guide & Architecture</span>
+            FlowTrack Pro <span className="bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent italic">User Guide & Complete Manual</span>
           </h1>
 
           <p className="max-w-3xl text-sm sm:text-base text-slate-300 leading-relaxed">
-            FlowTrack Pro is a 100% privacy-first, offline-capable desktop study tracker engineered to help you maximize focus, track application usage, maintain spaced repetition learning, and eliminate digital distractions.
+            FlowTrack Pro is your 100% privacy-first, offline-capable master study system. Learn how to master your schedule, track screen time, generate PDF reports, and study with maximum efficiency.
           </p>
 
-          <div className="flex flex-wrap items-center gap-3 pt-2">
+          <div className="flex flex-wrap items-center gap-2 pt-1">
             <span className="text-xs text-slate-400 font-medium">Core Stack:</span>
-            {appInfo.techStack.map((tech, i) => (
-              <span key={i} className="rounded-lg bg-slate-800/80 border border-white/10 px-2.5 py-1 text-[11px] font-mono text-cyan-300">
+            {appInfo.techStack.slice(0, 8).map((tech, i) => (
+              <span key={i} className="rounded-lg bg-slate-800/80 border border-white/10 px-2.5 py-0.5 text-[11px] font-mono text-cyan-300">
                 {tech}
               </span>
             ))}
@@ -203,52 +369,111 @@ export function GuidePage() {
         ))}
       </div>
 
-      {/* TAB CONTENT AREAS */}
+      {/* TAB 1: KAISE USE KAREIN (STEP-BY-STEP USER MANUAL) */}
+      {activeTab === "howToUse" && (
+        <div className="space-y-6">
+          {/* Feature selector pills */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 pretty-scrollbar">
+            {howToGuides.map((guide) => (
+              <button
+                key={guide.id}
+                onClick={() => setSelectedGuideFeature(guide.id)}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all border whitespace-nowrap ${
+                  selectedGuideFeature === guide.id
+                    ? "bg-cyan-500/20 border-cyan-500/50 text-cyan-300 shadow-md ring-1 ring-cyan-500/30"
+                    : "bg-slate-900/80 border-white/10 text-slate-400 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                <span>{guide.icon}</span>
+                <span>{guide.title.split("(")[0].trim()}</span>
+              </button>
+            ))}
+          </div>
 
-      {/* TAB 1: OVERVIEW */}
+          {/* Active Guide Content */}
+          <Panel className="space-y-6 p-6 sm:p-8 border-l-4 border-cyan-500">
+            <div className="border-b border-white/10 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2.5">
+                  <span className="text-2xl">{currentGuide.icon}</span>
+                  <span>{currentGuide.title}</span>
+                </h2>
+                <p className="text-xs sm:text-sm text-cyan-300 mt-1 font-medium">{currentGuide.subtitle}</p>
+              </div>
+              <span className="px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-400/20 text-xs font-mono font-bold text-cyan-300 w-fit">
+                Step-by-Step Guide
+              </span>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {currentGuide.steps.map((step, idx) => (
+                <div key={idx} className="p-5 rounded-2xl bg-slate-950/70 border border-white/10 space-y-3 relative overflow-hidden">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-400 font-black text-xs border border-cyan-500/30">
+                      {idx + 1}
+                    </span>
+                    <h3 className="text-sm font-bold text-white">{step.title}</h3>
+                  </div>
+                  <p className="text-xs text-slate-300 leading-relaxed pl-10">
+                    {step.desc}
+                  </p>
+                  {step.proTip && (
+                    <div className="mt-2 pt-2 border-t border-white/5 text-[11px] text-amber-300/90 pl-10 flex items-start gap-1.5">
+                      <span className="shrink-0">💡</span>
+                      <span><strong>Pro Tip:</strong> {step.proTip}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </Panel>
+        </div>
+      )}
+
+      {/* TAB 2: OVERVIEW */}
       {activeTab === "overview" && (
         <div className="grid gap-6 md:grid-cols-2">
-          <Panel className="space-y-4 border-l-4 border-cyan-500">
+          <Panel className="space-y-4 border-l-4 border-cyan-500 p-6">
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <span>🛡️ What is FlowTrack Pro?</span>
+              <span>🛡️ What is FlowTrack Pro? / यह क्या है?</span>
             </h2>
             <div className="space-y-3 text-sm text-slate-300 leading-relaxed">
               <p>
-                <strong>English:</strong> FlowTrack Pro is a privacy-first, high-performance desktop application designed for students, engineers, and competitive exam aspirants. Unlike traditional web trackers, all activity tracking, study timestamps, and notes remain 100% stored on your local hard drive.
+                <strong>English:</strong> FlowTrack Pro is a privacy-first, high-performance desktop application designed for students, software engineers, and competitive exam aspirants. All activity tracking, study timestamps, flashcards, and notes remain 100% stored on your local computer.
               </p>
               <p>
-                <strong>Hindi:</strong> FlowTrack Pro एक 'Privacy-First' और हाई-परफॉर्मेस डेस्कटॉप ऐप है जिसे छात्रों, कोडिंग इंजीनियर्स और प्रतियोगी परीक्षाओं के अभ्यर्थियों के लिए बनाया गया है। इसमें आपका सारा डेटा केवल आपके कंप्यूटर पर ही सुरक्षित रहता है।
+                <strong>Hindi:</strong> FlowTrack Pro एक 'Privacy-First' और हाई-परफॉर्मेस मास्टर स्टडी ट्रैकर है। इसमें आपका सारा डेटा केवल आपके कंप्यूटर पर ही सुरक्षित रहता है — कोई क्लाउड निर्भरता या डेटा ट्रैकिंग नहीं है।
               </p>
             </div>
           </Panel>
 
-          <Panel className="space-y-4 border-l-4 border-purple-500">
+          <Panel className="space-y-4 border-l-4 border-purple-500 p-6">
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <span>🚀 Quick Start Guide / शुरुआत कैसे करें</span>
+              <span>🚀 Master Daily Workflow / दैनिक दिनचर्या</span>
             </h2>
-            <div className="space-y-2.5 text-xs sm:text-sm text-slate-300">
+            <div className="space-y-3 text-xs sm:text-sm text-slate-300">
               <div className="flex gap-3 items-start">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-400 font-bold text-xs">1</span>
-                <div><strong>Add Subjects:</strong> Go to <code>Subjects</code> tab, define target hours, and set weekly goals.</div>
+                <div><strong>10:00 AM – Start First Block:</strong> Today Tasks में जाकर पहला सेशन शुरू करें।</div>
               </div>
               <div className="flex gap-3 items-start">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-400 font-bold text-xs">2</span>
-                <div><strong>Start Study Timer:</strong> Go to <code>Timer</code> page and hit Start. Turn on Focus Soundscapes for noise cancellation.</div>
+                <div><strong>Turn on Focus Audio:</strong> बैकग्राउंड में Alpha Binaural Beats या Deep Rain ऑन करें।</div>
               </div>
               <div className="flex gap-3 items-start">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-purple-500/20 text-purple-400 font-bold text-xs">3</span>
-                <div><strong>Enable PiP Floating Timer:</strong> Click <code>Open Floating Timer</code> to keep time visible over PDFs or VS Code.</div>
+                <div><strong>Enable PiP Floating Timer:</strong> कोडिंग या PDF रीडिंग के दौरान टाइमर हमेशा ऊपर रखें।</div>
               </div>
               <div className="flex gap-3 items-start">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-xs">4</span>
-                <div><strong>Analyze App Tracking:</strong> Open <code>App Tracking</code> to inspect productive vs distracting software usage.</div>
+                <div><strong>09:00 PM – Review & PDF:</strong> Analytics में जाकर आज की स्ट्रीक और PDF रिपोर्ट देखें।</div>
               </div>
             </div>
           </Panel>
         </div>
       )}
 
-      {/* TAB 2: FEATURE MATRIX */}
+      {/* TAB 3: FEATURE MATRIX */}
       {activeTab === "features" && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {features.map((feat, i) => (
@@ -269,91 +494,68 @@ export function GuidePage() {
         </div>
       )}
 
-      {/* TAB 3: TECH ARCHITECTURE */}
-      {activeTab === "tech" && (
-        <Panel className="space-y-6 p-6">
-          <div className="border-b border-white/10 pb-4">
-            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-              <Cpu className="w-6 h-6 text-cyan-400" />
-              Desktop App Engineering & Architecture
+      {/* TAB 4: KEYBOARD SHORTCUTS */}
+      {activeTab === "shortcuts" && (
+        <Panel className="space-y-6 p-6 border-l-4 border-indigo-500">
+          <div>
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <Keyboard className="w-5 h-5 text-indigo-400" />
+              Keyboard Shortcuts & Productivity Tips
             </h2>
-            <p className="text-xs text-slate-400 mt-1">Under-the-hood technologies powering FlowTrack Pro Desktop Engine</p>
+            <p className="text-xs text-slate-400 mt-1">कीबोर्ड शॉर्टकट्स जिससे आप बिना माउस छुए तेजी से काम कर सकते हैं</p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="space-y-4">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-cyan-400">1. Core Frontend & Framework</h3>
-              <ul className="space-y-2 text-xs text-slate-300">
-                <li className="flex gap-2"><strong>React 18 & TypeScript 5:</strong> Strict type parity across models with zero compiler warnings.</li>
-                <li className="flex gap-2"><strong>Vite 7 Bundler:</strong> Code-splitting chunks (React Core, Charts, Excalidraw) for instant sub-second app start.</li>
-                <li className="flex gap-2"><strong>TailwindCSS & Framer Motion:</strong> Glassmorphism styling with 60 FPS smooth animations.</li>
-              </ul>
-            </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {shortcuts.map((sc, i) => (
+              <div key={i} className="p-4 rounded-2xl bg-slate-950 border border-white/10 flex items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400">{sc.area}</span>
+                  <p className="text-xs text-slate-200 font-medium">{sc.desc}</p>
+                </div>
+                <kbd className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/15 text-xs font-mono font-bold text-white shadow-inner shrink-0">
+                  {sc.key}
+                </kbd>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
 
-            <div className="space-y-4">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-purple-400">2. Electron & Native Process Hook</h3>
-              <ul className="space-y-2 text-xs text-slate-300">
-                <li className="flex gap-2"><strong>Electron 43 Shell:</strong> Multi-window IPC communication bridge.</li>
-                <li className="flex gap-2"><strong>C++ Native Tracker (win-tracker.exe):</strong> Background Windows process watcher querying Win32 GetForegroundWindow API.</li>
-                <li className="flex gap-2"><strong>Throttled Interactions:</strong> Mouse and keyboard event listeners throttled to 10s intervals for zero CPU overhead.</li>
-              </ul>
-            </div>
+      {/* TAB 5: FIXES IN V7.5.1 */}
+      {activeTab === "fixes" && (
+        <Panel className="space-y-6 p-6 border-l-4 border-emerald-500">
+          <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-sm">
+            <CheckCircle2 className="w-5 h-5 shrink-0" />
+            <span className="font-bold">v7.5.1 Production Release Audit & Fixes — 100% Tested & Verified!</span>
+          </div>
 
-            <div className="space-y-4">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-400">3. Storage Engine</h3>
-              <ul className="space-y-2 text-xs text-slate-300">
-                <li className="flex gap-2"><strong>Dexie.js (IndexedDB):</strong> Fast browser-native database storing subjects, sessions, flashcards, notes.</li>
-                <li className="flex gap-2"><strong>JSON Activity Log Engine:</strong> Daily logs written directly to <code>AppData/Roaming/FlowTrack Pro/activity-log/*.json</code>.</li>
-              </ul>
+          <div className="grid gap-4 md:grid-cols-2 text-xs">
+            <div className="p-4 rounded-2xl bg-slate-950 border border-white/10 space-y-2">
+              <h3 className="font-bold text-cyan-400 text-sm">📄 Executive PDF Report Fix</h3>
+              <p className="text-slate-300">Sticky action bars, Escape key listener, and backdrop click added. No more scroll-trapping or modal lockups.</p>
             </div>
-
-            <div className="space-y-4">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-amber-400">4. Sound & AI Engine</h3>
-              <ul className="space-y-2 text-xs text-slate-300">
-                <li className="flex gap-2"><strong>Web Audio API Synthesizer:</strong> Procedural offline sound generator producing binaural 10Hz alpha beats and rain noise.</li>
-                <li className="flex gap-2"><strong>Ollama Local AI API:</strong> Private local AI integration with hardware profile auto-detection.</li>
-              </ul>
+            <div className="p-4 rounded-2xl bg-slate-950 border border-white/10 space-y-2">
+              <h3 className="font-bold text-indigo-400 text-sm">🖥️ Multi-Period App Tracking</h3>
+              <p className="text-slate-300">Added Single Day, Past 7 Days (Week), Past 30 Days (Month), and All-Time total aggregate views with live refresh.</p>
+            </div>
+            <div className="p-4 rounded-2xl bg-slate-950 border border-white/10 space-y-2">
+              <h3 className="font-bold text-purple-400 text-sm">📊 Analytics Streaks & Charts</h3>
+              <p className="text-slate-300">Today is cleanly rendered as '⏳ In Progress' in Active vs Skipped Days log, and Planned vs Actual charts have dark glassmorphism tooltips.</p>
+            </div>
+            <div className="p-4 rounded-2xl bg-slate-950 border border-white/10 space-y-2">
+              <h3 className="font-bold text-amber-400 text-sm">🔐 Encrypted Password Vault</h3>
+              <p className="text-slate-300">1-click login auto-fill into Apna College, PW and custom study portals with XOR local encryption.</p>
             </div>
           </div>
         </Panel>
       )}
 
-      {/* TAB 4: SOLVED IN V6.0.0 */}
-      {activeTab === "fixes" && (
-        <div className="space-y-6">
-          <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-sm">
-            <CheckCircle2 className="w-5 h-5 shrink-0" />
-            <span className="font-bold">v6.0.0 Master Release Fixes Audit — All reported issues resolved!</span>
-            <span className="font-mono bg-emerald-500/20 px-2 py-0.5 rounded text-[10px]">100% Tested</span>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            {fixesv550.map((fix, idx) => (
-              <Panel key={idx} className="space-y-3 p-5 border-l-4 border-emerald-400">
-                <div className="flex items-center gap-2 text-sm font-bold text-white">
-                  <span>{fix.icon}</span>
-                  <h3>{fix.title}</h3>
-                </div>
-                <div className="space-y-2 text-xs">
-                  <div className="bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-xl text-rose-300">
-                    <strong>Root Cause / Bug:</strong> {fix.issue}
-                  </div>
-                  <div className="bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-xl text-emerald-300">
-                    <strong>Applied Solution:</strong> {fix.solution}
-                  </div>
-                </div>
-              </Panel>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 5: STORAGE PATHS */}
+      {/* TAB 6: DATA STORAGE PATHS */}
       {activeTab === "storage" && (
-        <Panel className="space-y-6 p-6 border-l-4 border-cyan-400">
+        <Panel className="space-y-6 p-6 border-l-4 border-purple-500">
           <div>
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <HardDrive className="w-5 h-5 text-cyan-400" />
+              <HardDrive className="w-5 h-5 text-purple-400" />
               App Data Storage Locations & File Paths
             </h2>
             <p className="text-xs text-slate-400 mt-1">Exact directories on your Windows Desktop where data is saved</p>
@@ -375,76 +577,44 @@ export function GuidePage() {
               </div>
               <p className="text-[11px] font-sans text-slate-400">Stores your subjects, completed timer sessions, flashcard decks, notes, and user settings.</p>
             </div>
-
-            <div className="p-4 rounded-2xl bg-slate-950 border border-white/10 space-y-2">
-              <div className="text-emerald-400 font-bold">3. Preferences & App State:</div>
-              <div className="text-slate-300 break-all bg-white/5 p-2 rounded-xl">
-                C:\Users\&lt;Your-Username&gt;\AppData\Roaming\FlowTrack Pro\Local Storage\
-              </div>
-              <p className="text-[11px] font-sans text-slate-400">Stores UI theme selection, tray minimize behavior, and local audio preferences.</p>
-            </div>
           </div>
         </Panel>
       )}
 
-      {/* TAB 6: SYSTEM REQUIREMENTS & LIMITATIONS */}
-      {activeTab === "limitations" && (
-        <Panel className="space-y-5 p-6 border-l-4 border-amber-400">
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-amber-400" />
-            Hardware Requirements & Known Limitations
-          </h2>
+      {/* TAB 7: TECH ARCHITECTURE */}
+      {activeTab === "tech" && (
+        <Panel className="space-y-6 p-6 border-l-4 border-cyan-500">
+          <div className="border-b border-white/10 pb-4">
+            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+              <Cpu className="w-6 h-6 text-cyan-400" />
+              Desktop App Engineering & Architecture
+            </h2>
+            <p className="text-xs text-slate-400 mt-1">Under-the-hood technologies powering FlowTrack Pro Desktop Engine</p>
+          </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 text-xs text-slate-300">
-            <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
-              <h3 className="font-bold text-white text-sm">💻 Minimum System Requirements:</h3>
-              <ul className="space-y-1.5 list-disc list-inside">
-                <li>OS: Windows 10 / Windows 11 (64-bit).</li>
-                <li>RAM: 4GB RAM (8GB+ recommended for local Ollama AI).</li>
-                <li>Storage: 250 MB free disk space for desktop binaries.</li>
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-cyan-400">1. Core Frontend & Framework</h3>
+              <ul className="space-y-2 text-xs text-slate-300">
+                <li><strong>React 19 & TypeScript 5:</strong> Strict type parity across models with zero compiler warnings.</li>
+                <li><strong>Vite 7 Bundler:</strong> Code-splitting chunks for instant sub-second app start.</li>
+                <li><strong>TailwindCSS & Framer Motion:</strong> Glassmorphism styling with 60 FPS smooth animations.</li>
               </ul>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
-              <h3 className="font-bold text-white text-sm">ℹ️ Hardware & Process Notes:</h3>
-              <ul className="space-y-1.5 list-disc list-inside">
-                <li>App Tracking requires standard user process privileges so Windows hook can read foreground window titles.</li>
-                <li>Local Ollama models (e.g. Llama 3.2 3B) run directly on your CPU/GPU. Ensure <code>OLLAMA_ORIGINS=*</code> is set in environment.</li>
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-purple-400">2. Electron & Native Process Hook</h3>
+              <ul className="space-y-2 text-xs text-slate-300">
+                <li><strong>Electron 43 Shell:</strong> Multi-window IPC communication bridge.</li>
+                <li><strong>C# Win32 Process Tracker:</strong> Native Windows active window watcher querying GetForegroundWindow API.</li>
+                <li><strong>Throttled Interactions:</strong> 10s intervals for zero CPU overhead.</li>
               </ul>
             </div>
           </div>
         </Panel>
       )}
 
-      {/* TAB 7: DEVELOPER & CREDITS */}
-      {activeTab === "developer" && (
-        <Panel className="space-y-6 p-6 border-l-4 border-purple-500">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
-            <div>
-              <h2 className="text-2xl font-bold text-white">👨‍💻 FlowTrack Engineering Team</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Designed & Developed by Sudhir DevOps</p>
-            </div>
-            <span className="rounded-full bg-purple-500/20 border border-purple-400/30 px-3 py-1 text-xs font-mono font-bold text-purple-300">
-              v6.0.0 Production
-            </span>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2 text-xs text-slate-300">
-            <div className="space-y-2 p-4 rounded-2xl bg-slate-950 border border-white/10">
-              <div className="font-bold text-white">Project Ownership:</div>
-              <div>Developed by <strong>Sudhir DevOps</strong> for high-productivity offline study management.</div>
-              <div className="text-cyan-400 font-mono pt-1">Corpus: {appInfo.repo}</div>
-            </div>
-
-            <div className="space-y-2 p-4 rounded-2xl bg-slate-950 border border-white/10">
-              <div className="font-bold text-white">Privacy Guarantee:</div>
-              <div>FlowTrack Pro is 100% free of trackers, telemetry, or third-party analytics scripts. Your study data belongs strictly to you.</div>
-            </div>
-          </div>
-        </Panel>
-      )}
-
-      {/* TAB 8: OPEN SOURCE THANKS & LINKS */}
+      {/* TAB 8: OPEN SOURCE CREDITS */}
       {activeTab === "credits" && (
         <Panel className="space-y-6 p-6 border-l-4 border-rose-500">
           <div className="border-b border-white/10 pb-4">
@@ -453,34 +623,8 @@ export function GuidePage() {
               Open-Source Acknowledgments & Special Thanks
             </h2>
             <p className="text-xs text-slate-400 mt-1">
-              FlowTrack Pro is built on top of world-class open-source projects, libraries, and developer tools. Gratitude to all open-source maintainers!
+              FlowTrack Pro is built by <strong>Sudhir DevOps</strong> on top of world-class open-source libraries: React 19, Vite, Electron, Fabric.js, Dexie.js, Framer Motion, and Tailwind CSS.
             </p>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {openSourceCredits.map((item, idx) => (
-              <a
-                key={idx}
-                href={item.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group p-4 rounded-2xl bg-slate-950 border border-white/10 hover:border-cyan-400/50 hover:bg-slate-900 transition-all space-y-2 block"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-sm text-white group-hover:text-cyan-300 transition-colors flex items-center gap-1.5">
-                    {item.name}
-                    <ExternalLink className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100" />
-                  </span>
-                  <span className="text-[10px] font-mono font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-400/20 px-2 py-0.5 rounded">
-                    {item.type}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-400 leading-relaxed">{item.desc}</p>
-                <span className="text-[10px] text-slate-500 group-hover:text-slate-300 font-mono underline block pt-1">
-                  {item.url}
-                </span>
-              </a>
-            ))}
           </div>
         </Panel>
       )}
