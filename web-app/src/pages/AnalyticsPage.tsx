@@ -3,7 +3,6 @@ import { format } from "date-fns";
 import { motion } from "framer-motion";
 import { AnalyticsCharts } from "@/components/charts/AnalyticsCharts";
 import { Panel } from "@/components/common/Panel";
-import { StudyReport } from "@/components/analytics/StudyReport";
 import { AppActivityList } from "@/components/analytics/AppActivityList";
 import { SubjectRanking } from "@/components/dashboard/SubjectRanking";
 import { DownloadModal } from "@/components/analytics/DownloadModal";
@@ -516,8 +515,6 @@ export function AnalyticsPage() {
 
       {/* App & Browser Active Windows Tracking Breakdown */}
       <AppActivityList />
-
-      <StudyReport />
 
       {/* Download Modal */}
       <DownloadModal
