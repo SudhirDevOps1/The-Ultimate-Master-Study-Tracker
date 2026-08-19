@@ -362,6 +362,7 @@ function AppIcon({ appName, category }: { appName: string; category: string }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export function AppTrackingPage() {
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [timeScope, setTimeScope]       = useState<"day" | "week" | "month" | "all">("day");
   const [rawLog, setRawLog]             = useState<ActivityEntry[]>([]);
   const [trackedDates, setTrackedDates] = useState<string[]>([]);
   const [liveApp, setLiveApp]           = useState<{ process: string; title: string } | null>(null);
@@ -370,6 +371,12 @@ export function AppTrackingPage() {
   const [activeTab, setActiveTab] = useState<"overview"|"timeline"|"websites"|"windows">("overview");
   const [exportStatus, setExportStatus] = useState<"idle"|"exporting"|"importing">("idle");
   const [weeklyOverview, setWeeklyOverview] = useState<{ date: string; seconds: number }[]>([]);
+  const [periodTotals, setPeriodTotals] = useState<{ today: number; week: number; month: number; allTime: number }>({
+    today: 0,
+    week: 0,
+    month: 0,
+    allTime: 0,
+  });
   const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const today   = new Date().toISOString().split("T")[0];
   const initApp = useAppStore(s => s.initApp);
@@ -398,17 +405,60 @@ export function AppTrackingPage() {
     void fetchWeeklyOverview();
   }, [trackedDates]);
 
-  // ── Fetch activity log ─────────────────────────────────────────────────
-  const fetchLog = useCallback(async (date: string) => {
+  // ── Fetch all period totals (Today, Week, Month, All-Time) ──────────────
+  const fetchPeriodTotals = useCallback(async () => {
+    const ipc = getIpc();
+    if (!ipc || trackedDates.length === 0) return;
+    try {
+      const todayEntries: ActivityEntry[] = await ipc.invoke("get-activity-log", { date: today });
+      const todaySec = (todayEntries || []).reduce((sum, e) => sum + e.durationSeconds, 0);
+
+      const weekDates = trackedDates.slice(0, 7);
+      const weekLogs: ActivityEntry[][] = await Promise.all(weekDates.map(d => ipc.invoke("get-activity-log", { date: d })));
+      const weekSec = weekLogs.flat().reduce((sum, e) => sum + e.durationSeconds, 0);
+
+      const monthDates = trackedDates.slice(0, 30);
+      const monthLogs: ActivityEntry[][] = await Promise.all(monthDates.map(d => ipc.invoke("get-activity-log", { date: d })));
+      const monthSec = monthLogs.flat().reduce((sum, e) => sum + e.durationSeconds, 0);
+
+      const allLogs: ActivityEntry[][] = await Promise.all(trackedDates.map(d => ipc.invoke("get-activity-log", { date: d })));
+      const allSec = allLogs.flat().reduce((sum, e) => sum + e.durationSeconds, 0);
+
+      setPeriodTotals({
+        today: todaySec,
+        week: weekSec,
+        month: monthSec,
+        allTime: allSec,
+      });
+    } catch (e) {
+      console.warn("[AppTracking] Error loading period totals", e);
+    }
+  }, [trackedDates, today]);
+
+  // ── Fetch activity log based on timeScope ──────────────────────────────
+  const fetchLog = useCallback(async (scope: "day" | "week" | "month" | "all", date: string) => {
     const ipc = getIpc();
     if (!ipc) return;
     setLoading(true);
     try {
-      const entries: ActivityEntry[] = await ipc.invoke("get-activity-log", { date });
-      setRawLog(entries);
+      if (scope === "day") {
+        const entries: ActivityEntry[] = await ipc.invoke("get-activity-log", { date });
+        setRawLog(entries);
+      } else if (scope === "week") {
+        const datesToLoad = trackedDates.slice(0, 7);
+        const logs: ActivityEntry[][] = await Promise.all(datesToLoad.map(d => ipc.invoke("get-activity-log", { date: d })));
+        setRawLog(logs.flat());
+      } else if (scope === "month") {
+        const datesToLoad = trackedDates.slice(0, 30);
+        const logs: ActivityEntry[][] = await Promise.all(datesToLoad.map(d => ipc.invoke("get-activity-log", { date: d })));
+        setRawLog(logs.flat());
+      } else if (scope === "all") {
+        const logs: ActivityEntry[][] = await Promise.all(trackedDates.map(d => ipc.invoke("get-activity-log", { date: d })));
+        setRawLog(logs.flat());
+      }
     } catch (e) { console.warn("[AppTracking]", e); }
     setLoading(false);
-  }, []);
+  }, [trackedDates]);
 
   // ── Fetch available historical dates ───────────────────────────────────
   const fetchDates = useCallback(async () => {
@@ -416,9 +466,9 @@ export function AppTrackingPage() {
     if (!ipc) return;
     try {
       const dates: string[] = await ipc.invoke("get-tracked-dates");
-      setTrackedDates(dates);
+      setTrackedDates(dates && dates.length > 0 ? dates : [today]);
     } catch { /* ignore */ }
-  }, []);
+  }, [today]);
 
   // ── Poll live data every 5 s ───────────────────────────────────────────
   useEffect(() => {
@@ -430,7 +480,6 @@ export function AppTrackingPage() {
           ipc.invoke("get-active-window"),
           ipc.invoke("get-idle-time-ms"),
         ]);
-        // Use the skip flag from main process — handles all filtering centrally
         const showLive = win && !win.skip && win.appName;
         setLiveApp(showLive ? { process: win.appName, title: win.title } : null);
         setLiveIdleMs(idle as number);
@@ -441,22 +490,27 @@ export function AppTrackingPage() {
     return () => clearInterval(pollRef.current);
   }, []);
 
-  // ── Auto-refresh today's log every 30 s ───────────────────────────────
+  // ── Auto-refresh log and period totals ─────────────────────────────────
   useEffect(() => {
-    void fetchLog(selectedDate);
+    void fetchLog(timeScope, selectedDate);
     void fetchDates();
-  }, [selectedDate, fetchLog, fetchDates]);
+    void fetchPeriodTotals();
+  }, [timeScope, selectedDate, fetchLog, fetchDates, fetchPeriodTotals]);
 
   useEffect(() => {
-    if (selectedDate !== today) return;
-    const id = setInterval(() => void fetchLog(today), 5_000);
+    if (timeScope === "day" && selectedDate !== today) return;
+    const id = setInterval(() => {
+      void fetchLog(timeScope, selectedDate);
+      void fetchPeriodTotals();
+    }, 5_000);
     return () => clearInterval(id);
-  }, [selectedDate, today, fetchLog]);
+  }, [timeScope, selectedDate, today, fetchLog, fetchPeriodTotals]);
 
   // ── Strict Date Filtered Log ───────────────────────────────────────────
   const dailyLog = useMemo(() => {
+    if (timeScope !== "day") return rawLog;
     return rawLog.filter(e => !e.date || e.date === selectedDate);
-  }, [rawLog, selectedDate]);
+  }, [rawLog, selectedDate, timeScope]);
 
   // ── App Aggregations ───────────────────────────────────────────────────
   const appSummaries: AppSummary[] = useMemo(() => {
@@ -708,18 +762,18 @@ export function AppTrackingPage() {
         </div>
       </div>
 
-      {/* ── Live Status Row ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* ── Live & Period Stats Grid ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {/* Live active app / tab */}
         <motion.div animate={{ scale: liveApp ? [1, 1.005, 1] : 1 }} transition={{ repeat: Infinity, duration: 3 }}
           className="col-span-2 rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 p-4">
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
             <span className={`w-2 h-2 rounded-full ${liveApp ? "bg-emerald-400 animate-pulse" : "bg-slate-600"}`} />
-            {liveApp ? "Currently Active Window / Web Tab" : "Idle / No Active Window"}
+            {liveApp ? "Currently Active Window / Tab" : "Idle / No Active Window"}
           </p>
           {liveApp ? (
             <>
-              <p className="mt-1 text-lg font-black text-white truncate">{liveApp.process}</p>
+              <p className="mt-1 text-base font-black text-white truncate">{liveApp.process}</p>
               <p className="text-xs text-cyan-300 truncate">{liveApp.title}</p>
             </>
           ) : (
@@ -732,27 +786,45 @@ export function AppTrackingPage() {
         {/* Idle Time */}
         <div className={`rounded-2xl border p-4 ${liveIdleMs >= 10 * 60 * 1000 ? "border-rose-500/30 bg-rose-500/10" : "border-white/10 bg-slate-900"}`}>
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Idle Time</p>
-          <p className={`mt-1 text-2xl font-black tabular-nums ${liveIdleMs >= 10 * 60 * 1000 ? "text-rose-400" : liveIdleMs >= 5 * 60 * 1000 ? "text-amber-400" : "text-white"}`}>
+          <p className={`mt-1 text-xl font-black tabular-nums ${liveIdleMs >= 10 * 60 * 1000 ? "text-rose-400" : liveIdleMs >= 5 * 60 * 1000 ? "text-amber-400" : "text-white"}`}>
             {idleMin > 0 ? `${idleMin}m` : `${Math.floor(liveIdleMs / 1000)}s`}
           </p>
           <div className="mt-2 h-1 w-full bg-slate-800 rounded-full overflow-hidden">
             <motion.div animate={{ width: `${idlePct}%` }} transition={{ duration: 0.5 }}
               className={`h-full rounded-full ${liveIdleMs >= 10 * 60 * 1000 ? "bg-rose-500" : liveIdleMs >= 5 * 60 * 1000 ? "bg-amber-400" : "bg-emerald-400"}`} />
           </div>
-          <p className="text-[10px] text-slate-500 mt-1">{liveIdleMs >= 10 * 60 * 1000 ? "⏸ Session auto-paused" : "✅ Active"}</p>
+          <p className="text-[9px] text-slate-500 mt-1">{liveIdleMs >= 10 * 60 * 1000 ? "⏸ Paused" : "✅ Active"}</p>
         </div>
 
-        {/* Total tracked */}
-        <div className="rounded-2xl border border-white/10 bg-slate-900 p-4">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Tracked Today</p>
-          <p className="mt-1 text-2xl font-black text-cyan-400">{fmt(totalSeconds)}</p>
-          <p className="text-[10px] text-slate-500 mt-1">{appSummaries.length} apps · {webTabSummaries.length} tabs</p>
-          {differenceText && (
-            <p className="text-[9px] font-bold text-slate-400 mt-2 border-t border-white/5 pt-1.5">
-              {differenceText}
-            </p>
-          )}
-        </div>
+        {/* Today Total */}
+        <button 
+          onClick={() => { setTimeScope("day"); setSelectedDate(today); }}
+          className={`text-left rounded-2xl border p-4 transition-all ${timeScope === "day" && selectedDate === today ? "border-cyan-500/50 bg-cyan-500/10 ring-1 ring-cyan-500/30" : "border-white/10 bg-slate-900 hover:bg-slate-850"}`}
+        >
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">📅 Today</p>
+          <p className="mt-1 text-xl font-black text-cyan-400">{fmt(periodTotals.today || (selectedDate === today ? totalSeconds : 0))}</p>
+          <p className="text-[9px] text-slate-500 mt-1">Single Day</p>
+        </button>
+
+        {/* Past 7 Days (Week) */}
+        <button 
+          onClick={() => setTimeScope("week")}
+          className={`text-left rounded-2xl border p-4 transition-all ${timeScope === "week" ? "border-indigo-500/50 bg-indigo-500/10 ring-1 ring-indigo-500/30" : "border-white/10 bg-slate-900 hover:bg-slate-850"}`}
+        >
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">📆 7 Days (Week)</p>
+          <p className="mt-1 text-xl font-black text-indigo-400">{fmt(periodTotals.week)}</p>
+          <p className="text-[9px] text-slate-500 mt-1">Past Week Total</p>
+        </button>
+
+        {/* Past 30 Days (Month) / All Time */}
+        <button 
+          onClick={() => setTimeScope("month")}
+          className={`text-left rounded-2xl border p-4 transition-all ${timeScope === "month" ? "border-purple-500/50 bg-purple-500/10 ring-1 ring-purple-500/30" : "border-white/10 bg-slate-900 hover:bg-slate-850"}`}
+        >
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">📊 30 Days (Month)</p>
+          <p className="mt-1 text-xl font-black text-purple-400">{fmt(periodTotals.month)}</p>
+          <p className="text-[9px] text-slate-500 mt-1">30 Days Total</p>
+        </button>
       </div>
 
       {/* ── Distraction Warning Banner ── */}
@@ -783,12 +855,12 @@ export function AppTrackingPage() {
             </span>
           </div>
 
-          {/* Bar chart — h-32 container, bars grow from bottom */}
+          {/* Bar chart */}
           <div className="relative h-32 flex items-end gap-1.5 overflow-x-auto min-w-[280px] mt-2">
             {weeklyOverview.map((item) => {
               const maxSecs = Math.max(...weeklyOverview.map(w => w.seconds), 1);
               const heightPct = Math.max(6, (item.seconds / maxSecs) * 100);
-              const isSelected = item.date === selectedDate;
+              const isSelected = timeScope === "day" && item.date === selectedDate;
               
               return (
                 <div key={item.date} className="flex-1 flex flex-col items-center min-w-[36px] h-full justify-end gap-1 group select-none">
@@ -799,7 +871,10 @@ export function AppTrackingPage() {
                   
                   {/* Bar */}
                   <button
-                    onClick={() => setSelectedDate(item.date)}
+                    onClick={() => {
+                      setTimeScope("day");
+                      setSelectedDate(item.date);
+                    }}
                     title={`${item.date}: ${item.seconds > 0 ? fmt(item.seconds) : "No data"}`}
                     className="w-full focus:outline-none"
                     style={{ height: `${heightPct}%`, minHeight: "6px" }}
@@ -822,17 +897,57 @@ export function AppTrackingPage() {
         </Panel>
       )}
 
-      {/* ── History breadcrumb ── */}
-      {trackedDates.length > 1 && (
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          {trackedDates.slice(0, 14).map(d => (
-            <button key={d} onClick={() => setSelectedDate(d)}
-              className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${d === selectedDate ? "bg-cyan-500/20 border border-cyan-500/40 text-cyan-300" : "bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10"}`}>
-              {d === today ? "Today" : d}
-            </button>
-          ))}
+      {/* ── Scope & History Controls ── */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-900/60 border border-white/10 rounded-2xl p-2.5">
+        {/* Scope Pill Filter */}
+        <div className="flex items-center gap-1 bg-black/30 rounded-xl p-1 border border-white/5">
+          <button
+            onClick={() => setTimeScope("day")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${timeScope === "day" ? "bg-cyan-500 text-slate-950 shadow-md" : "text-slate-400 hover:text-white"}`}
+          >
+            📅 Single Day
+          </button>
+          <button
+            onClick={() => setTimeScope("week")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${timeScope === "week" ? "bg-indigo-500 text-white shadow-md" : "text-slate-400 hover:text-white"}`}
+          >
+            📆 Past 7 Days
+          </button>
+          <button
+            onClick={() => setTimeScope("month")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${timeScope === "month" ? "bg-purple-500 text-white shadow-md" : "text-slate-400 hover:text-white"}`}
+          >
+            📊 Past 30 Days
+          </button>
+          <button
+            onClick={() => setTimeScope("all")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${timeScope === "all" ? "bg-emerald-500 text-slate-950 shadow-md" : "text-slate-400 hover:text-white"}`}
+          >
+            ♾️ All Time
+          </button>
         </div>
-      )}
+
+        {/* Date Quick Filter (when in Day mode) */}
+        {timeScope === "day" && trackedDates.length > 1 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto">
+            {trackedDates.slice(0, 7).map(d => (
+              <button 
+                key={d} 
+                onClick={() => setSelectedDate(d)}
+                className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${d === selectedDate ? "bg-cyan-500/20 border border-cyan-500/40 text-cyan-300" : "bg-white/5 text-slate-400 hover:bg-white/10"}`}
+              >
+                {d === today ? "Today" : d}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {timeScope !== "day" && (
+          <span className="text-xs font-semibold text-slate-400 px-2">
+            ✨ Showing aggregated screen time for <span className="text-cyan-300 font-bold">{timeScope === "week" ? "Past 7 Days" : timeScope === "month" ? "Past 30 Days" : "All-Time History"}</span> ({fmt(totalSeconds)})
+          </span>
+        )}
+      </div>
 
       <AnimatePresence mode="wait">
         <motion.div key="usage" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} className="space-y-5">
