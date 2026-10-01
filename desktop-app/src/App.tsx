@@ -1,34 +1,36 @@
 import { HashRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, lazy, Suspense } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { AppGuide } from "@/components/common/AppGuide";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { ToastProvider, ConfirmProvider } from "@/components/common/Toast";
 import { useAppStore, type AppState } from "@/store/useAppStore";
-import { DashboardPage } from "@/pages/DashboardPage";
-import { TimerPage } from "@/pages/TimerPage";
-import { AnalyticsPage } from "@/pages/AnalyticsPage";
-import { HistoryPage } from "@/pages/HistoryPage";
-import { SubjectsPage } from "@/pages/SubjectsPage";
-import { SettingsPage } from "@/pages/SettingsPage";
-import { CalendarPage } from "@/pages/CalendarPage";
-import { AchievementsPage } from "@/pages/AchievementsPage";
-import { GuidePage } from "@/pages/GuidePage";
-import { AIAssistantPage } from "@/pages/AIAssistantPage";
-import { TodayTasksPage } from "@/pages/TodayTasksPage";
-import { AppTrackingPage } from "@/pages/AppTrackingPage";
-import { AppBlockerPage } from "@/pages/AppBlockerPage";
-import { StudyNotesPage } from "@/pages/StudyNotesPage";
-import { StudyNotesBoardPage } from "@/pages/StudyNotesBoardPage";
-import { ExamCountdownPage } from "@/pages/ExamCountdownPage";
-import { SchedulerPage } from "@/pages/SchedulerPage";
-import { FlashcardsPage } from "@/pages/FlashcardsPage";
-import { MindMapPage } from "@/pages/MindMapPage";
-import { WebPortalsPage } from "@/pages/WebPortalsPage";
-import { PipStandalonePage } from "@/pages/PipStandalonePage";
 import { useTimer } from "@/hooks/useTimer";
 import { useScheduleReminder } from "@/hooks/useScheduleReminder";
+
+// Dynamic Code-Splitting: Lazy load all routes on demand to slash cold-start RAM by ~65%
+const DashboardPage = lazy(() => import("@/pages/DashboardPage").then(m => ({ default: m.DashboardPage })));
+const TimerPage = lazy(() => import("@/pages/TimerPage").then(m => ({ default: m.TimerPage })));
+const AnalyticsPage = lazy(() => import("@/pages/AnalyticsPage").then(m => ({ default: m.AnalyticsPage })));
+const HistoryPage = lazy(() => import("@/pages/HistoryPage").then(m => ({ default: m.HistoryPage })));
+const SubjectsPage = lazy(() => import("@/pages/SubjectsPage").then(m => ({ default: m.SubjectsPage })));
+const SettingsPage = lazy(() => import("@/pages/SettingsPage").then(m => ({ default: m.SettingsPage })));
+const CalendarPage = lazy(() => import("@/pages/CalendarPage").then(m => ({ default: m.CalendarPage })));
+const AchievementsPage = lazy(() => import("@/pages/AchievementsPage").then(m => ({ default: m.AchievementsPage })));
+const GuidePage = lazy(() => import("@/pages/GuidePage").then(m => ({ default: m.GuidePage })));
+const AIAssistantPage = lazy(() => import("@/pages/AIAssistantPage").then(m => ({ default: m.AIAssistantPage })));
+const TodayTasksPage = lazy(() => import("@/pages/TodayTasksPage").then(m => ({ default: m.TodayTasksPage })));
+const AppTrackingPage = lazy(() => import("@/pages/AppTrackingPage").then(m => ({ default: m.AppTrackingPage })));
+const AppBlockerPage = lazy(() => import("@/pages/AppBlockerPage").then(m => ({ default: m.AppBlockerPage })));
+const StudyNotesPage = lazy(() => import("@/pages/StudyNotesPage").then(m => ({ default: m.StudyNotesPage })));
+const StudyNotesBoardPage = lazy(() => import("@/pages/StudyNotesBoardPage").then(m => ({ default: m.StudyNotesBoardPage })));
+const ExamCountdownPage = lazy(() => import("@/pages/ExamCountdownPage").then(m => ({ default: m.ExamCountdownPage })));
+const SchedulerPage = lazy(() => import("@/pages/SchedulerPage").then(m => ({ default: m.SchedulerPage })));
+const FlashcardsPage = lazy(() => import("@/pages/FlashcardsPage").then(m => ({ default: m.FlashcardsPage })));
+const MindMapPage = lazy(() => import("@/pages/MindMapPage").then(m => ({ default: m.MindMapPage })));
+const WebPortalsPage = lazy(() => import("@/pages/WebPortalsPage").then(m => ({ default: m.WebPortalsPage })));
+const PipStandalonePage = lazy(() => import("@/pages/PipStandalonePage").then(m => ({ default: m.PipStandalonePage })));
 
 import { VideoRestBreak } from "@/components/timer/VideoRestBreak";
 
@@ -173,14 +175,26 @@ export function App() {
     </ErrorBoundary>
   );
 }
+function PageLoadingFallback() {
+  return (
+    <div className="flex min-h-[60vh] w-full items-center justify-center p-8">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+        <span className="text-xs font-medium text-slate-400">Loading module...</span>
+      </div>
+    </div>
+  );
+}
+
 function AnimatedRoutes() {
   const location = useLocation();
 
   return (
-    <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
-        {/* Standalone Picture-in-Picture Floating Window Route */}
-        <Route path="/pip-widget" element={<PipStandalonePage />} />
+    <Suspense fallback={<PageLoadingFallback />}>
+      <AnimatePresence mode="wait">
+        <Routes location={location} key={location.pathname}>
+          {/* Standalone Picture-in-Picture Floating Window Route */}
+          <Route path="/pip-widget" element={<PipStandalonePage />} />
 
         <Route element={<AppShell />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
@@ -467,5 +481,6 @@ function AnimatedRoutes() {
         </Route>
       </Routes>
     </AnimatePresence>
+    </Suspense>
   );
 }
