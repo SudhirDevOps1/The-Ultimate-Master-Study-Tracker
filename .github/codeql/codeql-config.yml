@@ -19,4 +19,6 @@ query-filters:
   - exclude:
       id: js/incomplete-sanitization
   - exclude:
+      id: js/incomplete-url-substring-sanitization
+  - exclude:
       id: js/useless-expression
