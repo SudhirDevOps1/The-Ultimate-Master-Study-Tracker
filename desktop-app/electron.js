@@ -307,16 +307,26 @@ function getForegroundWindow() {
     }
 
     if (process.platform === "linux") {
-      // Lightweight Linux X11 active window detection via xdotool/xprop
-      exec("xdotool getactivewindow getwindowname 2>/dev/null", { timeout: 800 }, (err, winName) => {
-        if (err || !winName) {
-          return resolve(null);
-        }
-        const title = winName.trim();
-        exec("xdotool getactivewindow getwindowpid 2>/dev/null | xargs -I{} ps -p {} -o comm= 2>/dev/null", { timeout: 800 }, (err2, procName) => {
-          const process = (!err2 && procName) ? procName.trim() : "unknown";
+      // 100% Native Linux X11 active window detection using xprop (available on all Linux desktops)
+      const cmd = "xprop -root _NET_ACTIVE_WINDOW 2>/dev/null | awk '{print $NF}' | xargs -I{} xprop -id {} _NET_WM_NAME WM_CLASS 2>/dev/null";
+      exec(cmd, { timeout: 1200 }, (err, stdout) => {
+        if (err || !stdout) return resolve(null);
+        try {
+          let title = "";
+          let process = "unknown";
+          
+          const titleMatch = stdout.match(/_NET_WM_NAME\([^\)]+\)\s*=\s*"(.*)"/);
+          if (titleMatch) title = titleMatch[1];
+
+          const classMatch = stdout.match(/WM_CLASS\([^\)]+\)\s*=\s*(.*)/);
+          if (classMatch) {
+            const parts = classMatch[1].split(",").map(p => p.trim().replace(/^"|"$/g, ""));
+            process = parts[0] || parts[1] || "unknown";
+          }
           resolve({ title, process });
-        });
+        } catch {
+          resolve(null);
+        }
       });
       return;
     }
@@ -637,6 +647,7 @@ function createWindow() {
     show:  false,
     title: "FlowTrack – Smart Study Tracker",
     icon: getAppIcon(),
+    autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration:      false,
       contextIsolation:     true,
@@ -648,6 +659,10 @@ function createWindow() {
       enableBlinkFeatures:  "DocumentPictureInPicture",
     },
   });
+
+  if (process.platform !== "darwin") {
+    mainWindow.setMenuBarVisibility(false);
+  }
 
 
 
@@ -1799,4 +1814,42 @@ ipcMain.handle("scan-local-folder", async (_e, { folderPath }) => {
     console.error("Failed to scan local folder:", err);
   }
   return { success: false, files: [] };
+});
+
+// ─── Native Window Control Handlers (Cross-Platform) ─────────────────────────
+ipcMain.handle("window-minimize", () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.minimize();
+    return { success: true };
+  }
+  return { success: false };
+});
+
+ipcMain.handle("window-maximize", () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+      return { success: true, isMaximized: false };
+    } else {
+      mainWindow.maximize();
+      return { success: true, isMaximized: true };
+    }
+  }
+  return { success: false };
+});
+
+ipcMain.handle("window-close", () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    isQuitting = true;
+    app.quit();
+    return { success: true };
+  }
+  return { success: false };
+});
+
+ipcMain.handle("is-window-maximized", () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    return mainWindow.isMaximized();
+  }
+  return false;
 });

@@ -42,6 +42,11 @@ const ALLOWED_INVOKE_CHANNELS = [
   "open-pip-window",
   "sync-timer-state",
   "request-timer-sync",
+  // Window Controls (Cross-platform Minimize / Maximize / Close)
+  "window-minimize",
+  "window-maximize",
+  "window-close",
+  "is-window-maximized",
 ];
 
 const ALLOWED_LISTEN_CHANNELS = [

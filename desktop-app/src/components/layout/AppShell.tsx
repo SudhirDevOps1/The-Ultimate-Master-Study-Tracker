@@ -22,8 +22,13 @@ import {
   Palette,
   FileText,
   Globe2,
-  ShieldCheck
+  ShieldCheck,
+  Minus,
+  Square,
+  Copy,
+  X
 } from "lucide-react";
+import { useState, useEffect } from "react";
 
 const links = [
   // 1. Core Daily Study
@@ -73,6 +78,34 @@ export function AppShell() {
     }
   };
 
+  const isElectron = typeof window !== "undefined" && Boolean((window as any).electron?.isElectron);
+  const [isMaximized, setIsMaximized] = useState(false);
+
+  useEffect(() => {
+    if (isElectron) {
+      (window as any).electron?.ipcRenderer?.invoke("is-window-maximized")
+        .then((res: boolean) => setIsMaximized(Boolean(res)))
+        .catch(() => {});
+    }
+  }, [isElectron]);
+
+  const handleMinimize = () => {
+    (window as any).electron?.ipcRenderer?.invoke("window-minimize").catch(() => {});
+  };
+
+  const handleMaximize = async () => {
+    try {
+      const res = await (window as any).electron?.ipcRenderer?.invoke("window-maximize");
+      if (res && typeof res.isMaximized === "boolean") {
+        setIsMaximized(res.isMaximized);
+      }
+    } catch { /* ignore */ }
+  };
+
+  const handleClose = () => {
+    (window as any).electron?.ipcRenderer?.invoke("window-close").catch(() => {});
+  };
+
   return (
     <div className="grid-bg min-h-screen px-4 py-4 md:px-8 md:py-6">
       <motion.header
@@ -120,11 +153,39 @@ export function AppShell() {
                   <span className="hidden sm:inline">🛡️ FOCUS SHIELD ACTIVE</span>
                 </div>
               )}
-              <div className={`soft-card rounded-2xl bg-gradient-to-r ${getGradientClass()} p-[2px]`}>
-                <div className="rounded-2xl bg-slate-900/95 px-4 py-3">
-                  <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Current page</p>
-                  <p className="mt-1 text-lg font-medium text-white">{current}</p>
+              <div className="flex items-center gap-2">
+                <div className={`soft-card rounded-2xl bg-gradient-to-r ${getGradientClass()} p-[2px]`}>
+                  <div className="rounded-2xl bg-slate-900/95 px-4 py-3">
+                    <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Current page</p>
+                    <p className="mt-1 text-lg font-medium text-white">{current}</p>
+                  </div>
                 </div>
+
+                {isElectron && (
+                  <div className="flex items-center gap-1 ml-1 rounded-2xl bg-slate-900/90 border border-white/10 p-1.5 shadow-lg">
+                    <button
+                      onClick={handleMinimize}
+                      title="Minimize Window"
+                      className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={handleMaximize}
+                      title={isMaximized ? "Restore Window" : "Maximize Window"}
+                      className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                    >
+                      {isMaximized ? <Copy className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+                    </button>
+                    <button
+                      onClick={handleClose}
+                      title="Exit FlowTrack"
+                      className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/20 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
