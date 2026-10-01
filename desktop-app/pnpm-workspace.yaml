@@ -1,0 +1,6 @@
+allowBuilds:
+  '@firebase/util': true
+  canvas: true
+  esbuild: true
+  protobufjs: true
+  tesseract.js: true
