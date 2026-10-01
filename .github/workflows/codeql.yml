@@ -1,0 +1,43 @@
+name: Tier 3 - CodeQL Semantic Analysis
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '**.js'
+      - '**.ts'
+      - '**.tsx'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '**.js'
+      - '**.ts'
+      - '**.tsx'
+  schedule:
+    # 03:00 AM IST is 21:30 UTC
+    - cron: '30 21 * * *'
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: CodeQL Analysis
+    if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          config-file: ./.github/codeql/codeql-config.yml
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"

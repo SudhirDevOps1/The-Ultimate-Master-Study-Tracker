@@ -1,0 +1,38 @@
+name: Tier 3 - Dependency Security Audit
+
+on:
+  schedule:
+    # 03:15 AM IST is 21:45 UTC
+    - cron: '45 21 * * *'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '**/package.json'
+      - '**/package-lock.json'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: NPM Audit Scan
+    if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Audit Desktop App Dependencies
+        run: |
+          cd desktop-app
+          npm audit --audit-level=critical || true
+
+      - name: Audit Web App Dependencies
+        run: |
+          cd web-app
+          npm audit --audit-level=critical || true

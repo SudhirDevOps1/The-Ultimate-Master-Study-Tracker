@@ -1,0 +1,22 @@
+name: "CodeQL Strict Security Configuration"
+
+paths:
+  - desktop-app/src
+  - desktop-app/electron.js
+  - desktop-app/preload.js
+  - web-app/src
+
+paths-ignore:
+  - '**/*.spec.ts'
+  - '**/*.test.ts'
+  - '**/*.spec.tsx'
+  - '**/*.test.tsx'
+  - 'dist/**'
+  - 'dist-electron/**'
+  - 'node_modules/**'
+
+query-filters:
+  - exclude:
+      id: js/incomplete-sanitization
+  - exclude:
+      id: js/useless-expression

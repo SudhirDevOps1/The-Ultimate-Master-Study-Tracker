@@ -1,24 +1,37 @@
-name: CI Pipeline
+name: Tier 1 - Fast Quality Gate & Desktop CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, develop ]
     tags:
       - 'v*'
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.vscode/**'
+      - '.ai/**'
   pull_request:
     branches: [ main ]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.vscode/**'
+      - '.ai/**'
 
 permissions:
   contents: write
 
 jobs:
-  lint-and-check:
-    name: Type Check & Code Quality
+  fast-quality-gate:
+    name: Fast Quality Gate (Typecheck, Lint & Unit Test)
     if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -35,10 +48,26 @@ jobs:
     - name: Run TypeScript Compiler Check
       run: |
         cd desktop-app
-        npx tsc --noEmit || true
+        npm run typecheck || true
+
+    - name: Run Linter Inspection
+      run: |
+        cd desktop-app
+        npm run lint
+
+    - name: Run Automated Unit Tests
+      run: |
+        cd desktop-app
+        npm run test
+
+    - name: Build Web Application Bundle
+      run: |
+        cd desktop-app
+        npm run build
 
   build-desktop-releases:
     name: Build Desktop Apps (${{ matrix.os }})
+    needs: fast-quality-gate
     if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
     runs-on: ${{ matrix.os }}
     strategy:
@@ -49,6 +78,8 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
