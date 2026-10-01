@@ -470,11 +470,12 @@ export function AppTrackingPage() {
     } catch { /* ignore */ }
   }, [today]);
 
-  // ── Poll live data every 5 s ───────────────────────────────────────────
+  // ── Poll live data and listen for instant active-window events ──────────
   useEffect(() => {
+    const ipc = getIpc();
+    if (!ipc) return;
+
     const poll = async () => {
-      const ipc = getIpc();
-      if (!ipc) return;
       try {
         const [win, idle] = await Promise.all([
           ipc.invoke("get-active-window"),
@@ -486,8 +487,19 @@ export function AppTrackingPage() {
       } catch { /* ignore */ }
     };
     void poll();
-    pollRef.current = setInterval(() => void poll(), 5000);
-    return () => clearInterval(pollRef.current);
+    pollRef.current = setInterval(() => void poll(), 2000);
+
+    // Instant notification from main process when active window switches
+    const cleanupListener = ipc.on?.("active-window-changed", (data: any) => {
+      if (data && data.appName) {
+        setLiveApp({ process: data.appName, title: data.title || "" });
+      }
+    });
+
+    return () => {
+      clearInterval(pollRef.current);
+      if (typeof cleanupListener === "function") cleanupListener();
+    };
   }, []);
 
   // ── Auto-refresh log and period totals ─────────────────────────────────
@@ -502,7 +514,7 @@ export function AppTrackingPage() {
     const id = setInterval(() => {
       void fetchLog(timeScope, selectedDate);
       void fetchPeriodTotals();
-    }, 5_000);
+    }, 3_000);
     return () => clearInterval(id);
   }, [timeScope, selectedDate, today, fetchLog, fetchPeriodTotals]);
 

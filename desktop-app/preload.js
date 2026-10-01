@@ -57,6 +57,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   "pip-window-closed",
   "timer-state-updated",
   "request-timer-sync",
+  "active-window-changed",
 ];
 
 contextBridge.exposeInMainWorld("electron", {

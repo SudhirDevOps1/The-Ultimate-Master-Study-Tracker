@@ -3,6 +3,10 @@ const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog, shell, pro
 // Enable Document Picture-in-Picture API & experimental web features in Electron Chromium engine
 app.commandLine.appendSwitch("enable-experimental-web-platform-features");
 app.commandLine.appendSwitch("enable-features", "DocumentPictureInPictureAPI");
+// Enable GPU Acceleration and smooth rendering switches
+app.commandLine.appendSwitch("enable-gpu-rasterization");
+app.commandLine.appendSwitch("enable-zero-copy");
+app.commandLine.appendSwitch("ignore-gpu-blocklist");
 
 const { autoUpdater } = require("electron-updater");
 const path = require("path");
@@ -571,10 +575,20 @@ function startActivityTracker() {
       }
 
       currentActivity = { processName, windowTitle, startMs: now };
+
+      // Broadcast instant window change to renderer UI for immediate responsiveness
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("active-window-changed", {
+          process: processName,
+          title: cleanWindowTitle(windowTitle),
+          appName: normalizeAppName(processName),
+          startTime: now,
+        });
+      }
     } else {
       // Same app still active — update live entry
       const durationSeconds = Math.round((now - currentActivity.startMs) / 1000);
-      if (durationSeconds >= 2) {
+      if (durationSeconds >= 1) {
         const today = new Date().toISOString().split("T")[0];
         const existingIdx = activityLog.findIndex(e => e.isLive);
         const liveEntry = {
@@ -593,8 +607,8 @@ function startActivityTracker() {
         else                    activityLog.push(liveEntry);
       }
     }
-  // Polling every 5s — reduces win-tracker.exe spawns by 60% vs 2s
-  }, 5000);
+  // Polling every 2000ms for swift and responsive tracking across Linux, Windows & macOS
+  }, 2000);
 
   // Auto-save to disk every 30 seconds
   setInterval(saveLogToFile, 30_000);
