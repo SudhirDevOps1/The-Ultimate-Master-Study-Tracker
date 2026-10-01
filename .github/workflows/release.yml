@@ -53,7 +53,7 @@ jobs:
   release-please:
     name: Run Release Please Engine
     needs: quality-gate
-    if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
+    if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker' && (startsWith(github.event.head_commit.message, 'feat') || startsWith(github.event.head_commit.message, 'fix') || startsWith(github.event.head_commit.message, 'perf') || startsWith(github.event.head_commit.message, 'chore(release)'))
     runs-on: ubuntu-latest
     steps:
       - uses: googleapis/release-please-action@v5
@@ -61,3 +61,4 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+        continue-on-error: true

@@ -3,31 +3,51 @@ updates:
   - package-ecosystem: "npm"
     directory: "/desktop-app"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "03:00"
-    open-pull-requests-limit: 10
+      interval: "monthly"
+      day: "first sunday"
+    open-pull-requests-limit: 2
     groups:
-      dependencies:
+      all-desktop-dependencies:
         patterns:
           - "*"
+    ignore:
+      # Block breaking major bumps for core bundler & framework
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "npm"
     directory: "/web-app"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "03:30"
-    open-pull-requests-limit: 10
+      interval: "monthly"
+      day: "first sunday"
+    open-pull-requests-limit: 2
     groups:
-      dependencies:
+      all-web-dependencies:
         patterns:
           - "*"
+    ignore:
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "04:00"
-    open-pull-requests-limit: 10
+      interval: "monthly"
+      day: "first sunday"
+    open-pull-requests-limit: 2
+    groups:
+      all-github-actions:
+        patterns:
+          - "*"
