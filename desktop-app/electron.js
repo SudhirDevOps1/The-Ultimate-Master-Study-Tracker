@@ -321,6 +321,21 @@ function getForegroundWindow() {
       return;
     }
 
+    if (process.platform === "darwin") {
+      // Native macOS active window tracking via AppleScript
+      const script = 'tell application "System Events" to set frontApp to name of first application process whose frontmost is true\n' +
+                     'tell application "System Events" to set windowTitle to name of front window of (first application process whose frontmost is true)\n' +
+                     'return frontApp & ":::" & windowTitle';
+      execFile("osascript", ["-e", script], { timeout: 1000 }, (err, stdout) => {
+        if (err || !stdout) return resolve(null);
+        const parts = stdout.trim().split(":::");
+        const process = (parts[0] || "").trim();
+        const title = (parts[1] || process).trim();
+        resolve({ process, title });
+      });
+      return;
+    }
+
     resolve(null);
   });
 }
@@ -427,6 +442,10 @@ function startActivityTracker() {
                exec("which xdotool > /dev/null && xdotool key ctrl+w", () => {
                  if (mainWindow) mainWindow.showInactive();
                });
+             } else if (process.platform === "darwin") {
+               execFile("osascript", ["-e", 'tell application "System Events" to keystroke "w" using command down'], () => {
+                 if (mainWindow) mainWindow.showInactive();
+               });
              }
              if (mainWindow) {
                mainWindow.webContents.send("toast-message", { message: `🚫 Website Blocked: Closed tab for '${target}'!` });
@@ -448,7 +467,7 @@ function startActivityTracker() {
               } else {
                 execFile("taskkill", ["/F", "/IM", exeName, "/T"], () => {});
               }
-            } else if (process.platform === "linux") {
+            } else if (process.platform === "linux" || process.platform === "darwin") {
               execFile("pkill", ["-f", cleanActive], () => {});
             }
             if (mainWindow) {
@@ -479,6 +498,13 @@ function startActivityTracker() {
               });
             } else if (process.platform === "linux") {
               execFile("wmctrl", ["-c", cleanActive], () => {
+                if (mainWindow) {
+                  mainWindow.show();
+                  mainWindow.focus();
+                }
+              });
+            } else if (process.platform === "darwin") {
+              execFile("osascript", ["-e", `tell application "${cleanActive}" to close front window`], () => {
                 if (mainWindow) {
                   mainWindow.show();
                   mainWindow.focus();
@@ -1027,6 +1053,27 @@ ipcMain.handle("get-running-apps", async () => {
             }
           }
           runningApps = Array.from(appsMap.values());
+        }
+        return resolve({ success: true, apps: runningApps, installedApps: [] });
+      });
+      return;
+    }
+
+    if (process.platform === "darwin") {
+      // Discover running applications on macOS
+      const script = 'tell application "System Events" to get name of every application process whose background only is false';
+      execFile("osascript", ["-e", script], { timeout: 3000 }, (err, stdout) => {
+        let runningApps = [];
+        if (!err && stdout) {
+          const names = stdout.split(",").map(n => n.trim()).filter(Boolean);
+          for (const name of names) {
+            if (isSelf(name, "")) continue;
+            runningApps.push({
+              appName: name,
+              processName: name,
+              title: name
+            });
+          }
         }
         return resolve({ success: true, apps: runningApps, installedApps: [] });
       });
