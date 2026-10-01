@@ -285,23 +285,43 @@ function getForegroundWindowFallback() {
 
 function getForegroundWindow() {
   return new Promise((resolve) => {
-    if (!fs.existsSync(trackerExePath)) {
-      return resolve(getForegroundWindowFallback());
-    }
-    execFile(trackerExePath, { timeout: 1000 }, (err, stdout) => {
-      if (err || !stdout) {
+    if (process.platform === "win32") {
+      if (!fs.existsSync(trackerExePath)) {
         return resolve(getForegroundWindowFallback());
       }
-      try {
-        const parsed = JSON.parse(stdout.trim());
-        resolve({
-          title:   parsed.title   || "",
-          process: parsed.process || "unknown"
+      execFile(trackerExePath, { timeout: 1000 }, (err, stdout) => {
+        if (err || !stdout) {
+          return resolve(getForegroundWindowFallback());
+        }
+        try {
+          const parsed = JSON.parse(stdout.trim());
+          resolve({
+            title:   parsed.title   || "",
+            process: parsed.process || "unknown"
+          });
+        } catch {
+          resolve(getForegroundWindowFallback());
+        }
+      });
+      return;
+    }
+
+    if (process.platform === "linux") {
+      // Lightweight Linux X11 active window detection via xdotool/xprop
+      exec("xdotool getactivewindow getwindowname 2>/dev/null", { timeout: 800 }, (err, winName) => {
+        if (err || !winName) {
+          return resolve(null);
+        }
+        const title = winName.trim();
+        exec("xdotool getactivewindow getwindowpid 2>/dev/null | xargs -I{} ps -p {} -o comm= 2>/dev/null", { timeout: 800 }, (err2, procName) => {
+          const process = (!err2 && procName) ? procName.trim() : "unknown";
+          resolve({ title, process });
         });
-      } catch {
-        resolve(getForegroundWindowFallback());
-      }
-    });
+      });
+      return;
+    }
+
+    resolve(null);
   });
 }
 
@@ -983,6 +1003,36 @@ try {
 
 ipcMain.handle("get-running-apps", async () => {
   return new Promise((resolve) => {
+    if (process.platform === "linux") {
+      // Discover running GUI apps on Linux
+      exec('ps -eo comm | sort -u', { timeout: 3000 }, (err, stdout) => {
+        let runningApps = [];
+        if (!err && stdout) {
+          const systemProcs = [
+            "systemd", "kworker", "bash", "sh", "ps", "sort", "grep", "sleep",
+            "dbus-daemon", "pipewire", "pulseaudio", "polkitd", "cron", "rsyslogd"
+          ];
+          const lines = stdout.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+          const appsMap = new Map();
+          for (const proc of lines) {
+            if (systemProcs.some(s => proc.startsWith(s))) continue;
+            if (isSelf(proc, "")) continue;
+            const cleanName = normalizeAppName(proc) || proc;
+            if (!appsMap.has(proc.toLowerCase())) {
+              appsMap.set(proc.toLowerCase(), {
+                appName: cleanName,
+                processName: proc,
+                title: cleanName
+              });
+            }
+          }
+          runningApps = Array.from(appsMap.values());
+        }
+        return resolve({ success: true, apps: runningApps, installedApps: [] });
+      });
+      return;
+    }
+
     if (process.platform !== "win32") {
       return resolve({ success: true, apps: [], installedApps: [] });
     }

@@ -664,7 +664,7 @@ export function AppTrackingPage() {
       }
 
       await initApp();
-      void fetchLog(selectedDate);
+      void fetchLog(timeScope, selectedDate);
       void fetchDates();
       alert(`✅ Import successful!\nBacked up on: ${new Date(result.exportedAt).toLocaleString()}\nVersion: ${result.version}`);
     } catch (e: any) { alert(`Import error: ${e.message}`); }
@@ -685,7 +685,7 @@ export function AppTrackingPage() {
       const res = await ipc.invoke("clear-activity-log");
       if (res?.success) {
         alert("✅ App & Website activity tracking logs cleared successfully!");
-        void fetchLog(selectedDate);
+        void fetchLog(timeScope, selectedDate);
         void fetchDates();
       } else {
         alert(`❌ Failed to clear logs: ${res?.error || "Unknown error"}`);
@@ -755,7 +755,7 @@ export function AppTrackingPage() {
             </button>
           )}
 
-          <button onClick={() => { void fetchLog(selectedDate); void fetchDates(); }}
+          <button onClick={() => { void fetchLog(timeScope, selectedDate); void fetchDates(); }}
             className={`p-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 transition-colors ${loading ? "animate-spin" : ""}`}>
             <RefreshCw className="w-4 h-4" />
           </button>
