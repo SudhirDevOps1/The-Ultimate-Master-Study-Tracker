@@ -15,7 +15,6 @@ import {
   BookOpen, 
   Book, 
   Settings as SettingsIcon,
-  Github,
   Globe,
   Target,
   Clock,
