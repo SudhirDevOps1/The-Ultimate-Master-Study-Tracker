@@ -393,18 +393,21 @@ function startActivityTracker() {
 
           if (isBrowser && (isTitleMatchOnly || isExplicitWebsiteRule)) {
              // It's a website tab! Safely send Ctrl+W to close the active tab instead of killing the browser.
-             // Using a slight delay ensures the browser remains the active window when keys are sent.
-             execFile("powershell.exe", [
-               "-NoProfile", 
-               "-NonInteractive",
-               "-WindowStyle", "Hidden",
-               "-Command", 
-               `Start-Sleep -Milliseconds 50; $wshell = New-Object -ComObject wscript.shell; $wshell.SendKeys('^{w}')`
-             ], () => {
-               if (mainWindow) {
-                 mainWindow.showInactive();
-               }
-             });
+             if (process.platform === "win32") {
+               execFile("powershell.exe", [
+                 "-NoProfile", 
+                 "-NonInteractive",
+                 "-WindowStyle", "Hidden",
+                 "-Command", 
+                 `Start-Sleep -Milliseconds 50; $wshell = New-Object -ComObject wscript.shell; $wshell.SendKeys('^{w}')`
+               ], () => {
+                 if (mainWindow) mainWindow.showInactive();
+               });
+             } else if (process.platform === "linux") {
+               exec("which xdotool > /dev/null && xdotool key ctrl+w", () => {
+                 if (mainWindow) mainWindow.showInactive();
+               });
+             }
              if (mainWindow) {
                mainWindow.webContents.send("toast-message", { message: `🚫 Website Blocked: Closed tab for '${target}'!` });
              }
@@ -412,45 +415,56 @@ function startActivityTracker() {
           }
 
           if (rule.strictLevel === "hard") {
-            // HARD: Terminate process immediately using taskkill with .exe extension (execFile prevents injection)
-            // Prevent killing ApplicationFrameHost completely, which hosts all UWP apps. Just close window instead.
-            if (cleanActive === "applicationframehost" || cleanActive === "explorer") {
+            // HARD: Terminate process immediately
+            if (process.platform === "win32") {
+              if (cleanActive === "applicationframehost" || cleanActive === "explorer") {
                 const safeTitle = activeTitle.replace(/'/g, "''");
                 execFile("powershell.exe", [
-                    "-NoProfile", 
-                    "-NonInteractive",
-                    "-Command", 
-                    `(Get-Process | Where-Object {$_.MainWindowTitle -eq '${safeTitle}'}) | ForEach-Object { $_.CloseMainWindow() }`
+                  "-NoProfile", 
+                  "-NonInteractive",
+                  "-Command", 
+                  `(Get-Process | Where-Object {$_.MainWindowTitle -eq '${safeTitle}'}) | ForEach-Object { $_.CloseMainWindow() }`
                 ], () => {});
-            } else {
+              } else {
                 execFile("taskkill", ["/F", "/IM", exeName, "/T"], () => {});
+              }
+            } else if (process.platform === "linux") {
+              execFile("pkill", ["-f", cleanActive], () => {});
             }
             if (mainWindow) {
               mainWindow.webContents.send("toast-message", { message: `🛡️ Hard Blocked: Terminated ${appDisplayName}!` });
             }
           } else if (rule.strictLevel === "medium") {
             // MEDIUM: Close main window & restore FlowTrack Pro window to focus
-            const safeCleanActive = cleanActive.replace(/'/g, "''"); // escape for PowerShell
-            const safeTitle = activeTitle.replace(/'/g, "''");
-            
-            // Prefer targeting by title if it's ApplicationFrameHost
-            let psCommand = `(Get-Process -Name '${safeCleanActive}' -ErrorAction SilentlyContinue) | ForEach-Object { $_.CloseMainWindow() }`;
-            if (cleanActive === "applicationframehost") {
+            if (process.platform === "win32") {
+              const safeCleanActive = cleanActive.replace(/'/g, "''"); // escape for PowerShell
+              const safeTitle = activeTitle.replace(/'/g, "''");
+              
+              let psCommand = `(Get-Process -Name '${safeCleanActive}' -ErrorAction SilentlyContinue) | ForEach-Object { $_.CloseMainWindow() }`;
+              if (cleanActive === "applicationframehost") {
                 psCommand = `(Get-Process | Where-Object {$_.MainWindowTitle -eq '${safeTitle}'}) | ForEach-Object { $_.CloseMainWindow() }`;
-            }
-
-            execFile("powershell.exe", [
-              "-NoProfile", 
-              "-NonInteractive",
-              "-WindowStyle", "Hidden",
-              "-Command", 
-              psCommand
-            ], () => {
-              if (mainWindow) {
-                mainWindow.show();
-                mainWindow.focus();
               }
-            });
+
+              execFile("powershell.exe", [
+                "-NoProfile", 
+                "-NonInteractive",
+                "-WindowStyle", "Hidden",
+                "-Command", 
+                psCommand
+              ], () => {
+                if (mainWindow) {
+                  mainWindow.show();
+                  mainWindow.focus();
+                }
+              });
+            } else if (process.platform === "linux") {
+              execFile("wmctrl", ["-c", cleanActive], () => {
+                if (mainWindow) {
+                  mainWindow.show();
+                  mainWindow.focus();
+                }
+              });
+            }
             if (mainWindow) {
               mainWindow.webContents.send("toast-message", { message: `⚠️ Medium Blocked: Minimized ${appDisplayName}!` });
             }

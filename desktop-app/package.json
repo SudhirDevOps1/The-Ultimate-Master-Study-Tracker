@@ -44,6 +44,23 @@
       ],
       "category": "public.app-category.productivity"
     },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility",
+      "executableName": "flowtrack-pro",
+      "artifactName": "${productName}-${version}.${ext}",
+      "icon": "public/icon.png",
+      "maintainer": "FlowTrack Team <sudhirk926235@gmail.com>",
+      "synopsis": "Smart Study & Productivity Tracker Desktop App",
+      "description": "FlowTrack Pro is a desktop study tracker and productivity suite with focus timers, analytics, and study sandbox."
+    },
+    "deb": {
+      "priority": "optional",
+      "packageCategory": "utils"
+    },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
