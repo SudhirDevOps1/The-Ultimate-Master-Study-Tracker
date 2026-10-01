@@ -1,7 +1,12 @@
 {
   "name": "flowtrack-pro-desktop",
   "description": "FlowTrack Pro – Smart Study & Productivity Tracker Desktop App",
-  "author": "FlowTrack Team",
+  "author": "FlowTrack Team <sudhirk926235@gmail.com>",
+  "homepage": "https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git"
+  },
   "private": true,
   "version": "7.5.1",
   "main": "electron.js",
