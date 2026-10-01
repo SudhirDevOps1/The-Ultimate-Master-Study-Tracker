@@ -14,8 +14,10 @@ export default {
         'test',
         'chore',
         'security',
-        'ci'
-      ]
-    ]
-  }
+        'ci',
+        'revert',
+      ],
+    ],
+    'subject-case': [0],
+  },
 };

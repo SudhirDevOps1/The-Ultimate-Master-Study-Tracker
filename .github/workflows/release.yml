@@ -1,0 +1,68 @@
+name: Release & Quality Gate
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  quality_gate:
+    name: 🛡️ Pre-Release Quality Gate
+    if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: 'desktop-app/package-lock.json'
+
+      - name: Install Desktop App Dependencies
+        run: |
+          cd desktop-app
+          npm install --legacy-peer-deps
+
+      - name: Typecheck
+        run: |
+          cd desktop-app
+          npm run typecheck --if-present
+
+      - name: Lint
+        run: |
+          cd desktop-app
+          npm run lint --if-present
+
+      - name: Run Tests
+        run: |
+          cd desktop-app
+          npm run test --if-present
+
+      - name: Build Verification
+        run: |
+          cd desktop-app
+          npm run build --if-present
+
+  release_please:
+    name: 🚀 Google Release Please
+    needs: quality_gate
+    if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Release Please
+        uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

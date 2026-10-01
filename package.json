@@ -4,6 +4,14 @@
   "version": "7.5.1",
   "scripts": {
     "build": "cd web-app && npm install && npm run build",
-    "dev": "cd web-app && npm run dev"
+    "dev": "cd web-app && npm run dev",
+    "commitlint": "commitlint --edit",
+    "prepare": "husky",
+    "release": "release-please release-pr --config-file=release-please-config.json --manifest-file=.release-please-manifest.json"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.8.0",
+    "@commitlint/config-conventional": "^19.8.0",
+    "husky": "^9.1.7"
   }
 }

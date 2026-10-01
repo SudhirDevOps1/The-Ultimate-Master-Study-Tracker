@@ -1,0 +1,21 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "packages": {
+    ".": {
+      "package-name": "flowtrack-workspace",
+      "release-type": "node",
+      "bump-minor-pre-major": false,
+      "include-component-in-tag": false,
+      "changelog-sections": [
+        { "type": "feat", "section": "✨ Features & Enhancements" },
+        { "type": "fix", "section": "🐛 Bug Fixes & Patches" },
+        { "type": "security", "section": "🛡️ Security & Hardening" },
+        { "type": "perf", "section": "⚡ Performance Improvements" },
+        { "type": "refactor", "section": "♻️ Code Refactoring" },
+        { "type": "docs", "section": "📚 Documentation Updates" },
+        { "type": "ci", "section": "👷 CI/CD & DevOps" },
+        { "type": "chore", "section": "🧹 Maintenance & Chores", "hidden": true }
+      ]
+    }
+  }
+}
