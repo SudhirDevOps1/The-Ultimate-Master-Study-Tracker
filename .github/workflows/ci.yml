@@ -147,19 +147,19 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Download Windows Build Artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: flowtrack-windows-latest
         path: ./artifacts/windows
 
     - name: Download Linux Build Artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: flowtrack-ubuntu-latest
         path: ./artifacts/linux
 
     - name: Download macOS Build Artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: flowtrack-macos-latest
         path: ./artifacts/macos
