@@ -89,7 +89,7 @@ jobs:
         cache-dependency-path: 'desktop-app/package-lock.json'
 
     - name: Cache Electron Binaries
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: |
           ~/.cache/electron
