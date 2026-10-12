@@ -16,11 +16,11 @@
     "date-fns": "^4.4.0",
     "dexie": "^4.4.6",
     "fabric": "^7.4.0",
-    "firebase": "^12.19.0",
-    "framer-motion": "^13.5.0",
+    "firebase": "^13.0.0",
+    "framer-motion": "^14.0.0",
     "html2canvas": "^1.4.1",
-    "lucide-react": "^1.49.0",
-    "pdfjs-dist": "^6.3.289",
+    "lucide-react": "^1.54.0",
+    "pdfjs-dist": "^6.4.299",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-is": "^19.3.0",
@@ -35,10 +35,10 @@
     "@types/node": "^26.6.4",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
-    "@vitejs/plugin-react": "6.1.1",
+    "@vitejs/plugin-react": "6.1.2",
     "tailwindcss": "4.3.3",
     "typescript": "7.0.2",
-    "vite": "8.3.2"
+    "vite": "8.3.4"
   },
   "overrides": {
     "nanoid": "^5.0.9",
