@@ -6,6 +6,10 @@
       "release-type": "node",
       "bump-minor-pre-major": false,
       "include-component-in-tag": false,
+      "extra-files": [
+        "desktop-app/package.json",
+        "web-app/package.json"
+      ],
       "changelog-sections": [
         { "type": "feat", "section": "✨ Features & Enhancements" },
         { "type": "fix", "section": "🐛 Bug Fixes & Patches" },

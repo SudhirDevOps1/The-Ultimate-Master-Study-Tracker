@@ -91,9 +91,32 @@ jobs:
           cd desktop-app
           npm install --legacy-peer-deps
 
+      - name: Sync Desktop Version with Release Tag
+        shell: bash
+        run: |
+          TAG="${{ needs.release_please.outputs.tag_name }}"
+          CLEAN_VER="${TAG#v}"
+          echo "Syncing desktop-app version to $CLEAN_VER"
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('desktop-app/package.json', 'utf8'));
+            pkg.version = '$CLEAN_VER';
+            fs.writeFileSync('desktop-app/package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+
       - name: Build and Publish Electron Binaries
+        shell: bash
         run: |
           cd desktop-app
-          npm run electron:build
+          npm run electron:build -- --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Installer directly to GitHub Release
+        shell: bash
+        run: |
+          TAG="${{ needs.release_please.outputs.tag_name }}"
+          echo "Uploading release artifacts to $TAG..."
+          gh release upload "$TAG" desktop-app/dist/*.exe --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
