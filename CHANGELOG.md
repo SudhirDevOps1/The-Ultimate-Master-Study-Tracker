@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.5.4](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v7.5.3...v7.5.4) (2026-10-25)
+
+
+### ⚡ Performance Improvements
+
+* **desktop:** optimize memory usage, add AGENT.md, and automate release binary builds ([7ad2eb9](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/7ad2eb9fd1e69a643bcedb2e78baf2242ea6f0e6))
+
 ## [7.5.3](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v7.5.2...v7.5.3) (2026-10-01)
 
 
