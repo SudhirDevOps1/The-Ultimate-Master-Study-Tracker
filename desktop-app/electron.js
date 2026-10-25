@@ -3,10 +3,13 @@ const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog, shell, pro
 // Enable Document Picture-in-Picture API & experimental web features in Electron Chromium engine
 app.commandLine.appendSwitch("enable-experimental-web-platform-features");
 app.commandLine.appendSwitch("enable-features", "DocumentPictureInPictureAPI");
-// Enable GPU Acceleration and smooth rendering switches
-app.commandLine.appendSwitch("enable-gpu-rasterization");
-app.commandLine.appendSwitch("enable-zero-copy");
-app.commandLine.appendSwitch("ignore-gpu-blocklist");
+// Ultra-Lightweight Low-Memory Chromium Flags
+app.commandLine.appendSwitch("js-flags", "--max-old-space-size=128 --expose-gc");
+app.commandLine.appendSwitch("disable-breakpad"); // Disables Crashpad/Utility daemon to eliminate crash reporting RAM
+app.commandLine.appendSwitch("disable-component-update");
+app.commandLine.appendSwitch("renderer-process-limit", "1");
+app.commandLine.appendSwitch("disable-speech-api");
+app.commandLine.appendSwitch("disable-background-networking");
 
 const { autoUpdater } = require("electron-updater");
 const path = require("path");
@@ -608,7 +611,7 @@ function startActivityTracker() {
       }
     }
   // Polling every 2000ms for swift and responsive tracking across Linux, Windows & macOS
-  }, 2000);
+  }, 3500);
 
   // Auto-save to disk every 30 seconds
   setInterval(saveLogToFile, 30_000);
@@ -779,6 +782,26 @@ function createWindow() {
       }, 10000);
     }
   });
+
+  // Aggressive Garbage Collection and Memory Release
+  mainWindow.on("minimize", () => {
+    if (global.gc) {
+      try { global.gc(); } catch (e) {}
+    }
+  });
+
+  mainWindow.on("hide", () => {
+    if (global.gc) {
+      try { global.gc(); } catch (e) {}
+    }
+  });
+
+  // Periodic memory trimmer every 5 minutes to release unused renderer memory
+  setInterval(() => {
+    if (global.gc) {
+      try { global.gc(); } catch (e) {}
+    }
+  }, 5 * 60 * 1000);
 
   mainWindow.on("close", (e) => {
     if (!isQuitting) {
