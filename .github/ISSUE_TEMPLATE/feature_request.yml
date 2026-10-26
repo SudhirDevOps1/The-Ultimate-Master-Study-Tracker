@@ -1,0 +1,35 @@
+name: 💡 Feature Request
+description: Propose a new feature, performance improvement, or study tool
+title: "[FEATURE]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea to make FlowTrack faster, reduce RAM, or add a new study capability? We'd love to hear it!
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Is your feature request related to a problem?
+      description: A clear description of what the problem or limitation is.
+      placeholder: I'm always frustrated when...
+    validations:
+      required: false
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution / Feature
+      description: Describe what you would like to happen and how it benefits students.
+      placeholder: It would be awesome if FlowTrack could...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any alternative solutions or features you've evaluated.
+    validations:
+      required: false
