@@ -1,6 +1,8 @@
 name: Tier 2 - Heavy PR Gate & DAST Scan
 
 on:
+  schedule:
+    - cron: '0 6 */2 * *' # Every 2 days at 06:00 UTC
   pull_request:
     branches: [ main ]
     paths:
@@ -9,6 +11,11 @@ on:
       - 'desktop-app/package.json'
       - 'web-app/package.json'
       - 'desktop-app/electron.js'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -27,7 +34,7 @@ jobs:
           fetch-depth: 1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: 'npm'
@@ -61,7 +68,7 @@ jobs:
         continue-on-error: true
 
       - name: Upload Scan Artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: zap-baseline-report

@@ -2,6 +2,7 @@ import { sendNotification } from '@/utils/notification';
 import { useEffect, useState, useRef } from "react";
 import { Play, Pause, Camera, AlertCircle, ExternalLink, Globe, SkipBack, SkipForward, ListVideo, Folder, Upload, Disc, Radio, Tv } from "lucide-react";
 import html2canvas from "html2canvas";
+import { sanitizeSafeUrl, getSafeYoutubeEmbedUrl, isSafeStudyFile } from "@/utils/security";
 
 interface MediaSandboxProps {
   url: string;
@@ -146,7 +147,7 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction, isP
         console.error("Failed to open external link via Electron:", e);
       }
     }
-    window.open(targetUrl, "_blank", "noopener,noreferrer");
+    window.open(sanitizeSafeUrl(targetUrl), "_blank", "noopener,noreferrer");
   };
 
   // Open in VLC Media Player
@@ -242,8 +243,8 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction, isP
   // Web Browser Local File Selection Handler
   const handleWebLocalFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const blobUrl = URL.createObjectURL(file);
+    if (file && isSafeStudyFile(file)) {
+      const blobUrl = sanitizeSafeUrl(URL.createObjectURL(file));
       setLocalSourceUrl(blobUrl);
       setIsWebBrowserLocalPrompt(false);
       setResourceLoaded(true);
@@ -598,7 +599,7 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction, isP
             typeof window !== "undefined" && (window as any).electron ? (
               <webview
                 key={activeLoadedUrl}
-                src={activeLoadedUrl}
+                src={sanitizeSafeUrl(activeLoadedUrl)}
                 className="absolute inset-0 h-full w-full border-0"
                 allowpopups
                 webpreferences="allowRunningInsecureContent, javascript=true"
@@ -606,7 +607,7 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction, isP
             ) : (
               <iframe
                 key={activeLoadedUrl}
-                src={activeLoadedUrl}
+                src={sanitizeSafeUrl(activeLoadedUrl)}
                 title="Course Web Portal"
                 className="absolute inset-0 h-full w-full border-0"
                 sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
@@ -620,7 +621,7 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction, isP
               {typeof window !== "undefined" && (window as any).electron ? (
                 <webview
                   key={activeLoadedUrl}
-                  src={activeLoadedUrl.includes("watch?v=") || activeLoadedUrl.includes("youtu.be/") ? activeLoadedUrl : getEmbedUrl(activeLoadedUrl)}
+                  src={sanitizeSafeUrl(activeLoadedUrl.includes("watch?v=") || activeLoadedUrl.includes("youtu.be/") ? activeLoadedUrl : getSafeYoutubeEmbedUrl(activeLoadedUrl))}
                   className="w-full flex-1 border-0"
                   allowpopups
                   webpreferences="allowRunningInsecureContent, javascript=true"
@@ -628,7 +629,7 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction, isP
               ) : (
                 <iframe
                   key={activeLoadedUrl}
-                  src={getEmbedUrl(activeLoadedUrl)}
+                  src={getSafeYoutubeEmbedUrl(activeLoadedUrl)}
                   title="YouTube video player"
                   className="w-full flex-1 border-0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
@@ -654,7 +655,7 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction, isP
               <video
                 ref={videoRef}
                 key={localSourceUrl}
-                src={localSourceUrl}
+                src={sanitizeSafeUrl(localSourceUrl)}
                 className="h-full w-full object-contain bg-black"
                 controls
                 autoPlay
@@ -675,7 +676,7 @@ export function MediaSandbox({ url, activeSubjectName, color, onInteraction, isP
               <audio
                 ref={audioRef}
                 key={localSourceUrl}
-                src={localSourceUrl}
+                src={sanitizeSafeUrl(localSourceUrl)}
                 className="hidden"
                 autoPlay
                 onEnded={handleNextTrack}

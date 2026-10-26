@@ -1,9 +1,17 @@
 name: Codecov Coverage & Test Quality
 
 on:
+  schedule:
+    - cron: "30 4 */2 * *" # Every 2 days at 04:30 UTC
   push:
     branches: [main]
   pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -12,6 +20,7 @@ jobs:
   coverage:
     name: Test Coverage & Codecov Audit
     runs-on: ubuntu-latest
+    if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@v2
@@ -25,21 +34,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: desktop-app/package-lock.json
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.3.0
-
-      - name: Install Dependencies
+      - name: Install Desktop App Dependencies
         run: |
           cd desktop-app
-          pnpm install --no-frozen-lockfile
+          npm install --legacy-peer-deps --fetch-retries=5 --fetch-retry-mintimeout=20000
 
       - name: Run Desktop App Typecheck
         run: |
           cd desktop-app
-          pnpm run typecheck --if-present
+          npm run typecheck --if-present
 
       - name: Upload Coverage to Codecov
         uses: codecov/codecov-action@v5

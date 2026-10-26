@@ -1,11 +1,17 @@
 name: Gitleaks Secret Scanner
 
 on:
+  schedule:
+    - cron: "30 3 */2 * *" # Every 2 days at 03:30 UTC
   push:
     branches: [main]
   pull_request:
-  schedule:
-    - cron: "0 4 * * 1" # Weekly Monday audit at 04:00 UTC
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -14,6 +20,7 @@ jobs:
   scan:
     name: Detect Hardcoded Secrets
     runs-on: ubuntu-latest
+    if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4

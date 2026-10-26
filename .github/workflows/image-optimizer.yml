@@ -1,6 +1,8 @@
 name: Lossless Image Optimizer
 
 on:
+  schedule:
+    - cron: "30 5 */2 * *" # Every 2 days at 05:30 UTC
   push:
     paths:
       - "public/images/**"
@@ -11,6 +13,10 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
   pull-requests: write
@@ -19,6 +25,7 @@ jobs:
   optimize:
     name: Lossless Asset Compression
     runs-on: ubuntu-latest
+    if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@v2

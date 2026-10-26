@@ -2,9 +2,14 @@ name: OpenSSF Scorecard Supply Chain Security
 
 on:
   schedule:
-    - cron: "30 1 * * 1" # Weekly Monday 01:30 UTC
+    - cron: "0 4 */2 * *" # Every 2 days at 04:00 UTC
   push:
     branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions: read-all
 
@@ -12,6 +17,7 @@ jobs:
   analysis:
     name: Scorecard analysis
     runs-on: ubuntu-latest
+    if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
     permissions:
       security-events: write
       id-token: write
@@ -25,7 +31,7 @@ jobs:
           persist-credentials: false
 
       - name: Run OpenSSF Scorecard Analysis
-        uses: ossf/scorecard-action@v2.4.0
+        uses: ossf/scorecard-action@v2.4.4
         with:
           results_file: results.sarif
           results_format: sarif

@@ -4,6 +4,7 @@ import { motion, AnimatePresence, useDragControls } from "framer-motion";
 import { useAppStore, type AppState } from "@/store/useAppStore";
 import { db } from "@/lib/db";
 import { audioEngine } from "@/utils/audioSynthesizer";
+import { sanitizeSafeUrl, getSafeYoutubeId, getSafeYoutubeEmbedUrl } from "@/utils/security";
 
 const SOUNDS = [
   { 
@@ -139,7 +140,7 @@ export function AmbiencePlayer() {
 
         if (targetSrc && audioRef.current) {
           if (audioRef.current.src !== targetSrc) {
-            audioRef.current.src = targetSrc;
+            audioRef.current.src = sanitizeSafeUrl(targetSrc);
             audioRef.current.load();
           }
           audioRef.current.play().catch(e => {
@@ -226,7 +227,7 @@ export function AmbiencePlayer() {
     if (!url) return null;
     const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
     const match = url.match(regExp);
-    return match ? match[1] : null;
+    return getSafeYoutubeId(url);
   };
 
   const videoId = getYoutubeId(activeUrl);
@@ -541,7 +542,7 @@ export function AmbiencePlayer() {
             {/* Video Iframe Container */}
             <div className="aspect-video w-full rounded-xl overflow-hidden bg-black border border-white/10 shadow-inner flex flex-col justify-between">
               <iframe
-                src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&enablejsapi=1&rel=0&modestbranding=1&origin=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : 'http://localhost')}`}
+                src={getSafeYoutubeEmbedUrl(activeUrl)}
                 title="YouTube Audio Stream"
                 className="w-full flex-1 border-0"
                 allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
@@ -551,7 +552,7 @@ export function AmbiencePlayer() {
                 <span>If video shows unavailable:</span>
                 <div className="flex items-center gap-2">
                   <a
-                    href={savedPlaylist[currentPlaylistIndex]?.url || "#"}
+                    href={sanitizeSafeUrl(savedPlaylist[currentPlaylistIndex]?.url, "#")}
                     target="_blank"
                     rel="noreferrer"
                     className="text-cyan-400 font-semibold hover:underline flex items-center gap-1"

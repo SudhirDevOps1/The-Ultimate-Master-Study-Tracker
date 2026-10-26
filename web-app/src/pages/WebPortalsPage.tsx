@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { sanitizeSafeUrl } from "@/utils/security";
 import {
   Globe, Plus, Trash2, RefreshCw, ArrowLeft, ArrowRight,
   ExternalLink, X, ChevronRight, Search, Maximize2, Minimize2,
@@ -33,11 +34,13 @@ const DEFAULT_PORTALS: PortalSite[] = [
 
 const isElectron = typeof window !== "undefined" && !!(window as any).electron;
 
-function openExternal(url: string) {
+function openExternal(url: string | null) {
+  if (!url) return;
+  const safeUrl = sanitizeSafeUrl(url);
   if (isElectron && (window as any).electron?.shell?.openExternal) {
-    (window as any).electron.shell.openExternal(url);
+    (window as any).electron.shell.openExternal(safeUrl);
   } else {
-    window.open(url, "_blank", "noopener,noreferrer");
+    window.open(safeUrl, "_blank", "noopener,noreferrer");
   }
 }
 
@@ -503,15 +506,7 @@ export function WebPortalsPage() {
               exit={{ opacity: 0 }}
               className="absolute inset-0 flex flex-col bg-slate-950"
             >
-              {isElectron ? (
-                <webview
-                  ref={webviewRef}
-                  src={activeUrl}
-                  className="w-full h-full border-0 flex-1"
-                  allowpopups
-                  webpreferences="allowRunningInsecureContent, javascript=true"
-                />
-              ) : (
+              
                 <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center bg-slate-950">
                   <div className="h-20 w-20 rounded-[2rem] bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-4">
                     <Globe className="w-10 h-10 text-amber-500" />

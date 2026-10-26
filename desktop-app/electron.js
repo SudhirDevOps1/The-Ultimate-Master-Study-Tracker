@@ -681,7 +681,7 @@ function createWindow() {
       backgroundThrottling: true, // Thermal Optimization: Throttle CPU rendering when app is background/minimized to prevent heat
       webviewTag:           true,
       spellcheck:           false, // FIX Privacy: Disable OS spellcheck (text leaks to system)
-      webSecurity:          false, // Allow local file:// pages to fetch external assets/images (favicons)
+      webSecurity:          true,  // Enterprise Security: Enforce Chromium Same-Origin Policy (prevents XSS)
       enableBlinkFeatures:  "DocumentPictureInPicture",
     },
   });

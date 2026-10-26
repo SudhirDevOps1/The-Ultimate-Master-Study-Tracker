@@ -14,8 +14,12 @@ on:
       - '**.ts'
       - '**.tsx'
   schedule:
-    # 03:00 AM IST is 21:30 UTC
-    - cron: '30 21 * * *'
+    - cron: '30 2 */2 * *' # Every 2 days at 02:30 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   actions: read

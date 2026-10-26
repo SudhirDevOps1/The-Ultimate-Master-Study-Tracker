@@ -2,8 +2,12 @@ name: Stale Issues & PRs Manager
 
 on:
   schedule:
-    - cron: "0 0 * * *" # Daily midnight UTC
+    - cron: "0 5 */2 * *" # Every 2 days at 05:00 UTC
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   issues: write
@@ -12,6 +16,7 @@ permissions:
 jobs:
   stale:
     runs-on: ubuntu-latest
+    if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
     steps:
       - uses: actions/stale@v9
         with:

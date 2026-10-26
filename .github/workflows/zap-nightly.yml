@@ -2,9 +2,12 @@ name: Tier 3 - Nightly OWASP ZAP Scan
 
 on:
   schedule:
-    # 02:30 AM IST is 21:00 UTC
-    - cron: '0 21 * * *'
+    - cron: '30 6 */2 * *' # Every 2 days at 06:30 UTC
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -20,7 +23,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: 'npm'
@@ -50,5 +53,13 @@ jobs:
           target: 'http://localhost:4173'
           rules_file_name: '.zap/rules.tsv'
           cmd_options: '-a'
-          issue_title: 'Security Alert: OWASP ZAP Discovered Security Defect'
+          allow_issue_writing: false
         continue-on-error: true
+
+      - name: Upload ZAP Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zap-full-report
+          path: zap_report.html
+          if-no-files-found: ignore

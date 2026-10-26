@@ -4,6 +4,7 @@ import { BookOpen, FileText, Maximize2, Minimize2, Play, Pause, VolumeX, Eye, Im
 import * as pdfjsLib from "pdfjs-dist";
 import { createWorker } from "tesseract.js";
 import html2canvas from "html2canvas";
+import { sanitizeSafeUrl, isSafeStudyFile } from "@/utils/security";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version || "3.11.174"}/build/pdf.worker.min.js`;
 
@@ -122,9 +123,9 @@ export function PDFStudyReader() {
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
+    if (file && isSafeStudyFile(file)) {
       setFileName(file.name);
-      const url = URL.createObjectURL(file);
+      const url = sanitizeSafeUrl(URL.createObjectURL(file));
       setFileUrl(url);
       setSplitScreen(true);
       setSpeechText("");
@@ -372,13 +373,14 @@ export function PDFStudyReader() {
           <div className="relative rounded-2xl border border-white/10 bg-slate-950 overflow-hidden h-[540px] flex flex-col justify-between">
             {fileType === "pdf" ? (
               <iframe
-                src={fileUrl}
+                src={sanitizeSafeUrl(fileUrl)}
                 title="PDF View"
                 className="w-full flex-1 border-none"
+                sandbox="allow-scripts allow-same-origin allow-forms"
               />
             ) : (
               <div className="flex-1 flex items-center justify-center bg-slate-900 overflow-hidden">
-                <img src={fileUrl} alt="Imported Source" className="max-h-[460px] max-w-full object-contain" />
+                <img src={sanitizeSafeUrl(fileUrl)} alt="Imported Source" className="max-h-[460px] max-w-full object-contain" />
               </div>
             )}
             
