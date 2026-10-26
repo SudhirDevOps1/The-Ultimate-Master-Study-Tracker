@@ -523,7 +523,6 @@ export function WebPortalsPage() {
                     <ExternalLink className="w-5 h-5" /> Launch in External Browser
                   </button>
                 </div>
-              )}
             </motion.div>
           )}
         </AnimatePresence>

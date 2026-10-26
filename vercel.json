@@ -1,6 +1,8 @@
 {
-  "buildCommand": "cd web-app && npm install && npm run build",
+  "buildCommand": "cd web-app && npm run build",
   "outputDirectory": "web-app/dist",
+  "installCommand": "cd web-app && npm install --legacy-peer-deps",
+  "framework": "vite",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
