@@ -1,25 +1,48 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "node",
+  "bump-minor-pre-major": false,
+  "bump-patch-for-minor-pre-major": false,
+  "include-component-in-tag": false,
+  "separate-pull-requests": false,
+  "draft-pull-request": false,
+  "changelog-notes-type": "github",
+  "plugins": [
+    {
+      "type": "node-workspace"
+    },
+    {
+      "type": "linked-versions",
+      "groupName": "flowtrack-monorepo",
+      "components": ["flowtrack-workspace", "desktop-app", "web-app"]
+    }
+  ],
   "packages": {
     ".": {
-      "package-name": "flowtrack-workspace",
+      "component": "flowtrack-workspace",
       "release-type": "node",
-      "bump-minor-pre-major": false,
-      "include-component-in-tag": false,
       "extra-files": [
         "desktop-app/package.json",
         "web-app/package.json"
-      ],
-      "changelog-sections": [
-        { "type": "feat", "section": "✨ Features & Enhancements" },
-        { "type": "fix", "section": "🐛 Bug Fixes & Patches" },
-        { "type": "security", "section": "🛡️ Security & Hardening" },
-        { "type": "perf", "section": "⚡ Performance Improvements" },
-        { "type": "refactor", "section": "♻️ Code Refactoring" },
-        { "type": "docs", "section": "📚 Documentation Updates" },
-        { "type": "ci", "section": "👷 CI/CD & DevOps" },
-        { "type": "chore", "section": "🧹 Maintenance & Chores", "hidden": true }
       ]
+    },
+    "desktop-app": {
+      "component": "desktop-app",
+      "release-type": "node"
+    },
+    "web-app": {
+      "component": "web-app",
+      "release-type": "node"
     }
-  }
+  },
+  "changelog-sections": [
+    { "type": "feat", "section": "✨ Features & Enhancements" },
+    { "type": "fix", "section": "🐛 Bug Fixes & Patches" },
+    { "type": "security", "section": "🛡️ Security & Hardening" },
+    { "type": "perf", "section": "⚡ Performance Improvements" },
+    { "type": "refactor", "section": "♻️ Code Refactoring" },
+    { "type": "docs", "section": "📚 Documentation Updates" },
+    { "type": "ci", "section": "👷 CI/CD & DevOps" },
+    { "type": "chore", "section": "🧹 Maintenance & Chores", "hidden": true }
+  ]
 }
