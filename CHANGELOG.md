@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v0.1.0...v0.1.1) (2026-10-26)
+
+
+### 🐛 Bug Fixes & Patches
+
+* **ci:** robust release artifact upload via bash globbing array ([c7493f9](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/c7493f91f6a0920ac448156b018bdbf452d24fd8))
+
 ## [0.1.0](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v0.0.1...v0.1.0) (2026-10-26)
 
 
