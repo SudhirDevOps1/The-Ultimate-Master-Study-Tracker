@@ -12,6 +12,161 @@ import { useToast } from "@/components/common/Toast";
 import { type StickyNote, type NotepadDoc, NOTE_BACKGROUNDS, NOTE_TEXT_COLORS, NOTE_FONTS } from "@/types/notes";
 
 // ─── Data Models ──────────────────────────────────────────────────────────────
+
+const DEFAULT_NOTEPAD_DOCS: NotepadDoc[] = [
+  {
+    id: "default-doc-1",
+    title: "📖 Java DSA & Web Dev Notes",
+    content: `# Study Notes & Cheatsheet
+
+## Key Concepts
+- Time Complexity: O(1) < O(log N) < O(N) < O(N log N) < O(N^2)
+- Fast & Slow Pointer for Linked List cycle detection
+- 0/1 Knapsack: DP Tabulation vs Memoization
+
+## Daily Checklist
+1. Solve 3-4 LeetCode problems with paper dry run.
+2. Push daily atomic commits to GitHub.
+3. Review flashcards before bedtime.`,
+    category: "Java DSA",
+    updatedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+    pinned: true
+  },
+  {
+    id: "default-doc-2",
+    title: "📝 Daily Study Journal",
+    content: `# Study Journal
+
+- **Today's Goal**: Master Apna College Sigma Modules.
+- **Key Takeaways**: Components lifecycle, Hooks & Express Middleware.
+- **Pending Tasks**: Practice previous year coding questions.`,
+    category: "General",
+    updatedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString()
+  }
+];
+
+// ─── Simple Markdown Renderer Component ─────────────────────────────────────
+function MarkdownPreview({ content }: { content: string }) {
+  if (!content.trim()) {
+    return (
+      <div className="py-12 text-center text-slate-500 italic text-sm">
+        (Empty Document Preview)
+      </div>
+    );
+  }
+
+  const lines = content.split("\n");
+  let inCodeBlock = false;
+  let codeBuffer: string[] = [];
+
+  const renderedElements: React.ReactNode[] = [];
+
+  lines.forEach((line, index) => {
+    if (line.trim().startsWith("```")) {
+      if (inCodeBlock) {
+        renderedElements.push(
+          <pre key={`code-${index}`} className="my-3 p-3.5 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-purple-300 overflow-x-auto">
+            <code>{codeBuffer.join("\n")}</code>
+          </pre>
+        );
+        codeBuffer = [];
+        inCodeBlock = false;
+      } else {
+        inCodeBlock = true;
+      }
+      return;
+    }
+
+    if (inCodeBlock) {
+      codeBuffer.push(line);
+      return;
+    }
+
+    const formatInline = (text: string): React.ReactNode => {
+      const parts = text.split(/(\**.*?\**|\*.*?\*|`.*?`)/g);
+      return parts.map((part, pIdx) => {
+        if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+          return <strong key={pIdx} className="font-extrabold text-purple-300">{part.slice(2, -2)}</strong>;
+        }
+        if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
+          return <em key={pIdx} className="italic text-slate-200">{part.slice(1, -1)}</em>;
+        }
+        if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
+          return <code key={pIdx} className="px-1.5 py-0.5 rounded bg-slate-800 text-cyan-300 font-mono text-xs">{part.slice(1, -1)}</code>;
+        }
+        return part;
+      });
+    };
+
+    if (line.startsWith("# ")) {
+      renderedElements.push(
+        <h1 key={index} className="text-2xl font-black text-white mt-4 mb-2 pb-1 border-b border-slate-800">
+          {formatInline(line.slice(2))}
+        </h1>
+      );
+    } else if (line.startsWith("## ")) {
+      renderedElements.push(
+        <h2 key={index} className="text-lg font-bold text-purple-300 mt-3 mb-1.5">
+          {formatInline(line.slice(3))}
+        </h2>
+      );
+    } else if (line.startsWith("### ")) {
+      renderedElements.push(
+        <h3 key={index} className="text-base font-semibold text-slate-200 mt-2 mb-1">
+          {formatInline(line.slice(4))}
+        </h3>
+      );
+    } else if (line.trim().startsWith("- ") || line.trim().startsWith("* ")) {
+      const itemText = line.trim().slice(2);
+      if (itemText.startsWith("[ ] ") || itemText.startsWith("[x] ")) {
+        const checked = itemText.startsWith("[x] ");
+        const checkText = itemText.slice(4);
+        renderedElements.push(
+          <div key={index} className="flex items-center gap-2 my-1 text-xs text-slate-200">
+            <input type="checkbox" checked={checked} readOnly className="rounded border-slate-700 bg-slate-900 text-purple-600" />
+            <span className={checked ? "line-through text-slate-500" : ""}>{formatInline(checkText)}</span>
+          </div>
+        );
+      } else {
+        renderedElements.push(
+          <li key={index} className="ml-4 text-xs text-slate-300 list-disc my-0.5">
+            {formatInline(itemText)}
+          </li>
+        );
+      }
+    } else if (/^\d+\.\s/.test(line.trim())) {
+      const itemText = line.trim().replace(/^\d+\.\s/, "");
+      renderedElements.push(
+        <li key={index} className="ml-4 text-xs text-slate-300 list-decimal my-0.5">
+          {formatInline(itemText)}
+        </li>
+      );
+    } else if (line.trim().startsWith("> ")) {
+      renderedElements.push(
+        <blockquote key={index} className="pl-3 border-l-2 border-purple-500 italic text-slate-400 my-2 text-xs">
+          {formatInline(line.trim().slice(2))}
+        </blockquote>
+      );
+    } else if (line.trim() === "") {
+      renderedElements.push(<div key={index} className="h-2" />);
+    } else {
+      renderedElements.push(
+        <p key={index} className="text-xs text-slate-300 leading-relaxed my-1">
+          {formatInline(line)}
+        </p>
+      );
+    }
+  });
+
+  return (
+    <div className="prose prose-invert max-w-none space-y-1 select-text">
+      {renderedElements}
+    </div>
+  );
+}
+
 export function StudyNotesBoardPage() {
   const [activeTab, setActiveTab] = useState<"board" | "notepad">("board");
 

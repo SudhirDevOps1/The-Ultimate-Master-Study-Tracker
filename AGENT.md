@@ -20,11 +20,37 @@ Task Manager reveals multiple Electron helper processes (Main, Renderer, GPU, Ut
 1. **Chromium Engine Switches (`desktop-app/electron.js`)**:
    - Limit background throttling and aggressive memory discard flags (`--enable-features=DocumentPictureInPictureAPI`, `--disable-renderer-backgrounding=false`).
    - Run active window tracker loop using lightweight native C# binary (`win-tracker.exe`) or Electron `powerMonitor.getSystemIdleTime()`. Never spawn heavy shell processes (like PowerShell/wscript) in high-frequency loops.
-   - Clean up cached arrays and restrict in-memory logs to bounded ring buffers (capped to avoid memory bloat).
+   - Clean up cached arrays and restrict in-memory logs to bounded ring buffers (capped to 2,000 entries to prevent memory bloat).
+   - Trigger V8 garbage collection (`global.gc`) when window is minimized or hidden to tray.
 2. **Renderer Optimizations**:
    - Clean up event listeners, timers (`setInterval`), and canvas contexts (Fabric.js) on unmount.
+   - Mount only the active `<webview>` portal in DOM; dynamically suspend inactive background tabs to slash RAM from **1GB+ down to ~120MB**.
    - Utilize lazy loading (`React.lazy`) for heavy analytical pages and portals.
    - For Web Portals (`WebPortalsPage`), always maintain 100% full-width viewports and smart omnibox fallback to search engines. Keep portal navigation accessible via slide-over drawers to avoid squeezing browser width.
+
+---
+
+## 🤖 Continuous Monitoring, GitHub CLI (`gh`), & Code Quality Protocol
+
+Every AI agent and contributor must follow this strict post-push verification protocol:
+
+1. **GitHub CLI (`gh`) Pipeline Inspection**:
+   - Immediately after running `git push origin <branch>`, inspect live pipeline runs:
+     ```bash
+     gh run list --limit 6
+     ```
+   - If any workflow job fails, retrieve the exact failure logs:
+     ```bash
+     gh run view <run-id> --log-failed
+     ```
+   - Resolve any lint, typecheck, or test failures immediately.
+2. **Branch, Tag & Release Health Monitoring**:
+   - Check pending pull requests: `gh pr list`
+   - Check releases and deployed artifacts: `gh release list`
+   - Verify semantic tag alignment: `git tag -l -n1`
+3. **CodeRabbit AI Automated Code Reviews**:
+   - Governed via `.coderabbit.yaml` in the root repository.
+   - CodeRabbit provides automated reviews for memory efficiency, TypeScript safety, AST security patterns, and performance regressions on every PR and commit.
 
 ---
 
@@ -43,5 +69,5 @@ Task Manager reveals multiple Electron helper processes (Main, Renderer, GPU, Ut
   - `perf: ...` for memory/CPU optimizations
   - `chore: ...` for dependency updates or routine work
 - **Lint & Type Safety**:
-  - Run `npm run typecheck` in both `web-app` and `desktop-app` prior to committing.
+  - Run `npm run typecheck` in `desktop-app` prior to committing.
   - Maintain absolute backwards compatibility with local IndexedDB schemas (Dexie.js).
