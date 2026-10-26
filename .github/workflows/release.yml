@@ -117,6 +117,13 @@ jobs:
         run: |
           TAG="${{ needs.release_please.outputs.tag_name }}"
           echo "Uploading release artifacts to $TAG..."
-          gh release upload "$TAG" desktop-app/dist/*.exe --clobber
+          if ls desktop-app/dist-electron/*.exe 1> /dev/null 2>&1; then
+            gh release upload "$TAG" desktop-app/dist-electron/*.exe --clobber
+          elif ls desktop-app/dist/*.exe 1> /dev/null 2>&1; then
+            gh release upload "$TAG" desktop-app/dist/*.exe --clobber
+          else
+            echo "Searching for any built exe in desktop-app..."
+            find desktop-app -name "*.exe" -exec gh release upload "$TAG" {} --clobber + || true
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
