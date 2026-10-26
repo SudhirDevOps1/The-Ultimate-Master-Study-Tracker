@@ -1,0 +1,36 @@
+name: Lossless Image Optimizer
+
+on:
+  push:
+    paths:
+      - "public/images/**"
+      - "**/*.png"
+      - "**/*.jpg"
+      - "**/*.svg"
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  optimize:
+    name: Lossless Asset Compression
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Compress Images
+        uses: calibreapp/image-actions@main
+        with:
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          compressOnly: true
+          ignorePaths: "node_modules/**,dist/**,dist-electron/**"

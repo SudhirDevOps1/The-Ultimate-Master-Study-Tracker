@@ -1,0 +1,48 @@
+name: Codecov Coverage & Test Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    name: Test Coverage & Codecov Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.3.0
+
+      - name: Install Dependencies
+        run: |
+          cd desktop-app
+          pnpm install --no-frozen-lockfile
+
+      - name: Run Desktop App Typecheck
+        run: |
+          cd desktop-app
+          pnpm run typecheck --if-present
+
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}

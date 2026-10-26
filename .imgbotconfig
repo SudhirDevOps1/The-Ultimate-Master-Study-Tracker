@@ -1,0 +1,9 @@
+{
+  "schedule": "weekly",
+  "ignoredFiles": [
+    "**/node_modules/**",
+    "**/dist/**"
+  ],
+  "aggressive": false,
+  "compressPrefix": true
+}
