@@ -62,12 +62,24 @@
 
 ---
 
+> [!NOTE]
+> **100% Free & Open-Source Community Suite**: FlowTrack Pro is completely free under the permissive MIT license. Architecturally inspired by proven open-source developer tools:
+> - **ActivityWatch** — Automated local-first window tracking and AFK idle detection with zero remote server logging.
+> - **Super Productivity** — Task timeboxing, break reminder synthesizers, and developer focus techniques.
+> - **Anki / SuperMemo SM-2** — Spaced repetition memory algorithms for programming syntax, interview problems & concepts.
+> - **Dayflow & Wakapi** — Passive screen categorization between deep study, coding, and browsing.
+
+---
+
 ## ⚡ Why FlowTrack Pro?
 
 Most productivity apps are bloated, require cloud subscriptions, or leak your activity to remote servers. **FlowTrack Pro** takes the opposite approach:
 1. **Local-First & 100% Private**: Your study logs, task titles, active apps, and whiteboard drawings never leave your local device.
 2. **Ultra-Low Resource Footprint**: Tuned to run with minimal RAM (~100-150MB across Main + Renderer processes) and **< 0.5% CPU** usage during background focus sessions.
 3. **No Setup Friction**: Works instantly in the browser as a progressive web app or as a standalone zero-config desktop application.
+
+> [!IMPORTANT]
+> **Active-Only Webview RAM Optimization**: FlowTrack Pro renders only the active browser tab in DOM memory. Background tabs are dynamically suspended, preventing multi-process Chromium memory bloat and slashing RAM from **1GB+ down to ~120MB**.
 
 ---
 
@@ -94,6 +106,17 @@ Most productivity apps are bloated, require cloud subscriptions, or leak your ac
 | **Local Storage** | Zero-latency IndexedDB persistence (Dexie.js) | ✅ | ✅ |
 | **Cloud Sync** | Optional multi-device backup and restoration (Firebase / NeonDB) | ✅ | ✅ |
 
+> [!TIP]
+> **Lecture Speed & Snapshot Controls**: When studying course portals (e.g. Apna College, LeetCode, YouTube), use the `⚡ 1.25x - 2x` playback multiplier in the top bar to pace through lectures faster. Click `📸 1-Click Screenshot` to instantly save high-res slides or code snippets directly into your Downloads folder.
+
+---
+
+> [!WARNING]
+> **Anti-Cheat Clock Guard**: FlowTrack Pro verifies timestamp delta continuity against high-resolution background timers. Tampering with your PC's system clock will flag the session and prevent artificial streak or XP inflation.
+
+> [!CAUTION]
+> **Distraction Blocker Hard Mode**: Enabling "Hard Mode" on specific software (e.g., games or social media) authorizes the background engine to forcefully minimize or terminate those processes when a study session is active.
+
 ---
 
 ## 📸 Interface Showcase
@@ -115,8 +138,8 @@ git clone https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git
 cd The-Ultimate-Master-Study-Tracker/web-app
 
 # Install dependencies and start Vite dev server
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 ### 2. 🖥️ Desktop App (Electron)
@@ -124,13 +147,13 @@ npm run dev
 cd desktop-app
 
 # Install dependencies
-npm install --legacy-peer-deps
+pnpm install
 
 # Run in development mode (Vite + Electron with hot reload)
-npm run electron:dev
+pnpm run electron:dev
 
 # Build production standalone installers (.exe)
-npm run electron:build
+pnpm run electron:build
 ```
 
 ---

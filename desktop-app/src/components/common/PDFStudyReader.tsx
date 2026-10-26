@@ -2,11 +2,12 @@ import { useState, useRef, useEffect } from "react";
 import { Panel } from "@/components/common/Panel";
 import { BookOpen, FileText, Maximize2, Minimize2, Play, Pause, VolumeX, Eye, Image as ImageIcon, Download, Trash, Palette, Edit3, Bold, Highlighter } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
+import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { createWorker } from "tesseract.js";
 import html2canvas from "html2canvas";
 import { type StickyNote, NOTE_BACKGROUNDS, NOTE_TEXT_COLORS, NOTE_FONTS } from "@/types/notes";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version || "3.11.174"}/build/pdf.worker.min.js`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker || `https://unpkg.com/pdfjs-dist@${pdfjsLib.version || "4.4.168"}/build/pdf.worker.min.mjs`;
 
 export function PDFStudyReader() {
   const [fileUrl, setFileUrl] = useState<string | null>(null);

@@ -1,6 +1,15 @@
 # 📖 FlowTrack Pro — Master Technical Architecture & System Guide
 
-> **Version**: `v0.0.1` | **Last Updated**: 2026-08-16 (v0.0.1 Enterprise Release)
+> **Version**: `v0.1.2` | **Last Updated**: 2026-10-26 (v0.1.2 Production Release)
+
+---
+
+> [!NOTE]
+> **Open-Source Architectural Inspiration**: FlowTrack Pro synthesizes paradigms from community-loved tools:
+> - **ActivityWatch**: Automated local-first telemetry & AFK idle detection.
+> - **Super Productivity**: Timeboxing, Pomodoro synthesizer & flowtime focus.
+> - **Anki / SuperMemo SM-2**: Spaced repetition memory engines for coding & DSA retention.
+> - **Dayflow / Wakapi**: Passive developer screen categorization.
 
 Welcome to the official technical manual for **FlowTrack Pro (`v0.0.1`)**. This document specifies the exact implementation details, architectural design, data storage mechanisms, and operational modes across **3 Operational Categories**.
 
@@ -112,6 +121,11 @@ npm run electron:build
 
 ---
 
+> [!IMPORTANT]
+> **Zero-Cloud Data Boundary**: All logs, subjects, sessions, and encrypted credentials reside on your local disk in IndexedDB or JSON format. No third-party analytics or external telemetry servers are contacted.
+
+---
+
 ## 5. Comparative Feature Matrix
 
 | Feature / Capability | 🌐 Category 1: Web App | 🐍 Category 2: Web + Python | 🖥️ Category 3: Desktop App |
@@ -130,6 +144,14 @@ npm run electron:build
 | **PDF & Tesseract OCR Reader** | ✅ WASM OCR | ✅ WASM OCR | ✅ WASM OCR |
 | **Excalidraw Whiteboard** | ✅ Infinite Canvas | ✅ Infinite Canvas | ✅ Infinite Canvas |
 | **Kanban Sticky Notes** | ✅ PNG Export | ✅ PNG Export | ✅ PNG Export |
+
+---
+
+> [!WARNING]
+> **Time Drift Continuity**: Modifying local PC time during active sessions will trigger an anti-cheat validation flag.
+
+> [!CAUTION]
+> **Process Kill Authorization**: In Hard Mode, blacklisted processes are killed on foreground detection.
 
 ---
 

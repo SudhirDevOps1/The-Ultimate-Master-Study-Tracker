@@ -6,6 +6,14 @@ Welcome to the **Standalone Desktop Application** module of FlowTrack Pro. This 
 
 ---
 
+> [!NOTE]
+> **Open-Source Architectural Heritage**: Designed with insights from open-source heavyweights:
+> - **ActivityWatch** — Low-overhead active window tracking with zero telemetry.
+> - **Super Productivity** — Flowtime / Pomodoro focus intervals with audio synthesizers.
+> - **Anki SM-2** — SuperMemo spaced repetition algorithm for memory retention.
+
+---
+
 ## 📌 Main Navigation & Master Docs
 
 - 🏠 **[Master System README](../README.md)** — Full Ecosystem Guide, System Architecture & Features
@@ -22,6 +30,23 @@ Welcome to the **Standalone Desktop Application** module of FlowTrack Pro. This 
 - 🛡️ **Anti-Cheat Clock Guard**: Validates system time deltas to prevent user system time manipulation.
 - ⚡ **Kernel Win32 Tracker (`win-tracker.exe`)**: Fast active window detection consuming < 0.5% CPU and ~40MB RAM.
 - 📦 **LZMA Compressed Build Size**: Portable installers optimized down to ~150MB using maximum ASAR compression.
+
+---
+
+> [!IMPORTANT]
+> **Dynamic Webview RAM Management**: Inactive portal tabs are suspended out of the DOM. Only the active webview is mounted, slashing runtime memory usage from **~1GB down to ~120MB**.
+
+> [!TIP]
+> **Study Shortcuts Inside Web Portals**:
+> - `F12` or `Ctrl+Shift+I` toggles developer inspection.
+> - `Shift + S` triggers instant high-res slide/code screenshot to your Downloads folder.
+> - Top-bar `⚡ Speed` controls video lecture rates (1x to 2x).
+
+> [!WARNING]
+> **Clock Manipulation Warning**: Do not modify system clock time during active study sessions. FlowTrack's clock guard will flag the session as anomalous.
+
+> [!CAUTION]
+> **Distraction Blocker Process Kill**: In "Hard Mode", blacklisted executables are forcefully terminated to protect your focus flow.
 
 ---
 

@@ -1,6 +1,6 @@
 # 📊 FlowTrack Pro — Analytics, Tracking Policy & Limitations
 
-> **Version**: `v0.0.1` | **Last Updated**: 2026-08-16 (v0.0.1 Enterprise Release)
+> **Version**: `v0.1.2` | **Last Updated**: 2026-10-26 (v0.1.2 Production Release)
 
 This document explains **exactly what FlowTrack Pro tracks**, **why**, **where the data lives**, **what it does NOT track**, and all **limitations** of every feature in the app.
 
@@ -18,7 +18,8 @@ This document explains **exactly what FlowTrack Pro tracks**, **why**, **where t
 | Session status | History, calendar view | IndexedDB |
 | Notes (optional) | Personal reference | IndexedDB |
 
-**⚠️ NEVER sent to any server. 100% offline, local-only.**
+> [!IMPORTANT]
+> **Strict Local-Only Isolation**: Study session records, notes, and task data are never transmitted over the network. They reside 100% locally in your client device's IndexedDB.
 
 ---
 
@@ -47,7 +48,10 @@ When a site is open in Web Portals:
 - When browser closes → tracking reverts to normal (FlowTrack skipped again)
 
 **Data location**: %APPDATA%\FlowTrack Pro\activity-log\YYYY-MM-DD.json
-**Max in-memory**: 10,000 entries. **Max retention loaded**: last 30 days.
+**Max in-memory**: 2,000 entries (capped for ultra-low RAM footprint). **Max retention loaded**: last 30 days.
+
+> [!NOTE]
+> **ActivityWatch Paradigm**: Like ActivityWatch, FlowTrack logs active foreground processes and window titles locally to disk without cloud dependency.
 **Title privacy**: truncated to 60 characters max.
 
 ---
