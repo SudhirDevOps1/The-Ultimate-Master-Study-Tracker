@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.5.5](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v7.5.4...v7.5.5) (2026-10-25)
+
+
+### 🐛 Bug Fixes & Patches
+
+* **ci:** sync subpackage versions and guarantee desktop installer asset upload on release ([1429395](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/14293953d8462c5a6ebd9ca87cfa95473e2f32e8))
+
 ## [7.5.4](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v7.5.3...v7.5.4) (2026-10-25)
 
 
