@@ -188,6 +188,18 @@ export function WebPortalsPage() {
       return "http://" + clean;
     }
 
+    // If user loaded a freshchat support widget URL with referrer, extract the actual portal URL
+    if (clean.includes("freshchat.com/widget") && clean.includes("referrer=")) {
+      try {
+        const u = new URL(clean.startsWith("http") ? clean : "https://" + clean);
+        const ref = u.searchParams.get("referrer");
+        if (ref) {
+          const decoded = atob(ref);
+          if (decoded.startsWith("http")) return decoded;
+        }
+      } catch {}
+    }
+
     // If already has protocol
     if (clean.startsWith("http://") || clean.startsWith("https://")) {
       return clean;
@@ -261,8 +273,31 @@ export function WebPortalsPage() {
 
       const onNewWindow = (e: any) => {
         e.preventDefault();
-        if (wv.loadURL) wv.loadURL(e.url);
-        else wv.src = e.url;
+        const targetUrl = e.url || "";
+        if (!targetUrl) return;
+
+        // Prevent third-party chat widgets & tracking popups from hijacking the main study tab
+        if (
+          targetUrl.includes("freshchat.com/widget") ||
+          targetUrl.includes("tawk.to") ||
+          targetUrl.includes("crisp.chat") ||
+          targetUrl.includes("intercom.io") ||
+          targetUrl.includes("zendesk.com/embeddable")
+        ) {
+          return;
+        }
+
+        // Open external links in a fresh tab inside FlowTrack browser
+        const newTab: WebTab = {
+          id: crypto.randomUUID(),
+          url: targetUrl,
+          title: "Loading...",
+          icon: "🌐",
+          color: "#06b6d4"
+        };
+        setTabs(prev => [...prev, newTab]);
+        setActiveTabId(newTab.id);
+        setInputUrl(targetUrl);
       };
 
       reportToMain(activeUrl);
