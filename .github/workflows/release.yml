@@ -136,6 +136,12 @@ jobs:
         run: |
           TAG="${{ needs.release_please.outputs.tag_name }}"
           echo "Uploading ${{ matrix.os }} release artifacts to $TAG..."
-          find desktop-app/dist-electron -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.zip" \) -exec gh release upload "$TAG" {} --clobber + || true
+          shopt -s nullglob
+          files=(desktop-app/dist-electron/*.exe desktop-app/dist-electron/*.AppImage desktop-app/dist-electron/*.deb desktop-app/dist-electron/*.zip desktop-app/dist-electron/*.dmg)
+          if [ ${#files[@]} -gt 0 ]; then
+            gh release upload "$TAG" "${files[@]}" --clobber
+          else
+            echo "No matching release binaries found in desktop-app/dist-electron"
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
