@@ -1,6 +1,6 @@
 # Changelog
 
-## [7.5.5](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v7.5.4...v7.5.5) (2026-10-25)
+## [7.5.5](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v7.5.4...v7.5.5) (2026-10-26)
 
 
 ### 🐛 Bug Fixes & Patches
