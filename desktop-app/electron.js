@@ -573,8 +573,8 @@ function startActivityTracker() {
           hour:            startDt.getHours(),
           minute:          startDt.getMinutes(),
         });
-        // Cap memory at 10,000 entries
-        if (activityLog.length > 10000) activityLog.splice(0, activityLog.length - 10000);
+        // Cap memory at 2,000 entries
+        if (activityLog.length > 2000) activityLog.splice(0, activityLog.length - 2000);
       }
 
       currentActivity = { processName, windowTitle, startMs: now };

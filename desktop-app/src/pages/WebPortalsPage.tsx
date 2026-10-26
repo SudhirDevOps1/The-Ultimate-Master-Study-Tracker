@@ -856,19 +856,17 @@ export function WebPortalsPage() {
           <div className="w-full h-full relative bg-slate-950">
             {isElectron ? (
               <div className="w-full h-full relative">
-                {tabs.map(tab => (
+                {activeTab && (
                   <webview
-                    key={tab.id}
-                    ref={(el: any) => { if (el) webviewRefs.current[tab.id] = el; }}
-                    src={tab.url}
-                    className={`w-full h-full border-0 absolute top-0 left-0 ${
-                      activeTabId === tab.id ? "z-10 pointer-events-auto" : "opacity-0 pointer-events-none z-0"
-                    }`}
+                    key={activeTab.id}
+                    ref={(el: any) => { if (el) webviewRefs.current[activeTab.id] = el; }}
+                    src={activeTab.url}
+                    className="w-full h-full border-0 absolute top-0 left-0 z-10 pointer-events-auto"
                     allowpopups={true}
                     partition="persist:browser_session"
                     webpreferences="allowRunningInsecureContent=true, javascript=true"
                   />
-                ))}
+                )}
               </div>
             ) : (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-8 text-center bg-slate-950">

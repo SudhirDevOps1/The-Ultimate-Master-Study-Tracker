@@ -3,7 +3,8 @@ import { format } from "date-fns";
 import { motion } from "framer-motion";
 import { AnalyticsCharts } from "@/components/charts/AnalyticsCharts";
 import { Panel } from "@/components/common/Panel";
-import { AppActivityList } from "@/components/analytics/AppActivityList";
+import { Link } from "react-router-dom";
+import { Monitor } from "lucide-react";
 import { SubjectRanking } from "@/components/dashboard/SubjectRanking";
 import { DownloadModal } from "@/components/analytics/DownloadModal";
 import { StudyReportModal } from "@/components/analytics/StudyReportModal";
@@ -513,8 +514,24 @@ export function AnalyticsPage() {
         </div>
       </Panel>
 
-      {/* App & Browser Active Windows Tracking Breakdown */}
-      <AppActivityList />
+      {/* Quick link to App Tracking Suite */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-slate-900/90 to-indigo-950/40 border border-white/10 shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
+            <Monitor className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-white">Looking for Real-Time App & Browser Tracking?</h4>
+            <p className="text-xs text-slate-400">View detailed 24h Gantt timelines, domain categorizations, and distraction heatmaps in the dedicated App Tracking suite.</p>
+          </div>
+        </div>
+        <Link
+          to="/app-tracking"
+          className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold transition-all shadow-md shrink-0"
+        >
+          Open App Tracking →
+        </Link>
+      </div>
 
       {/* Download Modal */}
       <DownloadModal

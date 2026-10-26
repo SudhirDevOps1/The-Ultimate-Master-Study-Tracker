@@ -4,52 +4,9 @@ import { BookOpen, FileText, Maximize2, Minimize2, Play, Pause, VolumeX, Eye, Im
 import * as pdfjsLib from "pdfjs-dist";
 import { createWorker } from "tesseract.js";
 import html2canvas from "html2canvas";
+import { type StickyNote, NOTE_BACKGROUNDS, NOTE_TEXT_COLORS, NOTE_FONTS } from "@/types/notes";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version || "3.11.174"}/build/pdf.worker.min.js`;
-
-interface StickyNote {
-  id: string;
-  text: string;
-  color: string;      // Background Color Class
-  textColor: string;  // Custom Text Color Class
-  font: string;       // Custom Font Class
-  date: string;
-  time: string;
-  subject: string;
-  isBold?: boolean;
-  isHighlighted?: boolean;
-}
-
-const NOTE_BACKGROUNDS = [
-  { name: "Yellow", class: "bg-yellow-500/15 border-yellow-400/35" },
-  { name: "Emerald", class: "bg-emerald-500/15 border-emerald-400/35" },
-  { name: "Cyan", class: "bg-cyan-500/15 border-cyan-400/35" },
-  { name: "Purple", class: "bg-purple-500/15 border-purple-400/35" },
-  { name: "Pink", class: "bg-pink-500/15 border-pink-400/35" },
-  { name: "Rose", class: "bg-rose-500/15 border-rose-400/35" },
-  { name: "Dark Slate", class: "bg-slate-900/60 border-slate-700/60" }
-];
-
-const NOTE_TEXT_COLORS = [
-  { name: "Amber/Gold", class: "text-amber-200" },
-  { name: "Mint Green", class: "text-emerald-200" },
-  { name: "Aqua Cyan", class: "text-cyan-200" },
-  { name: "Lavender", class: "text-purple-200" },
-  { name: "Hot Pink", class: "text-pink-200" },
-  { name: "Pure White", class: "text-white" },
-  { name: "Cool Gray", class: "text-slate-300" }
-];
-
-// Rich Google Fonts for English and Hindi support
-const NOTE_FONTS = [
-  { name: "System Sans", class: "font-sans" },
-  { name: "Classic Serif", class: "font-serif" },
-  { name: "Developer Mono", class: "font-mono" },
-  { name: "Rozha One (Hindi Stylised)", class: "font-[RozhaOne,serif]" },
-  { name: "Poppins (Hindi Modern)", class: "font-[Poppins,sans-serif]" },
-  { name: "Kurale (Hindi Classic)", class: "font-[Kurale,serif]" },
-  { name: "Yatra One (Hindi Retro)", class: "font-[YatraOne,cursive]" }
-];
 
 export function PDFStudyReader() {
   const [fileUrl, setFileUrl] = useState<string | null>(null);
