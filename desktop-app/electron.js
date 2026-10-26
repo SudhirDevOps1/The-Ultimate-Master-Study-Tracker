@@ -617,28 +617,37 @@ function startActivityTracker() {
   setInterval(saveLogToFile, 30_000);
 }
 
-// ─── App Icon Helper ──────────────────────────────────────────────────────────
+// ─── App Icon Helper (Multi-Path Fallback for Dev & Packaged ASAR) ───────────
+function resolveIconPath(rel) {
+  const candidates = [
+    path.join(__dirname, rel),
+    path.join(process.resourcesPath, rel),
+    path.join(app.getAppPath(), rel),
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  return null;
+}
+
 function getAppIcon() {
-  const primaryPath = path.join(__dirname, "public", "images", "flowtrack-logo.png");
-  const fallbackPath = path.join(__dirname, "public", "icon.png");
-  if (fs.existsSync(primaryPath)) {
-    return nativeImage.createFromPath(primaryPath);
-  }
-  if (fs.existsSync(fallbackPath)) {
-    return nativeImage.createFromPath(fallbackPath);
-  }
-  return nativeImage.createEmpty();
+  const p = resolveIconPath(path.join("public", "images", "flowtrack-logo.png")) ||
+            resolveIconPath(path.join("public", "icon.png")) ||
+            resolveIconPath(path.join("public", "favicon.png"));
+  return p ? nativeImage.createFromPath(p) : nativeImage.createEmpty();
 }
 
 // ─── Tray ─────────────────────────────────────────────────────────────────────
 function createTray() {
   let icon;
   try {
-    const primaryPath = path.join(__dirname, "public", "images", "flowtrack-logo.png");
-    if (fs.existsSync(primaryPath)) {
-      icon = nativeImage.createFromPath(primaryPath).resize({ width: 24, height: 24 });
+    const iconPath = resolveIconPath(path.join("public", "images", "flowtrack-logo.png")) ||
+                     resolveIconPath(path.join("public", "icon.png")) ||
+                     resolveIconPath(path.join("public", "favicon.png"));
+    if (iconPath) {
+      icon = nativeImage.createFromPath(iconPath).resize({ width: 24, height: 24 });
     } else {
-      icon = nativeImage.createFromPath(path.join(__dirname, "public", "favicon.png")).resize({ width: 24, height: 24 });
+      icon = nativeImage.createEmpty();
     }
   } catch { icon = nativeImage.createEmpty(); }
 
