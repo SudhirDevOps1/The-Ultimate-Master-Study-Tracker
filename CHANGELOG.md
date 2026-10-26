@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.6.0](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v7.5.6...v7.6.0) (2026-10-26)
+
+
+### ✨ Features & Enhancements
+
+* **ci:** build and publish all OS binaries (Windows exe, Linux AppImage/deb, macOS zip) on every release ([4ec8412](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/4ec8412fa8265d4ca26f3d49fb04fd48190ae329))
+
 ## [7.5.6](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v7.5.5...v7.5.6) (2026-10-26)
 
 
