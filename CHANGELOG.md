@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v0.2.0...v0.2.1) (2026-10-26)
+
+
+### 🐛 Bug Fixes & Patches
+
+* **webportals:** prevent chat widget iframe hijacking and auto-decode referrer portals ([d8b8182](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/d8b8182a18b3095b019109d0613c4d4ca069c236))
+* **webportals:** prevent widget redirection and hide floating guide in browser viewport ([c046430](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/c046430ec8bacf6974930ae27215ea4e948d4f8a))
+
 ## [0.2.0](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v0.1.1...v0.2.0) (2026-10-26)
 
 

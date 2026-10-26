@@ -1,7 +1,7 @@
 {
   "name": "flowtrack-workspace",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "scripts": {
     "build": "cd web-app && npm install --legacy-peer-deps && npm run build",
     "dev": "cd web-app && npm run dev",
