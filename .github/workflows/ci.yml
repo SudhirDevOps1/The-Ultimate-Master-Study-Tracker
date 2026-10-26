@@ -62,6 +62,12 @@ jobs:
         cd desktop-app
         npm run lint
 
+    - name: Run Python Backend Syntax & Lint Check
+      run: |
+        python3 -m py_compile web-app/backend.py
+        pip install ruff --quiet
+        ruff check web-app/backend.py --exit-zero
+
     - name: Run Automated Unit Tests
       run: |
         cd desktop-app
