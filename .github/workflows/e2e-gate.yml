@@ -17,16 +17,16 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
-permissions:
-  contents: read
-  pull-requests: write
-  security-events: write
+permissions: read-all
 
 jobs:
   pr-security-and-build:
     name: PR DAST Scan & Bundle Audit
     if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      security-events: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

@@ -49,15 +49,15 @@ echo ""
 source venv/bin/activate
 
 echo "[2/4] Upgrading pip, setuptools..."
-pip install --upgrade pip setuptools wheel > /dev/null 2>&1
+pip install --upgrade pip==25.0 setuptools==75.8.0 wheel==0.45.1 > /dev/null 2>&1
 
 echo "[3/4] Installing Python dependencies..."
-pip install psutil
+pip install psutil==6.1.1
 
 # Platform-specific setup
 if [[ "$OSTYPE" == "darwin"* ]]; then
     echo "[3.5/4] macOS: Installing optional dependencies..."
-    pip install pyobjc > /dev/null 2>&1 || echo "[INFO] pyobjc optional (native osascript will be used)"
+    pip install pyobjc==10.2 > /dev/null 2>&1 || echo "[INFO] pyobjc optional (native osascript will be used)"
 else
     # Linux
     echo "[3.5/4] Linux: Checking for system dependencies..."
@@ -75,7 +75,7 @@ if ! command -v node &> /dev/null; then
 else
     node --version
     echo "[4/4] Installing Node.js dependencies..."
-    npm install
+    npm install --legacy-peer-deps
 fi
 
 echo ""
