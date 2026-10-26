@@ -150,35 +150,3 @@ jobs:
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  enrich_release_notes:
-    name: 👥 Add Contributor Wall to Release
-    needs: [release_please, build_desktop_artifacts]
-    if: ${{ always() && (needs.release_please.outputs.release_created == 'true' || needs.release_please.outputs.release_created == true) }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Append Contributor Recognition
-        shell: bash
-        run: |
-          TAG="${{ needs.release_please.outputs.tag_name }}"
-          echo "Appending contributor recognition to release $TAG..."
-          CURRENT_NOTES=$(gh release view "$TAG" --json body -q .body)
-          if [[ "$CURRENT_NOTES" != *"Contributors & Release Recognition"* ]]; then
-            CONTRIBUTORS_WALL="
-
----
-
-### 👥 Contributors & Release Recognition
-Heartfelt thanks to everyone contributing code, reviews, and bug reports to make FlowTrack Pro the ultimate study workstation!
-
-<p align=\"left\">
-  <a href=\"https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/graphs/contributors\">
-    <img src=\"https://contrib.rocks/image?repo=SudhirDevOps1/The-Ultimate-Master-Study-Tracker\" alt=\"Contributors Avatar Wall\" />
-  </a>
-</p>
-"
-            gh release edit "$TAG" --notes "$CURRENT_NOTES$CONTRIBUTORS_WALL"
-            echo "Release notes enriched with Contributor Wall successfully!"
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
