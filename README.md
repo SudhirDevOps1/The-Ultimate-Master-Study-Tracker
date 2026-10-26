@@ -25,6 +25,28 @@
   </a>
 </p>
 
+<!-- DevSecOps & Quality Badges -->
+<p align="center">
+  <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/actions/workflows/ci.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/ci.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=CI%20Gate" alt="CI Gate" />
+  </a>
+  <a href="https://codecov.io/gh/SudhirDevOps1/The-Ultimate-Master-Study-Tracker">
+    <img src="https://img.shields.io/codecov/c/github/SudhirDevOps1/The-Ultimate-Master-Study-Tracker?style=flat-square&logo=codecov&logoColor=white&label=Coverage" alt="Codecov Coverage" />
+  </a>
+  <a href="https://securityscorecards.dev/viewer/?uri=github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker">
+    <img src="https://api.securityscorecards.dev/projects/github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/badge" alt="OpenSSF Scorecard" />
+  </a>
+  <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/actions/workflows/codeql.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/codeql.yml?branch=main&style=flat-square&logo=github&label=CodeQL%20Security" alt="CodeQL" />
+  </a>
+  <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/actions/workflows/gitleaks.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/gitleaks.yml?branch=main&style=flat-square&logo=git&label=Gitleaks%20Scan" alt="Gitleaks" />
+  </a>
+  <a href="https://coderabbit.ai">
+    <img src="https://img.shields.io/badge/AI%20Code%20Review-CodeRabbit-ff5c00?style=flat-square&logo=coderabbit&logoColor=white" alt="CodeRabbit AI" />
+  </a>
+</p>
+
 <p align="center">
   <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/stargazers">
     <img src="https://img.shields.io/github/stars/SudhirDevOps1/The-Ultimate-Master-Study-Tracker?style=flat-square&logo=starship&color=f1c40f" alt="GitHub Stars" />
