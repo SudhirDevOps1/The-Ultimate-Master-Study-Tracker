@@ -21,7 +21,8 @@ interface PortalSite {
 
 const DEFAULT_PORTALS: PortalSite[] = [
   // Course Portals
-  { id: "apna-college",   name: "Apna College",     url: "https://www.apnacollege.in",       icon: "🎓", color: "#6366f1", category: "Course Portal", tag: "Sigma Batch" },
+  { id: "apna-college",         name: "Apna College",            url: "https://www.apnacollege.in",         icon: "🎓", color: "#6366f1", category: "Course Portal", tag: "Main Home" },
+  { id: "apna-college-courses", name: "Apna College My Courses", url: "https://www.apnacollege.in/courses", icon: "🔑", color: "#4f46e5", category: "Course Portal", tag: "Lectures & Login" },
   { id: "pw",             name: "Physics Wallah",    url: "https://www.pw.live",              icon: "⚡", color: "#f59e0b", category: "Course Portal", tag: "Lectures" },
   { id: "coursera",       name: "Coursera",          url: "https://www.coursera.org",         icon: "🏫", color: "#0ea5e9", category: "Course Portal" },
   { id: "udemy",          name: "Udemy",             url: "https://www.udemy.com",            icon: "🎯", color: "#a855f7", category: "Course Portal" },
@@ -257,7 +258,17 @@ export function WebPortalsPage() {
       };
 
       const onNavigate = (e: any) => {
-        const url = e.url || activeUrl || "";
+        let url = e.url || activeUrl || "";
+        // If third-party chat widget redirected the page, restore original portal
+        if (url.includes("freshchat.com/widget")) {
+          const normalized = smartNormalizeUrl(url);
+          if (normalized !== url && !normalized.includes("freshchat.com")) {
+            url = normalized;
+            wv.loadURL?.(url);
+            return;
+          }
+          return;
+        }
         reportToMain(url);
         setInputUrl(url);
         setTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, url } : t));

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   HelpCircle, X, Send, Mail, User, MessageSquare, ShieldCheck, CheckCircle2, 
@@ -83,6 +84,7 @@ const QUICK_TIPS = [
 ];
 
 export function AppGuide() {
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"guide" | "contact">("guide");
   const [status, setStatus] = useState<"" | "submitting" | "success" | "failed">("");
@@ -116,6 +118,8 @@ export function AppGuide() {
     }
     window.open(url, "_blank", "noopener,noreferrer");
   };
+
+  if (location.pathname === "/web-portals") return null;
 
   return (
     <>
