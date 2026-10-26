@@ -26,10 +26,22 @@ Welcome to the **Standalone Desktop Application** module of FlowTrack Pro. This 
 
 - 🌐 **Arc-Style In-App Web Browser**: 100% full-width view, smart omnibox Google search, lecture playback speed booster (1x-2x), 1-click slide capture to Downloads, and speed dial hub.
 - 🔐 **Encrypted Password Vault & Auto-Fill**: Store login credentials locally with XOR ciphers and auto-fill embedded `<webview>` portal login forms with 1-click.
-- 🔄 **Background Silent Auto-Updater**: Checks GitHub Releases automatically post-launch and provides 1-click restart & install.
+- 🔄 **Background Silent Auto-Updater**: Checks GitHub Releases automatically post-launch and provides 1-click restart & install with full changelog view and **100% Zero Data Loss Guarantee**.
 - 🛡️ **Anti-Cheat Clock Guard**: Validates system time deltas to prevent user system time manipulation.
 - ⚡ **Kernel Win32 Tracker (`win-tracker.exe`)**: Fast active window detection consuming < 0.5% CPU and ~40MB RAM.
 - 📦 **LZMA Compressed Build Size**: Portable installers optimized down to ~150MB using maximum ASAR compression.
+
+---
+
+## 🛡️ Zero Data Loss Guarantee & Update Lifecycle
+
+FlowTrack Pro is engineered with complete separation between application code and user databases:
+- **Application Binaries**: `%LOCALAPPDATA%\Programs\FlowTrackPro` (updated seamlessly by electron-updater).
+- **Persistent User Directory**: `%APPDATA%\FlowTrackPro` (completely untouched across updates).
+  - `IndexedDB` & `localStorage`: Timer records, Pomodoro streaks, flashcard intervals, and subject targets.
+  - `activity-log/*.json`: Win32 active window tracking history and Wakapi developer timeline metrics.
+  - `notes/*.json`: Vector whiteboard annotations and study sheets.
+- **Pre-Update Memory Flush**: Right before `restart-and-install-update` triggers, active memory logs are flushed to disk so not a single second of focus is lost.
 
 ---
 

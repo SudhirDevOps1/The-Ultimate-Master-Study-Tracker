@@ -81,7 +81,7 @@ jobs:
   build-desktop-releases:
     name: Build Desktop Apps (${{ matrix.os }})
     needs: fast-quality-gate
-    if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
+    if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker' && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
     runs-on: ${{ matrix.os }}
     strategy:
       max-parallel: 1

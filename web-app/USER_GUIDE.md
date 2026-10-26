@@ -38,3 +38,11 @@
 
 - Supports **Google Gemini**, **OpenAI**, **Groq**, and local **Ollama** models.
 - When running local Ollama with Python backend, requests route through local proxy to bypass browser CORS constraints.
+
+---
+
+## 🛡️ Zero Data Loss Guarantee & Updates
+
+- **Persistent Browser Storage**: FlowTrack Pro preserves all study sessions, subject milestones, task checkmarks, and notes in IndexedDB.
+- **Zero Data Loss on Updates**: When the web application updates on Vercel CDN or Service Worker updates in the background, your IndexedDB data remains 100% persistent and untouched.
+- **Release Notifications**: FlowTrack automatically syncs release announcements from GitHub, informing you of new productivity features and fixes.

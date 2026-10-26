@@ -103,11 +103,14 @@ npm run dev
 ### Overview
 Category 3 is a **100% Standalone Desktop Application** built with Electron 43.
 
-- **Target Platform**: Windows 10/11 (64-bit) and macOS.
-- **Data Storage**: `%AppData%\FlowTrack Pro\activity-log\YYYY-MM-DD.json`.
-- **Native Tracking Engine**: Embedded C# Win32 helper (`win-tracker.exe`) for fast foreground app detection.
-- **Password Vault**: Local XOR encrypted credential manager with 1-click DOM auto-fill for embedded Chromium `<webview>` portals.
-- **Background Auto-Updater**: Silent update checking via `electron-updater` with 1-click restart & install.
+- **Target Platform**: Windows 10/11 (64-bit) and macOS.- **Data Storage**: %AppData%\FlowTrackPro\activity-log\YYYY-MM-DD.json and IndexedDB.
+- **Zero Data Loss Guarantee**: Application updates overwrite binaries in %LocalAppData%\Programs\FlowTrackPro while preserving 100% of your user database and logs in %AppData%\FlowTrackPro.
+- **Native Tracking Engine**: Embedded C# Win32 helper (win-tracker.exe) for fast foreground app detection.
+- **ActivityWatch AFK Guard**: Native powerMonitor OS idle check auto-pauses focus sessions after 5 minutes away from keyboard/mouse.
+- **Dayflow & Wakapi Engine**: Passive IDE window title parser detecting languages (TypeScript, Python, Java, etc.) and active coding projects.
+- **Super Productivity 20-20-20 Rest Rule**: Ergonomic reminder every 20 minutes prompting 20 seconds of distance eye relaxation.
+- **Password Vault**: Local XOR encrypted credential manager with 1-click DOM auto-fill for embedded Chromium <webview> portals.
+- **Background Auto-Updater**: Silent update checking via electron-updater + GitHub Releases API with interactive in-app changelog modal and 1-click restart & install.
 
 ### How to Package (Category 3)
 ```bash

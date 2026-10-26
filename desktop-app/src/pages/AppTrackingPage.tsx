@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Monitor, Calendar, ShieldAlert, RefreshCw,
   Activity, Download, ChevronLeft, ChevronRight, Eye, Zap, TrendingUp, Globe,
-  Upload, PackageOpen, Trash2
+  Upload, PackageOpen, Trash2, Code2, FolderGit2
 } from "lucide-react";
 import { Panel } from "@/components/common/Panel";
 import { useAppStore } from "@/store/useAppStore";
@@ -90,6 +90,33 @@ function classifyApp(app: string, title: string = ""): string {
   if (SOCIAL.some(k  => n.includes(k))) return "social";
   if (ENTERT.some(k  => n.includes(k))) return "entertainment";
   return "system";
+}
+
+function extractDevMetadata(appName: string, title: string = ""): { isDev: boolean; language?: string; project?: string } {
+  const n = (appName || "").toLowerCase();
+  const t = (title || "");
+  const isIde = ["vs code", "vscode", "code", "cursor", "intellij", "pycharm", "webstorm", "clion", "goland", "sublime", "neovim", "vim", "vscodium"].some(k => n.includes(k));
+  if (!isIde) return { isDev: false };
+
+  let language: string | undefined;
+  if (/\.tsx?/i.test(t)) language = "TypeScript";
+  else if (/\.jsx?/i.test(t)) language = "JavaScript";
+  else if (/\.py/i.test(t)) language = "Python";
+  else if (/\.java/i.test(t)) language = "Java";
+  else if (/\.rs/i.test(t)) language = "Rust";
+  else if (/\.go/i.test(t)) language = "Go";
+  else if (/\.(c|cpp|h|hpp)/i.test(t)) language = "C/C++";
+  else if (/\.(html|css|scss)/i.test(t)) language = "Web Frontend";
+  else if (/\.md/i.test(t)) language = "Documentation";
+  else if (/\.json/i.test(t)) language = "Configuration";
+
+  let project: string | undefined;
+  const parts = t.split(" - ");
+  if (parts.length >= 2) {
+    project = parts[parts.length - 2]?.trim();
+  }
+
+  return { isDev: true, language, project };
 }
 
 function extractWebDomain(title: string, appName: string, rawProcess?: string): { domain: string; cleanTitle: string } | null {
@@ -368,7 +395,7 @@ export function AppTrackingPage() {
   const [liveApp, setLiveApp]           = useState<{ process: string; title: string } | null>(null);
   const [liveIdleMs, setLiveIdleMs]     = useState(0);
   const [loading, setLoading]           = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview"|"timeline"|"websites"|"windows">("overview");
+  const [activeTab, setActiveTab] = useState<"overview"|"timeline"|"websites"|"developer"|"windows">("overview");
   const [exportStatus, setExportStatus] = useState<"idle"|"exporting"|"importing">("idle");
   const [weeklyOverview, setWeeklyOverview] = useState<{ date: string; seconds: number }[]>([]);
   const [periodTotals, setPeriodTotals] = useState<{ today: number; week: number; month: number; allTime: number }>({
@@ -571,6 +598,27 @@ export function AppTrackingPage() {
       m[cat] = (m[cat] ?? 0) + e.durationSeconds;
     }
     return Object.entries(m).sort((a, b) => b[1] - a[1]);
+  }, [dailyLog]);
+
+  // ── Developer Coding & Language Aggregations (Wakapi / Dayflow Inspired) ─
+  const devSummaries = useMemo(() => {
+    const langMap = new Map<string, number>();
+    const projMap = new Map<string, number>();
+    for (const e of dailyLog) {
+      const dev = extractDevMetadata(e.appName, e.title);
+      if (dev.isDev) {
+        if (dev.language) {
+          langMap.set(dev.language, (langMap.get(dev.language) || 0) + e.durationSeconds);
+        }
+        if (dev.project) {
+          projMap.set(dev.project, (projMap.get(dev.project) || 0) + e.durationSeconds);
+        }
+      }
+    }
+    return {
+      languages: [...langMap.entries()].sort((a, b) => b[1] - a[1]),
+      projects: [...projMap.entries()].sort((a, b) => b[1] - a[1]),
+    };
   }, [dailyLog]);
 
   // ── Date navigation ────────────────────────────────────────────────────
@@ -966,10 +1014,10 @@ export function AppTrackingPage() {
 
             {/* ── Tabs ── */}
             <div className="flex gap-1 bg-slate-900/60 border border-white/10 rounded-2xl p-1 w-fit">
-              {(["overview","timeline","websites","windows"] as const).map(tab => (
+              {(["overview","timeline","websites","developer","windows"] as const).map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)}
                   className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all ${activeTab === tab ? "bg-white/10 text-white shadow-sm" : "text-slate-500 hover:text-slate-300"}`}>
-                  {tab === "overview" ? "📊 Overview" : tab === "timeline" ? "📈 Timeline" : tab === "websites" ? "🌐 Web Sites & Tabs" : "🪟 Windows"}
+                  {tab === "overview" ? "📊 Overview" : tab === "timeline" ? "📈 Timeline" : tab === "websites" ? "🌐 Web Sites & Tabs" : tab === "developer" ? "⚡ Code & Projects" : "🪟 Windows"}
                 </button>
               ))}
             </div>
@@ -1122,6 +1170,78 @@ export function AppTrackingPage() {
                   )}
                 </div>
               </Panel>
+            )}
+
+            {activeTab === "developer" && (
+              <div className="grid gap-5 md:grid-cols-2">
+                <Panel className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <Code2 className="w-4 h-4 text-cyan-400" /> Programming Languages
+                    </h3>
+                    <span className="text-[10px] text-slate-500 font-mono">Wakapi Engine</span>
+                  </div>
+                  {devSummaries.languages.length === 0 ? (
+                    <div className="py-12 text-center text-slate-500 text-xs">
+                      No active coding sessions detected. Open VS Code, Cursor, or your favorite IDE to track languages.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {devSummaries.languages.map(([lang, secs]) => {
+                        const totalDevSecs = devSummaries.languages.reduce((acc, [, s]) => acc + s, 0);
+                        const pct = totalDevSecs > 0 ? (secs / totalDevSecs) * 100 : 0;
+                        return (
+                          <div key={lang} className="space-y-1">
+                            <div className="flex justify-between text-xs font-semibold">
+                              <span className="text-white flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                                {lang}
+                              </span>
+                              <span className="text-slate-400 font-mono">{fmt(secs)} ({Math.round(pct)}%)</span>
+                            </div>
+                            <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                              <div className="h-full bg-gradient-to-r from-cyan-400 to-indigo-500 rounded-full" style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </Panel>
+
+                <Panel className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <FolderGit2 className="w-4 h-4 text-indigo-400" /> Coding Projects & Workspaces
+                    </h3>
+                    <span className="text-[10px] text-slate-500 font-mono">Dayflow Engine</span>
+                  </div>
+                  {devSummaries.projects.length === 0 ? (
+                    <div className="py-12 text-center text-slate-500 text-xs">
+                      No project workspaces detected yet. Work in any project folder to see time per repository.
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-[360px] overflow-y-auto pretty-scrollbar pr-1">
+                      {devSummaries.projects.map(([proj, secs]) => (
+                        <div key={proj} className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-indigo-500/30 transition-all">
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <div className="w-8 h-8 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0 font-bold text-xs">
+                              PRJ
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-bold text-white truncate">{proj}</p>
+                              <p className="text-[10px] text-slate-500">Active Workspace</p>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-xs font-bold text-indigo-300 font-mono">{fmt(secs)}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Panel>
+              </div>
             )}
 
             {activeTab === "windows" && (

@@ -63,6 +63,15 @@ export function VideoRestBreak() {
     ) {
       lastTriggeredSecondRef.current = elapsedSeconds;
       void triggerBreak();
+    // Super Productivity 20-20-20 Ergonomic Eye Rule (Every 20 minutes)
+    if (elapsedSeconds > 0 && elapsedSeconds % (20 * 60) === 0 && !showOverlay) {
+      if ("Notification" in window && Notification.permission === "granted") {
+        sendNotification("👀 20-20-20 Eye Care Break", {
+          body: "Look away from the screen at an object 20 feet away for 20 seconds to relax your optic nerves!",
+          tag: "eye-care"
+        });
+      }
+    }
     }
   }, [elapsedSeconds, activeSession, schedule.enabled, schedule.intervalMinutes, showOverlay]);
 

@@ -31,7 +31,7 @@
     <img src="https://img.shields.io/github/actions/workflow/status/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/ci.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=CI%20Gate" alt="CI Gate" />
   </a>
   <a href="https://codecov.io/gh/SudhirDevOps1/The-Ultimate-Master-Study-Tracker">
-    <img src="https://img.shields.io/codecov/c/github/SudhirDevOps1/The-Ultimate-Master-Study-Tracker?style=flat-square&logo=codecov&logoColor=white&label=Coverage" alt="Codecov Coverage" />
+    <img src="https://codecov.io/gh/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/branch/main/graph/badge.svg" alt="Codecov Coverage" />
   </a>
   <a href="https://securityscorecards.dev/viewer/?uri=github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker">
     <img src="https://api.securityscorecards.dev/projects/github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/badge" alt="OpenSSF Scorecard" />
@@ -86,10 +86,65 @@
 
 > [!NOTE]
 > **100% Free & Open-Source Community Suite**: FlowTrack Pro is completely free under the permissive MIT license. Architecturally inspired by proven open-source developer tools:
-> - **ActivityWatch** — Automated local-first window tracking and AFK idle detection with zero remote server logging.
-> - **Super Productivity** — Task timeboxing, break reminder synthesizers, and developer focus techniques.
-> - **Anki / SuperMemo SM-2** — Spaced repetition memory algorithms for programming syntax, interview problems & concepts.
-> - **Dayflow & Wakapi** — Passive screen categorization between deep study, coding, and browsing.
+> - **ActivityWatch** — Automated local-first window tracking and OS-level AFK idle detection with zero remote server logging.
+> - **Super Productivity** — Ergonomic 20-20-20 eye-care synthesizer, task timeboxing, and developer focus techniques.
+> - **Anki / SuperMemo SM-2** — Spaced repetition memory algorithm ($I_n = I_{n-1} \times EF$) for programming syntax, interview problems & concepts.
+> - **Dayflow & Wakapi** — Passive screen and IDE project categorization between deep study, coding, and browsing.
+
+---
+
+## 🛡️ Enterprise Auto-Updater & Zero Data Loss Architecture
+
+FlowTrack Pro features an enterprise-grade automated update pipeline engineered to deliver seamless upgrades while guaranteeing **100% zero data loss**:
+
+```
+┌────────────────────────────────────────────────────────┐
+│               GitHub Release Published (v0.2.0)        │
+└──────────────────────────┬─────────────────────────────┘
+                           │
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│       Electron Background Auto-Updater Service         │
+│     (Checks every launch & 6h via GitHub API)          │
+└──────────────────────────┬─────────────────────────────┘
+                           │
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│     In-App Floating Pill & Interactive Modal           │
+│   • Version delta (Current v0.1.1 ➔ Target v0.2.0)     │
+│   • Live Changelog, Features & Bug Fixes View          │
+│   • 1-Click "Restart & Install Update" or Snooze       │
+└──────────────────────────┬─────────────────────────────┘
+                           │
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│          100% ZERO DATA LOSS GUARANTEE                 │
+│   • Pre-update memory flush hook: saveLogToFile()      │
+│   • Binaries updated in: %LOCALAPPDATA%/Programs/...   │
+│   • All user databases, IndexedDB, study notes, and    │
+│     activity history in %APPDATA%/FlowTrackPro are     │
+│     completely untouched, safe, and persistent!        │
+└────────────────────────────────────────────────────────┘
+```
+
+### 💎 Key Update Capabilities:
+1. **Silent Background Check & Download**: Verifies new releases from GitHub Releases API without blocking your focus.
+2. **Interactive Changelog Reviewer**: Read what is new, bug fixes, and performance improvements before applying the update.
+3. **Pre-Update Memory Flush**: Automatically writes any ongoing study session and window tracking buffer to disk before restarting.
+4. **Permanent Data Preservation**: All session streaks, Pomodoro timers, subject goals, flashcard ease factors, and custom settings remain 100% intact across every version update.
+
+---
+
+## 🏆 Open-Source Architecture Benchmarks
+
+| Feature Component | Inspired By | FlowTrack Pro Enterprise Implementation |
+|:---|:---|:---|
+| **Local-First Window Tracking** | **ActivityWatch** | Native Win32 tracker (`win-tracker.exe`) with sub-millisecond polling and zero cloud telemetry. |
+| **AFK Idle Guard** | **ActivityWatch** | True OS-level mouse and keyboard inactivity detection via `powerMonitor`. Auto-pauses study timer after 5 minutes AFK. |
+| **20-20-20 Eye Care Synthesizer** | **Super Productivity** | Automated 20-minute ergonomic rest prompts (look 20 feet away for 20 seconds) to prevent digital fatigue. |
+| **Video Break Sanctuary** | **Super Productivity** | Immersive scheduled video rest breaks with volume controls and focus cooldown timers. |
+| **Spaced Repetition Flashcards** | **Anki / SuperMemo SM-2** | Full SM-2 algorithmic scheduling with Ease Factors ($EF \ge 1.3$), review intervals, and streak retention. |
+| **Language & Project Parsing** | **Dayflow & Wakapi** | Automatic IDE window inspection detecting projects and code languages (TypeScript, Python, Java, Rust, C++). |
 
 ---
 
@@ -230,8 +285,8 @@ Want to contribute? Read our [Contributing Guidelines](CONTRIBUTING.md) and [Cod
     <img src="https://img.shields.io/badge/LinkedIn-Sudhir_DevOps-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white" alt="LinkedIn" />
   </a>
   &nbsp;
-  <a href="mailto:sudhirdevops1@gmail.com" target="_blank">
-    <img src="https://img.shields.io/badge/Email-sudhirdevops1@gmail.com-EA4335?style=for-the-badge&logo=gmail&logoColor=white" alt="Email" />
+  <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/discussions" target="_blank">
+    <img src="https://img.shields.io/badge/GitHub-Discussions-10B981?style=for-the-badge&logo=github&logoColor=white" alt="Discussions" />
   </a>
 </p>
 

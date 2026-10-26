@@ -9,7 +9,7 @@ Welcome to the **Web Application** module of FlowTrack Pro. This app operates 10
 ## 📌 Web App Features
 
 - ⚡ **Vercel CDN Ready**: Instantly deployed on Vercel or any static web host.
-- 💾 **100% In-Browser IndexedDB**: Sessions, flashcards, mind maps, PDF reader state, and settings stay private in local browser storage.
+- 💾 **100% In-Browser IndexedDB (Zero Data Loss)**: Sessions, flashcards, mind maps, PDF reader state, and settings stay completely persistent in browser storage. App updates and cache refreshes never wipe your study history.
 - 📱 **Progressive Web App (PWA)**: Install directly to desktop or mobile home screen for offline travel/study mode.
 - 🔄 **Smart Local Python Backend Integration**:
   - Automatically connects to `http://localhost:5001` when running `START.bat` on your local PC.

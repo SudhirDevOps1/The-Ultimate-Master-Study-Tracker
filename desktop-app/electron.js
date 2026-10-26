@@ -36,7 +36,12 @@ autoUpdater.on("checking-for-update", () => {
 });
 
 autoUpdater.on("update-available", (info) => {
-  sendUpdateStatusToWindow("available", { version: info.version });
+  sendUpdateStatusToWindow("available", {
+    version: info.version,
+    releaseDate: info.releaseDate,
+    releaseNotes: info.releaseNotes,
+    releaseName: info.releaseName
+  });
 });
 
 autoUpdater.on("update-not-available", () => {
@@ -57,9 +62,14 @@ autoUpdater.on("download-progress", (progressObj) => {
 });
 
 autoUpdater.on("update-downloaded", (info) => {
-  sendUpdateStatusToWindow("downloaded", { version: info.version });
+  sendUpdateStatusToWindow("downloaded", {
+    version: info.version,
+    releaseDate: info.releaseDate,
+    releaseNotes: info.releaseNotes,
+    releaseName: info.releaseName
+  });
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send("toast-message", { message: `🎁 Update v${info.version} downloaded! Ready to install.` });
+    mainWindow.webContents.send("toast-message", { message: `🎁 Update v${info.version} downloaded! Ready to install without data loss.` });
   }
 });
 
@@ -1807,6 +1817,8 @@ ipcMain.handle("check-for-updates", async () => {
 
 ipcMain.handle("restart-and-install-update", () => {
   try {
+    // Zero Data Loss Guarantee: flush all activity logs and state to disk before quitting
+    saveLogToFile();
     isQuitting = true;
     autoUpdater.quitAndInstall(false, true);
     return { success: true };

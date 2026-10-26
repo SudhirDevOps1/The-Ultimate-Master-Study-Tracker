@@ -68,6 +68,30 @@ export function useTimer() {
         }
       }
 
+      // ActivityWatch-Style AFK Idle Guard (OS-level mouse/keyboard idle detection)
+      if (
+        typeof window !== "undefined" &&
+        Boolean((window as any).electron?.ipcRenderer) &&
+        currentTimer.activeSessionId &&
+        !currentTimer.isPaused
+      ) {
+        (window as any).electron.ipcRenderer
+          .invoke("get-idle-time-ms")
+          .then((idleMs: number) => {
+            // If user has been away from computer for >= 5 minutes (300,000 ms)
+            if (idleMs >= 5 * 60 * 1000) {
+              void state.pauseSession();
+              if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+                sendNotification("FlowTrack - AFK Idle Auto-Pause 💤", {
+                  body: "Timer paused: You were away from your desk for over 5 minutes. Resume whenever you are back to study!",
+                  icon: "/icon-192.png",
+                });
+              }
+            }
+          })
+          .catch(() => {});
+      }
+
       // Study Target Over Notification Check
       if (currentTimer.activeSessionId && !currentTimer.isPaused) {
         const activeSession = state.sessions.find(s => s.id === currentTimer.activeSessionId);

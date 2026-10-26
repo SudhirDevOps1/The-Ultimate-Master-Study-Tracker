@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, lazy, Suspense } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { AppGuide } from "@/components/common/AppGuide";
+import { EnterpriseUpdateModal } from "@/components/common/EnterpriseUpdateModal";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { ToastProvider, ConfirmProvider } from "@/components/common/Toast";
 import { useAppStore, type AppState } from "@/store/useAppStore";
@@ -167,6 +168,7 @@ export function App() {
         <ConfirmProvider>
           <HashRouter>
             <AnimatedRoutes />
+            <EnterpriseUpdateModal />
             <AppGuide />
             <VideoRestBreak />
           </HashRouter>

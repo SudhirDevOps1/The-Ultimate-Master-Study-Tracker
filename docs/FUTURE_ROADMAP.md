@@ -55,6 +55,12 @@ This document outlines the planned future features, upcoming modules, and featur
 
 ## 🖥️ 3. Category 3: Standalone Desktop App (Electron Windows `.exe`)
 
+### ✅ Recently Shipped Enterprise Milestones:
+- 🛡️ **Enterprise Auto-Updater & Zero Data Loss Guarantee**: Silent GitHub release polling, changelog & fixes review modal, and pre-update disk sync hook.
+- 💤 **ActivityWatch AFK Idle Guard**: True OS hardware idle detection auto-pausing focus timer after 5 minutes.
+- ⚡ **Dayflow / Wakapi Engine**: Passive IDE window title parser detecting languages (TypeScript, Python, Java, etc.) and active coding projects.
+- 👀 **Super Productivity 20-20-20 Eye Care Synthesizer**: Automated 20-minute ergonomic rest prompt preventing digital eye fatigue.
+
 ### 🚀 Upcoming Planned Features:
 1. 🪟 **Native Windows Mini-Widget (Always-On-Top Floating Timer)**:
    - Compact desktop widget floating over VS Code, Word, or Zoom with live countdown and XP progression.
