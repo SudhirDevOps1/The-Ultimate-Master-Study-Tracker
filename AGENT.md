@@ -24,6 +24,7 @@ Task Manager reveals multiple Electron helper processes (Main, Renderer, GPU, Ut
 2. **Renderer Optimizations**:
    - Clean up event listeners, timers (`setInterval`), and canvas contexts (Fabric.js) on unmount.
    - Utilize lazy loading (`React.lazy`) for heavy analytical pages and portals.
+   - For Web Portals (`WebPortalsPage`), always maintain 100% full-width viewports and smart omnibox fallback to search engines. Keep portal navigation accessible via slide-over drawers to avoid squeezing browser width.
 
 ---
 

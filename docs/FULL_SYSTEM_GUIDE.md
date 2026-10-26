@@ -150,7 +150,7 @@ npm run electron:build
 3. ⏱️ **Timer (`/timer`)**: Target timer, Pomodoro center, Picture-in-Picture player, and Media Sandbox with auto-pause.
 4. 📖 **Study Workspace (`/study-workspace`)**: PDF document reader, Tesseract WASM OCR text extractor, and text viewer.
 5. 🧠 **Mind Map Whiteboard (`/mind-map`)**: Full Excalidraw infinite canvas drawing board.
-6. 🌐 **Web Portals & Password Vault (`/web-portals`)**: Embedded Chromium browser for course portals + local encrypted credential vault.
+6. 🌐 **Web Portals Browser (`/web-portals`)**: Modern Arc-style Chromium browser with 100% full-width view, smart Google search omnibox, lecture speed multiplier (1x-2x), 1-click slide capture, and speed dial hub.
 7. 📝 **Notes Board (`/notes-board`)**: Kanban sticky notes board with color tags and PNG export.
 8. 🗓️ **Scheduler (`/scheduler`)**: Planned study block calendar and session scheduling.
 9. 🃏 **Flashcards (`/flashcards`)**: SuperMemo SM-2 spaced repetition flashcard decks.

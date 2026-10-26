@@ -78,7 +78,7 @@ Most productivity apps are bloated, require cloud subscriptions, or leak your ac
 ├── 📊 Deep Analytics & Heatmaps (Subject Distribution, Daily Trends, Productivity Scores)
 ├── 📝 Interactive Notes & Whiteboard (Fabric.js Canvas, PDF Annotator, Tesseract.js OCR)
 ├── 🛡️ Distraction Blocker (Hard/Medium/Soft Block Rules for distracting apps & websites)
-├── 🌐 Integrated Web Study Portals (Safe isolated in-app browser with credential auto-fill)
+├── 🌐 Arc-Style In-App Web Browser (100% full-width, lecture speed multiplier, 1-click slide capture, speed dial)
 ├── 🎨 True Pitch-Black OLED Dark Mode (Instant 0ms hydration, high-contrast neon accents)
 └── 📦 Automated Multi-Platform Desktop Releases (.exe, .dmg, .AppImage)
 ```
@@ -89,6 +89,7 @@ Most productivity apps are bloated, require cloud subscriptions, or leak your ac
 | **Active OS Window Tracker** | Background tracking of active applications and websites via native Win32 | ❌ | ✅ |
 | **Whiteboard & OCR** | Freehand vector drawing, PDF loading, and image-to-text extraction | ✅ | ✅ |
 | **Distraction Blocker** | Automatic minimization or termination of blacklisted distracting software | ❌ | ✅ |
+| **In-App Study Browser** | Chromium engine with full-width reading, video speed multiplier, slide capture & credential vault | ❌ | ✅ |
 | **System Tray Support** | Silent background minimization with status notifications | ❌ | ✅ |
 | **Local Storage** | Zero-latency IndexedDB persistence (Dexie.js) | ✅ | ✅ |
 | **Cloud Sync** | Optional multi-device backup and restoration (Firebase / NeonDB) | ✅ | ✅ |

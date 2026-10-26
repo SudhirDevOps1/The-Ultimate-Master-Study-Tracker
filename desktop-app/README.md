@@ -1,6 +1,6 @@
 # 🖥️ FlowTrack Pro — Standalone Desktop App (Electron Edition)
 
-> **Version**: `v0.0.1` | **Platform**: Windows 10/11 (64-bit) & macOS | **License**: MIT
+> **Version**: `v0.1.2` | **Platform**: Windows 10/11 (64-bit) & macOS | **License**: MIT
 
 Welcome to the **Standalone Desktop Application** module of FlowTrack Pro. This edition is packaged with Electron 43, embedded C# Win32 active window tracking (`win-tracker.exe`), local Encrypted Password Vault with Chromium DOM Auto-Fill, and silent background auto-updates (`electron-updater`).
 
@@ -14,8 +14,9 @@ Welcome to the **Standalone Desktop Application** module of FlowTrack Pro. This 
 
 ---
 
-## ✨ Key Desktop Features in `v0.0.1`
+## ✨ Key Desktop Features
 
+- 🌐 **Arc-Style In-App Web Browser**: 100% full-width view, smart omnibox Google search, lecture playback speed booster (1x-2x), 1-click slide capture to Downloads, and speed dial hub.
 - 🔐 **Encrypted Password Vault & Auto-Fill**: Store login credentials locally with XOR ciphers and auto-fill embedded `<webview>` portal login forms with 1-click.
 - 🔄 **Background Silent Auto-Updater**: Checks GitHub Releases automatically post-launch and provides 1-click restart & install.
 - 🛡️ **Anti-Cheat Clock Guard**: Validates system time deltas to prevent user system time manipulation.
@@ -29,17 +30,17 @@ Welcome to the **Standalone Desktop Application** module of FlowTrack Pro. This 
 ### 1. Install Dependencies
 ```bash
 cd desktop-app
-npm install
+pnpm install
 ```
 
 ### 2. Run Local Development (Electron + Vite)
 ```bash
-npm run electron:dev
+pnpm run electron:dev
 ```
 
 ### 3. Build Production Installer & Standalone Executable
 ```bash
-npm run electron:build
+pnpm run electron:build
 # Output generated in: desktop-app/dist-electron/
 ```
 
