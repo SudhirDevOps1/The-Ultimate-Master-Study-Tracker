@@ -1,0 +1,30 @@
+# GitHub Release Notes Configuration
+# Automatically groups PRs and highlights contributors and new contributors
+
+changelog:
+  categories:
+    - title: "🚀 Features & Enhancements"
+      labels:
+        - "feature"
+        - "enhancement"
+    - title: "🐛 Bug Fixes & Patches"
+      labels:
+        - "bug"
+        - "fix"
+    - title: "🛡️ Security & Hardening"
+      labels:
+        - "security"
+    - title: "⚡ Performance Optimizations"
+      labels:
+        - "performance"
+        - "perf"
+    - title: "📚 Documentation Updates"
+      labels:
+        - "documentation"
+        - "docs"
+    - title: "🧹 Maintenance & CI/CD"
+      labels:
+        - "chore"
+        - "ci"
+        - "dependencies"
+        - "maintenance"

@@ -179,6 +179,20 @@ The-Ultimate-Master-Study-Tracker/
 
 ---
 
+## 👥 Contributors & Community
+
+Special thanks to all the amazing developers and contributors who help build and improve FlowTrack Pro!
+
+<p align="center">
+  <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=SudhirDevOps1/The-Ultimate-Master-Study-Tracker" alt="FlowTrack Pro Contributors Avatar Wall" />
+  </a>
+</p>
+
+Want to contribute? Read our [Contributing Guidelines](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md) to get started!
+
+---
+
 ## 👤 Author & Support
 
 <p align="center">
