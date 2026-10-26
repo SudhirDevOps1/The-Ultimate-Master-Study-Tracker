@@ -24,6 +24,25 @@ All notable changes, version updates, feature additions, architectural improveme
 
 ---
 
+## [0.2.0](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v0.1.1...v0.2.0) (2026-10-26)
+
+
+### ✨ Features & Enhancements
+
+* **ecosystem:** add enterprise auto-updater modal with zero data loss guarantee and open-source power features ([61275ba](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/61275baa152eda487e836f264704af306790959e))
+
+
+### 🐛 Bug Fixes & Patches
+
+* **deploy:** fix JSX token syntax in WebPortalsPage and configure Vercel installCommand with legacy peer deps ([5b028a4](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/5b028a4bc39089d3db0a698ef113da02f7ccfe61))
+* **security:** enforce least-privilege permissions across all workflows, pin dependencies, and add win-tracker.cs source ([5dbd3ff](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/5dbd3ff4e798f25037a48be5d3bc289a76e39ba5))
+* **security:** resolve 24 CodeQL alerts, add MIT license, enforce 2-day staggered workflow schedules & upstream fork isolation ([f389f99](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/f389f99ba5b9450460acb596a3ed99ea4409ccce))
+
+
+### 📚 Documentation Updates
+
+* enrich system documentation with enterprise GitHub alerts and purge dead code ([a6c11cd](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/a6c11cd8bcc792df8392754a8ef9bc1cda338989))
+
 ## [v7.5.1] — 2026-08-03
 
 ### 🔒 Robust System App & Web Blocking Enforcement
