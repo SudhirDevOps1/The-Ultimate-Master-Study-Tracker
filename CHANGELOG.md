@@ -1,5 +1,17 @@
 # Changelog
 
+## [7.5.6](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v7.5.5...v7.5.6) (2026-10-26)
+
+
+### 🐛 Bug Fixes & Patches
+
+* **ci:** point release asset uploader to electron-builder output directory dist-electron ([7f20b38](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/7f20b38f3f108131a81b6cd3e64eab259120eef7))
+
+
+### 📚 Documentation Updates
+
+* overhaul README.md with modern UI, accurate tech stack, and clear quickstart guides ([6458935](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/64589358d4a9768dc14bc7d9e137e7f04c8741af))
+
 ## [7.5.5](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v7.5.4...v7.5.5) (2026-10-26)
 
 
