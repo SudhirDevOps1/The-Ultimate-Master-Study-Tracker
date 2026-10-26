@@ -71,10 +71,14 @@ jobs:
           manifest-file: .release-please-manifest.json
 
   build_desktop_artifacts:
-    name: 📦 Build & Publish Desktop Binaries
+    name: 📦 Build Desktop (${{ matrix.os }})
     needs: release_please
     if: ${{ needs.release_please.outputs.release_created == 'true' || needs.release_please.outputs.release_created == true }}
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -104,26 +108,34 @@ jobs:
             fs.writeFileSync('desktop-app/package.json', JSON.stringify(pkg, null, 2) + '\n');
           "
 
-      - name: Build and Publish Electron Binaries
-        shell: bash
+      - name: Build Web Application
         run: |
           cd desktop-app
-          npm run electron:build -- --publish always
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          npm run build
 
-      - name: Upload Installer directly to GitHub Release
+      - name: Build Electron App (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          cd desktop-app
+          npx electron-builder --win --publish never
+
+      - name: Build Electron App (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cd desktop-app
+          npx electron-builder --linux AppImage deb --publish never
+
+      - name: Build Electron App (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          cd desktop-app
+          npx electron-builder --mac zip --publish never
+
+      - name: Upload Binaries directly to GitHub Release
         shell: bash
         run: |
           TAG="${{ needs.release_please.outputs.tag_name }}"
-          echo "Uploading release artifacts to $TAG..."
-          if ls desktop-app/dist-electron/*.exe 1> /dev/null 2>&1; then
-            gh release upload "$TAG" desktop-app/dist-electron/*.exe --clobber
-          elif ls desktop-app/dist/*.exe 1> /dev/null 2>&1; then
-            gh release upload "$TAG" desktop-app/dist/*.exe --clobber
-          else
-            echo "Searching for any built exe in desktop-app..."
-            find desktop-app -name "*.exe" -exec gh release upload "$TAG" {} --clobber + || true
-          fi
+          echo "Uploading ${{ matrix.os }} release artifacts to $TAG..."
+          find desktop-app/dist-electron -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.zip" \) -exec gh release upload "$TAG" {} --clobber + || true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
