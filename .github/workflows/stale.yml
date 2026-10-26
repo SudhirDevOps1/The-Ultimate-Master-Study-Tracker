@@ -1,0 +1,23 @@
+name: Stale Issues & PRs Manager
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # Daily midnight UTC
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          days-before-stale: 60
+          days-before-close: 7
+          stale-issue-message: "This issue has been automatically marked as stale because it has not had recent activity. It will be closed in 7 days if no further activity occurs. Thank you for your contributions to FlowTrack Pro!"
+          stale-pr-message: "This PR has been automatically marked as stale because it has not had recent activity. It will be closed in 7 days if no further activity occurs."
+          stale-issue-label: "stale"
+          stale-pr-label: "stale"

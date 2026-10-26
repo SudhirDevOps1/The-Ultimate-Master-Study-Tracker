@@ -1,0 +1,26 @@
+name: Gitleaks Secret Scanner
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 4 * * 1" # Weekly Monday audit at 04:00 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: Detect Hardcoded Secrets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks Scanner
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

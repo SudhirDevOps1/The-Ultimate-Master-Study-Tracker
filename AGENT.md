@@ -51,6 +51,10 @@ Every AI agent and contributor must follow this strict post-push verification pr
 3. **CodeRabbit AI Automated Code Reviews**:
    - Governed via `.coderabbit.yaml` in the root repository.
    - CodeRabbit provides automated reviews for memory efficiency, TypeScript safety, AST security patterns, and performance regressions on every PR and commit.
+4. **Active Security & Secret Scanning Workflows**:
+   - Gitleaks (`.github/workflows/gitleaks.yml`): Continuous secret & credential leakage detection.
+   - OpenSSF Scorecard (`.github/workflows/scorecard.yml`): Supply chain security scoring and SARIF reporting.
+   - Stale Manager (`.github/workflows/stale.yml`): Automated issue & PR hygiene.
 
 ---
 
