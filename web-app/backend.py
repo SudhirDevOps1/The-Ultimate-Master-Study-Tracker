@@ -335,6 +335,23 @@ class Store:
         is_idle   INTEGER DEFAULT 0
     );
 
+    
+    CREATE TABLE IF NOT EXISTS heartbeats (
+        id          TEXT PRIMARY KEY,
+        entity      TEXT NOT NULL,
+        time        REAL NOT NULL,
+        project     TEXT,
+        branch      TEXT,
+        language    TEXT,
+        editor      TEXT,
+        is_write    INTEGER DEFAULT 0,
+        lines       INTEGER DEFAULT 0,
+        lineno      INTEGER DEFAULT 0,
+        created_at  TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_heartbeats_time ON heartbeats(time);
+    CREATE INDEX IF NOT EXISTS idx_heartbeats_project ON heartbeats(project);
+    
     CREATE TABLE IF NOT EXISTS settings (
         key    TEXT PRIMARY KEY,
         value  TEXT NOT NULL
@@ -1022,6 +1039,12 @@ class TrackerHandler(BaseHTTPRequestHandler):
         if path == "/status":   return self._send_json(self.tracker.status())
         if path == "/config":   return self._send_json(self.config.snapshot())
         if path == "/subjects": return self._send_json({"subjects": self.store.list_subjects()})
+        if path == "/api/v1/heartbeats":
+            lim = self._parse_int((qs.get("limit") or ["100"])[0], 100)
+            with self.store._lock:
+                cur = self.store.conn.execute("SELECT * FROM heartbeats ORDER BY time DESC LIMIT ?", (lim,))
+                rows = [dict(r) for r in cur.fetchall()]
+            return self._send_json({"heartbeats": rows})
 
         if path == "/sessions":
             rng  = (qs.get("range") or ["today"])[0].lower()
@@ -1083,6 +1106,38 @@ class TrackerHandler(BaseHTTPRequestHandler):
         self._error(f"Unknown endpoint: {path}", 404)
 
     def do_POST(self):
+        parsed = urlparse(self.path)
+        path = parsed.path.rstrip("/") or "/"
+        if path in ("/api/v1/heartbeats", "/api/v1/users/current/heartbeats"):
+            body = self._read_json_body()
+            if not body:
+                return self._send_error(400, "Invalid JSON body")
+            entity = body.get("entity", "")
+            time_val = float(body.get("time", time.time()))
+            hb_id = f"hb_{int(time_val)}_{abs(hash(entity)) % 10000}"
+            with self.store._lock:
+                self.store.conn.execute(
+                    """
+                    INSERT OR REPLACE INTO heartbeats 
+                    (id, entity, time, project, branch, language, editor, is_write, lines, lineno, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        hb_id,
+                        entity,
+                        time_val,
+                        body.get("project", ""),
+                        body.get("branch", ""),
+                        body.get("language", ""),
+                        body.get("editor", "Editor"),
+                        1 if body.get("is_write") else 0,
+                        int(body.get("lines", 0)),
+                        int(body.get("lineno", 0)),
+                        datetime.now(timezone.utc).isoformat(),
+                    ),
+                )
+                self.store.conn.commit()
+            return self._send_json({"ok": True, "id": hb_id}, status=201)
         parsed = urlparse(self.path)
         path   = parsed.path.rstrip("/") or "/"
 
