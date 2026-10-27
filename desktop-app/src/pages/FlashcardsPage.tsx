@@ -15,6 +15,11 @@ interface Flashcard {
   easeFactor: number;   // Ease factor for spacing calculation
   dueDate: string;      // ISO string
   reviewedCount: number;
+  phase?: "learning" | "review" | "relearning";
+  learningStep?: number;
+  lapses?: number;
+  leech?: boolean;
+  nextReviewAt?: string;
 }
 
 const STORAGE_KEY = "flowtrack_flashcards_v1";
@@ -44,19 +49,33 @@ function calculateNextReview(card: Flashcard, score: "again" | "hard" | "good" |
   };
   const grade = gradeMap[score] || 3;
 
-  const sm2Result = calculateSM2(grade, {
-    repetition: card.reviewedCount || 0,
-    easeFactor: card.easeFactor || 2.5,
-    interval: card.intervalDays || 0,
-    nextReviewDate: card.dueDate ? card.dueDate.split("T")[0] : new Date().toISOString().split("T")[0],
-  });
+  const sm2Result = calculateSM2(
+    grade,
+    {
+      repetition: card.reviewedCount || 0,
+      easeFactor: card.easeFactor || 2.5,
+      interval: card.intervalDays || 0,
+      nextReviewDate: card.dueDate ? card.dueDate.split("T")[0] : new Date().toISOString().split("T")[0],
+      phase: card.phase,
+      learningStep: card.learningStep,
+      lapses: card.lapses,
+      leech: card.leech,
+      nextReviewAt: card.nextReviewAt,
+    },
+    { cardId: card.id }
+  );
 
   return {
     ...card,
     intervalDays: sm2Result.interval,
     easeFactor: sm2Result.easeFactor,
     reviewedCount: sm2Result.repetition,
-    dueDate: new Date(sm2Result.nextReviewDate).toISOString(),
+    dueDate: sm2Result.nextReviewAt || new Date(sm2Result.nextReviewDate).toISOString(),
+    phase: sm2Result.phase,
+    learningStep: sm2Result.learningStep,
+    lapses: sm2Result.lapses,
+    leech: sm2Result.leech,
+    nextReviewAt: sm2Result.nextReviewAt,
   };
 }
 
@@ -326,6 +345,11 @@ ${aiNoteInput}`;
                 <div className="absolute top-3 right-3 text-[10px] text-slate-500 font-medium tracking-widest uppercase">
                   Click card to flip
                 </div>
+                {studyCards[currentCardIndex]?.leech && (
+                  <div className="absolute top-3 left-3 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-semibold">
+                    ⚠️ Leech (8+ lapses)
+                  </div>
+                )}
                 
                 <AnimatePresence mode="wait">
                   {!isFlipped ? (
