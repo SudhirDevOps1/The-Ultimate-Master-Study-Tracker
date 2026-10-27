@@ -1038,11 +1038,12 @@ app.whenReady().then(() => {
     // Skip mainWindow (mainWindow already has its own dedicated handler)
     if (mainWindow && contents === mainWindow.webContents) return;
 
-    contents.setWindowOpenHandler(({ url, features }) => {
+    contents.setWindowOpenHandler(({ url, features, disposition }) => {
       // Auth & consent domains: allow a real child BrowserWindow with same session partition
       const isAuthUrl =
-        (features && (features.includes("width=") || features.includes("popup="))) ||
-        /accounts\.google\.com|accounts\.youtube\.com|login\.microsoftonline\.com|login\.live\.com|appleid\.apple\.com|github\.com\/login|gitlab\.com\/users\/sign_in|auth0\.com|okta\.com|firebaseapp\.com|\.supabase\.co|leetcode\.com\/accounts/i.test(url);
+        (features && (features.includes("width=") || features.includes("popup=") || features.includes("height="))) ||
+        disposition === "new-window" ||
+        /accounts\.google\.com|accounts\.youtube\.com|login\.microsoftonline\.com|login\.live\.com|appleid\.apple\.com|github\.com\/login|gitlab\.com\/users\/sign_in|auth0\.com|okta\.com|firebaseapp\.com|\.supabase\.co|leetcode\.com\/accounts|apnacollege\.in|classplus|mycourse\.app|otpless|login|signin|oauth|auth/i.test(url);
 
       if (isAuthUrl) {
         const parentWin = BrowserWindow.fromWebContents(contents) || mainWindow;
@@ -1515,7 +1516,7 @@ ipcMain.handle("set-taskbar-progress", async (_e, { progress }) => {
 });
 
 let normalWindowBounds = null;
-let desktopSettings = { alwaysOnTop: false, compactFloating: false, openAtLogin: false, webviewAdBlock: true };
+let desktopSettings = { alwaysOnTop: false, compactFloating: false, openAtLogin: false, webviewAdBlock: true, webviewEnhancedAdBlock: true };
 
 function getDesktopSettingsFile() {
   return path.join(app.getPath("userData"), "desktop-settings.json");

@@ -175,6 +175,8 @@ export function useTimer() {
     let lastInteractionTime = 0;
     const onVisibleInteraction = () => {
       if (document.hidden) return;
+      const state = useAppStore.getState();
+      if (!state.timer.activeSessionId) return;
       const now = Date.now();
       // Throttle updates to at most once per 10 seconds to prevent rendering storms
       if (now - lastInteractionTime >= 10000) {

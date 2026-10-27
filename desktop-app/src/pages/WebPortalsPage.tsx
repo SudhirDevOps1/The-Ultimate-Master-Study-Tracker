@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback, memo } from "react";
 import { useLocation } from "react-router-dom";
 import { Readability } from "@mozilla/readability";
 import DOMPurify from "dompurify";
@@ -132,6 +132,97 @@ export interface WebTab {
   icon: string;
   color: string;
 }
+
+interface WebviewViewportProps {
+  tabId: string;
+  initialUrl: string;
+  allowInsecure: boolean;
+  onMount: (tabId: string, el: any) => void;
+  onUnmount: (tabId: string) => void;
+  onNavigate: (tabId: string, url: string) => void;
+  onTitleUpdate: (tabId: string, title: string, url: string) => void;
+  onNewWindow: (e: any) => void;
+  onDomReady: (wv: any) => void;
+}
+
+const WebviewViewport = memo(
+  function WebviewViewport({
+    tabId,
+    initialUrl,
+    allowInsecure,
+    onMount,
+    onUnmount,
+    onNavigate,
+    onTitleUpdate,
+    onNewWindow,
+    onDomReady,
+  }: WebviewViewportProps) {
+    const webviewRef = useRef<any>(null);
+    const callbacksRef = useRef({ onNavigate, onTitleUpdate, onNewWindow, onDomReady });
+    callbacksRef.current = { onNavigate, onTitleUpdate, onNewWindow, onDomReady };
+
+    const webpreferences = useMemo(
+      () => `allowRunningInsecureContent=${allowInsecure}, javascript=true`,
+      [allowInsecure]
+    );
+
+    useEffect(() => {
+      const wv = webviewRef.current;
+      if (!wv) return;
+      onMount(tabId, wv);
+
+      const handleNav = (e: any) => {
+        const navUrl = e.url || wv.getURL?.() || "";
+        callbacksRef.current.onNavigate(tabId, navUrl);
+      };
+
+      const handleTitle = (e: any) => {
+        const title = e.title || "";
+        const url = wv.getURL?.() || "";
+        callbacksRef.current.onTitleUpdate(tabId, title, url);
+      };
+
+      const handleNewWin = (e: any) => {
+        callbacksRef.current.onNewWindow(e);
+      };
+
+      const handleDom = () => {
+        callbacksRef.current.onDomReady(wv);
+      };
+
+      wv.addEventListener("did-navigate", handleNav);
+      wv.addEventListener("did-navigate-in-page", handleNav);
+      wv.addEventListener("page-title-updated", handleTitle);
+      wv.addEventListener("new-window", handleNewWin);
+      wv.addEventListener("dom-ready", handleDom);
+
+      return () => {
+        onUnmount(tabId);
+        try {
+          wv.removeEventListener("did-navigate", handleNav);
+          wv.removeEventListener("did-navigate-in-page", handleNav);
+          wv.removeEventListener("page-title-updated", handleTitle);
+          wv.removeEventListener("new-window", handleNewWin);
+          wv.removeEventListener("dom-ready", handleDom);
+        } catch {}
+      };
+    }, [tabId, onMount, onUnmount]);
+
+    return (
+      <webview
+        key={tabId}
+        ref={webviewRef}
+        src={initialUrl}
+        useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
+        className="w-full h-full border-0 absolute top-0 left-0 z-10 pointer-events-auto"
+        allowpopups={true}
+        partition="persist:browser_session"
+        webpreferences={webpreferences}
+      />
+    );
+  },
+  (prev, next) => prev.tabId === next.tabId && prev.allowInsecure === next.allowInsecure
+);
 
 export function WebPortalsPage() {
   const location = useLocation();
@@ -435,155 +526,182 @@ export function WebPortalsPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Webview Activity Tracking & IPC Bridge
-  useEffect(() => {
-    const wv = getWebview();
-    if (!isElectron || !wv || !activeTabId) return;
+  const handleWebviewMount = useCallback((tabId: string, el: any) => {
+    webviewRefs.current[tabId] = el;
+  }, []);
 
-    try {
-      const reportToMain = (url: string, title?: string) => {
-        (window as any).electron?.ipcRenderer?.invoke("webview-activity-report", { url, title: title || "" })
-          .catch(() => {});
-      };
+  const handleWebviewUnmount = useCallback((tabId: string) => {
+    delete webviewRefs.current[tabId];
+  }, []);
 
-      const onNavigate = (e: any) => {
-        let navUrl = e.url || activeUrlRef.current || "";
-        // If third-party chat widget redirected the page, restore original portal
-        if (navUrl.includes("freshchat.com/widget")) {
-          const normalized = smartNormalizeUrl(navUrl);
-          if (normalized !== navUrl && !normalized.includes("freshchat.com")) {
-            navUrl = normalized;
-            wv.loadURL?.(navUrl);
-            return;
-          }
-          return;
-        }
-        reportToMain(navUrl);
-        setInputUrl(navUrl);
-        // FIX A: NEVER update srcUrl from did-navigate / did-navigate-in-page!
-        // Only update displayUrl (and url fallback for backward compatibility)
-        setTabs(prev => prev.map(t => (t.id === activeTabId ? { ...t, displayUrl: navUrl, url: navUrl } : t)));
-      };
+  const reportToMain = useCallback((url: string, title?: string) => {
+    if (!isElectron) return;
+    (window as any).electron?.ipcRenderer?.invoke("webview-activity-report", { url, title: title || "" })
+      .catch(() => {});
+  }, [isElectron]);
 
-      const onTitleUpdate = (e: any) => {
-        const url = wv.getURL?.() || activeUrlRef.current || "";
-        reportToMain(url, e.title || "");
-        if (e.title) {
-          setTabs(prev => prev.map(t => (t.id === activeTabId ? { ...t, title: e.title } : t)));
-        }
-      };
-
-      const onNewWindow = (e: any) => {
-        const targetUrl = e.url || "";
-        // FIX B: Auth & consent domains must bubble up to Electron's setWindowOpenHandler
-        // Never call e.preventDefault() for auth popups so window.opener and postMessage remain intact
-        const isAuthPopup =
-          /accounts\.google\.com|accounts\.youtube\.com|login\.microsoftonline\.com|login\.live\.com|appleid\.apple\.com|github\.com\/login|gitlab\.com\/users\/sign_in|auth0\.com|okta\.com|firebaseapp\.com|\.supabase\.co|leetcode\.com\/accounts/i.test(targetUrl);
-        if (isAuthPopup) {
-          return; // Let main process create the real child BrowserWindow
-        }
-
-        e.preventDefault();
-        if (!targetUrl) return;
-
-        // Prevent third-party chat widgets & tracking popups from hijacking the main study tab
-        if (
-          targetUrl.includes("freshchat.com/widget") ||
-          targetUrl.includes("tawk.to") ||
-          targetUrl.includes("crisp.chat") ||
-          targetUrl.includes("intercom.io") ||
-          targetUrl.includes("zendesk.com/embeddable")
-        ) {
-          return;
-        }
-
-        // Open external links in a fresh tab inside FlowTrack browser
-        const newId = crypto.randomUUID();
-        const newTab: WebTab = {
-          id: newId,
-          srcUrl: targetUrl,
-          displayUrl: targetUrl,
-          url: targetUrl,
-          title: "Loading...",
-          icon: "🌐",
-          color: "#06b6d4"
-        };
-        setTabs(prev => [...prev, newTab]);
-        setActiveTabId(newTab.id);
-        setInputUrl(targetUrl);
-      };
-
-      const onDomReady = () => {
-        const adCSS = `
-          .video-ads, .ytp-ad-module, .ytp-ad-overlay-container,
-          #masthead-ad, ytd-promoted-sparkles-web-renderer,
-          ytd-promoted-video-renderer, ytd-display-ad-renderer,
-          ytd-statement-banner-renderer, ytd-banner-promo-renderer,
-          ytd-ad-slot-renderer, ytd-in-feed-ad-layout-renderer,
-          #player-ads, .sparkles-light-cta, #fulfilled-layout,
-          .ad-container, .adsbygoogle {
-            display: none !important;
-            visibility: hidden !important;
-            height: 0px !important;
-            opacity: 0 !important;
-            pointer-events: none !important;
-          }
-        `;
-        try {
-          wv.insertCSS?.(adCSS).catch?.(() => {});
-        } catch {}
-
-        const skipScript = `
-          (() => {
-            if (window.__flowtrack_adblock_init) return;
-            window.__flowtrack_adblock_init = true;
-
-            const autoSkip = () => {
-              const skipBtn = document.querySelector('.ytp-skip-ad-button, .ytp-ad-skip-button, .ytp-ad-skip-button-modern');
-              if (skipBtn) {
-                skipBtn.click();
-                return;
-              }
-              const video = document.querySelector('video.html5-main-video');
-              const adShowing = document.querySelector('.ad-showing, .ytp-ad-player-overlay');
-              if (video && adShowing) {
-                video.muted = true;
-                if (!isNaN(video.duration) && video.duration > 0) {
-                  video.currentTime = video.duration;
-                }
-                const skip = document.querySelector('.ytp-skip-ad-button, .ytp-ad-skip-button, .ytp-ad-skip-button-modern');
-                if (skip) skip.click();
-              }
-            };
-            setInterval(autoSkip, 350);
-          })();
-        `;
-        try {
-          wv.executeJavaScript?.(skipScript).catch?.(() => {});
-        } catch {}
-      };
-
-      if (activeUrlRef.current) {
-        reportToMain(activeUrlRef.current);
+  const handleNavigate = useCallback((tabId: string, navUrl: string) => {
+    if (!navUrl) return;
+    const wv = webviewRefs.current[tabId];
+    if (navUrl.includes("freshchat.com/widget")) {
+      const normalized = smartNormalizeUrl(navUrl);
+      if (normalized !== navUrl && !normalized.includes("freshchat.com")) {
+        wv?.loadURL?.(normalized);
+        return;
       }
-
-      wv.addEventListener("did-navigate", onNavigate);
-      wv.addEventListener("did-navigate-in-page", onNavigate);
-      wv.addEventListener("page-title-updated", onTitleUpdate);
-      wv.addEventListener("new-window", onNewWindow);
-      wv.addEventListener("dom-ready", onDomReady);
-
-      return () => {
-        wv.removeEventListener("did-navigate", onNavigate);
-        wv.removeEventListener("did-navigate-in-page", onNavigate);
-        wv.removeEventListener("page-title-updated", onTitleUpdate);
-        wv.removeEventListener("new-window", onNewWindow);
-        wv.removeEventListener("dom-ready", onDomReady);
-      };
-    } catch {
-      return () => {};
+      return;
     }
-  }, [activeTabId]);
+    reportToMain(navUrl);
+    setInputUrl(navUrl);
+    setTabs(prev => prev.map(t => (t.id === tabId ? { ...t, displayUrl: navUrl, url: navUrl } : t)));
+  }, [reportToMain]);
+
+  const handleTitleUpdate = useCallback((tabId: string, title: string, url: string) => {
+    reportToMain(url, title);
+    if (title) {
+      setTabs(prev => prev.map(t => (t.id === tabId ? { ...t, title } : t)));
+    }
+  }, [reportToMain]);
+
+  const handleNewWindow = useCallback((e: any) => {
+    const targetUrl = e.url || "";
+    const features = typeof e.features === "string" ? e.features : "";
+    const disposition = e.disposition || "";
+
+    // Auth popups, dialogs, or explicit popup windows bubble up to Electron's setWindowOpenHandler
+    const isPopupFeatures =
+      features.includes("width=") || features.includes("popup=") || features.includes("height=") || disposition === "new-window";
+
+    const isAuthPopup =
+      isPopupFeatures ||
+      /accounts\.google\.com|accounts\.youtube\.com|login\.microsoftonline\.com|login\.live\.com|appleid\.apple\.com|github\.com\/login|gitlab\.com\/users\/sign_in|auth0\.com|okta\.com|firebaseapp\.com|\.supabase\.co|leetcode\.com\/accounts|apnacollege\.in|classplus|mycourse\.app|otpless|login|signin|oauth|auth/i.test(targetUrl);
+
+    if (isAuthPopup) {
+      // Let main process create the real child BrowserWindow with persist:browser_session
+      // Never call preventDefault() so window.opener and postMessage remain intact
+      return;
+    }
+
+    e.preventDefault();
+    if (!targetUrl || targetUrl === "about:blank") return;
+
+    // Prevent third-party chat widgets from hijacking study tab
+    if (
+      targetUrl.includes("freshchat.com/widget") ||
+      targetUrl.includes("tawk.to") ||
+      targetUrl.includes("crisp.chat") ||
+      targetUrl.includes("intercom.io") ||
+      targetUrl.includes("zendesk.com/embeddable")
+    ) {
+      return;
+    }
+
+    // Open external links in a fresh tab inside FlowTrack browser
+    const newId = crypto.randomUUID();
+    const newTab: WebTab = {
+      id: newId,
+      srcUrl: targetUrl,
+      displayUrl: targetUrl,
+      url: targetUrl,
+      title: "Loading...",
+      icon: "🌐",
+      color: "#06b6d4"
+    };
+    setTabs(prev => [...prev, newTab]);
+    setActiveTabId(newTab.id);
+    setInputUrl(targetUrl);
+  }, []);
+
+  const handleDomReady = useCallback((wv: any) => {
+    if (!wv) return;
+    const currentUrl = wv.getURL?.() || activeUrlRef.current || "";
+    const isYouTube = /youtube\.com|youtube-nocookie\.com/i.test(currentUrl);
+
+    // ONLY apply YouTube ad acceleration and styling on YouTube!
+    // Never inject YouTube styles or scripts into Apna College or other portals.
+    if (!isYouTube) return;
+
+    const adCSS = `
+      .video-ads, .ytp-ad-module, .ytp-ad-overlay-container,
+      #masthead-ad, ytd-promoted-sparkles-web-renderer,
+      ytd-promoted-video-renderer, ytd-display-ad-renderer,
+      ytd-statement-banner-renderer, ytd-banner-promo-renderer,
+      ytd-ad-slot-renderer, ytd-in-feed-ad-layout-renderer,
+      #player-ads, .sparkles-light-cta, #fulfilled-layout,
+      .ad-container, .adsbygoogle {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0px !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+    `;
+    try {
+      wv.insertCSS?.(adCSS).catch?.(() => {});
+    } catch {}
+
+    const skipScript = `
+      (() => {
+        if (window.__flowtrack_yt_adskip_init) return;
+        window.__flowtrack_yt_adskip_init = true;
+
+        const handleAds = () => {
+          // 1. Skip button click (highest priority)
+          const skipBtn = document.querySelector(
+            ".ytp-skip-ad-button, .ytp-ad-skip-button, .ytp-ad-skip-button-modern, button.ytp-ad-skip-button-modern, .ytp-ad-skip-button-container button"
+          );
+          if (skipBtn) {
+            try { skipBtn.click(); } catch(e) {}
+          }
+
+          // 2. Check if YouTube player is actively showing an in-stream ad
+          const player = document.querySelector("#movie_player, .html5-video-player");
+          const isAdActive = player && (
+            player.classList.contains("ad-showing") ||
+            player.classList.contains("ad-interrupting")
+          );
+
+          const video = document.querySelector("video.html5-main-video");
+          if (!video) return;
+
+          if (isAdActive) {
+            // An ad is actively playing! Mute ad audio and fast-forward at 16x
+            video.muted = true;
+            try {
+              video.playbackRate = 16.0;
+            } catch(e) {}
+            if (!isNaN(video.duration) && isFinite(video.duration) && video.duration > 0.5) {
+              if (video.currentTime < video.duration - 0.2) {
+                video.currentTime = video.duration - 0.1;
+              }
+            }
+            const skipBtn2 = document.querySelector(".ytp-skip-ad-button, .ytp-ad-skip-button, .ytp-ad-skip-button-modern");
+            if (skipBtn2) {
+              try { skipBtn2.click(); } catch(e) {}
+            }
+          } else {
+            // Normal video playback! Restore speed if it was accelerated by ad blocker
+            if (video.playbackRate > 4.0) {
+              video.playbackRate = 1.0;
+            }
+          }
+        };
+
+        setInterval(handleAds, 250);
+      })();
+    `;
+    try {
+      wv.executeJavaScript?.(skipScript).catch?.(() => {});
+    } catch {}
+  }, []);
+
+  // Report active tab URL to main process
+  useEffect(() => {
+    if (!isElectron) return;
+    if (activeUrlRef.current) {
+      reportToMain(activeUrlRef.current);
+    }
+  }, [activeTabId, reportToMain, isElectron]);
 
   // Clear tracking when closed
   useEffect(() => {
@@ -1375,15 +1493,17 @@ export function WebPortalsPage() {
             {isElectron ? (
               <div className="w-full h-full relative">
                 {activeTab && (
-                  <webview
+                  <WebviewViewport
                     key={activeTab.id}
-                    ref={(el: any) => { if (el) webviewRefs.current[activeTab.id] = el; }}
-                    src={activeTab.srcUrl}
-                    useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
-                    className="w-full h-full border-0 absolute top-0 left-0 z-10 pointer-events-auto"
-                    allowpopups={true}
-                    partition="persist:browser_session"
-                    webpreferences={`allowRunningInsecureContent=${localStorage.getItem("flowtrack_webview_allow_insecure") !== "false"}, javascript=true`}
+                    tabId={activeTab.id}
+                    initialUrl={activeTab.srcUrl}
+                    allowInsecure={localStorage.getItem("flowtrack_webview_allow_insecure") !== "false"}
+                    onMount={handleWebviewMount}
+                    onUnmount={handleWebviewUnmount}
+                    onNavigate={handleNavigate}
+                    onTitleUpdate={handleTitleUpdate}
+                    onNewWindow={handleNewWindow}
+                    onDomReady={handleDomReady}
                   />
                 )}
               </div>
