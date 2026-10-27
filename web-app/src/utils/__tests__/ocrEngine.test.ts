@@ -3,11 +3,11 @@ import { sanitizeOcrText } from "../ocrEngine";
 
 describe("Local OCR Engine & Privacy Guard (Rule S4 - Commit F1)", () => {
   it("sanitizes API keys and bearer tokens from extracted text before indexing", () => {
-    const raw = "Authorization: Bearer secret_token_abc123456789012345678901234567890\npassword: MySuperSecretPassword123\nconst key = 'sk-proj-1234567890abcdef1234567890abcdef';";
+    const raw = "Authorization: Bearer mock_bearer_token_string_for_testing\npassword: MockPassword123\nkey: mock_api_key_test_value";
     const sanitized = sanitizeOcrText(raw);
 
-    expect(sanitized).not.toContain("secret_token_abc");
-    expect(sanitized).not.toContain("MySuperSecretPassword123");
+    expect(sanitized).not.toContain("mock_bearer_token");
+    expect(sanitized).not.toContain("MockPassword123");
     expect(sanitized).toContain("[REDACTED_SECRET]");
   });
 
