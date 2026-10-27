@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.2.2](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v0.2.1...v0.2.2) (2026-10-27)
+
+
+### 🐛 Bug Fixes & Patches
+
+* **ci:** fix release please action pin, runner multiline indentation, and scorecard commit sha ([390a16b](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/390a16b2f83d64ab191358f0d1a40d5d43879bc6))
+* **ci:** unblock PRs by ensuring required status checks run on all PR targets ([ba7b060](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/ba7b06055f676935913eb7727024a1f622de63aa))
+* **coverage:** fix monorepo LCOV path mapping and generate coverage-final json for Codecov ([611e7f4](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/611e7f42929df630d3ed6e745f59c64e5f676cfd))
+* **quality:** enable lcov coverage generation, add root package-lock, enforce 7d artifact retention, and checkout release notes ([3bd94a7](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/3bd94a7b4d039fa2c2b6399c77e5be91cd3c2091))
+* **workflows:** resolve exact action commit SHAs and fix release please runner syntax ([941ef13](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/941ef1332b3fe6b68ca6c47dae653eeabb14d161))
+
+
+### 👷 CI/CD & DevOps
+
+* **gitflow:** establish enterprise branching architecture with develop integration gate ([dc3f375](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/dc3f375fe875ef3a092b49b19dae455631c19826))
+* **release:** automate contributor recognition wall enrichment for all future GitHub releases ([7bf9f5e](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/7bf9f5e021fc4f7dceec8bc3503998b975037b40))
+* **security:** run dependency audit in non-blocking advisory mode with workflow warnings and JSON artifacts ([c247e51](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/c247e5155029a1fbd15dc2435ab7c9dec7351993))
+* **workflows:** enforce enterprise quality gates, authentic codecov pipeline, ZAP rules, and commit SHA pinning ([b3a497a](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/b3a497a86ca017812ef3d83fc5454f80a68be888))
+
 ## [0.2.1](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v0.2.0...v0.2.1) (2026-10-26)
 
 
