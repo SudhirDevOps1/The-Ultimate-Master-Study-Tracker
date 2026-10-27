@@ -18,6 +18,7 @@ import type { StudySession, Subject } from "@/types/models";
 import { Globe2 } from "lucide-react";
 
 export function TimerPage() {
+  const [isFlowtimeMode, setIsFlowtimeMode] = useState(() => localStorage.getItem("flowtrack_flowtime_mode") === "true");
   const navigate = useNavigate();
   const sessions = useAppStore((state: AppState) => state.sessions);
   const subjects = useAppStore((state: AppState) => state.subjects);
