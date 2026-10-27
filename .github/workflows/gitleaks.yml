@@ -22,11 +22,11 @@ jobs:
     if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
     steps:
       - name: Checkout Code
-        uses: actions/checkout@11bd5960a326750d5838078e36cf38b85af677262 # v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
 
       - name: Run Gitleaks Scanner
-        uses: gitleaks/gitleaks-action@eed465c40cebc1c337b567a421b8cceeb0377484 # v2.3.8
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.8
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

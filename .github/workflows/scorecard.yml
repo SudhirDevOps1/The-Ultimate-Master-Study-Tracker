@@ -27,18 +27,18 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@11bd5960a326750d5838078e36cf38b85af677262 # v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
 
       - name: Run OpenSSF Scorecard Analysis
-        uses: ossf/scorecard-action@62b2cac7ed8198b15735db49ab1210abd35e882c # v2.4.4
+        uses: ossf/scorecard-action@ea651e62978af7915d09fe2e282747c798bf2dab # v2.4.4
         with:
           results_file: results.sarif
           results_format: sarif
           publish_results: true
 
       - name: Upload SARIF results to GitHub Security
-        uses: github/codeql-action/upload-sarif@b56ba49b26e50535fa1e7f7db0f4f7b47f3ca302 # v3.28.10
+        uses: github/codeql-action/upload-sarif@4c50b6f6fd9dc6fe03111c2d045c8be2a724cce1 # v3.28.10
         with:
           sarif_file: results.sarif

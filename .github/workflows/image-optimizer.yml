@@ -31,15 +31,15 @@ jobs:
     if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@4d247ffcb950032dd0d28e6fc433a5dc1a18c671 # v2.10.4
+        uses: step-security/harden-runner@cb605e52c26070c328afc4562f0b4ada7618a84e # v2.10.4
         with:
           egress-policy: audit
 
       - name: Checkout Code
-        uses: actions/checkout@11bd5960a326750d5838078e36cf38b85af677262 # v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Compress Images
-        uses: calibreapp/image-actions@cb88448eb560b298642436f56d0285a9756b1fb0 # main
+        uses: calibreapp/image-actions@83b129706d9c6e49e6013dc3617c78cbbc3de5a5 # main
         with:
           githubToken: ${{ secrets.GITHUB_TOKEN }}
           compressOnly: true

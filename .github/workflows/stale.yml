@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 10
     if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
     steps:
-      - uses: actions/stale@2884997ce8a1a4ea44503624297cb2d8de3c57ea # v9.1.0
+      - uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639 # v9.1.0
         with:
           days-before-stale: 60
           days-before-close: 7
