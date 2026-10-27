@@ -14,6 +14,7 @@ export function HistoryPage() {
   const cloneSession = useAppStore((state) => state.cloneSession);
   const moveSessionToNextDay = useAppStore((state) => state.moveSessionToNextDay);
   const startSession = useAppStore((state) => state.startSession);
+  const deleteSession = useAppStore((state) => state.deleteSession);
 
   const [subjectId, setSubjectId] = useState("all");
   const [completion, setCompletion] = useState(0);
@@ -83,6 +84,20 @@ export function HistoryPage() {
       showMessage(`📋 Cloned to ${format(targetDate, "MMM d")}`);
     } catch {
       showMessage("❌ Failed to clone");
+    }
+  };
+
+  const handleClearUnstarted = async () => {
+    const unstarted = sessions.filter((s) => (s.actualSeconds || 0) === 0 && s.status !== "in_progress");
+    if (unstarted.length === 0) {
+      showMessage("ℹ️ No unstarted sessions found");
+      return;
+    }
+    if (window.confirm(`Found ${unstarted.length} unstarted sessions (0 mins studied). Delete all of them to clean up history?`)) {
+      for (const s of unstarted) {
+        await deleteSession(s.id);
+      }
+      showMessage(`🧹 Cleared ${unstarted.length} unstarted sessions!`);
     }
   };
 
@@ -212,6 +227,13 @@ export function HistoryPage() {
           >
             🔄 Reset Filters
           </button>
+          <button
+            onClick={handleClearUnstarted}
+            className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm font-medium text-rose-300 hover:bg-rose-500/20 transition-colors"
+            title="Clean up all 0-minute unstarted backlog sessions"
+          >
+            🧹 Clear 0m Backlog
+          </button>
         </div>
 
         {/* Sessions List */}
@@ -301,6 +323,20 @@ export function HistoryPage() {
                         className={`rounded-xl bg-gradient-to-r ${getThemeGradient()} px-3 py-2 text-xs font-medium text-white`}
                       >
                         ▶️ Start
+                      </motion.button>
+                      <motion.button 
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={async () => {
+                          if (window.confirm(`Delete session for ${subject?.name || "session"}?`)) {
+                            await deleteSession(session.id);
+                            showMessage("🗑️ Session deleted");
+                          }
+                        }} 
+                        className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-300 hover:bg-rose-500/20"
+                        title="Delete session"
+                      >
+                        🗑️ Delete
                       </motion.button>
                     </div>
                     <div className="flex flex-wrap gap-2">

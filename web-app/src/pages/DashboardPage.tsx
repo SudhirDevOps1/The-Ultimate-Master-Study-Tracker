@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { isSameDay, format, startOfWeek, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link } from "react-router-dom";
-import { Flame, UserCheck, Sparkles } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Flame, Play, UserCheck, Sparkles } from "lucide-react";
 import { Panel } from "@/components/common/Panel";
 import { LevelSystem } from "@/components/gamification/LevelSystem";
 import { WeeklySummary } from "@/components/dashboard/WeeklySummary";
@@ -84,6 +84,8 @@ function DailyContextHeroCard() {
   const sessions = useAppStore((state: AppState) => state.sessions);
   const subjects = useAppStore((state: AppState) => state.subjects);
   const weeklyTargetHours = useAppStore((state: AppState) => state.weeklyTargetHours);
+  const startSession = useAppStore((state: AppState) => state.startSession);
+  const navigate = useNavigate();
   const streakData = useStreak();
 
   const todayStr = useMemo(() => {
@@ -156,11 +158,16 @@ function DailyContextHeroCard() {
               const formatT = (d: Date) => d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
               const subObj = subjects.find(s => s.id === session.subjectId);
               return (
-                <div key={session.id || i} className="flex items-center gap-2.5 p-2.5 rounded-xl border border-cyan-500/30 bg-cyan-500/5 text-cyan-300">
-                  <div className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-black/40 border border-white/10 shrink-0">
-                    {formatT(sDate)} - {formatT(eDate)}
+                <div key={session.id || i} className="flex items-center justify-between gap-2.5 p-2.5 rounded-xl border border-cyan-500/30 bg-cyan-500/5 text-cyan-300">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-black/40 border border-white/10 shrink-0">
+                      {formatT(sDate)} - {formatT(eDate)}
+                    </div>
+                    <p className="text-xs font-semibold truncate text-white">{subObj?.emoji || "📚"} {session.notes || subObj?.name || "Study Session"}</p>
                   </div>
-                  <p className="text-xs font-semibold truncate text-white">{subObj?.emoji || "📚"} {session.notes || subObj?.name || "Study Session"}</p>
+                  <button onClick={() => { startSession(session.id); navigate("/timer"); }} className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold shrink-0 transition-colors" title="Start session">
+                    <Play className="w-2.5 h-2.5 fill-current" /> Start
+                  </button>
                 </div>
               );
             })
