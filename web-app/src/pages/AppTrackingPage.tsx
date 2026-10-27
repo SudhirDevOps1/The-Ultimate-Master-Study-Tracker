@@ -695,7 +695,7 @@ export function AppTrackingPage() {
       }
 
       await initApp();
-      void fetchLog(selectedDate);
+      void fetchLog(timeScope, selectedDate);
       void fetchDates();
       alert(`✅ Import successful!\nBacked up on: ${new Date(result.exportedAt).toLocaleString()}\nVersion: ${result.version}`);
     } catch (e: any) { alert(`Import error: ${e.message}`); }

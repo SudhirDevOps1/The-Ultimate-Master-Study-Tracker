@@ -28,6 +28,8 @@ build/
 **/build/
 dist-electron/
 **/dist-electron/
+coverage/
+**/coverage/
 *.local
 
 # ---- Python Environments & Compiled Bytecode ----

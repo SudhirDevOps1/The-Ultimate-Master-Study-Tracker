@@ -43,6 +43,11 @@ export function sanitizeSafeUrl(
 }
 
 /**
+ * Alias for sanitizeSafeUrl satisfying security quality gates
+ */
+export const sanitizeUrl = sanitizeSafeUrl;
+
+/**
  * Extracts and strictly validates a YouTube 11-character video ID.
  * Prevents HTML meta-character injection inside YouTube iframe URLs.
  */

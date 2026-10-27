@@ -54,7 +54,7 @@ jobs:
     - name: Run TypeScript Compiler Check
       run: |
         cd desktop-app
-        npm run typecheck || true
+        npm run typecheck
 
     - name: Run Linter Inspection
       run: |
