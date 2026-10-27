@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.2](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v0.2.1...v0.2.2) (2026-10-27)
+
+
+### 🐛 Bug Fixes & Patches
+
+* **coverage:** fix monorepo LCOV path mapping and generate coverage-final json for Codecov ([611e7f4](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/611e7f42929df630d3ed6e745f59c64e5f676cfd))
+* **quality:** enable lcov coverage generation, add root package-lock, enforce 7d artifact retention, and checkout release notes ([3bd94a7](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/3bd94a7b4d039fa2c2b6399c77e5be91cd3c2091))
+
 ## [0.2.1](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v0.2.0...v0.2.1) (2026-10-26)
 
 
