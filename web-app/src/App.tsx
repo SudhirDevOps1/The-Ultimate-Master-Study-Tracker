@@ -30,6 +30,7 @@ import { useTimer } from "@/hooks/useTimer";
 import { useScheduleReminder } from "@/hooks/useScheduleReminder";
 
 import { VideoRestBreak } from "@/components/timer/VideoRestBreak";
+import { CommandPaletteModal } from "@/components/CommandPaletteModal";
 
 export function App() {
   useScheduleReminder();
@@ -129,6 +130,7 @@ export function App() {
             <AnimatedRoutes />
             <AppGuide />
             <VideoRestBreak />
+            <CommandPaletteModal />
           </HashRouter>
         </ConfirmProvider>
       </ToastProvider>

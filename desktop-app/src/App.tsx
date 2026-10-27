@@ -34,6 +34,7 @@ const WebPortalsPage = lazy(() => import("@/pages/WebPortalsPage").then(m => ({ 
 const PipStandalonePage = lazy(() => import("@/pages/PipStandalonePage").then(m => ({ default: m.PipStandalonePage })));
 
 import { VideoRestBreak } from "@/components/timer/VideoRestBreak";
+import { CommandPaletteModal } from "@/components/CommandPaletteModal";
 
 export function App() {
   useScheduleReminder();
@@ -171,6 +172,7 @@ export function App() {
             <EnterpriseUpdateModal />
             <AppGuide />
             <VideoRestBreak />
+            <CommandPaletteModal />
           </HashRouter>
         </ConfirmProvider>
       </ToastProvider>

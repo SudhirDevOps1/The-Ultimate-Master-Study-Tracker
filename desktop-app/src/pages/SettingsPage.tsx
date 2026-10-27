@@ -6,6 +6,8 @@ import { useAppStore } from "@/store/useAppStore";
 import type { AppState } from "@/store/useAppStore";
 import { usePomodoro } from "@/hooks/usePomodoro";
 import { exportData, importBackup } from "@/utils/exportImport";
+import { exportLocalDatabase, importLocalDatabase } from "@/utils/backupEngine";
+import { LicensesModal } from "@/components/LicensesModal";
 import { exportSessionsToCSV, exportSubjectStatsToCSV, exportAllDataToCSV } from "@/utils/dataExport";
 import { db } from "@/lib/db";
 
@@ -195,6 +197,11 @@ export function SettingsPage() {
   const [manualTags, setManualTags] = useState("manual");
   const [statusMessage, setStatusMessage] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const [showLicensesModal, setShowLicensesModal] = useState(false);
+  const [backupPassInput, setBackupPassInput] = useState("");
+  const [isExportingDb, setIsExportingDb] = useState(false);
+  const [isImportingDb, setIsImportingDb] = useState(false);
+  const fullBackupFileRef = useRef<HTMLInputElement>(null);
   const [isAlwaysOnTop, setIsAlwaysOnTop] = useState(() => {
     return localStorage.getItem("flowtrack_always_on_top") === "true";
   });
@@ -644,10 +651,80 @@ api_url = http://127.0.0.1:7777/api/v1
 
       <div className="grid gap-5 lg:grid-cols-2">
         {/* Backup */}
-        <Panel className="space-y-4">
+        <Panel className="space-y-6">
           <div>
-            <h3 className="text-xl font-semibold text-white">💾 Backup</h3>
-            <p className="mt-1 text-sm text-slate-400">Export or restore all subjects, sessions, and local settings.</p>
+            <h3 className="text-xl font-semibold text-white">🔒 Encrypted Database Backup & Privacy Vault (Rule S10)</h3>
+            <p className="mt-1 text-sm text-slate-400">
+              Export an AES-256-GCM encrypted snapshot of all IndexedDB tables, flashcards, study sessions, and notes with PBKDF2 key derivation.
+            </p>
+          </div>
+
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-3 mb-6 p-4 rounded-2xl bg-slate-900/60 border border-white/10">
+            <input
+              type="password"
+              placeholder="Optional encryption password / passphrase..."
+              value={backupPassInput}
+              onChange={e => setBackupPassInput(e.target.value)}
+              className="flex-1 bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400"
+            />
+            <button
+              onClick={async () => {
+                setIsExportingDb(true);
+                try {
+                  const { blob, filename } = await exportLocalDatabase(backupPassInput);
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = filename;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                  showMessage(backupPassInput ? "Encrypted full backup exported successfully." : "Full database backup exported successfully.");
+                } catch (err: any) {
+                  showMessage("Export failed: " + (err?.message || "Unknown error"));
+                } finally {
+                  setIsExportingDb(false);
+                }
+              }}
+              disabled={isExportingDb}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 text-xs font-bold text-slate-950 hover:brightness-110 transition-all shrink-0 disabled:opacity-50"
+            >
+              {isExportingDb ? "Exporting..." : "💾 Export Full Backup"}
+            </button>
+
+            <input
+              ref={fullBackupFileRef}
+              type="file"
+              accept=".json,.enc.json"
+              className="hidden"
+              onChange={async e => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setIsImportingDb(true);
+                try {
+                  const text = await file.text();
+                  const res = await importLocalDatabase(text, backupPassInput);
+                  showMessage(res.message);
+                  setTimeout(() => window.location.reload(), 1500);
+                } catch (err: any) {
+                  showMessage("Restore failed: " + (err?.message || "Check your password or file integrity."));
+                } finally {
+                  setIsImportingDb(false);
+                  if (fullBackupFileRef.current) fullBackupFileRef.current.value = "";
+                }
+              }}
+            />
+            <button
+              onClick={() => fullBackupFileRef.current?.click()}
+              disabled={isImportingDb}
+              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-white/10 text-xs font-bold text-white transition-all shrink-0 disabled:opacity-50"
+            >
+              {isImportingDb ? "Restoring..." : "📥 Restore Full Backup"}
+            </button>
+          </div>
+
+          <div className="mb-4">
+            <h3 className="text-xl font-semibold text-white">📦 Legacy JSON Backup</h3>
+            <p className="mt-1 text-sm text-slate-400">Export or restore subjects, sessions, and settings in human-readable JSON.</p>
           </div>
           <div className="flex flex-wrap gap-3">
             <button
