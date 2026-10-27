@@ -284,3 +284,28 @@ export interface AppBlockRule {
   ruleType?: "app" | "website";
   createdAt: string;
 }
+
+// ========== Tasks & Timeboxing (Super Productivity / Dayflow Inspired) ==========
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  subjectId?: string;
+  estimatedMinutes?: number;
+  actualMinutes?: number;
+  status: "todo" | "in_progress" | "completed";
+  priority?: "low" | "medium" | "high";
+  dueDate?: string;
+  createdAt: string;
+  completedAt?: string;
+}
+
+export interface Timebox {
+  id: string;
+  taskId: string;
+  startTime: string; // ISO String
+  endTime: string;   // ISO String
+  plannedMinutes: number;
+  actualMinutes?: number;
+  notes?: string;
+}

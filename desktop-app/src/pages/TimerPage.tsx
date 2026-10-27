@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { format, addDays } from "date-fns";
@@ -40,6 +40,19 @@ export function TimerPage() {
   const [filter, setFilter] = useState<"all" | "planned" | "completed" | "in_progress">("all");
   const [dateScope, setDateScope] = useState<"today" | "all">("today");
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("flowtrack_timer_task_hand_off");
+      if (raw) {
+        const data = JSON.parse(raw);
+        if (data && data.title) {
+          showMessage(`Focusing on task: "${data.title}"`);
+        }
+        localStorage.removeItem("flowtrack_timer_task_hand_off");
+      }
+    } catch {}
+  }, []);
 
   const showMessage = (msg: string) => {
     setActionMessage(msg);

@@ -6,7 +6,11 @@ import { Panel } from "@/components/common/Panel";
 import { useAppStore, type AppState } from "@/store/useAppStore";
 import type { StudySession } from "@/types/models";
 import { toDurationLabel } from "@/utils/time";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { db } from "@/lib/db";
+import type { Task } from "@/types/models";
+import { Plus, Trash2, CheckSquare, Square, Zap } from "lucide-react";
+import { useEffect } from "react";
 
 export function TodayTasksPage() {
   const sessions = useAppStore((state: AppState) => state.sessions);
@@ -24,6 +28,66 @@ export function TodayTasksPage() {
   const [viewMode, setViewMode] = useState<"list" | "matrix">(() => {
     return (localStorage.getItem("flowtrack_tasks_view_mode") as "list" | "matrix") || "list";
   });
+
+  const navigate = useNavigate();
+  const [customTasks, setCustomTasks] = useState<Task[]>([]);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskMins, setNewTaskMins] = useState(25);
+  const [newTaskSubject, setNewTaskSubject] = useState("");
+
+  const loadTasks = async () => {
+    try {
+      const items = await db.tasks.toArray();
+      setCustomTasks(items);
+    } catch {}
+  };
+
+  useEffect(() => {
+    loadTasks();
+  }, []);
+
+  const handleAddTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTaskTitle.trim()) return;
+    const task: Task = {
+      id: "task-" + Date.now(),
+      title: newTaskTitle.trim(),
+      subjectId: newTaskSubject || undefined,
+      estimatedMinutes: newTaskMins || 25,
+      actualMinutes: 0,
+      status: "todo",
+      createdAt: new Date().toISOString(),
+    };
+    await db.tasks.add(task);
+    setNewTaskTitle("");
+    loadTasks();
+  };
+
+  const handleToggleTask = async (task: Task) => {
+    const nextStatus = task.status === "completed" ? "todo" : "completed";
+    await db.tasks.update(task.id, {
+      status: nextStatus,
+      completedAt: nextStatus === "completed" ? new Date().toISOString() : undefined,
+    });
+    loadTasks();
+  };
+
+  const handleDeleteTask = async (id: string) => {
+    await db.tasks.delete(id);
+    loadTasks();
+  };
+
+  const handleHandOffToTimer = (task: Task) => {
+    try {
+      localStorage.setItem("flowtrack_timer_task_hand_off", JSON.stringify({
+        taskId: task.id,
+        title: task.title,
+        subjectId: task.subjectId,
+        plannedMinutes: task.estimatedMinutes || 25,
+      }));
+    } catch {}
+    navigate("/timer");
+  };
 
   const [quadrants, setQuadrants] = useState<Record<string, string>>(() => {
     try {
@@ -331,6 +395,111 @@ export function TodayTasksPage() {
           </Panel>
         </div>
       )}
+
+      {/* Task Backlog & Timeboxing (Super Productivity Inspired) */}
+      <Panel className="p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div>
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <Zap className="w-5 h-5 text-amber-400" /> Task Backlog & Timeboxing
+            </h3>
+            <p className="text-xs text-slate-400">
+              Create micro-tasks, estimate focus minutes, and hand them directly off to the Focus Timer.
+            </p>
+          </div>
+        </div>
+
+        <form onSubmit={handleAddTask} className="flex flex-wrap gap-2 pt-2">
+          <input
+            type="text"
+            placeholder="What are you working on next?"
+            value={newTaskTitle}
+            onChange={e => setNewTaskTitle(e.target.value)}
+            className="flex-1 min-w-[200px] bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400"
+          />
+          <input
+            type="number"
+            min={5}
+            max={180}
+            step={5}
+            value={newTaskMins}
+            onChange={e => setNewTaskMins(parseInt(e.target.value) || 25)}
+            title="Estimated Minutes"
+            className="w-20 bg-slate-900 border border-white/10 rounded-xl px-2.5 py-2 text-xs text-white font-mono text-center focus:outline-none focus:border-cyan-400"
+          />
+          <select
+            value={newTaskSubject}
+            onChange={e => setNewTaskSubject(e.target.value)}
+            className="bg-slate-900 border border-white/10 rounded-xl px-2.5 py-2 text-xs text-slate-300 focus:outline-none focus:border-cyan-400"
+          >
+            <option value="">No Subject</option>
+            {subjects.map(s => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+          <button
+            type="submit"
+            className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-all shadow-md"
+          >
+            <Plus className="w-4 h-4" /> Add Task
+          </button>
+        </form>
+
+        {customTasks.length > 0 && (
+          <div className="divide-y divide-white/5 pt-2 space-y-2">
+            {customTasks.map(t => {
+              const subj = subjects.find(s => s.id === t.subjectId);
+              const isDone = t.status === "completed";
+              return (
+                <div key={t.id} className="pt-2 first:pt-0 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleTask(t)}
+                      className="text-slate-400 hover:text-cyan-400 transition-colors shrink-0"
+                    >
+                      {isDone ? <CheckSquare className="w-4 h-4 text-emerald-400" /> : <Square className="w-4 h-4" />}
+                    </button>
+                    <div className="min-w-0">
+                      <p className={`text-xs font-medium truncate ${isDone ? "line-through text-slate-500" : "text-white"}`}>
+                        {t.title}
+                      </p>
+                      <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                        {subj && (
+                          <span className="font-semibold" style={{ color: subj.color || "#06b6d4" }}>
+                            {subj.name}
+                          </span>
+                        )}
+                        <span>{t.estimatedMinutes}m est.</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {!isDone && (
+                      <button
+                        type="button"
+                        onClick={() => handleHandOffToTimer(t)}
+                        className="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-[11px] font-bold flex items-center gap-1 transition-all"
+                        title="Start Pomodoro / Stopwatch on this task"
+                      >
+                        <Play className="w-3 h-3 fill-current" /> Start Focus
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteTask(t.id)}
+                      className="p-1 rounded text-slate-500 hover:text-rose-400 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Panel>
 
       {/* No Tasks */}
       {today.length === 0 && (
