@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.3](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v0.2.2...v0.2.3) (2026-10-27)
+
+
+### 🐛 Bug Fixes & Patches
+
+* **portals:** block study video ads and bypass google leetcode login blocks ([2ad212e](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/2ad212eb10e2ffc6de1771d07af727ca61214ec9))
+* **portals:** fix webview flicker, auth popups, and bot protection headers ([f4f216b](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/f4f216b58909b7cabf228593b4e0a3bdd549bb8a))
+* resolve release heredoc syntax error, guard version drift, and stabilize portals webview ([2ec9348](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/2ec93485d5c08b0480bb0ed122491f993ed14a48))
+
 ## [0.2.2](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v0.2.1...v0.2.2) (2026-10-27)
 
 
