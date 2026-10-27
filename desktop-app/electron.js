@@ -1181,6 +1181,50 @@ ipcMain.handle("heartbeat-status", async () => {
   return wakatimeReceiver ? wakatimeReceiver.getStatus() : { isRunning: false, port: 7777, heartbeatsToday: 0 };
 });
 
+ipcMain.handle("heartbeat-get-day", async (_event, date) => {
+  return wakatimeReceiver ? wakatimeReceiver.getDayHeartbeats(date) : [];
+});
+
+ipcMain.handle("send-test-heartbeat", async () => {
+  if (!wakatimeReceiver) return { ok: false, error: "Receiver not running" };
+  const testRecord = {
+    entity: "FlowTrackPro/test-session.ts",
+    type: "file",
+    time: Date.now() / 1000,
+    project: "FlowTrack Pro Workspace",
+    branch: "main",
+    language: "TypeScript",
+    category: "coding",
+    is_write: true,
+    editor: "VS Code (Simulated)",
+    lines: 100,
+    lineno: 42,
+  };
+  const processed = wakatimeReceiver.processHeartbeat(testRecord, "vscode/1.96.0");
+  return { ok: true, processed };
+});
+
+ipcMain.handle("auto-configure-wakatime-cfg", async () => {
+  const os = require("os");
+  const homeDir = os.homedir();
+  const cfgPath = path.join(homeDir, ".wakatime.cfg");
+  const cfgContent = `[settings]\napi_key = flowtrack-local\napi_url = http://127.0.0.1:7777/api/v1\n`;
+
+  try {
+    if (fs.existsSync(cfgPath)) {
+      const existing = fs.readFileSync(cfgPath, "utf8");
+      if (existing.includes("127.0.0.1:7777")) {
+        return { ok: true, path: cfgPath, message: "Already configured!" };
+      }
+      fs.writeFileSync(`${cfgPath}.bak`, existing, "utf8");
+    }
+    fs.writeFileSync(cfgPath, cfgContent, "utf8");
+    return { ok: true, path: cfgPath, message: "Successfully wrote ~/.wakatime.cfg" };
+  } catch (err) {
+    return { ok: false, error: err && err.message };
+  }
+});
+
 ipcMain.handle("heartbeat-stats", async (_event, date) => {
   return wakatimeReceiver ? wakatimeReceiver.getHeartbeatStats(date) : { totalSeconds: 0, byProject: {}, byLanguage: {}, byEditor: {}, byCategory: {}, topFiles: [] };
 });

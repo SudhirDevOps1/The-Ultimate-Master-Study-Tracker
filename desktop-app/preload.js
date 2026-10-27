@@ -54,6 +54,8 @@ const ALLOWED_INVOKE_CHANNELS = [
   "heartbeat-clear",
   "open-heartbeat-folder",
   "heartbeat-set-config",
+  "send-test-heartbeat",
+  "auto-configure-wakatime-cfg",
   // Browser Extensions & Enhanced Shield IPCs
   "get-installed-extensions",
   "install-extension-folder",

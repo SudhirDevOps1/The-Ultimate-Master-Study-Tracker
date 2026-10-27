@@ -270,10 +270,46 @@ async function handleRequest(req, res) {
   const parsedUrl = new URL(req.url, `http://${host || "127.0.0.1"}`);
   const pathname = parsedUrl.pathname;
 
-  // Health check endpoint
-  if (pathname === "/health" && req.method === "GET") {
+  // Friendly Root, Health & API Info endpoints (prevents 404 when user visits http://127.0.0.1:7777/api/v1)
+  const isInfoEndpoint =
+    req.method === "GET" &&
+    (pathname === "/" ||
+     pathname === "/api" ||
+     pathname === "/api/v1" ||
+     pathname === "/api/v1/" ||
+     pathname === "/api/compat/wakatime/v1" ||
+     pathname === "/api/compat/wakatime/v1/" ||
+     pathname === "/health" ||
+     pathname === "/api/v1/health");
+
+  if (isInfoEndpoint) {
     res.writeHead(200);
-    return res.end(JSON.stringify({ ok: true, version: "wakatime-local-v1", port: activePort }));
+    return res.end(
+      JSON.stringify(
+        {
+          ok: true,
+          service: "FlowTrack Pro WakaTime & Coding Integration",
+          status: "online",
+          version: "wakatime-local-v1",
+          port: activePort,
+          heartbeats_today: todayHeartbeats.length,
+          message: "Local WakaTime receiver is active and ready to log heartbeats.",
+          endpoints: {
+            heartbeats: "/api/v1/users/current/heartbeats",
+            status: "/api/v1/users/current/status",
+            summaries: "/api/v1/users/current/summaries",
+            health: "/health",
+            buckets: "/api/0/buckets",
+          },
+          config_example:
+            "[settings]\napi_key = flowtrack-local\napi_url = http://127.0.0.1:" +
+            activePort +
+            "/api/v1",
+        },
+        null,
+        2
+      )
+    );
   }
 
   // API Key Check if required
@@ -342,8 +378,8 @@ async function handleRequest(req, res) {
       res.writeHead(405);
       return res.end(JSON.stringify({ error: "Method Not Allowed - Read Only API" }));
     }
-    const today = new Date().toISOString().split("T")[0];
-    const log = loadDayFile(today) || [];
+    const today = getLocalDateString();
+    const log = getDayHeartbeats(today);
     const limit = Math.min(500, parseInt(parsedUrl.searchParams.get("limit") || "100", 10));
     const events = log.slice(-limit).map(h => ({
       id: h.id,
@@ -358,6 +394,16 @@ async function handleRequest(req, res) {
     }));
     res.writeHead(200);
     return res.end(JSON.stringify(events));
+  }
+
+  // Support GET on heartbeats endpoint for local inspection
+  if (
+    (pathname === "/api/v1/users/current/heartbeats" ||
+     pathname === "/api/compat/wakatime/v1/users/current/heartbeats") &&
+    req.method === "GET"
+  ) {
+    res.writeHead(200);
+    return res.end(JSON.stringify({ data: todayHeartbeats }));
   }
 
   if (isHeartbeatPost) {
@@ -479,6 +525,28 @@ function stopReceiver() {
 /**
  * Aggregations for coding stats tab
  */
+/**
+ * Retrieve raw heartbeat records for a specific date (YYYY-MM-DD)
+ */
+function getDayHeartbeats(targetDate = getLocalDateString()) {
+  if (targetDate === getLocalDateString()) {
+    return [...todayHeartbeats];
+  }
+  if (heartbeatsDir) {
+    const filePath = path.join(heartbeatsDir, `${targetDate}.json`);
+    try {
+      if (fs.existsSync(filePath)) {
+        const content = fs.readFileSync(filePath, "utf8");
+        const parsed = JSON.parse(content);
+        return Array.isArray(parsed) ? parsed : [];
+      }
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 function getHeartbeatStats(targetDate = getLocalDateString()) {
   let entries = [];
   if (targetDate === getLocalDateString()) {
@@ -568,6 +636,7 @@ module.exports = {
   stopReceiver,
   processHeartbeat,
   getHeartbeatStats,
+  getDayHeartbeats,
   getStatus: () => ({
     isRunning: Boolean(server),
     port: activePort,

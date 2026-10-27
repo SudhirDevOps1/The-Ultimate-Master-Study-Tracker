@@ -412,10 +412,15 @@ export function AppTrackingPage() {
   useEffect(() => {
     const ipc = getIpc();
     if (!ipc) return;
-    ipc.invoke("heartbeat-get-day", selectedDate).then((items: any) => {
-      if (Array.isArray(items)) setHeartbeats(items);
-      else setHeartbeats([]);
-    }).catch(() => setHeartbeats([]));
+    const loadHeartbeats = () => {
+      ipc.invoke("heartbeat-get-day", selectedDate).then((items: any) => {
+        if (Array.isArray(items)) setHeartbeats(items);
+        else setHeartbeats([]);
+      }).catch(() => setHeartbeats([]));
+    };
+    loadHeartbeats();
+    const interval = setInterval(loadHeartbeats, 5000);
+    return () => clearInterval(interval);
   }, [selectedDate]);
 
   const realCodingStats = useMemo(() => aggregateCodingStats(heartbeats), [heartbeats]);

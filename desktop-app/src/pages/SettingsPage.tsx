@@ -474,13 +474,49 @@ export function SettingsPage() {
                   Copy Config
                 </button>
               </div>
-              <pre className="text-[11px] text-cyan-200/90 overflow-x-auto select-all">
-[settings]
+              <pre className="text-[11px] text-cyan-200/90 overflow-x-auto select-all whitespace-pre font-mono leading-relaxed bg-black/40 p-2.5 rounded-lg border border-white/5 block">
+{`[settings]
 api_key = flowtrack-local
-api_url = http://127.0.0.1:7777/api/v1
+api_url = http://127.0.0.1:7777/api/v1`}
               </pre>
             </div>
-            <div className="flex items-center gap-2 pt-1">
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const res = await (window as any).electron?.ipcRenderer?.invoke?.("auto-configure-wakatime-cfg");
+                    if (res && res.ok) {
+                      showMessage(`⚡ Auto-configured ~/.wakatime.cfg! (${res.message || "Ready"})`);
+                    } else {
+                      showMessage(`⚠️ Failed: ${res?.error || "Could not write ~/.wakatime.cfg"}`);
+                    }
+                  } catch {
+                    showMessage("⚠️ Auto-config requires FlowTrack Pro desktop app.");
+                  }
+                }}
+                className="px-3 py-1.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-xs font-semibold border border-cyan-500/40 transition-all flex items-center gap-1.5 shadow-sm"
+              >
+                ⚡ Auto-Configure ~/.wakatime.cfg
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const res = await (window as any).electron?.ipcRenderer?.invoke?.("send-test-heartbeat");
+                    if (res && res.ok) {
+                      showMessage("🧪 Test heartbeat logged! Check App Tracking > Developer tab.");
+                    } else {
+                      showMessage("⚠️ Could not log test heartbeat.");
+                    }
+                  } catch {
+                    showMessage("⚠️ Test heartbeat requires desktop mode.");
+                  }
+                }}
+                className="px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-semibold border border-emerald-500/40 transition-all flex items-center gap-1.5"
+              >
+                🧪 Send Test Heartbeat
+              </button>
               <button
                 type="button"
                 onClick={() => {
@@ -490,6 +526,14 @@ api_url = http://127.0.0.1:7777/api/v1
               >
                 📂 Open Heartbeats Folder
               </button>
+            </div>
+            <div className="p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/20 text-xs text-slate-300 space-y-1.5">
+              <p className="font-bold text-cyan-300 text-[11px] uppercase tracking-wide">3-Step Editor Setup Guide:</p>
+              <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-400">
+                <li>Install the free <strong className="text-white">WakaTime</strong> extension in VS Code, Cursor, Antigravity, or JetBrains (<code className="px-1 rounded bg-black/40 text-cyan-300">Ctrl+Shift+X</code> &rarr; search &quot;WakaTime&quot;).</li>
+                <li>Click <strong className="text-cyan-300">&quot;⚡ Auto-Configure ~/.wakatime.cfg&quot;</strong> above (or paste snippet into <code className="px-1 rounded bg-black/40 text-cyan-300">~/.wakatime.cfg</code>).</li>
+                <li>Start typing code! Your programming languages, files, and editors will appear under <strong className="text-white">App Tracking &gt; Developer</strong>.</li>
+              </ol>
             </div>
           </div>
         </div>
