@@ -998,7 +998,7 @@ export function WebPortalsPage() {
                     className="w-full h-full border-0 absolute top-0 left-0 z-10 pointer-events-auto"
                     allowpopups={true}
                     partition="persist:browser_session"
-                    webpreferences="allowRunningInsecureContent=true, javascript=true"
+                    webpreferences={`allowRunningInsecureContent=${localStorage.getItem("flowtrack_webview_allow_insecure") !== "false"}, javascript=true`}
                   />
                 )}
               </div>

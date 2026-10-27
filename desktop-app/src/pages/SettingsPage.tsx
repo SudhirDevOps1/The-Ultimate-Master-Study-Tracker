@@ -204,6 +204,14 @@ export function SettingsPage() {
   const [isOpenAtLogin, setIsOpenAtLogin] = useState(() => {
     return localStorage.getItem("flowtrack_open_at_login") === "true";
   });
+  const [isEnhancedAdBlock, setIsEnhancedAdBlock] = useState(() => {
+    return localStorage.getItem("flowtrack_enhanced_adblock") === "true";
+  });
+  const [allowInsecureContent, setAllowInsecureContent] = useState(() => {
+    return localStorage.getItem("flowtrack_webview_allow_insecure") !== "false";
+  });
+  const [installedExtensions, setInstalledExtensions] = useState<any[]>([]);
+
   const [isWebviewAdBlock, setIsWebviewAdBlock] = useState(() => {
     return localStorage.getItem("flowtrack_webview_adblock") !== "false";
   });
@@ -224,7 +232,10 @@ export function SettingsPage() {
             setIsOpenAtLogin(res.settings.openAtLogin);
             localStorage.setItem("flowtrack_open_at_login", String(res.settings.openAtLogin));
           }
-          if (typeof res.settings.webviewAdBlock === "boolean") {
+          (window as any).electron.ipcRenderer?.invoke?.("get-installed-extensions").then((exts: any) => {
+          if (Array.isArray(exts)) setInstalledExtensions(exts);
+        }).catch(() => {});
+        if (typeof res.settings.webviewAdBlock === "boolean") {
             setIsWebviewAdBlock(res.settings.webviewAdBlock);
             localStorage.setItem("flowtrack_webview_adblock", String(res.settings.webviewAdBlock));
           }

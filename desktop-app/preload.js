@@ -54,6 +54,12 @@ const ALLOWED_INVOKE_CHANNELS = [
   "heartbeat-clear",
   "open-heartbeat-folder",
   "heartbeat-set-config",
+  // Browser Extensions & Enhanced Shield IPCs
+  "get-installed-extensions",
+  "install-extension-folder",
+  "toggle-extension",
+  "remove-extension",
+  "toggle-enhanced-adblock",
 ];
 
 const ALLOWED_LISTEN_CHANNELS = [

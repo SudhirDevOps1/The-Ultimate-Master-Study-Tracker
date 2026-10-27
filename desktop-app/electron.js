@@ -32,6 +32,13 @@ try {
 }
 
 // Global Google / Cloudflare Bot Shield Bypass (Pure Chrome 136 Desktop User-Agent)
+let browserShield = null;
+try {
+  browserShield = require("./electron-main/browser-shield.js");
+} catch (e) {
+  console.warn("[electron] browser-shield module load error:", e && e.message);
+}
+
 let wakatimeReceiver = null;
 try {
   wakatimeReceiver = require("./electron-main/wakatime-receiver.js");
@@ -966,6 +973,12 @@ app.whenReady().then(() => {
   try {
     loadDesktopSettings();
     const portalSession = session.fromPartition("persist:browser_session");
+    if (browserShield) {
+      browserShield.initExtensionsManager(portalSession, app.getPath("userData"));
+      if (desktopSettings && desktopSettings.webviewEnhancedAdBlock) {
+        browserShield.enableEnhancedAdBlocker(portalSession);
+      }
+    }
     portalSession.setUserAgent(CHROME_DESKTOP_UA);
 
     // Study Ad Shield: Cancel matching ad and telemetry requests using local blocklist
@@ -1112,6 +1125,38 @@ app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(
 
 // ─── IPC Handlers ─────────────────────────────────────────────────────────────
 // ─── WakaTime Heartbeat Integration IPC Handlers ────────────────────────────
+// ─── Browser Shield & Extension IPC Handlers ──────────────────────────────
+ipcMain.handle("get-installed-extensions", async () => {
+  return browserShield ? browserShield.getInstalledExtensions() : [];
+});
+
+ipcMain.handle("install-extension-folder", async () => {
+  if (!browserShield || !mainWindow) return { ok: false, error: "Unavailable" };
+  const ps = session.fromPartition("persist:browser_session");
+  return await browserShield.installExtensionFolder(mainWindow, ps);
+});
+
+ipcMain.handle("toggle-extension", async (_event, { id, enabled }) => {
+  if (!browserShield) return { ok: false };
+  const ps = session.fromPartition("persist:browser_session");
+  return await browserShield.toggleExtension(ps, id, enabled);
+});
+
+ipcMain.handle("remove-extension", async (_event, id) => {
+  return browserShield ? browserShield.removeExtension(id) : { ok: false };
+});
+
+ipcMain.handle("toggle-enhanced-adblock", async (_event, enabled) => {
+  if (!browserShield) return { ok: false };
+  const ps = session.fromPartition("persist:browser_session");
+  if (enabled) {
+    return await browserShield.enableEnhancedAdBlocker(ps);
+  } else {
+    browserShield.disableEnhancedAdBlocker(ps);
+    return { ok: true };
+  }
+});
+
 ipcMain.handle("heartbeat-status", async () => {
   return wakatimeReceiver ? wakatimeReceiver.getStatus() : { isRunning: false, port: 7777, heartbeatsToday: 0 };
 });
