@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Panel } from "@/components/common/Panel";
 import { useAppStore } from "@/store/useAppStore";
+import { aggregateCodingStats, type HeartbeatItem } from "@/utils/editorInfo";
 import { db } from "@/lib/db";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -396,6 +397,18 @@ export function AppTrackingPage() {
   const [liveIdleMs, setLiveIdleMs]     = useState(0);
   const [loading, setLoading]           = useState(false);
   const [activeTab, setActiveTab] = useState<"overview"|"timeline"|"websites"|"developer"|"windows">("overview");
+  const [heartbeats, setHeartbeats] = useState<HeartbeatItem[]>([]);
+
+  useEffect(() => {
+    const ipc = getIpc();
+    if (!ipc) return;
+    ipc.invoke("heartbeat-get-day", selectedDate).then((items: any) => {
+      if (Array.isArray(items)) setHeartbeats(items);
+      else setHeartbeats([]);
+    }).catch(() => setHeartbeats([]));
+  }, [selectedDate]);
+
+  const realCodingStats = useMemo(() => aggregateCodingStats(heartbeats), [heartbeats]);
   const [exportStatus, setExportStatus] = useState<"idle"|"exporting"|"importing">("idle");
   const [weeklyOverview, setWeeklyOverview] = useState<{ date: string; seconds: number }[]>([]);
   const [periodTotals, setPeriodTotals] = useState<{ today: number; week: number; month: number; allTime: number }>({
@@ -1173,24 +1186,52 @@ export function AppTrackingPage() {
             )}
 
             {activeTab === "developer" && (
-              <div className="grid gap-5 md:grid-cols-2">
-                <Panel className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      <Code2 className="w-4 h-4 text-cyan-400" /> Programming Languages
-                    </h3>
-                    <span className="text-[10px] text-slate-500 font-mono">Wakapi Engine</span>
-                  </div>
-                  {devSummaries.languages.length === 0 ? (
-                    <div className="py-12 text-center text-slate-500 text-xs">
-                      No active coding sessions detected. Open VS Code, Cursor, or your favorite IDE to track languages.
+              <div className="space-y-5">
+                {/* Real Heartbeat Summary Banner */}
+                {realCodingStats.totalHeartbeats > 0 && (
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-cyan-500/10 via-indigo-500/10 to-transparent border border-cyan-500/30 flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400 font-bold">
+                        <Code2 className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-white">Live IDE Heartbeats Detected</h4>
+                        <p className="text-xs text-slate-400">Total Coding Time: <span className="font-mono text-cyan-300 font-bold">{fmt(realCodingStats.totalSeconds)}</span> across {realCodingStats.totalHeartbeats} heartbeats</p>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {devSummaries.languages.map(([lang, secs]) => {
-                        const totalDevSecs = devSummaries.languages.reduce((acc, [, s]) => acc + s, 0);
-                        const pct = totalDevSecs > 0 ? (secs / totalDevSecs) * 100 : 0;
-                        return (
+                    <div className="flex items-center gap-2">
+                      {realCodingStats.editors.map(e => (
+                        <span key={e.name} className="px-2.5 py-1 rounded-xl bg-slate-800 border border-white/10 text-[11px] font-bold text-white">
+                          {e.name}: {fmt(e.seconds)} ({e.percent}%)
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid gap-5 md:grid-cols-2">
+                  <Panel className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                        <Code2 className="w-4 h-4 text-cyan-400" /> Programming Languages
+                      </h3>
+                      <span className="text-[10px] text-slate-500 font-mono">WakaTime / IDE Receiver</span>
+                    </div>
+                    {(realCodingStats.languages.length === 0 && devSummaries.languages.length === 0) ? (
+                      <div className="py-12 text-center text-slate-500 text-xs space-y-2">
+                        <p>No active coding heartbeats detected for {selectedDate}.</p>
+                        <p className="text-[11px] text-slate-600">Connect VS Code, Cursor, or VSCodium by pointing api_url to http://127.0.0.1:7777/api/v1 in ~/.wakatime.cfg</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {(realCodingStats.languages.length > 0
+                          ? realCodingStats.languages.map(l => [l.name, l.seconds, l.percent] as [string, number, number])
+                          : devSummaries.languages.map(([lang, secs]) => {
+                              const totalDevSecs = devSummaries.languages.reduce((acc, [, s]) => acc + s, 0);
+                              const pct = totalDevSecs > 0 ? (secs / totalDevSecs) * 100 : 0;
+                              return [lang, secs, pct] as [string, number, number];
+                            })
+                        ).map(([lang, secs, pct]) => (
                           <div key={lang} className="space-y-1">
                             <div className="flex justify-between text-xs font-semibold">
                               <span className="text-white flex items-center gap-1.5">
@@ -1203,44 +1244,45 @@ export function AppTrackingPage() {
                               <div className="h-full bg-gradient-to-r from-cyan-400 to-indigo-500 rounded-full" style={{ width: `${pct}%` }} />
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </Panel>
+                        ))}
+                      </div>
+                    )}
+                  </Panel>
 
-                <Panel className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      <FolderGit2 className="w-4 h-4 text-indigo-400" /> Coding Projects & Workspaces
-                    </h3>
-                    <span className="text-[10px] text-slate-500 font-mono">Dayflow Engine</span>
-                  </div>
-                  {devSummaries.projects.length === 0 ? (
-                    <div className="py-12 text-center text-slate-500 text-xs">
-                      No project workspaces detected yet. Work in any project folder to see time per repository.
+                  <Panel className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                        <FolderGit2 className="w-4 h-4 text-indigo-400" /> Coding Projects & Workspaces
+                      </h3>
+                      <span className="text-[10px] text-slate-500 font-mono">Workspace Engine</span>
                     </div>
-                  ) : (
-                    <div className="space-y-2 max-h-[360px] overflow-y-auto pretty-scrollbar pr-1">
-                      {devSummaries.projects.map(([proj, secs]) => (
-                        <div key={proj} className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-indigo-500/30 transition-all">
-                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            <div className="w-8 h-8 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0 font-bold text-xs">
-                              PRJ
+                    {(realCodingStats.projects.length === 0 && devSummaries.projects.length === 0) ? (
+                      <div className="py-12 text-center text-slate-500 text-xs">
+                        No project workspaces detected yet. Work in any project folder to see time per repository.
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-[360px] overflow-y-auto pretty-scrollbar pr-1">
+                        {(realCodingStats.projects.length > 0
+                          ? realCodingStats.projects.map(p => [p.name, p.seconds] as [string, number])
+                          : devSummaries.projects
+                        ).map(([proj, secs]) => (
+                          <div key={proj} className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-indigo-500/30 transition-all">
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                              <div className="w-8 h-8 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0 font-bold text-xs">
+                                PRJ
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold text-white truncate">{proj}</p>
+                                <p className="text-[10px] text-slate-500 font-mono">Local Workspace</p>
+                              </div>
                             </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-bold text-white truncate">{proj}</p>
-                              <p className="text-[10px] text-slate-500">Active Workspace</p>
-                            </div>
+                            <span className="text-xs font-mono font-bold text-indigo-400 ml-2 shrink-0">{fmt(secs)}</span>
                           </div>
-                          <div className="text-right shrink-0">
-                            <p className="text-xs font-bold text-indigo-300 font-mono">{fmt(secs)}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </Panel>
+                        ))}
+                      </div>
+                    )}
+                  </Panel>
+                </div>
               </div>
             )}
 

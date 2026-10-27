@@ -7,6 +7,8 @@ import {
 } from "lucide-react";
 import { Panel } from "@/components/common/Panel";
 import { useAppStore } from "@/store/useAppStore";
+import { aggregateCodingStats } from "@/utils/editorInfo";
+import { Code2, FolderGit2 } from "lucide-react";
 import { db } from "@/lib/db";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -300,7 +302,7 @@ export function AppTrackingPage() {
   const [liveApp, setLiveApp]           = useState<{ process: string; title: string } | null>(null);
   const [liveIdleMs, setLiveIdleMs]     = useState(0);
   const [loading, setLoading]           = useState(false);
-  const [activeTab, setActiveTab]       = useState<"overview"|"timeline"|"websites"|"windows">("overview");
+  const [activeTab, setActiveTab]       = useState<"overview"|"timeline"|"websites"|"developer"|"windows">("overview");
   const [exportStatus, setExportStatus] = useState<"idle"|"exporting"|"importing">("idle");
   const [weeklyOverview, setWeeklyOverview] = useState<{ date: string; seconds: number }[]>([]);
   const [periodTotals, setPeriodTotals] = useState<{ today: number; week: number; month: number; allTime: number }>({
@@ -1112,6 +1114,34 @@ export function AppTrackingPage() {
                   )}
                 </div>
               </Panel>
+            )}
+
+                        {activeTab === "developer" && (
+              <div className="grid gap-5 md:grid-cols-2">
+                <Panel className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <Code2 className="w-4 h-4 text-cyan-400" /> Programming Languages
+                    </h3>
+                    <span className="text-[10px] text-slate-500 font-mono">WakaTime Compatible</span>
+                  </div>
+                  <div className="py-12 text-center text-slate-500 text-xs space-y-2">
+                    <p>No active coding heartbeats detected for {selectedDate}.</p>
+                    <p className="text-[11px] text-slate-600">In the Desktop App or with backend.py, heartbeats from VS Code and Cursor populate here automatically.</p>
+                  </div>
+                </Panel>
+                <Panel className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <FolderGit2 className="w-4 h-4 text-indigo-400" /> Coding Projects
+                    </h3>
+                    <span className="text-[10px] text-slate-500 font-mono">Workspace Engine</span>
+                  </div>
+                  <div className="py-12 text-center text-slate-500 text-xs">
+                    No project workspaces detected yet.
+                  </div>
+                </Panel>
+              </div>
             )}
 
             {activeTab === "windows" && (
