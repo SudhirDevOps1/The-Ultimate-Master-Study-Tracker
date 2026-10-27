@@ -1,5 +1,35 @@
 const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog, shell, protocol, net, session, powerMonitor } = require("electron");
-const { AD_BLOCK_PATTERNS } = require("./adBlockList.js");
+// Robust fallback ad patterns so main process can never crash on missing module
+let AD_BLOCK_PATTERNS = [
+  "*://*.doubleclick.net/*",
+  "*://googleads.g.doubleclick.net/*",
+  "*://*.googlesyndication.com/*",
+  "*://*.googleadservices.com/*",
+  "*://static.doubleclick.net/*",
+  "*://adservice.google.com/*",
+  "*://pagead2.googlesyndication.com/*",
+  "*://*.google-analytics.com/*",
+  "*://*.youtube.com/pagead/*",
+  "*://*.youtube.com/api/stats/ads*",
+  "*://*.youtube.com/ptracking*",
+  "*://*.youtube.com/get_midroll_info*",
+  "*://*.youtube.com/youtubei/v1/player/ad_break*",
+  "*://*.adnxs.com/*",
+  "*://*.adroll.com/*",
+  "*://*.criteo.com/*",
+  "*://*.taboola.com/*",
+  "*://*.outbrain.com/*",
+  "*://*.facebook.com/tr/*",
+  "*://connect.facebook.net/*",
+];
+try {
+  const loaded = require("./adBlockList.js");
+  if (loaded && Array.isArray(loaded.AD_BLOCK_PATTERNS)) {
+    AD_BLOCK_PATTERNS = loaded.AD_BLOCK_PATTERNS;
+  }
+} catch (e) {
+  console.warn("[adBlock] Using built-in ad block patterns fallback:", e && e.message);
+}
 
 // Global Google / Cloudflare Bot Shield Bypass (Pure Chrome 136 Desktop User-Agent)
 const CHROME_DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36";
