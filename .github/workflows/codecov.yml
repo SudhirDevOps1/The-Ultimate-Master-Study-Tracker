@@ -3,14 +3,8 @@ name: Codecov Coverage & Test Quality
 on:
   push:
     branches: [main, develop]
-    paths:
-      - 'desktop-app/**'
-      - 'web-app/**'
   pull_request:
     branches: [main, develop]
-    paths:
-      - 'desktop-app/**'
-      - 'web-app/**'
   workflow_dispatch:
 
 concurrency:
@@ -60,10 +54,16 @@ jobs:
           cd web-app
           npx vitest run --coverage
 
+      - name: Prefix LCOV Paths for Monorepo
+        shell: bash
+        run: |
+          sed -i 's#SF:src#SF:desktop-app/src#' desktop-app/coverage/lcov.info || true
+          sed -i 's#SF:src#SF:web-app/src#' web-app/coverage/lcov.info || true
+
       - name: Upload Desktop Coverage to Codecov
         uses: codecov/codecov-action@0565863a31f2c772f9f0395002a31e3f06189574 # v5.4.0
         with:
-          files: desktop-app/coverage/lcov.info
+          files: desktop-app/coverage/coverage-final.json,desktop-app/coverage/lcov.info
           flags: desktop
           fail_ci_if_error: ${{ secrets.CODECOV_TOKEN != '' }}
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -71,7 +71,7 @@ jobs:
       - name: Upload Web Coverage to Codecov
         uses: codecov/codecov-action@0565863a31f2c772f9f0395002a31e3f06189574 # v5.4.0
         with:
-          files: web-app/coverage/lcov.info
+          files: web-app/coverage/coverage-final.json,web-app/coverage/lcov.info
           flags: web
           fail_ci_if_error: ${{ secrets.CODECOV_TOKEN != '' }}
           token: ${{ secrets.CODECOV_TOKEN }}
