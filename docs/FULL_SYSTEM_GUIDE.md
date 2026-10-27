@@ -1,17 +1,17 @@
 # 📖 FlowTrack Pro — Master Technical Architecture & System Guide
 
-> **Version**: `v0.1.2` | **Last Updated**: 2026-10-26 (v0.1.2 Production Release)
+> **Version**: `v0.2.4` | **Last Updated**: 2026-10-27 (v0.2.4 Production Release)
 
 ---
 
 > [!NOTE]
 > **Open-Source Architectural Inspiration**: FlowTrack Pro synthesizes paradigms from community-loved tools:
-> - **ActivityWatch**: Automated local-first telemetry & AFK idle detection.
-> - **Super Productivity**: Timeboxing, Pomodoro synthesizer & flowtime focus.
-> - **Anki / SuperMemo SM-2**: Spaced repetition memory engines for coding & DSA retention.
-> - **Dayflow / Wakapi**: Passive developer screen categorization.
+> - **ActivityWatch**: Automated local-first telemetry, safe query API & AFK idle detection.
+> - **Super Productivity**: Timeboxing, Pomodoro synthesizer, break engine & flowtime focus.
+> - **Anki / SuperMemo SM-2**: Spaced repetition memory engines with learning steps and leech detection.
+> - **Dayflow / Wakapi**: Passive developer screen categorization and WakaTime heartbeat ingestion.
 
-Welcome to the official technical manual for **FlowTrack Pro (`v0.0.1`)**. This document specifies the exact implementation details, architectural design, data storage mechanisms, and operational modes across **3 Operational Categories**.
+Welcome to the official technical manual for **FlowTrack Pro**. This document specifies the exact implementation details, architectural design, data storage mechanisms, and operational modes across **3 Operational Categories**.
 
 ---
 
@@ -23,6 +23,7 @@ Welcome to the official technical manual for **FlowTrack Pro (`v0.0.1`)**. This 
 5. [Comparative Feature Matrix](#5-comparative-feature-matrix)
 6. [Win32 & Webview Tracking Specification](#6-win32--webview-tracking-specification)
 7. [Full Application Navigation & Page Breakdown](#7-full-application-navigation--page-breakdown)
+8. [Developer Protocols & Local Services](#8-developer-protocols--local-services)
 
 ---
 
@@ -43,6 +44,8 @@ FlowTrack Pro is engineered to run seamlessly across **3 operational categories*
 │  - Live on Vercel CDN           │             │  - Browser UI + backend.py      │             │  - Standalone Electron .exe     │
 │  - 100% In-Browser IndexedDB    │             │  - OS Active Window Tracking    │             │  - Kernel Win32 C# Tracking     │
 │  - Zero Install & Zero Signup   │             │  - Local SQLite Database Sync   │             │  - Password Vault & AutoUpdate  │
+│  - AES-256-GCM Backup Vault     │             │  - Mirrored Heartbeats Table    │             │  - Ghostery Ad Blocker          │
+│  - Offline MiniSearch (Ctrl+K)  │             │  - WakaTime Heartbeats Proxy    │             │  - Loopback Receiver (7777)     │
 └─────────────────────────────────┘             └─────────────────────────────────┘             └─────────────────────────────────┘
 ```
 
@@ -60,8 +63,8 @@ Category 1 is the **zero-install, instant-access web version** hosted on Vercel 
 ### How to Run Locally (Category 1)
 ```bash
 git clone https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git
-cd The-Ultimate-Master-Study-Tracker
-npm install
+cd The-Ultimate-Master-Study-Tracker/web-app
+npm install --legacy-peer-deps
 npm run dev
 # App opens at http://localhost:5173
 ```
@@ -82,17 +85,18 @@ Category 2 pairs the **Web App UI** with a **Local Python Daemon (`backend.py`)*
 https://the-ultimate-master-study-tracker.vercel.app   backend.py (Python Server @ Port 5001)
   │                                                       │
   ├── Browser Study Timer & IndexedDB                     ├── Detects Focused App via win32gui/psutil
-  │                                                       │
-  └── Polls REST API (every 5s) ────────────────────────► └── REST Endpoint (/active-window)
+  │                                                       ├── Ingests IDE Heartbeats into SQLite
+  └── Polls REST API (every 5s) ────────────────────────► └── REST Endpoint (/active-window, /heartbeats)
       GET http://localhost:5001/active-window                 Returns: { "title": "VS Code", "process": "Code.exe" }
 ```
 
 ### How to Run (Category 2)
 ```bash
 # Start backend service
-python backend.py
+python web-app/backend.py 5001 --poll 2 --idle 300
 
 # In another terminal run Web UI
+cd web-app
 npm run dev
 ```
 
@@ -103,29 +107,25 @@ npm run dev
 ### Overview
 Category 3 is a **100% Standalone Desktop Application** built with Electron 43.
 
-- **Target Platform**: Windows 10/11 (64-bit) and macOS.- **Data Storage**: %AppData%\FlowTrackPro\activity-log\YYYY-MM-DD.json and IndexedDB.
-- **Zero Data Loss Guarantee**: Application updates overwrite binaries in %LocalAppData%\Programs\FlowTrackPro while preserving 100% of your user database and logs in %AppData%\FlowTrackPro.
-- **Native Tracking Engine**: Embedded C# Win32 helper (win-tracker.exe) for fast foreground app detection.
-- **ActivityWatch AFK Guard**: Native powerMonitor OS idle check auto-pauses focus sessions after 5 minutes away from keyboard/mouse.
-- **Dayflow & Wakapi Engine**: Passive IDE window title parser detecting languages (TypeScript, Python, Java, etc.) and active coding projects.
-- **Super Productivity 20-20-20 Rest Rule**: Ergonomic reminder every 20 minutes prompting 20 seconds of distance eye relaxation.
-- **Password Vault**: Local XOR encrypted credential manager with 1-click DOM auto-fill for embedded Chromium <webview> portals.
-- **Background Auto-Updater**: Silent update checking via electron-updater + GitHub Releases API with interactive in-app changelog modal and 1-click restart & install.
+- **Target Platform**: Windows 10/11 (64-bit) and macOS.
+- **Data Storage**: `%AppData%\FlowTrackPro\activity-log\YYYY-MM-DD.json` and IndexedDB.
+- **Zero Data Loss Guarantee**: Application updates overwrite binaries in `%LocalAppData%\Programs\FlowTrackPro` while preserving 100% of your user database and logs in `%AppData%\FlowTrackPro`.
+- **Native Tracking Engine**: Embedded C# Win32 helper (`win-tracker.exe`) for fast foreground app detection.
+- **Local WakaTime Receiver**: Binds strictly to `127.0.0.1:7777`, ingesting coding metrics directly from VS Code / Cursor plugins.
+- **In-App Browser Shield**: Ghostery declarative ad-blocking engine preventing video and banner ads inside `<webview>` portals.
+- **Dangerous Download Protection**: Guard intercepting executable downloads (.exe, .bat, .cmd, .msi, .ps1).
+- **ActivityWatch AFK Guard**: Native `powerMonitor` OS idle check auto-pauses focus sessions after idle threshold.
+- **Background Auto-Updater**: Silent update checking via `electron-updater` + GitHub Releases API with interactive changelog modal.
 
 ### How to Package (Category 3)
 ```bash
 cd desktop-app
-npm install
+npm install --legacy-peer-deps
 npm run electron:dev
 
 # Build compressed LZMA standalone installers (~150MB)
 npm run electron:build
 ```
-
----
-
-> [!IMPORTANT]
-> **Zero-Cloud Data Boundary**: All logs, subjects, sessions, and encrypted credentials reside on your local disk in IndexedDB or JSON format. No third-party analytics or external telemetry servers are contacted.
 
 ---
 
@@ -135,26 +135,21 @@ npm run electron:build
 | :--- | :---: | :---: | :---: |
 | **Execution Host** | Web Browser / PWA | Web Browser + Local Python | Standalone Electron App (.exe) |
 | **Installation Required** | Zero Install | Python 3.8+ Setup | Double-click Installer |
-| **Data Storage Engine** | Browser IndexedDB | IndexedDB + SQLite `app_tracker.db` | `%AppData%\FlowTrack Pro` |
+| **Data Storage Engine** | Browser IndexedDB | IndexedDB + SQLite `app_tracker.db` | `%AppData%\FlowTrackPro` + IndexedDB |
 | **Study Target Timer** | Delta Clock (`Date.now()`) | Delta Clock (`Date.now()`) | Delta Clock + Background Priority |
-| **Pomodoro Engine** | Timestamp-Based | Timestamp-Based | Timestamp-Based (Freeze-Proof) |
-| **AI Study Assistant** | Google Gemini API | Google Gemini API | Google Gemini API |
+| **Pomodoro & Flowtime Engine** | Timestamp-Based + Focus Score | Timestamp-Based + Focus Score | Timestamp-Based (Freeze-Proof) |
 | **Active App Tracking** | ❌ None | ✅ Via `http://localhost:5001` | ✅ Native Win32 (`win-tracker.exe`) |
-| **Encrypted Password Vault**| ⚠️ Web Storage Only | ⚠️ Web Storage Only | ✅ **Encrypted Vault + DOM Auto-Fill** |
-| **Background Auto-Updater** | ❌ No | ❌ No | ✅ **Background Silent Auto-Update** |
-| **System Tray Background Run**| ❌ No | ❌ No | ✅ **Category 3 Exclusive** |
-| **Media Player Sandbox** | ✅ Web Video/Audio | ✅ Web Video/Audio | ✅ **Zero-CORS local-media:// & Auto-Pause** |
-| **PDF & Tesseract OCR Reader** | ✅ WASM OCR | ✅ WASM OCR | ✅ WASM OCR |
-| **Excalidraw Whiteboard** | ✅ Infinite Canvas | ✅ Infinite Canvas | ✅ Infinite Canvas |
-| **Kanban Sticky Notes** | ✅ PNG Export | ✅ PNG Export | ✅ PNG Export |
-
----
-
-> [!WARNING]
-> **Time Drift Continuity**: Modifying local PC time during active sessions will trigger an anti-cheat validation flag.
-
-> [!CAUTION]
-> **Process Kill Authorization**: In Hard Mode, blacklisted processes are killed on foreground detection.
+| **WakaTime Heartbeat Receiver** | ❌ None | ✅ Mirrored via backend.py | ✅ Embedded (`127.0.0.1:7777`) |
+| **Network-Level Ad Blocker** | ❌ Browser Dependent | ❌ Browser Dependent | ✅ Ghostery Engine in Webview |
+| **Dangerous Download Guard** | ❌ Browser Dependent | ❌ Browser Dependent | ✅ Guard Intercept (.exe, .bat, etc.) |
+| **Reader Mode & In-Page Search** | ❌ Browser Dependent | ❌ Browser Dependent | ✅ Mozilla Readability + Ctrl+F |
+| **Encrypted Database Backup Vault** | ✅ AES-256-GCM + PBKDF2 | ✅ AES-256-GCM + PBKDF2 | ✅ AES-256-GCM + PBKDF2 |
+| **Unified Command Palette (Ctrl+K)** | ✅ MiniSearch Offline | ✅ MiniSearch Offline | ✅ MiniSearch Offline |
+| **Break Engine Sanctuary** | ✅ 20-20-20 & Ultradian | ✅ 20-20-20 & Ultradian | ✅ AFK-Aware + powerMonitor |
+| **Standup & Review Export** | ✅ 1-Click Markdown | ✅ 1-Click Markdown | ✅ 1-Click Markdown |
+| **Opt-in OCR Timeline** | ✅ In-Memory Redaction | ✅ In-Memory Redaction | ✅ In-Memory Redaction |
+| **Background Auto-Updater** | ❌ No | ❌ No | ✅ Background Silent Auto-Update |
+| **System Tray Background Run** | ❌ No | ❌ No | ✅ Category 3 Exclusive |
 
 ---
 
@@ -171,24 +166,33 @@ npm run electron:build
 ## 7. Full Application Navigation & Page Breakdown
 
 1. 🏠 **Dashboard (`/dashboard`)**: Daily focus score, streak heatmap, subject breakdown, and recent sessions.
-2. 📅 **Today's Tasks (`/today`)**: Daily planner, goal completion ring, and task status toggles.
-3. ⏱️ **Timer (`/timer`)**: Target timer, Pomodoro center, Picture-in-Picture player, and Media Sandbox with auto-pause.
+2. 📅 **Today's Tasks (`/today`)**: Daily planner, goal completion ring, task backlog with timebox budgeting, and 1-click timer hand-off.
+3. ⏱️ **Timer (`/timer`)**: Target timer, Pomodoro center, Flowtime mode with transparent focus score (0–100), Picture-in-Picture player, and Media Sandbox with auto-pause.
 4. 📖 **Study Workspace (`/study-workspace`)**: PDF document reader, Tesseract WASM OCR text extractor, and text viewer.
 5. 🧠 **Mind Map Whiteboard (`/mind-map`)**: Full Excalidraw infinite canvas drawing board.
-6. 🌐 **Web Portals Browser (`/web-portals`)**: Modern Arc-style Chromium browser with 100% full-width view, smart Google search omnibox, lecture speed multiplier (1x-2x), 1-click slide capture, and speed dial hub.
+6. 🌐 **Web Portals Browser (`/web-portals`)**: Modern Arc-style Chromium browser with 100% full-width view, Ghostery network-level ad blocking, Mozilla Readability reader mode, in-page search (`Ctrl+F`), dangerous download guard, lecture speed multiplier (1x-2x), and 1-click slide capture.
 7. 📝 **Notes Board (`/notes-board`)**: Kanban sticky notes board with color tags and PNG export.
 8. 🗓️ **Scheduler (`/scheduler`)**: Planned study block calendar and session scheduling.
-9. 🃏 **Flashcards (`/flashcards`)**: SuperMemo SM-2 spaced repetition flashcard decks.
-10. 🖥️ **App Tracking (`/app-tracking`)**: 24-hr Gantt timeline of app usage, domain breakdown, and application blocker.
-11. 📊 **Analytics (`/analytics`)**: Recharts multi-axis performance trends, streak analysis, and study metrics.
+9. 🃏 **Flashcards (`/flashcards`)**: SuperMemo SM-2 spaced repetition flashcard decks with learning steps (1m, 10m, 1d) and leech detection.
+10. 🖥️ **App Tracking (`/app-tracking`)**: 24-hr Gantt timeline of app usage, domain breakdown, WakaTime developer heartbeats tab, and opt-in local OCR timeline search.
+11. 📊 **Analytics (`/analytics`)**: Recharts multi-axis performance trends, streak analysis, study metrics, and 1-click Daily Standup & Weekly Review Markdown export.
 12. 🗓️ **History (`/history`)**: Filterable session history logs, session cloning, and date range filters.
 13. 📚 **Subjects (`/subjects`)**: Subject management, color coding, and weekly target goals.
 14. 🎯 **Exam Countdown (`/exams`)**: Target exam countdown timers and preparation milestones.
 15. 🗓️ **Calendar (`/calendar`)**: Visual monthly and yearly study calendar.
 16. 🏆 **Achievements (`/achievements`)**: Gamified study XP levels, streak badges, and milestone rewards.
-17. ⚙️ **Settings (`/settings`)**: Theme switcher, data import/export, and Auto-Updater controls.
+17. ⚙️ **Settings (`/settings`)**: Theme switcher, AES-256-GCM encrypted database backup/restore, break engine intervals, Third-Party Notices screen, and Auto-Updater controls.
 18. 📖 **Guide (`/guide`)**: In-app operational guide and feature manual.
 19. 🤖 **AI Assistant (`/ai`)**: AI study assistant powered by Google Gemini API.
+
+---
+
+## 8. Developer Protocols & Local Services
+
+- **Local Heartbeat Receiver**: Listens on `http://127.0.0.1:7777/api/v1/heartbeats` with strict loopback binding and DNS-rebinding protection. Compatible with official WakaTime CLI and IDE extensions.
+- **Local Query API**: Read-only query endpoints at `http://127.0.0.1:7777/api/v1/buckets` and `http://127.0.0.1:7777/api/v1/events` for external scripting and automation.
+- **Unified Command Palette**: Triggerable anywhere via `Ctrl+K` for instant keyboard navigation across all records.
+- **Privacy & Security Contract**: 100% local persistence. Zero unconsented telemetry, zero screenshots stored on disk, and sensitive secrets redacted before indexing.
 
 ---
 

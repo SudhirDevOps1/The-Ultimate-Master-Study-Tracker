@@ -60,7 +60,18 @@ When a site is open in Web Portals:
 - Card front/back, ease factor, interval, repetitions, next review date
 - All stored locally in IndexedDB. Never transmitted.
 
-### 4. Notifications
+### 4. WakaTime Developer Heartbeats (Local Loopback Only)
+- Receiver strictly bound to `127.0.0.1:7777` (Rule S1).
+- Host header verification prevents DNS-rebinding attacks (Rule S2).
+- Heartbeat entities, project names, languages, and line counts are stored only in local SQLite or in-memory arrays.
+- Zero outbound telemetry or forwarding to cloud endpoints.
+
+### 5. In-Memory OCR Timeline (Opt-In Only — Rule S4)
+- **Zero Disk Persistence of Raw Screenshots**: Image buffers are processed strictly in RAM and immediately garbage-collected.
+- **Credential & Secret Redaction**: RegEx sanitizer redacts passwords, bearer tokens, and high-entropy API keys prior to storage.
+- Disabled by default — requires explicit user toggle in App Tracking / Settings.
+
+### 6. Notifications
 - Study target reached, auto-pause, schedule reminders, blocker alerts
 - Content never logged or stored.
 

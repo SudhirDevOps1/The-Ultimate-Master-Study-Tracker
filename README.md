@@ -78,7 +78,7 @@
 > **The ultra-lightweight, local-first, privacy-respecting productivity & study tracker built for relentless learners.**
 > Featuring real-time active application tracking, smart distraction blocker, OCR whiteboard, and cross-platform desktop installers.
 
-### 🌐 [Live Web App](https://the-ultimate-master-study-tracker.vercel.app/) &nbsp;•&nbsp; 📦 [Download Desktop Installer (.exe)](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest) &nbsp;•&nbsp; 📖 [Developer Instructions (AGENT.md)](AGENT.md)
+### 🌐 [Live Web App](https://the-ultimate-master-study-tracker.vercel.app/) &nbsp;•&nbsp; 📦 [Download Desktop Installer (.exe)](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest) &nbsp;•&nbsp; 📖 [Developer Instructions (AGENTS.md)](AGENTS.md)
 
 </div>
 
@@ -140,11 +140,17 @@ FlowTrack Pro features an enterprise-grade automated update pipeline engineered 
 | Feature Component | Inspired By | FlowTrack Pro Enterprise Implementation |
 |:---|:---|:---|
 | **Local-First Window Tracking** | **ActivityWatch** | Native Win32 tracker (`win-tracker.exe`) with sub-millisecond polling and zero cloud telemetry. |
-| **AFK Idle Guard** | **ActivityWatch** | True OS-level mouse and keyboard inactivity detection via `powerMonitor`. Auto-pauses study timer after 5 minutes AFK. |
+| **AFK Idle Guard** | **ActivityWatch** | True OS-level mouse and keyboard inactivity detection via `powerMonitor`. Auto-pauses study timer after idle threshold. |
+| **Local Heartbeat Receiver** | **WakaTime / Wakapi** | Local loopback server (`127.0.0.1:7777`) accepting heartbeats from VS Code, VSCodium, Antigravity, and Cursor. |
+| **Local Read-Only Query API** | **ActivityWatch** | Safe local query API (`/api/v1/buckets`, `/events`) for developer workflows and external tools. |
+| **Network-Level Ad Shield** | **Brave / Ghostery** | Declarative request-filtering blocking YouTube, banner, and tracker ads inside in-app browser sessions. |
 | **20-20-20 Eye Care Synthesizer** | **Super Productivity** | Automated 20-minute ergonomic rest prompts (look 20 feet away for 20 seconds) to prevent digital fatigue. |
-| **Video Break Sanctuary** | **Super Productivity** | Immersive scheduled video rest breaks with volume controls and focus cooldown timers. |
-| **Spaced Repetition Flashcards** | **Anki / SuperMemo SM-2** | Full SM-2 algorithmic scheduling with Ease Factors ($EF \ge 1.3$), review intervals, and streak retention. |
-| **Language & Project Parsing** | **Dayflow & Wakapi** | Automatic IDE window inspection detecting projects and code languages (TypeScript, Python, Java, Rust, C++). |
+| **Ultradian & Video Break Sanctuary** | **Super Productivity** | 50m desk breaks, 90m ultradian rhythm breaks, and optional YouTube rest videos. |
+| **Task Timeboxing & Backlog** | **Super Productivity** | Integrated timebox allocation with 1-click hand-off into Pomodoro or Flowtime timer. |
+| **Spaced Repetition Flashcards** | **Anki / SuperMemo SM-2** | Full SM-2 algorithmic scheduling with Ease Factors ($EF \ge 1.3$), learning steps (1m, 10m, 1d), and leech detection. |
+| **Encrypted Backup Vault** | **Bitwarden / Signal** | AES-256-GCM authenticated encryption with PBKDF2 100k iteration key derivation for local backups. |
+| **Unified Command Palette** | **Raycast / VS Code** | Instant offline search (`Ctrl+K`) powered by MiniSearch across tasks, flashcards, and settings. |
+| **Daily Standup & Weekly Review** | **Agile / Dayflow** | 1-click Markdown export summarizing focus metrics, completed tasks, and blockers for team standups. |
 
 ---
 
@@ -174,11 +180,18 @@ Most productivity apps are bloated, require cloud subscriptions, or leak your ac
 
 | Feature | Description | Web App | Desktop App |
 |:---|:---|:---:|:---:|
-| **Smart Timer** | Pomodoro & custom intervals with audio alerts and anti-cheat validation | ✅ | ✅ |
+| **Smart Timer & Flowtime** | Pomodoro & unconstrained Flowtime mode with transparent 0–100 Focus Score | ✅ | ✅ |
 | **Active OS Window Tracker** | Background tracking of active applications and websites via native Win32 | ❌ | ✅ |
-| **Whiteboard & OCR** | Freehand vector drawing, PDF loading, and image-to-text extraction | ✅ | ✅ |
+| **WakaTime Heartbeat Receiver** | Local `127.0.0.1:7777` receiver capturing heartbeats from VS Code, Cursor, Antigravity | ❌ | ✅ |
+| **Network-Level Ad Blocker** | Ghostery engine blocking ads and trackers within the in-app browser | ❌ | ✅ |
+| **In-App Browser & Reader Mode** | Real browser engine with Mozilla Readability, in-page search (Ctrl+F), zoom, and dangerous download intercept | ❌ | ✅ |
+| **Whiteboard & OCR** | Freehand vector drawing, PDF loading, image-to-text extraction, and opt-in OCR timeline | ✅ | ✅ |
+| **Encrypted Backup Vault** | Local AES-256-GCM + PBKDF2 database backup and restore engine | ✅ | ✅ |
+| **Unified Command Palette** | Offline instant keyboard search (`Ctrl+K`) across subjects, flashcards, and settings | ✅ | ✅ |
+| **Task Timeboxing & Backlog** | Task backlog with timebox budgeting and 1-click timer hand-off | ✅ | ✅ |
 | **Distraction Blocker** | Automatic minimization or termination of blacklisted distracting software | ❌ | ✅ |
-| **In-App Study Browser** | Chromium engine with full-width reading, video speed multiplier, slide capture & credential vault | ❌ | ✅ |
+| **Break Engine Sanctuary** | 20-20-20 eye rest prompts, 50m desk breaks, 90m ultradian cycles, and video break | ✅ | ✅ |
+| **Standup & Review Export** | 1-click Markdown export (Yesterday / Today / Blockers / Focus stats) | ✅ | ✅ |
 | **System Tray Support** | Silent background minimization with status notifications | ❌ | ✅ |
 | **Local Storage** | Zero-latency IndexedDB persistence (Dexie.js) | ✅ | ✅ |
 | **Cloud Sync** | Optional multi-device backup and restoration (Firebase / NeonDB) | ✅ | ✅ |
@@ -215,8 +228,8 @@ git clone https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git
 cd The-Ultimate-Master-Study-Tracker/web-app
 
 # Install dependencies and start Vite dev server
-pnpm install
-pnpm run dev
+npm install --legacy-peer-deps
+npm run dev
 ```
 
 ### 2. 🖥️ Desktop App (Electron)
@@ -224,13 +237,13 @@ pnpm run dev
 cd desktop-app
 
 # Install dependencies
-pnpm install
+npm install --legacy-peer-deps
 
 # Run in development mode (Vite + Electron with hot reload)
-pnpm run electron:dev
+npm run electron:dev
 
 # Build production standalone installers (.exe)
-pnpm run electron:build
+npm run electron:build
 ```
 
 ---

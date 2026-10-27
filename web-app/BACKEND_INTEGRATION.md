@@ -22,7 +22,8 @@ The FlowTrack Pro Web App features an optional, zero-failure hybrid connection t
   [ Backend Connected ]                 [ Backend Offline ]
   - Polls OS Active Window              - Offline IndexedDB Mode
   - Displays App & Website Logs         - Browser Tab Tracking
-  - Proxies Ollama/Local AI CORS        - Zero Console/Fetch Errors
+  - Tracks WakaTime IDE Heartbeats      - Zero Console/Fetch Errors
+  - Proxies Ollama/Local AI CORS        - Local AES-256-GCM Vault
 ```
 
 ---
@@ -34,3 +35,13 @@ The FlowTrack Pro Web App features an optional, zero-failure hybrid connection t
 - `GET http://localhost:5001/export?type=activities&format=json` — Full activity log for timeline charts
 - `POST http://localhost:5001/sync` — Backup study session data to local SQLite database
 - `POST http://localhost:5001/api/ai/proxy` — CORS-bypass proxy for local AI endpoints (Ollama)
+- `GET http://localhost:5001/api/v1/heartbeats` — Query mirrored WakaTime heartbeats from `heartbeats` table
+- `POST http://localhost:5001/api/v1/heartbeats` — Ingest external heartbeats into local SQLite database
+
+---
+
+## 💾 Local SQLite Schema (`app_tracker.db`)
+
+The backend maintains two primary tables:
+1. `activities`: Passive OS active window transitions (id, window_title, process_name, start_time, end_time, duration_seconds, category).
+2. `heartbeats`: Developer IDE coding activity (id, entity, type, category, project, branch, language, is_write, lines, line_no, cursorpos, time, created_at).

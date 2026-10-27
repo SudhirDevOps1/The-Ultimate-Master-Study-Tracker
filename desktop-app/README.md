@@ -24,8 +24,15 @@ Welcome to the **Standalone Desktop Application** module of FlowTrack Pro. This 
 
 ## ✨ Key Desktop Features
 
-- 🌐 **Arc-Style In-App Web Browser**: 100% full-width view, smart omnibox Google search, lecture playback speed booster (1x-2x), 1-click slide capture to Downloads, and speed dial hub.
-- 🔐 **Encrypted Password Vault & Auto-Fill**: Store login credentials locally with XOR ciphers and auto-fill embedded `<webview>` portal login forms with 1-click.
+- 🌐 **Arc-Style In-App Web Browser**: 100% full-width view, Ghostery network-level ad blocking, Mozilla Readability reader mode, in-page search (`Ctrl+F`), per-origin zoom, lecture playback speed booster (1x-2x), and 1-click slide capture.
+- 🛑 **Dangerous Download Protection**: Guard modal intercepting executable and script files (.exe, .bat, .cmd, .msi, .ps1, .vbs) from web portals.
+- 📡 **Local WakaTime-Compatible Heartbeat Receiver**: Binds strictly to `127.0.0.1:7777` with DNS-rebinding protection, accepting heartbeats from VS Code, Cursor, Antigravity, and JetBrains.
+- 🔍 **Dayflow / Wakapi Query API**: Local read-only query endpoints (`/api/v1/buckets`, `/events`) for developer workflows.
+- 👁️ **Opt-In In-Memory OCR Timeline**: Passive timeline text search with zero screenshot disk storage and automatic credentials redaction.
+- ⌨️ **Unified Command Palette (`Ctrl+K`)**: Blazing-fast in-memory fuzzy search across tasks, flashcards, subjects, and settings.
+- 🔐 **Encrypted Database Backup & Privacy Vault**: Export and restore AES-256-GCM encrypted snapshots with PBKDF2 100k iteration derivation.
+- ⏳ **AFK-Aware Break Sanctuary**: Automated 20-20-20 eye strain prompts, 50m desk breaks, 90m ultradian cycles, and video rest breaks.
+- 📊 **Auditable Focus Score & Flowtime**: Transparent 0–100 score breakdown and unconstrained flowtime mode alongside Pomodoro.
 - 🔄 **Background Silent Auto-Updater**: Checks GitHub Releases automatically post-launch and provides 1-click restart & install with full changelog view and **100% Zero Data Loss Guarantee**.
 - 🛡️ **Anti-Cheat Clock Guard**: Validates system time deltas to prevent user system time manipulation.
 - ⚡ **Kernel Win32 Tracker (`win-tracker.exe`)**: Fast active window detection consuming < 0.5% CPU and ~40MB RAM.
@@ -67,17 +74,17 @@ FlowTrack Pro is engineered with complete separation between application code an
 ### 1. Install Dependencies
 ```bash
 cd desktop-app
-pnpm install
+npm install --legacy-peer-deps
 ```
 
 ### 2. Run Local Development (Electron + Vite)
 ```bash
-pnpm run electron:dev
+npm run electron:dev
 ```
 
 ### 3. Build Production Installer & Standalone Executable
 ```bash
-pnpm run electron:build
+npm run electron:build
 # Output generated in: desktop-app/dist-electron/
 ```
 
