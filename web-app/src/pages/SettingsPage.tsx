@@ -497,11 +497,6 @@ export function SettingsPage() {
             <h3 className="text-xl font-semibold text-white">📦 Legacy JSON Backup</h3>
             <p className="mt-1 text-sm text-slate-400">Export or restore subjects, sessions, and settings in human-readable JSON.</p>
           </div>
-        <Panel className="space-y-4">
-          <div>
-            <h3 className="text-xl font-semibold text-white">💾 Backup</h3>
-            <p className="mt-1 text-sm text-slate-400">Export or restore all subjects, sessions, and local settings.</p>
-          </div>
           <div className="flex flex-wrap gap-3">
             <button
               onClick={async () => {

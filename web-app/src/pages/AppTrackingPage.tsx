@@ -312,7 +312,7 @@ export function AppTrackingPage() {
     if (ocrActive && activeTab === "timeline") {
       searchOcrTimeline(ocrQuery).then(setOcrResults).catch(() => setOcrResults([]));
     }
-  }, [ocrActive, ocrQuery, activeTab]);       = useState<"overview"|"timeline"|"websites"|"developer"|"windows">("overview");
+  }, [ocrActive, ocrQuery, activeTab]);
   const [exportStatus, setExportStatus] = useState<"idle"|"exporting"|"importing">("idle");
   const [weeklyOverview, setWeeklyOverview] = useState<{ date: string; seconds: number }[]>([]);
   const [periodTotals, setPeriodTotals] = useState<{ today: number; week: number; month: number; allTime: number }>({
