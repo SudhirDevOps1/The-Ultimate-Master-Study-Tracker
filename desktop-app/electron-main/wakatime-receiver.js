@@ -309,6 +309,57 @@ async function handleRequest(req, res) {
      pathname === "/api/compat/wakatime/v1/users/current/summaries") &&
     req.method === "GET";
 
+    // ActivityWatch / FlowTrack local read-only Query API (Rule S1, S2, S11)
+  if (pathname === "/api/0/buckets" || pathname === "/api/v1/buckets") {
+    if (req.method !== "GET") {
+      res.writeHead(405);
+      return res.end(JSON.stringify({ error: "Method Not Allowed - Read Only API" }));
+    }
+    const buckets = {
+      "flowtrack-wakatime-heartbeats": {
+        id: "flowtrack-wakatime-heartbeats",
+        name: "WakaTime IDE Heartbeats",
+        type: "coding",
+        client: "flowtrack-pro",
+        hostname: "localhost",
+        created: new Date().toISOString(),
+      },
+      "flowtrack-activity-window": {
+        id: "flowtrack-activity-window",
+        name: "Active Window Tracker",
+        type: "window",
+        client: "flowtrack-pro",
+        hostname: "localhost",
+        created: new Date().toISOString(),
+      }
+    };
+    res.writeHead(200);
+    return res.end(JSON.stringify(buckets));
+  }
+
+  if ((pathname.startsWith("/api/0/buckets/") || pathname.startsWith("/api/v1/buckets/")) && pathname.endsWith("/events")) {
+    if (req.method !== "GET") {
+      res.writeHead(405);
+      return res.end(JSON.stringify({ error: "Method Not Allowed - Read Only API" }));
+    }
+    const today = new Date().toISOString().split("T")[0];
+    const log = loadDayFile(today) || [];
+    const limit = Math.min(500, parseInt(parsedUrl.searchParams.get("limit") || "100", 10));
+    const events = log.slice(-limit).map(h => ({
+      id: h.id,
+      timestamp: new Date(h.time * 1000).toISOString(),
+      duration: 120,
+      data: {
+        app: h.editor,
+        project: h.project,
+        file: h.entity,
+        language: h.language,
+      }
+    }));
+    res.writeHead(200);
+    return res.end(JSON.stringify(events));
+  }
+
   if (isHeartbeatPost) {
     try {
       const body = await readJsonBody(req);
@@ -527,6 +578,8 @@ module.exports = {
     receiverConfig = { ...receiverConfig, ...newCfg };
   },
   getHeartbeatsDir: () => heartbeatsDir,
+  DEFAULT_PORT: 7777,
+  HOST: "127.0.0.1",
   clearHeartbeats: () => {
     todayHeartbeats = [];
     if (heartbeatsDir && fs.existsSync(heartbeatsDir)) {
