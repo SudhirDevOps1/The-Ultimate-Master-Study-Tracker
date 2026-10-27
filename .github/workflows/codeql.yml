@@ -9,10 +9,6 @@ on:
       - '**.tsx'
   pull_request:
     branches: [ main, develop ]
-    paths:
-      - '**.js'
-      - '**.ts'
-      - '**.tsx'
   workflow_dispatch:
 
 concurrency:
