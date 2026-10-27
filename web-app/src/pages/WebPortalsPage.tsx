@@ -28,7 +28,7 @@ const DEFAULT_PORTALS: PortalSite[] = [
   { id: "github",         name: "GitHub",            url: "https://github.com",               icon: "https://www.google.com/s2/favicons?domain=github.com&sz=64", color: "#64748b", category: "Dev Tools" },
   { id: "stackoverflow",  name: "Stack Overflow",    url: "https://stackoverflow.com",        icon: "https://www.google.com/s2/favicons?domain=stackoverflow.com&sz=64", color: "#f97316", category: "Dev Tools" },
   { id: "mdn",            name: "MDN Web Docs",      url: "https://developer.mozilla.org",    icon: "https://www.google.com/s2/favicons?domain=developer.mozilla.org&sz=64", color: "#3b82f6", category: "Dev Tools" },
-  { id: "chatgpt",        name: "ChatGPT",           url: "https://chat.openai.com",          icon: "https://www.google.com/s2/favicons?domain=chat.openai.com&sz=64", color: "#22c55e", category: "AI Tools" },
+  { id: "chatgpt",        name: "ChatGPT",           url: "https://chatgpt.com",              icon: "https://www.google.com/s2/favicons?domain=chatgpt.com&sz=64", color: "#22c55e", category: "AI Tools" },
   { id: "gemini",         name: "Google Gemini",     url: "https://gemini.google.com",        icon: "https://www.google.com/s2/favicons?domain=gemini.google.com&sz=64", color: "#8b5cf6", category: "AI Tools" },
 ];
 

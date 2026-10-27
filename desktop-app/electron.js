@@ -912,15 +912,69 @@ app.whenReady().then(() => {
     console.error("YouTube header interceptor error:", e);
   }
 
-  // Globally intercept ALL new window/popup requests (from target="_blank" or window.open)
-  // Force them to open in the SAME webContents (e.g., inside the Web Portals webview).
-  app.on("web-contents-created", (e, contents) => {
-    contents.setWindowOpenHandler(({ url }) => {
-      // Load the URL in the current view instead of opening a popup
+  // FlowTrack In-App Browser (Web Portals) Session Configuration & Bot Shield Bypass
+  try {
+    const CHROME_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
+    const portalSession = session.fromPartition("persist:browser_session");
+    portalSession.setUserAgent(CHROME_UA);
+
+    portalSession.webRequest.onBeforeSendHeaders((details, callback) => {
+      const headers = { ...details.requestHeaders };
+      headers["User-Agent"] = CHROME_UA;
+      if (headers["sec-ch-ua"]) {
+        headers["sec-ch-ua"] = '"Not(A:Brand";v="99", "Google Chrome";v="133", "Chromium";v="133"';
+      }
+      const u = (details.url || "").toLowerCase();
+      if (u.includes("youtube.com") || u.includes("youtube-nocookie.com")) {
+        headers["Referer"] = "https://www.youtube.com/";
+        headers["Origin"] = "https://www.youtube.com";
+      }
+      callback({ cancel: false, requestHeaders: headers });
+    });
+
+    portalSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+      const allowedPermissions = ["notifications", "fullscreen"];
+      callback(allowedPermissions.includes(permission));
+    });
+  } catch (e) {
+    console.error("Portal session configuration error:", e);
+  }
+
+  // Intercept new window/popup requests from embedded webviews
+  app.on("web-contents-created", (_e, contents) => {
+    // Skip mainWindow (mainWindow already has its own dedicated handler)
+    if (mainWindow && contents === mainWindow.webContents) return;
+
+    contents.setWindowOpenHandler(({ url, features }) => {
+      // Allow OAuth / login popups with standard popup window properties so window.opener stays connected
+      const isAuthPopup =
+        (features && (features.includes("width=") || features.includes("popup="))) ||
+        /accounts\.google\.com|appleid\.apple\.com|github\.com\/login\/oauth|facebook\.com.*oauth|auth0\.com|firebaseapp\.com/i.test(url);
+
+      if (isAuthPopup) {
+        return {
+          action: "allow",
+          overrideBrowserWindowOptions: {
+            parent: mainWindow,
+            modal: false,
+            width: 580,
+            height: 700,
+            autoHideMenuBar: true,
+            webPreferences: {
+              partition: "persist:browser_session",
+              contextIsolation: true,
+              nodeIntegration: false,
+              sandbox: true,
+            }
+          }
+        };
+      }
+
+      // Load regular HTTP navigation in the current view instead of opening separate OS windows
       if (url.startsWith("http://") || url.startsWith("https://")) {
         contents.loadURL(url);
       }
-      return { action: "deny" }; // Deny the native popup creation
+      return { action: "deny" };
     });
   });
 

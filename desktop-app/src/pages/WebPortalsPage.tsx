@@ -21,8 +21,7 @@ interface PortalSite {
 
 const DEFAULT_PORTALS: PortalSite[] = [
   // Course Portals
-  { id: "apna-college",         name: "Apna College",            url: "https://www.apnacollege.in",         icon: "🎓", color: "#6366f1", category: "Course Portal", tag: "Main Home" },
-  { id: "apna-college-courses", name: "Apna College My Courses", url: "https://www.apnacollege.in/courses", icon: "🔑", color: "#4f46e5", category: "Course Portal", tag: "Lectures & Login" },
+  { id: "apna-college",         name: "Apna College",            url: "https://www.apnacollege.in",         icon: "🎓", color: "#6366f1", category: "Course Portal", tag: "Main & Login" },
   { id: "pw",             name: "Physics Wallah",    url: "https://www.pw.live",              icon: "⚡", color: "#f59e0b", category: "Course Portal", tag: "Lectures" },
   { id: "coursera",       name: "Coursera",          url: "https://www.coursera.org",         icon: "🏫", color: "#0ea5e9", category: "Course Portal" },
   { id: "udemy",          name: "Udemy",             url: "https://www.udemy.com",            icon: "🎯", color: "#a855f7", category: "Course Portal" },
@@ -42,7 +41,7 @@ const DEFAULT_PORTALS: PortalSite[] = [
   { id: "localhost-5173", name: "Localhost :5173",   url: "http://localhost:5173",            icon: "⚡", color: "#8b5cf6", category: "Dev Tools", tag: "Vite App" },
 
   // AI Study Assistants
-  { id: "chatgpt",        name: "ChatGPT",           url: "https://chat.openai.com",          icon: "🤖", color: "#10b981", category: "AI Tools", tag: "AI Tutor" },
+  { id: "chatgpt",        name: "ChatGPT",           url: "https://chatgpt.com",              icon: "🤖", color: "#10b981", category: "AI Tools", tag: "AI Tutor" },
   { id: "gemini",         name: "Google Gemini",     url: "https://gemini.google.com",        icon: "✨", color: "#8b5cf6", category: "AI Tools", tag: "Multimodal AI" },
 ];
 
@@ -163,6 +162,12 @@ export function WebPortalsPage() {
 
   const webviewRefs = useRef<Record<string, any>>({});
   const getWebview = () => (activeTabId ? webviewRefs.current[activeTabId] : null);
+  const activeUrlRef = useRef<string | null>(null);
+  activeUrlRef.current = activeUrl;
+  const mountedUrls = useRef<Record<string, string>>({});
+  if (activeTab && !mountedUrls.current[activeTab.id]) {
+    mountedUrls.current[activeTab.id] = activeTab.url;
+  }
 
   useEffect(() => {
     setCustomSites(loadCustomSites());
@@ -219,8 +224,10 @@ export function WebPortalsPage() {
     const state = location.state as { url?: string; name?: string } | null;
     if (state?.url) {
       const url = smartNormalizeUrl(state.url);
+      const newId = crypto.randomUUID();
+      mountedUrls.current[newId] = url;
       const newTab: WebTab = {
-        id: crypto.randomUUID(),
+        id: newId,
         url,
         title: state.name || state.url,
         icon: "🌐",
@@ -249,7 +256,7 @@ export function WebPortalsPage() {
   // Webview Activity Tracking & IPC Bridge
   useEffect(() => {
     const wv = getWebview();
-    if (!isElectron || !wv || !activeUrl) return;
+    if (!isElectron || !wv || !activeTabId) return;
 
     try {
       const reportToMain = (url: string, title?: string) => {
@@ -258,7 +265,7 @@ export function WebPortalsPage() {
       };
 
       const onNavigate = (e: any) => {
-        let url = e.url || activeUrl || "";
+        let url = e.url || activeUrlRef.current || "";
         // If third-party chat widget redirected the page, restore original portal
         if (url.includes("freshchat.com/widget")) {
           const normalized = smartNormalizeUrl(url);
@@ -271,20 +278,27 @@ export function WebPortalsPage() {
         }
         reportToMain(url);
         setInputUrl(url);
-        setTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, url } : t));
+        setTabs(prev => prev.map(t => (t.id === activeTabId ? { ...t, url } : t)));
       };
 
       const onTitleUpdate = (e: any) => {
-        const url = wv.getURL?.() || activeUrl || "";
+        const url = wv.getURL?.() || activeUrlRef.current || "";
         reportToMain(url, e.title || "");
         if (e.title) {
-          setTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, title: e.title } : t));
+          setTabs(prev => prev.map(t => (t.id === activeTabId ? { ...t, title: e.title } : t)));
         }
       };
 
       const onNewWindow = (e: any) => {
-        e.preventDefault();
         const targetUrl = e.url || "";
+        // If it's an OAuth / authentication popup, let Electron's native window open handler manage it
+        const isAuthPopup =
+          /accounts\.google\.com|appleid\.apple\.com|github\.com\/login\/oauth|facebook\.com.*oauth|auth0\.com|firebaseapp\.com/i.test(targetUrl);
+        if (isAuthPopup) {
+          return; // Do NOT call e.preventDefault(); allow popup to open natively so window.opener stays connected
+        }
+
+        e.preventDefault();
         if (!targetUrl) return;
 
         // Prevent third-party chat widgets & tracking popups from hijacking the main study tab
@@ -299,8 +313,10 @@ export function WebPortalsPage() {
         }
 
         // Open external links in a fresh tab inside FlowTrack browser
+        const newId = crypto.randomUUID();
+        mountedUrls.current[newId] = targetUrl;
         const newTab: WebTab = {
-          id: crypto.randomUUID(),
+          id: newId,
           url: targetUrl,
           title: "Loading...",
           icon: "🌐",
@@ -311,7 +327,9 @@ export function WebPortalsPage() {
         setInputUrl(targetUrl);
       };
 
-      reportToMain(activeUrl);
+      if (activeUrlRef.current) {
+        reportToMain(activeUrlRef.current);
+      }
 
       wv.addEventListener("did-navigate", onNavigate);
       wv.addEventListener("did-navigate-in-page", onNavigate);
@@ -327,7 +345,7 @@ export function WebPortalsPage() {
     } catch {
       return () => {};
     }
-  }, [activeUrl, activeTabId]);
+  }, [activeTabId]);
 
   // Clear tracking when closed
   useEffect(() => {
@@ -422,8 +440,10 @@ export function WebPortalsPage() {
       setActiveTabId(existing.id);
       setInputUrl(existing.url);
     } else {
+      const newId = crypto.randomUUID();
+      mountedUrls.current[newId] = url;
       const newTab: WebTab = {
-        id: crypto.randomUUID(),
+        id: newId,
         url,
         title: site.name,
         icon: site.icon || "🌐",
@@ -440,10 +460,17 @@ export function WebPortalsPage() {
     if (!inputUrl.trim()) return;
     const url = smartNormalizeUrl(inputUrl);
     if (activeTabId) {
+      const wv = getWebview();
+      if (wv && typeof wv.loadURL === "function") {
+        wv.loadURL(url);
+      }
+      mountedUrls.current[activeTabId] = url;
       setTabs(prev => prev.map(t => (t.id === activeTabId ? { ...t, url, title: url } : t)));
     } else {
+      const newId = crypto.randomUUID();
+      mountedUrls.current[newId] = url;
       const newTab: WebTab = {
-        id: crypto.randomUUID(),
+        id: newId,
         url,
         title: url,
         icon: "🌐",
@@ -456,6 +483,8 @@ export function WebPortalsPage() {
   }
 
   function closeTab(tabId: string) {
+    delete mountedUrls.current[tabId];
+    delete webviewRefs.current[tabId];
     setTabs(prev => {
       const next = prev.filter(t => t.id !== tabId);
       if (tabId === activeTabId) {
@@ -573,8 +602,10 @@ export function WebPortalsPage() {
           <button
             type="button"
             onClick={() => {
+              const newId = crypto.randomUUID();
+              mountedUrls.current[newId] = "https://www.google.com";
               const newTab: WebTab = {
-                id: crypto.randomUUID(),
+                id: newId,
                 url: "https://www.google.com",
                 title: "Google Search",
                 icon: "🌐",
@@ -906,7 +937,8 @@ export function WebPortalsPage() {
                   <webview
                     key={activeTab.id}
                     ref={(el: any) => { if (el) webviewRefs.current[activeTab.id] = el; }}
-                    src={activeTab.url}
+                    src={mountedUrls.current[activeTab.id] || activeTab.url}
+                    useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
                     className="w-full h-full border-0 absolute top-0 left-0 z-10 pointer-events-auto"
                     allowpopups={true}
                     partition="persist:browser_session"
