@@ -10,6 +10,7 @@ import { DownloadModal } from "@/components/analytics/DownloadModal";
 import { StudyReportModal } from "@/components/analytics/StudyReportModal";
 import { useAppStore, type AppState } from "@/store/useAppStore";
 import { calculateFocusScore } from "@/utils/focusScore";
+import { generateMarkdownReview } from "@/utils/reviewGenerator";
 import type { StudySession, Subject } from "@/types/models";
 import { SubjectHeatmap } from "@/components/analytics/SubjectHeatmap";
 import { getRangeMetrics, type ExtendedRange } from "@/utils/analytics";
@@ -47,6 +48,26 @@ export function AnalyticsPage() {
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
   const data = useMemo(() => getRangeMetrics(sessions, range), [range, sessions]);
+  const handleDownloadMarkdownReport = () => {
+    const md = generateMarkdownReview({
+      dateRange: range,
+      totalStudySeconds: (sessions || []).reduce((sum, s) => sum + (s.actualSeconds || 0), 0),
+      focusScore: focusScoreBreakdown.score,
+      completedTasks: [],
+      pendingTasks: [],
+      subjectsBreakdown: (subjects || []).map(s => ({
+        name: s.name,
+        seconds: (sessions || []).filter(sess => sess.subjectId === s.id).reduce((sum, sess) => sum + (sess.actualSeconds || 0), 0),
+      })),
+    });
+    const blob = new Blob([md], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `flowtrack-review-${range}-${new Date().toISOString().split("T")[0]}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
   const streakData = useStreak();
   const yearHeatmap = useYearHeatmap(selectedYear);
 
