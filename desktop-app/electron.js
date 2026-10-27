@@ -1,5 +1,8 @@
 const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog, shell, protocol, net, session, powerMonitor } = require("electron");
 
+// Global Google / Cloudflare Bot Shield Bypass (Pure Chrome 133 Desktop User-Agent)
+app.userAgentFallback = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
+
 // Enable Document Picture-in-Picture API & experimental web features in Electron Chromium engine
 app.commandLine.appendSwitch("enable-experimental-web-platform-features");
 app.commandLine.appendSwitch("enable-features", "DocumentPictureInPictureAPI");
@@ -912,18 +915,43 @@ app.whenReady().then(() => {
     console.error("YouTube header interceptor error:", e);
   }
 
-  // FlowTrack In-App Browser (Web Portals) Session Configuration & Bot Shield Bypass
+  // FlowTrack In-App Browser (Web Portals) Session Configuration & Study Ad Shield
   try {
     const CHROME_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
     const portalSession = session.fromPartition("persist:browser_session");
     portalSession.setUserAgent(CHROME_UA);
 
+    // Study Ad Shield: Block video ad servers, trackers, and telemetry
+    const AD_PATTERNS = [
+      "*://*.doubleclick.net/*",
+      "*://googleads.g.doubleclick.net/*",
+      "*://*.googlesyndication.com/*",
+      "*://*.googleadservices.com/*",
+      "*://static.doubleclick.net/*",
+      "*://adservice.google.com/*",
+      "*://pagead2.googlesyndication.com/*",
+      "*://*.youtube.com/pagead/*",
+      "*://*.youtube.com/api/stats/ads*",
+      "*://*.youtube.com/ptracking*",
+      "*://*.youtube.com/youtubei/v1/player/ad_break*",
+      "*://*.adnxs.com/*",
+      "*://*.adroll.com/*",
+      "*://*.criteo.com/*",
+      "*://*.taboola.com/*",
+      "*://*.outbrain.com/*",
+    ];
+
+    portalSession.webRequest.onBeforeRequest({ urls: AD_PATTERNS }, (details, callback) => {
+      callback({ cancel: true });
+    });
+
     portalSession.webRequest.onBeforeSendHeaders((details, callback) => {
       const headers = { ...details.requestHeaders };
       headers["User-Agent"] = CHROME_UA;
-      if (headers["sec-ch-ua"]) {
-        headers["sec-ch-ua"] = '"Not(A:Brand";v="99", "Google Chrome";v="133", "Chromium";v="133"';
-      }
+      headers["sec-ch-ua"] = '"Not(A:Brand";v="99", "Google Chrome";v="133", "Chromium";v="133"';
+      headers["sec-ch-ua-mobile"] = "?0";
+      headers["sec-ch-ua-platform"] = '"Windows"';
+
       const u = (details.url || "").toLowerCase();
       if (u.includes("youtube.com") || u.includes("youtube-nocookie.com")) {
         headers["Referer"] = "https://www.youtube.com/";
@@ -949,7 +977,7 @@ app.whenReady().then(() => {
       // Allow OAuth / login popups with standard popup window properties so window.opener stays connected
       const isAuthPopup =
         (features && (features.includes("width=") || features.includes("popup="))) ||
-        /accounts\.google\.com|appleid\.apple\.com|github\.com\/login\/oauth|facebook\.com.*oauth|auth0\.com|firebaseapp\.com/i.test(url);
+        /accounts\.google\.com|appleid\.apple\.com|github\.com\/login\/oauth|facebook\.com.*oauth|auth0\.com|firebaseapp\.com|leetcode\.com\/accounts/i.test(url);
 
       if (isAuthPopup) {
         return {

@@ -327,6 +327,56 @@ export function WebPortalsPage() {
         setInputUrl(targetUrl);
       };
 
+      const onDomReady = () => {
+        const adCSS = `
+          .video-ads, .ytp-ad-module, .ytp-ad-overlay-container,
+          #masthead-ad, ytd-promoted-sparkles-web-renderer,
+          ytd-promoted-video-renderer, ytd-display-ad-renderer,
+          ytd-statement-banner-renderer, ytd-banner-promo-renderer,
+          ytd-ad-slot-renderer, ytd-in-feed-ad-layout-renderer,
+          #player-ads, .sparkles-light-cta, #fulfilled-layout,
+          .ad-container, .adsbygoogle {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0px !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+          }
+        `;
+        try {
+          wv.insertCSS?.(adCSS).catch?.(() => {});
+        } catch {}
+
+        const skipScript = `
+          (() => {
+            if (window.__flowtrack_adblock_init) return;
+            window.__flowtrack_adblock_init = true;
+
+            const autoSkip = () => {
+              const skipBtn = document.querySelector('.ytp-skip-ad-button, .ytp-ad-skip-button, .ytp-ad-skip-button-modern');
+              if (skipBtn) {
+                skipBtn.click();
+                return;
+              }
+              const video = document.querySelector('video.html5-main-video');
+              const adShowing = document.querySelector('.ad-showing, .ytp-ad-player-overlay');
+              if (video && adShowing) {
+                video.muted = true;
+                if (!isNaN(video.duration) && video.duration > 0) {
+                  video.currentTime = video.duration;
+                }
+                const skip = document.querySelector('.ytp-skip-ad-button, .ytp-ad-skip-button, .ytp-ad-skip-button-modern');
+                if (skip) skip.click();
+              }
+            };
+            setInterval(autoSkip, 350);
+          })();
+        `;
+        try {
+          wv.executeJavaScript?.(skipScript).catch?.(() => {});
+        } catch {}
+      };
+
       if (activeUrlRef.current) {
         reportToMain(activeUrlRef.current);
       }
@@ -335,12 +385,14 @@ export function WebPortalsPage() {
       wv.addEventListener("did-navigate-in-page", onNavigate);
       wv.addEventListener("page-title-updated", onTitleUpdate);
       wv.addEventListener("new-window", onNewWindow);
+      wv.addEventListener("dom-ready", onDomReady);
 
       return () => {
         wv.removeEventListener("did-navigate", onNavigate);
         wv.removeEventListener("did-navigate-in-page", onNavigate);
         wv.removeEventListener("page-title-updated", onTitleUpdate);
         wv.removeEventListener("new-window", onNewWindow);
+        wv.removeEventListener("dom-ready", onDomReady);
       };
     } catch {
       return () => {};
