@@ -1,3 +1,4 @@
+import { shouldBreak } from "@/utils/breakEngine";
 import { sendNotification } from '@/utils/notification';
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -94,6 +95,18 @@ export function VideoRestBreak() {
       });
     }
   };
+
+  // ESC key dismisses the break overlay non-blockingly
+  useEffect(() => {
+    if (!showOverlay) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowOverlay(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showOverlay]);
 
   // Rest countdown ticks
   useEffect(() => {
