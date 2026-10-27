@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.4](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v0.2.3...v0.2.4) (2026-10-27)
+
+
+### 🐛 Bug Fixes & Patches
+
+* **desktop:** bundle adBlockList in asar and add resilient fallback patterns ([60d8333](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/60d833378a82c4e03e96c45b1c90777c53f01ee1))
+
+
+### 👷 CI/CD & DevOps
+
+* **release:** enable draft-pull-request so release PRs require explicit approval ([9080235](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/908023580fea7b1d9c1e12dc2e1798336bb52c13))
+* **release:** exclude macos runner from desktop release matrix ([9987bfd](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/9987bfd006388ec5d4bf6e54dcd1538b21ad8298))
+
 ## [0.2.3](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v0.2.2...v0.2.3) (2026-10-27)
 
 
