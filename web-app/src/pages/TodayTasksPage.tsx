@@ -117,6 +117,7 @@ export function TodayTasksPage() {
     const planned = today.filter(s => s.status === "planned").length;
     const paused = today.filter(s => s.status === "paused").length;
 
+    const goalMins = Math.max(1, (dailyGoalHours || 4) * 60);
     return {
       actualSeconds,
       actualMinutes: Math.round(actualSeconds / 60),
@@ -128,8 +129,8 @@ export function TodayTasksPage() {
       planned,
       paused,
       total: today.length,
-      goalMinutes: dailyGoalHours * 60,
-      progress: Math.min(100, (actualSeconds / 60 / (dailyGoalHours * 60)) * 100)
+      goalMinutes: (dailyGoalHours || 4) * 60,
+      progress: Math.min(100, Math.round(((actualSeconds / 60) / goalMins) * 100)) || 0
     };
   }, [today, dailyGoalHours]);
 

@@ -23,7 +23,13 @@ export function DashboardPage() {
 
   const todaySessions = useMemo(() => {
     const todayStr = format(new Date(), "yyyy-MM-dd");
-    return (sessions || []).filter((s) => format(new Date(s.startTime), "yyyy-MM-dd") === todayStr);
+    return (sessions || []).filter((s) => {
+      try {
+        return s.startTime && format(new Date(s.startTime), "yyyy-MM-dd") === todayStr;
+      } catch {
+        return false;
+      }
+    });
   }, [sessions]);
 
   const totalTodayMinutes = useMemo(() => 
@@ -35,8 +41,13 @@ export function DashboardPage() {
     const weekStart = startOfWeek(now, { weekStartsOn: 1 });
     const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
     return (sessions || []).filter((s) => {
-      const d = new Date(s.startTime);
-      return d >= weekStart && d <= weekEnd;
+      try {
+        if (!s.startTime) return false;
+        const d = new Date(s.startTime);
+        return !isNaN(d.getTime()) && d >= weekStart && d <= weekEnd;
+      } catch {
+        return false;
+      }
     });
   }, [sessions]);
 
@@ -44,7 +55,8 @@ export function DashboardPage() {
     Math.floor(thisWeekSessions.reduce((acc, s) => acc + (s.actualSeconds || 0), 0) / 60), 
   [thisWeekSessions]);
 
-  const weeklyProgress = Math.min(100, Math.round((totalWeeklyMinutes / Math.max(1, weeklyTargetHours * 60)) * 100)) || 0;
+  const targetHrs = weeklyTargetHours || 20;
+  const weeklyProgress = Math.min(100, Math.round((totalWeeklyMinutes / Math.max(1, targetHrs * 60)) * 100)) || 0;
   const weeklyActualHours = (totalWeeklyMinutes / 60).toFixed(1);
   
   const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -145,7 +157,7 @@ export function DashboardPage() {
               <Target className="w-5 h-5 text-indigo-400" /> Weekly Target
             </h3>
             <span className="text-xs font-bold px-2.5 py-1 bg-indigo-500/20 text-indigo-300 rounded-lg border border-indigo-500/30">
-              {weeklyTargetHours} Hrs / Week
+              {targetHrs} Hrs / Week
             </span>
           </div>
           
@@ -175,7 +187,7 @@ export function DashboardPage() {
                 <span className="text-2xl font-black text-white">{weeklyProgress}%</span>
                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Completed</span>
                 <span className="text-[10px] font-semibold text-indigo-300 mt-1 px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20">
-                  {weeklyActualHours}h / {weeklyTargetHours}h
+                  {weeklyActualHours}h / {targetHrs}h
                 </span>
               </div>
             </div>
@@ -185,13 +197,13 @@ export function DashboardPage() {
               <div className="p-3 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between">
                 <span className="text-xs text-slate-400 font-medium">Remaining to Goal</span>
                 <span className="text-xs font-bold text-cyan-300 font-mono">
-                  {Math.max(0, weeklyTargetHours - parseFloat(weeklyActualHours)).toFixed(1)} hrs
+                  {Math.max(0, targetHrs - parseFloat(weeklyActualHours)).toFixed(1)} hrs
                 </span>
               </div>
               <div className="p-3 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between">
                 <span className="text-xs text-slate-400 font-medium">Daily Target Pace</span>
                 <span className="text-xs font-bold text-emerald-300 font-mono">
-                  {(weeklyTargetHours / 7).toFixed(1)} hrs / day
+                  {(targetHrs / 7).toFixed(1)} hrs / day
                 </span>
               </div>
               <div className="p-3 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between">
