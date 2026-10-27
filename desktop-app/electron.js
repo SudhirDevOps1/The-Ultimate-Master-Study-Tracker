@@ -618,6 +618,10 @@ function startActivityTracker() {
     }
 
 
+    const idleSec = powerMonitor.getSystemIdleTime();
+    const afkThreshold = (desktopSettings && desktopSettings.afkThresholdSeconds) || 120;
+    const isAfk = idleSec >= afkThreshold;
+
     const hasChanged = processName !== currentActivity.processName || windowTitle !== currentActivity.windowTitle;
 
     if (hasChanged) {
@@ -638,6 +642,8 @@ function startActivityTracker() {
           date:            startDt.toISOString().split("T")[0],
           hour:            startDt.getHours(),
           minute:          startDt.getMinutes(),
+          isAfk:           isAfk,
+          idleSeconds:     isAfk ? idleSec : 0,
         });
         // Cap memory at 2,000 entries
         if (activityLog.length > 2000) activityLog.splice(0, activityLog.length - 2000);
@@ -669,6 +675,8 @@ function startActivityTracker() {
           date:            today,
           hour:            new Date(currentActivity.startMs).getHours(),
           minute:          new Date(currentActivity.startMs).getMinutes(),
+          isAfk:           isAfk,
+          idleSeconds:     isAfk ? idleSec : 0,
           isLive:          true
         };
 

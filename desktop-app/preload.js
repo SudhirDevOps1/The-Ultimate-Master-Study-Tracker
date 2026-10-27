@@ -74,6 +74,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   "timer-state-updated",
   "request-timer-sync",
   "active-window-changed",
+  "user-afk-status-changed",
   "download-progress",
   "download-completed",
 ];
