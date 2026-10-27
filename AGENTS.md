@@ -56,7 +56,7 @@ Web-only: `BackendActivityPanel`, `PerformanceScorecardModal`, `WeeklyReviewModa
 
 Push to `main` → `release.yml`: release-please (3 packages — `.`, `desktop-app`, `web-app`, linked versions) → 3-OS electron-builder → `gh release upload` of `*.exe/*.AppImage/*.deb/*.zip/*.dmg/latest*.yml` → contributor-wall job.
 The build job rewrites `desktop-app/package.json` from the release tag at runtime — don't sync it by hand.
-`.release-please-manifest.json` can drift from real versions (`web-app` 0.2.0 vs package.json 0.2.1) — verify before trusting a release PR.
+`.release-please-manifest.json` and package versions must stay aligned — CI enforces this via `scripts/check-release-versions.mjs` in `ci.yml`. Release PRs trigger CI only when created with a Personal Access Token stored in `RELEASE_PLEASE_TOKEN` (default `GITHUB_TOKEN` is prevented by GitHub's event recursion guard).
 
 ## Conventions
 

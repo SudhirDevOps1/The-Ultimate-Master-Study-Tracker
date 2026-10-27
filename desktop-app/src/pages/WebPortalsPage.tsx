@@ -115,7 +115,9 @@ function saveCustomSites(sites: PortalSite[]) {
 
 export interface WebTab {
   id: string;
-  url: string;
+  srcUrl: string;       // Only changed by explicit user action: address bar submit, bookmark click, reload
+  displayUrl: string;   // Updated on did-navigate / in-page events for address bar & activity report
+  url?: string;         // Maintained in sync for backward compatibility
   title: string;
   icon: string;
   color: string;
@@ -127,7 +129,7 @@ export function WebPortalsPage() {
   const [tabs, setTabs] = useState<WebTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const activeTab = useMemo(() => tabs.find(t => t.id === activeTabId), [tabs, activeTabId]);
-  const activeUrl = activeTab?.url || null;
+  const activeUrl = activeTab?.displayUrl || activeTab?.srcUrl || activeTab?.url || null;
 
   const [inputUrl, setInputUrl] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
@@ -164,10 +166,6 @@ export function WebPortalsPage() {
   const getWebview = () => (activeTabId ? webviewRefs.current[activeTabId] : null);
   const activeUrlRef = useRef<string | null>(null);
   activeUrlRef.current = activeUrl;
-  const mountedUrls = useRef<Record<string, string>>({});
-  if (activeTab && !mountedUrls.current[activeTab.id]) {
-    mountedUrls.current[activeTab.id] = activeTab.url;
-  }
 
   useEffect(() => {
     setCustomSites(loadCustomSites());
@@ -225,9 +223,10 @@ export function WebPortalsPage() {
     if (state?.url) {
       const url = smartNormalizeUrl(state.url);
       const newId = crypto.randomUUID();
-      mountedUrls.current[newId] = url;
       const newTab: WebTab = {
         id: newId,
+        srcUrl: url,
+        displayUrl: url,
         url,
         title: state.name || state.url,
         icon: "🌐",
@@ -265,20 +264,22 @@ export function WebPortalsPage() {
       };
 
       const onNavigate = (e: any) => {
-        let url = e.url || activeUrlRef.current || "";
+        let navUrl = e.url || activeUrlRef.current || "";
         // If third-party chat widget redirected the page, restore original portal
-        if (url.includes("freshchat.com/widget")) {
-          const normalized = smartNormalizeUrl(url);
-          if (normalized !== url && !normalized.includes("freshchat.com")) {
-            url = normalized;
-            wv.loadURL?.(url);
+        if (navUrl.includes("freshchat.com/widget")) {
+          const normalized = smartNormalizeUrl(navUrl);
+          if (normalized !== navUrl && !normalized.includes("freshchat.com")) {
+            navUrl = normalized;
+            wv.loadURL?.(navUrl);
             return;
           }
           return;
         }
-        reportToMain(url);
-        setInputUrl(url);
-        setTabs(prev => prev.map(t => (t.id === activeTabId ? { ...t, url } : t)));
+        reportToMain(navUrl);
+        setInputUrl(navUrl);
+        // FIX A: NEVER update srcUrl from did-navigate / did-navigate-in-page!
+        // Only update displayUrl (and url fallback for backward compatibility)
+        setTabs(prev => prev.map(t => (t.id === activeTabId ? { ...t, displayUrl: navUrl, url: navUrl } : t)));
       };
 
       const onTitleUpdate = (e: any) => {
@@ -291,11 +292,12 @@ export function WebPortalsPage() {
 
       const onNewWindow = (e: any) => {
         const targetUrl = e.url || "";
-        // If it's an OAuth / authentication popup, let Electron's native window open handler manage it
+        // FIX B: Auth & consent domains must bubble up to Electron's setWindowOpenHandler
+        // Never call e.preventDefault() for auth popups so window.opener and postMessage remain intact
         const isAuthPopup =
-          /accounts\.google\.com|appleid\.apple\.com|github\.com\/login\/oauth|facebook\.com.*oauth|auth0\.com|firebaseapp\.com/i.test(targetUrl);
+          /accounts\.google\.com|accounts\.youtube\.com|login\.microsoftonline\.com|login\.live\.com|appleid\.apple\.com|github\.com\/login|gitlab\.com\/users\/sign_in|auth0\.com|okta\.com|firebaseapp\.com|\.supabase\.co|leetcode\.com\/accounts/i.test(targetUrl);
         if (isAuthPopup) {
-          return; // Do NOT call e.preventDefault(); allow popup to open natively so window.opener stays connected
+          return; // Let main process create the real child BrowserWindow
         }
 
         e.preventDefault();
@@ -314,9 +316,10 @@ export function WebPortalsPage() {
 
         // Open external links in a fresh tab inside FlowTrack browser
         const newId = crypto.randomUUID();
-        mountedUrls.current[newId] = targetUrl;
         const newTab: WebTab = {
           id: newId,
+          srcUrl: targetUrl,
+          displayUrl: targetUrl,
           url: targetUrl,
           title: "Loading...",
           icon: "🌐",
@@ -487,15 +490,16 @@ export function WebPortalsPage() {
 
   function openPortal(site: PortalSite) {
     const url = smartNormalizeUrl(site.url);
-    const existing = tabs.find(t => t.url === url);
+    const existing = tabs.find(t => t.srcUrl === url || t.displayUrl === url || t.url === url);
     if (existing) {
       setActiveTabId(existing.id);
-      setInputUrl(existing.url);
+      setInputUrl(existing.displayUrl || existing.srcUrl || existing.url || "");
     } else {
       const newId = crypto.randomUUID();
-      mountedUrls.current[newId] = url;
       const newTab: WebTab = {
         id: newId,
+        srcUrl: url,
+        displayUrl: url,
         url,
         title: site.name,
         icon: site.icon || "🌐",
@@ -516,13 +520,13 @@ export function WebPortalsPage() {
       if (wv && typeof wv.loadURL === "function") {
         wv.loadURL(url);
       }
-      mountedUrls.current[activeTabId] = url;
-      setTabs(prev => prev.map(t => (t.id === activeTabId ? { ...t, url, title: url } : t)));
+      setTabs(prev => prev.map(t => (t.id === activeTabId ? { ...t, srcUrl: url, displayUrl: url, url, title: url } : t)));
     } else {
       const newId = crypto.randomUUID();
-      mountedUrls.current[newId] = url;
       const newTab: WebTab = {
         id: newId,
+        srcUrl: url,
+        displayUrl: url,
         url,
         title: url,
         icon: "🌐",
@@ -535,14 +539,13 @@ export function WebPortalsPage() {
   }
 
   function closeTab(tabId: string) {
-    delete mountedUrls.current[tabId];
     delete webviewRefs.current[tabId];
     setTabs(prev => {
       const next = prev.filter(t => t.id !== tabId);
       if (tabId === activeTabId) {
         const newActive = next.length > 0 ? next[next.length - 1] : null;
         setActiveTabId(newActive ? newActive.id : null);
-        setInputUrl(newActive ? newActive.url : "");
+        setInputUrl(newActive ? (newActive.displayUrl || newActive.srcUrl || newActive.url || "") : "");
       }
       return next;
     });
@@ -631,7 +634,7 @@ export function WebPortalsPage() {
             return (
               <div
                 key={tab.id}
-                onClick={() => { setActiveTabId(tab.id); setInputUrl(tab.url); }}
+                onClick={() => { setActiveTabId(tab.id); setInputUrl(tab.displayUrl || tab.srcUrl || tab.url || ""); }}
                 className={`group flex items-center gap-2 px-3.5 py-1.5 min-w-[130px] max-w-[220px] rounded-t-xl cursor-pointer text-xs font-semibold border-t border-x transition-all select-none ${
                   isActive
                     ? "bg-slate-900 border-white/10 text-cyan-300 shadow-md"
@@ -655,9 +658,10 @@ export function WebPortalsPage() {
             type="button"
             onClick={() => {
               const newId = crypto.randomUUID();
-              mountedUrls.current[newId] = "https://www.google.com";
               const newTab: WebTab = {
                 id: newId,
+                srcUrl: "https://www.google.com",
+                displayUrl: "https://www.google.com",
                 url: "https://www.google.com",
                 title: "Google Search",
                 icon: "🌐",
@@ -989,8 +993,8 @@ export function WebPortalsPage() {
                   <webview
                     key={activeTab.id}
                     ref={(el: any) => { if (el) webviewRefs.current[activeTab.id] = el; }}
-                    src={mountedUrls.current[activeTab.id] || activeTab.url}
-                    useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
+                    src={activeTab.srcUrl}
+                    useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
                     className="w-full h-full border-0 absolute top-0 left-0 z-10 pointer-events-auto"
                     allowpopups={true}
                     partition="persist:browser_session"

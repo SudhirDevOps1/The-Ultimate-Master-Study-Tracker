@@ -38,6 +38,9 @@ jobs:
         cache: 'npm'
         cache-dependency-path: 'desktop-app/package-lock.json'
 
+    - name: Verify release version consistency
+      run: node scripts/check-release-versions.mjs
+
     - name: Install Desktop App Dependencies
       run: |
         cd desktop-app

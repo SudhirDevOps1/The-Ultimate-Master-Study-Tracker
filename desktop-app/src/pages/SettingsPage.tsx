@@ -204,6 +204,9 @@ export function SettingsPage() {
   const [isOpenAtLogin, setIsOpenAtLogin] = useState(() => {
     return localStorage.getItem("flowtrack_open_at_login") === "true";
   });
+  const [isWebviewAdBlock, setIsWebviewAdBlock] = useState(() => {
+    return localStorage.getItem("flowtrack_webview_adblock") !== "false";
+  });
 
   useEffect(() => {
     if (typeof window !== "undefined" && (window as any).electron) {
@@ -220,6 +223,10 @@ export function SettingsPage() {
           if (typeof res.settings.openAtLogin === "boolean") {
             setIsOpenAtLogin(res.settings.openAtLogin);
             localStorage.setItem("flowtrack_open_at_login", String(res.settings.openAtLogin));
+          }
+          if (typeof res.settings.webviewAdBlock === "boolean") {
+            setIsWebviewAdBlock(res.settings.webviewAdBlock);
+            localStorage.setItem("flowtrack_webview_adblock", String(res.settings.webviewAdBlock));
           }
         }
       });
@@ -374,6 +381,41 @@ export function SettingsPage() {
             </div>
             <p className="text-xs text-slate-400">
               Receive native OS slide-in notifications when study sessions complete or rules trigger.
+            </p>
+          </div>
+
+          {/* 6. Study Portal Ad & Tracker Shield */}
+          <div className="p-4 rounded-2xl bg-slate-900/40 backdrop-blur-md shadow-inner transition-all hover:bg-slate-900/50 border border-white/10 space-y-2">
+            <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-white">
+              <input
+                type="checkbox"
+                checked={isWebviewAdBlock}
+                onChange={(e) => {
+                  const isChecked = e.target.checked;
+                  setIsWebviewAdBlock(isChecked);
+                  localStorage.setItem("flowtrack_webview_adblock", String(isChecked));
+                  if (typeof window !== "undefined" && (window as any).electron) {
+                    (window as any).electron.ipcRenderer?.invoke?.("save-desktop-settings", { webviewAdBlock: isChecked });
+                  }
+                  showMessage(isChecked ? "🛡️ Study Portal Ad & Tracker Shield Enabled!" : "Ad Shield Disabled.");
+                }}
+                className="h-5 w-5 rounded border-cyan-400 bg-slate-800 text-cyan-500 focus:ring-0 cursor-pointer"
+              />
+              🛡️ Study Portal Ad Shield
+            </label>
+            <p className="text-xs text-slate-400 pl-8">
+              Block video ads, telemetry, and tracking banners inside embedded study portals (YouTube, etc.).
+            </p>
+          </div>
+        </div>
+
+        {/* 💡 Troubleshooting Guidance: Hosts File Blocks Tip */}
+        <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-200 text-xs flex items-start gap-2.5">
+          <span className="text-base shrink-0">💡</span>
+          <div>
+            <strong className="text-amber-100 font-semibold">Troubleshooting Tip: Google or YouTube Sign-In Issues?</strong>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-amber-200/80">
+              Stale entries left over in your Windows hosts file (<code className="px-1 py-0.5 rounded bg-black/40 text-amber-300">%windir%\System32\drivers\etc\hosts</code> under <code className="px-1 py-0.5 rounded bg-black/40 text-amber-300"># --- FlowTrack Pro Blocks Start ---</code>) from previous website blocks can prevent Google or YouTube login. To clean them up, disable all website blocks in App Blocker and click <strong>Sync Hosts File</strong>.
             </p>
           </div>
         </div>

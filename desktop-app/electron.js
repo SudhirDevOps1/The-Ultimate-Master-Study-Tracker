@@ -1,7 +1,9 @@
 const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog, shell, protocol, net, session, powerMonitor } = require("electron");
+const { AD_BLOCK_PATTERNS } = require("./adBlockList.js");
 
-// Global Google / Cloudflare Bot Shield Bypass (Pure Chrome 133 Desktop User-Agent)
-app.userAgentFallback = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
+// Global Google / Cloudflare Bot Shield Bypass (Pure Chrome 136 Desktop User-Agent)
+const CHROME_DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36";
+app.userAgentFallback = CHROME_DESKTOP_UA;
 
 // Enable Document Picture-in-Picture API & experimental web features in Electron Chromium engine
 app.commandLine.appendSwitch("enable-experimental-web-platform-features");
@@ -917,38 +919,24 @@ app.whenReady().then(() => {
 
   // FlowTrack In-App Browser (Web Portals) Session Configuration & Study Ad Shield
   try {
-    const CHROME_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
+    loadDesktopSettings();
     const portalSession = session.fromPartition("persist:browser_session");
-    portalSession.setUserAgent(CHROME_UA);
+    portalSession.setUserAgent(CHROME_DESKTOP_UA);
 
-    // Study Ad Shield: Block video ad servers, trackers, and telemetry
-    const AD_PATTERNS = [
-      "*://*.doubleclick.net/*",
-      "*://googleads.g.doubleclick.net/*",
-      "*://*.googlesyndication.com/*",
-      "*://*.googleadservices.com/*",
-      "*://static.doubleclick.net/*",
-      "*://adservice.google.com/*",
-      "*://pagead2.googlesyndication.com/*",
-      "*://*.youtube.com/pagead/*",
-      "*://*.youtube.com/api/stats/ads*",
-      "*://*.youtube.com/ptracking*",
-      "*://*.youtube.com/youtubei/v1/player/ad_break*",
-      "*://*.adnxs.com/*",
-      "*://*.adroll.com/*",
-      "*://*.criteo.com/*",
-      "*://*.taboola.com/*",
-      "*://*.outbrain.com/*",
-    ];
-
-    portalSession.webRequest.onBeforeRequest({ urls: AD_PATTERNS }, (details, callback) => {
+    // Study Ad Shield: Cancel matching ad and telemetry requests using local blocklist
+    portalSession.webRequest.onBeforeRequest({ urls: AD_BLOCK_PATTERNS }, (details, callback) => {
+      if (desktopSettings.webviewAdBlock === false) {
+        return callback({ cancel: false });
+      }
       callback({ cancel: true });
     });
 
     portalSession.webRequest.onBeforeSendHeaders((details, callback) => {
       const headers = { ...details.requestHeaders };
-      headers["User-Agent"] = CHROME_UA;
-      headers["sec-ch-ua"] = '"Not(A:Brand";v="99", "Google Chrome";v="133", "Chromium";v="133"';
+      headers["User-Agent"] = CHROME_DESKTOP_UA;
+      if (headers["sec-ch-ua"]) {
+        headers["sec-ch-ua"] = '"Not(A:Brand";v="99", "Google Chrome";v="136", "Chromium";v="136"';
+      }
       headers["sec-ch-ua-mobile"] = "?0";
       headers["sec-ch-ua-platform"] = '"Windows"';
 
@@ -974,34 +962,32 @@ app.whenReady().then(() => {
     if (mainWindow && contents === mainWindow.webContents) return;
 
     contents.setWindowOpenHandler(({ url, features }) => {
-      // Allow OAuth / login popups with standard popup window properties so window.opener stays connected
-      const isAuthPopup =
+      // Auth & consent domains: allow a real child BrowserWindow with same session partition
+      const isAuthUrl =
         (features && (features.includes("width=") || features.includes("popup="))) ||
-        /accounts\.google\.com|appleid\.apple\.com|github\.com\/login\/oauth|facebook\.com.*oauth|auth0\.com|firebaseapp\.com|leetcode\.com\/accounts/i.test(url);
+        /accounts\.google\.com|accounts\.youtube\.com|login\.microsoftonline\.com|login\.live\.com|appleid\.apple\.com|github\.com\/login|gitlab\.com\/users\/sign_in|auth0\.com|okta\.com|firebaseapp\.com|\.supabase\.co|leetcode\.com\/accounts/i.test(url);
 
-      if (isAuthPopup) {
+      if (isAuthUrl) {
+        const parentWin = BrowserWindow.fromWebContents(contents) || mainWindow;
         return {
           action: "allow",
           overrideBrowserWindowOptions: {
-            parent: mainWindow,
+            parent: parentWin,
             modal: false,
             width: 580,
-            height: 700,
+            height: 720,
             autoHideMenuBar: true,
             webPreferences: {
               partition: "persist:browser_session",
-              contextIsolation: true,
               nodeIntegration: false,
-              sandbox: true,
+              contextIsolation: true,
+              // No preload from the app
             }
           }
         };
       }
 
-      // Load regular HTTP navigation in the current view instead of opening separate OS windows
-      if (url.startsWith("http://") || url.startsWith("https://")) {
-        contents.loadURL(url);
-      }
+      // For non-auth URLs, deny the native OS window and let the renderer open it as a new in-app tab
       return { action: "deny" };
     });
   });
@@ -1389,7 +1375,7 @@ ipcMain.handle("set-taskbar-progress", async (_e, { progress }) => {
 });
 
 let normalWindowBounds = null;
-let desktopSettings = { alwaysOnTop: false, compactFloating: false, openAtLogin: false };
+let desktopSettings = { alwaysOnTop: false, compactFloating: false, openAtLogin: false, webviewAdBlock: true };
 
 function getDesktopSettingsFile() {
   return path.join(app.getPath("userData"), "desktop-settings.json");
