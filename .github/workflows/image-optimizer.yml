@@ -2,7 +2,7 @@ name: Lossless Image Optimizer
 
 on:
   schedule:
-    - cron: "30 5 */2 * *" # Every 2 days at 05:30 UTC
+    - cron: "0 0 1 * *" # Monthly on the 1st at 00:00 UTC
   push:
     paths:
       - "public/images/**"
@@ -24,21 +24,22 @@ jobs:
   optimize:
     name: Lossless Asset Compression
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write
       pull-requests: write
     if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@v2
+        uses: step-security/harden-runner@4d247ffcb950032dd0d28e6fc433a5dc1a18c671 # v2.10.4
         with:
           egress-policy: audit
 
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd5960a326750d5838078e36cf38b85af677262 # v4.2.2
 
       - name: Compress Images
-        uses: calibreapp/image-actions@main
+        uses: calibreapp/image-actions@cb88448eb560b298642436f56d0285a9756b1fb0 # main
         with:
           githubToken: ${{ secrets.GITHUB_TOKEN }}
           compressOnly: true

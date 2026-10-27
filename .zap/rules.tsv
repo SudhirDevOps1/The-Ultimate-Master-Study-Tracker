@@ -1,0 +1,3 @@
+10038	IGNORE	# Content Security Policy (CSP) Header Not Set - Managed via Electron webPreferences & Vite preview headers
+10063	IGNORE	# Permissions Policy Header Not Set - Not applicable to offline local preview SPA
+10109	IGNORE	# Modern App / Cache-Control for offline SPA - Handled by IndexedDB local-first storage

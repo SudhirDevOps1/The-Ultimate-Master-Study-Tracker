@@ -2,12 +2,14 @@ name: Tier 3 - Dependency Security Audit
 
 on:
   schedule:
-    - cron: '0 3 */2 * *' # Every 2 days at 03:00 UTC
+    - cron: '0 4 * * 1' # Every Monday at 04:00 UTC
   workflow_dispatch:
   pull_request:
+    branches: [ main, develop ]
     paths:
       - '**/package.json'
       - '**/package-lock.json'
+      - '**/pnpm-lock.yaml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -18,24 +20,33 @@ permissions:
 
 jobs:
   audit:
-    name: NPM Audit Scan
+    name: NPM Audit Monorepo Scan
     if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd5960a326750d5838078e36cf38b85af677262 # v4.2.2
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
 
-      - name: Audit Desktop App Dependencies
+      - name: Run Monorepo Dependency Security Audit
         run: |
-          cd desktop-app
-          npm audit --audit-level=critical || true
+          mkdir -p audit-reports
+          echo "=== Starting Strict High-Level Dependency Audit across Monorepo ==="
+          for dir in . desktop-app web-app; do
+            echo "Auditing package in: $dir"
+            (cd "$dir" && npm audit --json > "../audit-reports/${dir//\//_}_audit.json" || true)
+            (cd "$dir" && npm audit --audit-level=high)
+          done
 
-      - name: Audit Web App Dependencies
-        run: |
-          cd web-app
-          npm audit --audit-level=critical || true
+      - name: Upload Security Audit JSON Reports
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        if: always()
+        with:
+          name: dependency-audit-reports
+          path: audit-reports/
+          if-no-files-found: ignore

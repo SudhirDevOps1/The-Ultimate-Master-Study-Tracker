@@ -3,6 +3,16 @@ coverage:
   round: down
   range: "70...100"
 
+flags:
+  desktop:
+    paths:
+      - desktop-app/
+    carryforward: true
+  web:
+    paths:
+      - web-app/
+    carryforward: true
+
 status:
   project:
     default:

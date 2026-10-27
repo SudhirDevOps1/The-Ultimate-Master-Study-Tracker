@@ -20,11 +20,7 @@
   "packages": {
     ".": {
       "component": "flowtrack-workspace",
-      "release-type": "node",
-      "extra-files": [
-        "desktop-app/package.json",
-        "web-app/package.json"
-      ]
+      "release-type": "node"
     },
     "desktop-app": {
       "component": "desktop-app",

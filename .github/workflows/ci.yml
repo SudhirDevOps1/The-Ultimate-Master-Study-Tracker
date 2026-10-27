@@ -1,12 +1,8 @@
 name: Tier 1 - Fast Quality Gate & Desktop CI
 
 on:
-  schedule:
-    - cron: '0 2 */2 * *' # Every 2 days at 02:00 UTC
   push:
     branches: [ main, develop ]
-    tags:
-      - 'v*'
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
@@ -32,15 +28,16 @@ jobs:
     name: Fast Quality Gate (Typecheck, Lint & Unit Test)
     if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
+
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@11bd5960a326750d5838078e36cf38b85af677262 # v4.2.2
       with:
         fetch-depth: 1
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
       with:
         node-version: 22
         cache: 'npm'
@@ -80,8 +77,9 @@ jobs:
   build-desktop-releases:
     name: Build Desktop Apps (${{ matrix.os }})
     needs: fast-quality-gate
-    if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker' && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+    if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker' && github.event_name == 'workflow_dispatch'
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     strategy:
       max-parallel: 1
       matrix:
@@ -89,19 +87,19 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@11bd5960a326750d5838078e36cf38b85af677262 # v4.2.2
       with:
         fetch-depth: 1
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
       with:
         node-version: 22
         cache: 'npm'
         cache-dependency-path: 'desktop-app/package-lock.json'
 
     - name: Cache Electron Binaries
-      uses: actions/cache@v4
+      uses: actions/cache@0c9c4709d134958d531a7b4f53580436d4bb79eb # v4.3.0
       with:
         path: |
           ~/.cache/electron
@@ -138,59 +136,15 @@ jobs:
 
     - name: Build Electron App (macOS)
       if: matrix.os == 'macos-latest'
+      env:
+        CSC_IDENTITY_AUTO_DISCOVERY: false
       run: |
         cd desktop-app
-        npx electron-builder --mac zip --publish never
+        npx electron-builder --mac zip dmg --publish never
 
     - name: Upload Build Artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
       with:
         name: flowtrack-${{ matrix.os }}
         path: desktop-app/dist-electron/
         if-no-files-found: warn
-
-  publish-github-release:
-    name: Publish Release to GitHub
-    needs: build-desktop-releases
-    if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Download Windows Build Artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: flowtrack-windows-latest
-        path: ./artifacts/windows
-
-    - name: Download Linux Build Artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: flowtrack-ubuntu-latest
-        path: ./artifacts/linux
-
-    - name: Download macOS Build Artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: flowtrack-macos-latest
-        path: ./artifacts/macos
-
-    - name: Organize Release Binaries
-      run: |
-        mkdir -p ./release
-        find ./artifacts -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.zip" \) -exec cp {} ./release/ \;
-        ls -lh ./release
-
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v2
-      with:
-        files: |
-          release/*
-        draft: false
-        prerelease: false
-        generate_release_notes: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

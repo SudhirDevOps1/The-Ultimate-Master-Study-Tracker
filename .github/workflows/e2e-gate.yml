@@ -1,8 +1,6 @@
 name: Tier 2 - Heavy PR Gate & DAST Scan
 
 on:
-  schedule:
-    - cron: '0 6 */2 * *' # Every 2 days at 06:00 UTC
   pull_request:
     branches: [ main, develop ]
     paths:
@@ -24,21 +22,20 @@ jobs:
     name: PR DAST Scan & Bundle Audit
     if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       pull-requests: write
       security-events: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd5960a326750d5838078e36cf38b85af677262 # v4.2.2
         with:
           fetch-depth: 1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
-          cache: 'npm'
-          cache-dependency-path: 'desktop-app/package-lock.json'
 
       - name: Install Dependencies
         run: |
@@ -57,20 +54,20 @@ jobs:
           sleep 5
 
       - name: OWASP ZAP Baseline DAST Security Scan
-        uses: zaproxy/action-baseline@v0.15.0
+        uses: zaproxy/action-baseline@19199b50b86a760f38b4d1b702ec8c985ecce09f # v0.15.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           docker_name: 'ghcr.io/zaproxy/zaproxy:stable'
           target: 'http://localhost:4173'
           rules_file_name: '.zap/rules.tsv'
-          cmd_options: '-a'
+          cmd_options: '-a -I'
           allow_issue_writing: false
-        continue-on-error: true
+          fail_action: true
 
       - name: Upload Scan Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         if: always()
         with:
           name: zap-baseline-report
-          path: zap_report.html
+          path: report_html.html
           if-no-files-found: ignore

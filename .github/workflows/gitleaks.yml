@@ -1,8 +1,6 @@
 name: Gitleaks Secret Scanner
 
 on:
-  schedule:
-    - cron: "30 3 */2 * *" # Every 2 days at 03:30 UTC
   push:
     branches: [main, develop]
   pull_request:
@@ -20,14 +18,15 @@ jobs:
   scan:
     name: Detect Hardcoded Secrets
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd5960a326750d5838078e36cf38b85af677262 # v4.2.2
         with:
           fetch-depth: 0
 
       - name: Run Gitleaks Scanner
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@eed465c40cebc1c337b567a421b8cceeb0377484 # v2.3.8
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -2,7 +2,7 @@ name: OpenSSF Scorecard Supply Chain Security
 
 on:
   schedule:
-    - cron: "0 4 */2 * *" # Every 2 days at 04:00 UTC
+    - cron: "30 4 * * 1" # Every Monday at 04:30 UTC
   push:
     branches: [main]
   workflow_dispatch:
@@ -17,6 +17,7 @@ jobs:
   analysis:
     name: Scorecard analysis
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
     permissions:
       security-events: write
@@ -26,18 +27,18 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd5960a326750d5838078e36cf38b85af677262 # v4.2.2
         with:
           persist-credentials: false
 
       - name: Run OpenSSF Scorecard Analysis
-        uses: ossf/scorecard-action@v2.4.4
+        uses: ossf/scorecard-action@62b2cac7ed8198b15735db49ab1210abd35e882c # v2.4.4
         with:
           results_file: results.sarif
           results_format: sarif
-          publish_results: false
+          publish_results: true
 
       - name: Upload SARIF results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@b56ba49b26e50535fa1e7f7db0f4f7b47f3ca302 # v3.28.10
         with:
           sarif_file: results.sarif
