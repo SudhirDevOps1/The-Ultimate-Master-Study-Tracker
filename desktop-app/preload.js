@@ -47,6 +47,13 @@ const ALLOWED_INVOKE_CHANNELS = [
   "window-maximize",
   "window-close",
   "is-window-maximized",
+  // WakaTime Heartbeat Receiver IPCs
+  "heartbeat-status",
+  "heartbeat-get-day",
+  "heartbeat-stats",
+  "heartbeat-clear",
+  "open-heartbeat-folder",
+  "heartbeat-set-config",
 ];
 
 const ALLOWED_LISTEN_CHANNELS = [

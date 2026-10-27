@@ -87,6 +87,7 @@
       "electron.js",
       "preload.js",
       "adBlockList.js",
+      "electron-main/**/*",
       "package.json",
       "!**/*.map",
       "!**/*.ts"

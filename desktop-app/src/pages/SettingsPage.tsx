@@ -407,6 +407,73 @@ export function SettingsPage() {
               Block video ads, telemetry, and tracking banners inside embedded study portals (YouTube, etc.).
             </p>
           </div>
+
+          {/* 7. Editor & Coding Integration (WakaTime Receiver) */}
+          <div className="p-4 rounded-2xl bg-slate-900/40 backdrop-blur-md shadow-inner border border-white/10 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-base">💻</span>
+                <span className="text-sm font-semibold text-white">Editor & Coding Integration</span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Port 7777 (WakaTime Compatible)
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const res = await (window as any).electron?.ipcRenderer?.invoke?.("heartbeat-status");
+                    if (res && res.isRunning) {
+                      showMessage(`✅ Local receiver running on port ${res.port}! Today: ${res.heartbeatsToday} heartbeats`);
+                    } else {
+                      showMessage("⚠️ Local receiver is not active or running.");
+                    }
+                  } catch {
+                    showMessage("⚠️ Heartbeat receiver status unavailable in web mode.");
+                  }
+                }}
+                className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold border border-white/10 transition-all"
+              >
+                Test Connection
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">
+              FlowTrack runs a local, privacy-first WakaTime-compatible receiver on loopback (<code className="px-1 py-0.5 rounded bg-black/40 text-cyan-300">127.0.0.1:7777</code>). Seamlessly logs coding stats from VS Code, VSCodium, Google Antigravity, Cursor, and JetBrains.
+            </p>
+            <div className="p-3 rounded-xl bg-slate-950/80 border border-white/5 flex flex-col gap-2 font-mono text-xs text-slate-300">
+              <div className="flex items-center justify-between text-[11px] text-slate-400 font-sans">
+                <span>Configuration Snippet (~/.wakatime.cfg):</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const cfg = `[settings]\napi_key = flowtrack-local\napi_url = http://127.0.0.1:7777/api/v1\n`;
+                    navigator.clipboard.writeText(cfg);
+                    showMessage("📋 WakaTime config snippet copied to clipboard!");
+                  }}
+                  className="px-2 py-0.5 rounded bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 font-sans text-xs font-bold transition-all"
+                >
+                  Copy Config
+                </button>
+              </div>
+              <pre className="text-[11px] text-cyan-200/90 overflow-x-auto select-all">
+[settings]
+api_key = flowtrack-local
+api_url = http://127.0.0.1:7777/api/v1
+              </pre>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  (window as any).electron?.ipcRenderer?.invoke?.("open-heartbeat-folder");
+                }}
+                className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold border border-white/10 transition-all"
+              >
+                📂 Open Heartbeats Folder
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* 💡 Troubleshooting Guidance: Hosts File Blocks Tip */}

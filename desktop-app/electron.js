@@ -32,6 +32,13 @@ try {
 }
 
 // Global Google / Cloudflare Bot Shield Bypass (Pure Chrome 136 Desktop User-Agent)
+let wakatimeReceiver = null;
+try {
+  wakatimeReceiver = require("./electron-main/wakatime-receiver.js");
+} catch (e) {
+  console.warn("[electron] wakatime-receiver module load error:", e && e.message);
+}
+
 const CHROME_DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36";
 app.userAgentFallback = CHROME_DESKTOP_UA;
 
@@ -902,6 +909,14 @@ if (!gotTheLock) {
 
 // ─── App lifecycle ────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
+  // Start local WakaTime heartbeat receiver over loopback 127.0.0.1
+  if (wakatimeReceiver) {
+    try {
+      wakatimeReceiver.startReceiver(app.getPath("userData"), 7777);
+    } catch (err) {
+      console.error("[wakatime] Startup error:", err);
+    }
+  }
   // Register custom protocol for local media streaming from ANY drive (C:, D:, E:, F:... Z:)
   try {
     protocol.handle("local-media", async (request) => {
@@ -1096,6 +1111,37 @@ app.on("before-quit", (e) => {
 app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });
 
 // ─── IPC Handlers ─────────────────────────────────────────────────────────────
+// ─── WakaTime Heartbeat Integration IPC Handlers ────────────────────────────
+ipcMain.handle("heartbeat-status", async () => {
+  return wakatimeReceiver ? wakatimeReceiver.getStatus() : { isRunning: false, port: 7777, heartbeatsToday: 0 };
+});
+
+ipcMain.handle("heartbeat-stats", async (_event, date) => {
+  return wakatimeReceiver ? wakatimeReceiver.getHeartbeatStats(date) : { totalSeconds: 0, byProject: {}, byLanguage: {}, byEditor: {}, byCategory: {}, topFiles: [] };
+});
+
+ipcMain.handle("heartbeat-clear", async () => {
+  if (wakatimeReceiver) wakatimeReceiver.clearHeartbeats();
+  return { ok: true };
+});
+
+ipcMain.handle("open-heartbeat-folder", async () => {
+  if (wakatimeReceiver) {
+    const dir = wakatimeReceiver.getHeartbeatsDir();
+    if (dir && fs.existsSync(dir)) {
+      shell.openPath(dir);
+    }
+  }
+  return { ok: true };
+});
+
+ipcMain.handle("heartbeat-set-config", async (_event, cfg) => {
+  if (wakatimeReceiver && cfg && typeof cfg === "object") {
+    wakatimeReceiver.setConfig(cfg);
+  }
+  return { ok: true };
+});
+
 ipcMain.handle("get-idle-time-ms", async () => await getSystemIdleMs());
 
 ipcMain.handle("get-block-rules", async () => {
