@@ -72,7 +72,7 @@ jobs:
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - name: Run Release Please
-        uses: google-github-actions/release-please-action@e4dc86ba9405554aeba3c6bb2d169500e7d3b4ee # v4.1.1
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         id: release
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -176,24 +176,24 @@ jobs:
           echo "Appending contributor recognition to release $TAG..."
           CURRENT_NOTES=$(gh release view "$TAG" --json body -q .body)
           if [[ "$CURRENT_NOTES" != *"Contributors & Release Recognition"* ]]; then
-            CONTRIBUTORS_WALL="
+            sed 's/^[ ]\{12\}//' << 'EOF' > /tmp/wall.txt
 
----
+            ---
 
-### 👥 Contributors & Release Recognition
-Heartfelt thanks to everyone contributing code, reviews, and bug reports to make FlowTrack Pro the ultimate study workstation!
+            ### 👥 Contributors & Release Recognition
+            Heartfelt thanks to everyone contributing code, reviews, and bug reports to make FlowTrack Pro the ultimate study workstation!
 
-| Contributor | GitHub Profile | Role |
-| :---: | :--- | :--- |
-| <img src=\"https://avatars.githubusercontent.com/u/234449571?v=4\" width=\"44\" height=\"44\" style=\"border-radius:50%\" alt=\"SudhirDevOps1\" /> | **[@SudhirDevOps1](https://github.com/SudhirDevOps1)** | Lead Architect & Maintainer |
+            | Contributor | GitHub Profile | Role |
+            | :---: | :--- | :--- |
+            | <img src="https://avatars.githubusercontent.com/u/234449571?v=4" width="44" height="44" style="border-radius:50%" alt="SudhirDevOps1" /> | **[@SudhirDevOps1](https://github.com/SudhirDevOps1)** | Lead Architect & Maintainer |
 
-<p align=\"left\">
-  <a href=\"https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/graphs/contributors\">
-    <img src=\"https://contrib.rocks/image?repo=SudhirDevOps1/The-Ultimate-Master-Study-Tracker\" alt=\"Contributors Avatar Wall\" />
-  </a>
-</p>
-"
-            gh release edit "$TAG" --notes "$CURRENT_NOTES$CONTRIBUTORS_WALL"
+            <p align="left">
+              <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/graphs/contributors">
+                <img src="https://contrib.rocks/image?repo=SudhirDevOps1/The-Ultimate-Master-Study-Tracker" alt="Contributors Avatar Wall" />
+              </a>
+            </p>
+            EOF
+            gh release edit "$TAG" --notes "$CURRENT_NOTES$(cat /tmp/wall.txt)"
             echo "Release notes enriched with Contributor Wall successfully!"
           else
             echo "Release $TAG already contains contributor wall."

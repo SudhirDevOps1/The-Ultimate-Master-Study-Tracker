@@ -61,7 +61,7 @@ jobs:
           npx vitest run --coverage
 
       - name: Upload Desktop Coverage to Codecov
-        uses: codecov/codecov-action@e96185f4044c2f0cedf0f022454acf9811cf8057 # v5.4.0
+        uses: codecov/codecov-action@0565863a31f2c772f9f0395002a31e3f06189574 # v5.4.0
         with:
           files: desktop-app/coverage/lcov.info
           flags: desktop
@@ -69,7 +69,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload Web Coverage to Codecov
-        uses: codecov/codecov-action@e96185f4044c2f0cedf0f022454acf9811cf8057 # v5.4.0
+        uses: codecov/codecov-action@0565863a31f2c772f9f0395002a31e3f06189574 # v5.4.0
         with:
           files: web-app/coverage/lcov.info
           flags: web
