@@ -49,4 +49,5 @@ jobs:
         with:
           name: dependency-audit-reports
           path: audit-reports/
+          retention-days: 7
           if-no-files-found: ignore

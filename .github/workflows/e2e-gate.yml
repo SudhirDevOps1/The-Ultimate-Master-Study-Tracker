@@ -70,4 +70,5 @@ jobs:
         with:
           name: zap-baseline-report
           path: report_html.html
+          retention-days: 7
           if-no-files-found: ignore

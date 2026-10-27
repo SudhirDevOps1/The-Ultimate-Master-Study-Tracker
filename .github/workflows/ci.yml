@@ -147,4 +147,5 @@ jobs:
       with:
         name: flowtrack-${{ matrix.os }}
         path: desktop-app/dist-electron/
+        retention-days: 7
         if-no-files-found: warn
