@@ -11,6 +11,7 @@ on:
       - "**/*.svg"
     branches:
       - main
+      - develop
   workflow_dispatch:
 
 concurrency:

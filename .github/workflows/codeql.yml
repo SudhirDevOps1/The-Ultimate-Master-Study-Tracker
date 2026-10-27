@@ -2,13 +2,13 @@ name: Tier 3 - CodeQL Semantic Analysis
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, develop ]
     paths:
       - '**.js'
       - '**.ts'
       - '**.tsx'
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop ]
     paths:
       - '**.js'
       - '**.ts'

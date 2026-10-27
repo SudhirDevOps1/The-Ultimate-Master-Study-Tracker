@@ -94,16 +94,56 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org/) speci
 
 ---
 
+## 🌿 Enterprise Branching Architecture
+
+FlowTrack Pro follows an enterprise-grade Git branching model designed for continuous stability and zero-regression releases:
+
+```
+[ main ] <────────────── (Production Releases & Auto-Changelog via Release Please)
+   ▲  ▲
+   │  └── [ hotfix/* ] ── (Emergency production security / crash fixes)
+   │
+[ develop ] <─────────── (Daily Integration & QA Gate)
+   ▲
+   ├── [ feature/* ] ── (New features, e.g. feature/timer-pip)
+   └── [ fix/* ] ────── (Bug patches, e.g. fix/webview-leak)
+```
+
+| Branch | Role | Protection | Target for PRs |
+| :--- | :--- | :--- | :--- |
+| **`main`** | **Production**: Represents live production code. Triggers Google Release Please and multi-OS binary publishing. | 🔒 Protected | Staging PRs from `develop` or emergency `hotfix/*` |
+| **`develop`** | **Integration / Staging**: Active daily development and testing before releasing to production. | 🔒 Protected | Default target for all `feature/*` and `fix/*` PRs |
+| **`feature/*`** | **Features**: Created from `develop` for developing individual features. | Temporary | Merges into `develop` via PR |
+| **`fix/*`** | **Bugfixes**: Created from `develop` for regular bug resolutions. | Temporary | Merges into `develop` via PR |
+| **`hotfix/*`** | **Emergency Hotfixes**: Created directly from `main` to address critical production issues. | Temporary | Merges into `main` and then back-synced to `develop` |
+
+---
+
 ## 🚀 Submitting a Pull Request
 
-1. **Create a Feature Branch**:
+1. **Pull Latest Integration Branch**:
    ```bash
-   git checkout -b feat/your-feature-name
+   git checkout develop
+   git pull origin develop
    ```
-2. **Commit your changes** using conventional commit messages.
-3. **Push to your fork**:
+
+2. **Create a Topic Branch**:
    ```bash
-   git push origin feat/your-feature-name
+   # For new features:
+   git checkout -b feature/your-feature-name
+
+   # For bug fixes:
+   git checkout -b fix/your-bugfix-name
    ```
-4. **Open a PR** against the `main` branch of [SudhirDevOps1/The-Ultimate-Master-Study-Tracker](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker).
-5. **Fill out the Pull Request Template** and await automated CodeRabbit AI and CI quality gate checks.
+
+3. **Commit your changes** using conventional commit messages (`feat:`, `fix:`, `perf:`).
+
+4. **Push to GitHub**:
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+
+5. **Open a Pull Request**:
+   * Open the PR targeting base branch: **`develop`** (for standard development) or **`main`** (for critical hotfixes).
+   * Fill out the Pull Request Template.
+   * Automated **CodeRabbit AI** review and CI quality gates (Typecheck, Lint, Tests, CodeQL, Gitleaks) will run automatically.

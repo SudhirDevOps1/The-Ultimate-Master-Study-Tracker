@@ -4,9 +4,9 @@ on:
   schedule:
     - cron: "30 3 */2 * *" # Every 2 days at 03:30 UTC
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   workflow_dispatch:
 
 concurrency:
