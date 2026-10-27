@@ -1,12 +1,22 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
+import { Readability } from "@mozilla/readability";
+import DOMPurify from "dompurify";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Globe, Plus, Trash2, RefreshCw, ArrowLeft, ArrowRight,
   ExternalLink, X, ChevronRight, Search, Maximize2, Minimize2,
   Key, Lock, Eye, EyeOff, ShieldCheck, Check, Filter, Camera,
   Sparkles, Gauge, Compass, Layers, Laptop, Code2, BookOpen,
-  FolderPlus, Link2
+  FolderPlus, ZoomIn,
+  ZoomOut,
+  Moon,
+  Sun,
+  ChevronUp,
+  ChevronDown,
+  FolderOpen,
+  Download,
+  Link2
 } from "lucide-react";
 
 interface PortalSite {
@@ -139,7 +149,7 @@ export function WebPortalsPage() {
   const [newIcon, setNewIcon] = useState("🌐");
   const [newColor, setNewColor] = useState("#6366f1");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [inPageSearchQuery, setInPageSearchQuery] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [videoSpeed, setVideoSpeed] = useState<number>(1);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
@@ -159,6 +169,16 @@ export function WebPortalsPage() {
   // Master Password State
   const [masterPassword, setMasterPassword] = useState<string | null>(null);
   const [isVaultUnlocked, setIsVaultUnlocked] = useState(false);
+
+  // Browser Parity Features State
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchMatches, setSearchMatches] = useState({ active: 0, total: 0 });
+  const [zoomFactor, setZoomFactor] = useState(1.0);
+  const [isWebviewDark, setIsWebviewDark] = useState(() => localStorage.getItem("flowtrack_webview_dark") === "true");
+  const [isReaderMode, setIsReaderMode] = useState(false);
+  const [readerArticle, setReaderArticle] = useState<{ title: string; byline?: string; content: string } | null>(null);
+  const [downloadNotice, setDownloadNotice] = useState<{ active: boolean; filename: string; progress: number; completed: boolean; savePath?: string } | null>(null);
   const [vaultUnlockInput, setVaultUnlockInput] = useState("");
   const [vaultSetupInput, setVaultSetupInput] = useState("");
 
@@ -173,6 +193,169 @@ export function WebPortalsPage() {
     const saved = localStorage.getItem("vault_master_password");
     if (saved) setMasterPassword(saved);
   }, []);
+
+  // Apply per-origin zoom factor when activeUrl changes
+  useEffect(() => {
+    if (!activeUrl) return;
+    try {
+      const host = new URL(activeUrl).hostname;
+      const savedZoom = localStorage.getItem("flowtrack_zoom_" + host);
+      const factor = savedZoom ? parseFloat(savedZoom) : 1.0;
+      setZoomFactor(factor);
+      const wv = getWebview();
+      if (wv && typeof wv.setZoomFactor === "function") {
+        wv.setZoomFactor(factor);
+      }
+    } catch {}
+  }, [activeUrl]);
+
+  // Listen to download events from Electron
+  useEffect(() => {
+    const electron = (window as any).electron;
+    if (!electron?.ipcRenderer?.on) return;
+
+    const unsubProgress = electron.ipcRenderer.on("download-progress", (data: any) => {
+      if (data) {
+        const pct = data.totalBytes > 0 ? Math.round((data.receivedBytes / data.totalBytes) * 100) : 0;
+        setDownloadNotice({
+          active: true,
+          filename: data.filename || "file",
+          progress: pct,
+          completed: false,
+        });
+      }
+    });
+
+    const unsubDone = electron.ipcRenderer.on("download-completed", (data: any) => {
+      if (data) {
+        setDownloadNotice({
+          active: false,
+          filename: data.filename || "file",
+          progress: 100,
+          completed: data.state === "completed",
+          savePath: data.savePath,
+        });
+        setTimeout(() => {
+          setDownloadNotice(prev => (prev?.completed ? null : prev));
+        }, 6000);
+      }
+    });
+
+    return () => {
+      if (unsubProgress) unsubProgress();
+      if (unsubDone) unsubDone();
+    };
+  }, []);
+
+  // Zoom Handlers
+  const handleZoom = (delta: number) => {
+    const next = Math.min(2.5, Math.max(0.5, Math.round((zoomFactor + delta) * 10) / 10));
+    setZoomFactor(next);
+    const wv = getWebview();
+    if (wv && typeof wv.setZoomFactor === "function") {
+      wv.setZoomFactor(next);
+    }
+    if (activeUrl) {
+      try {
+        const host = new URL(activeUrl).hostname;
+        localStorage.setItem("flowtrack_zoom_" + host, String(next));
+      } catch {}
+    }
+  };
+
+  const handleZoomReset = () => {
+    setZoomFactor(1.0);
+    const wv = getWebview();
+    if (wv && typeof wv.setZoomFactor === "function") {
+      wv.setZoomFactor(1.0);
+    }
+    if (activeUrl) {
+      try {
+        const host = new URL(activeUrl).hostname;
+        localStorage.removeItem("flowtrack_zoom_" + host);
+      } catch {}
+    }
+  };
+
+  // Find in page handlers
+  const handleSearchChange = (query: string) => {
+    setInPageSearchQuery(query);
+    const wv = getWebview();
+    if (wv && typeof wv.findInPage === "function") {
+      if (!query.trim()) {
+        wv.stopFindInPage("clearSelection");
+        setSearchMatches({ active: 0, total: 0 });
+      } else {
+        wv.findInPage(query, { forward: true, findNext: false });
+      }
+    }
+  };
+
+  const handleFindNext = () => {
+    const wv = getWebview();
+    if (wv && inPageSearchQuery && typeof wv.findInPage === "function") {
+      wv.findInPage(inPageSearchQuery, { forward: true, findNext: true });
+    }
+  };
+
+  const handleFindPrev = () => {
+    const wv = getWebview();
+    if (wv && inPageSearchQuery && typeof wv.findInPage === "function") {
+      wv.findInPage(inPageSearchQuery, { forward: false, findNext: true });
+    }
+  };
+
+  const handleCloseSearch = () => {
+    setIsSearching(false);
+    setInPageSearchQuery("");
+    setSearchMatches({ active: 0, total: 0 });
+    const wv = getWebview();
+    if (wv && typeof wv.stopFindInPage === "function") {
+      wv.stopFindInPage("clearSelection");
+    }
+  };
+
+  // Dark Mode CSS Injection
+  const DARK_CSS = "html { filter: invert(90%) hue-rotate(180deg) !important; background: #121212 !important; } img, video, canvas, svg, [style*=\"background-image\"] { filter: invert(100%) hue-rotate(180deg) !important; }";
+  const handleToggleDarkMode = () => {
+    const next = !isWebviewDark;
+    setIsWebviewDark(next);
+    localStorage.setItem("flowtrack_webview_dark", String(next));
+    const wv = getWebview();
+    if (wv && typeof wv.insertCSS === "function") {
+      if (next) {
+        wv.insertCSS(DARK_CSS);
+      } else if (typeof wv.reload === "function") {
+        wv.reload();
+      }
+    }
+  };
+
+  // Reader Mode Handler
+  const handleToggleReaderMode = async () => {
+    if (isReaderMode) {
+      setIsReaderMode(false);
+      return;
+    }
+    const wv = getWebview();
+    if (!wv) return;
+    try {
+      const html = await wv.executeJavaScript("document.documentElement.outerHTML");
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const reader = new Readability(doc);
+      const article = reader.parse();
+      if (article) {
+        setReaderArticle({
+          title: article.title || "Study Article",
+          byline: article.byline || undefined,
+          content: DOMPurify.sanitize(article.content || "<p>No readable content extracted.</p>")
+        });
+        setIsReaderMode(true);
+      }
+    } catch (e) {
+      console.warn("Reader mode extraction failed:", e);
+    }
+  };
 
   function smartNormalizeUrl(raw: string): string {
     let clean = raw.trim().replace(/^["']|["']$/g, "");
@@ -806,6 +989,64 @@ export function WebPortalsPage() {
               </AnimatePresence>
             </div>
 
+                        {/* In-Page Search */}
+            <button
+              type="button"
+              onClick={() => setIsSearching(s => !s)}
+              title="Find in Page (Ctrl+F)"
+              className={`p-1.5 rounded-xl transition-all ${isSearching ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40" : "text-slate-300 hover:text-white hover:bg-white/10"}`}
+            >
+              <Search className="w-4 h-4" />
+            </button>
+
+            {/* Reader Mode (Distraction-Free) */}
+            <button
+              type="button"
+              onClick={handleToggleReaderMode}
+              title="Distraction-Free Reader Mode"
+              className={`p-1.5 rounded-xl transition-all ${isReaderMode ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40" : "text-slate-300 hover:text-cyan-400 hover:bg-white/10"}`}
+            >
+              <BookOpen className="w-4 h-4" />
+            </button>
+
+            {/* Dark Mode Toggle */}
+            <button
+              type="button"
+              onClick={handleToggleDarkMode}
+              title={isWebviewDark ? "Switch to Normal Light Mode" : "Force Dark Invert Mode"}
+              className={`p-1.5 rounded-xl transition-all ${isWebviewDark ? "bg-amber-500/20 text-amber-300 border border-amber-500/40" : "text-slate-300 hover:text-amber-400 hover:bg-white/10"}`}
+            >
+              {isWebviewDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+
+            {/* Zoom Controls */}
+            <div className="flex items-center gap-0.5 bg-slate-800/80 border border-white/10 rounded-xl px-1 py-0.5">
+              <button
+                type="button"
+                onClick={() => handleZoom(-0.1)}
+                title="Zoom Out (Ctrl -)"
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10"
+              >
+                <ZoomOut className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={handleZoomReset}
+                title="Reset Zoom (Ctrl 0)"
+                className="px-1 text-[11px] font-mono text-slate-300 hover:text-cyan-400 font-bold"
+              >
+                {Math.round(zoomFactor * 100)}%
+              </button>
+              <button
+                type="button"
+                onClick={() => handleZoom(0.1)}
+                title="Zoom In (Ctrl +)"
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10"
+              >
+                <ZoomIn className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
             {/* 1-Click Screenshot */}
             <button
               type="button"
@@ -866,6 +1107,150 @@ export function WebPortalsPage() {
           </div>
         </div>
       </div>
+
+            {/* In-Page Search Floating Bar */}
+      <AnimatePresence>
+        {isSearching && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="absolute top-16 right-4 z-50 bg-slate-900/95 border border-cyan-500/40 shadow-2xl rounded-xl p-1.5 flex items-center gap-1.5 backdrop-blur-md"
+          >
+            <Search className="w-3.5 h-3.5 text-cyan-400 ml-1.5" />
+            <input
+              type="text"
+              placeholder="Find in page..."
+              value={inPageSearchQuery}
+              onChange={e => handleSearchChange(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  if (e.shiftKey) handleFindPrev();
+                  else handleFindNext();
+                } else if (e.key === "Escape") {
+                  handleCloseSearch();
+                }
+              }}
+              className="bg-transparent text-xs text-white placeholder:text-slate-500 focus:outline-none w-36 md:w-48 px-1"
+              autoFocus
+            />
+            <span className="text-[10px] text-slate-400 font-mono px-1">
+              {searchMatches.total > 0 ? `${searchMatches.active}/${searchMatches.total}` : (inPageSearchQuery ? "0/0" : "")}
+            </span>
+            <button
+              type="button"
+              onClick={handleFindPrev}
+              title="Previous Match (Shift+Enter)"
+              className="p-1 rounded hover:bg-white/10 text-slate-300"
+            >
+              <ChevronUp className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={handleFindNext}
+              title="Next Match (Enter)"
+              className="p-1 rounded hover:bg-white/10 text-slate-300"
+            >
+              <ChevronDown className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={handleCloseSearch}
+              title="Close (Esc)"
+              className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Download Notification Floating Toast */}
+      <AnimatePresence>
+        {downloadNotice && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-6 right-6 z-50 bg-slate-900 border border-cyan-500/40 rounded-2xl p-3 shadow-2xl flex items-center gap-3 backdrop-blur-md max-w-sm"
+          >
+            <div className="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center shrink-0">
+              <Download className="w-4 h-4 text-cyan-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-white truncate">{downloadNotice.filename}</p>
+              <p className="text-[10px] text-slate-400">
+                {downloadNotice.completed ? "Download Complete" : `Downloading ${downloadNotice.progress}%`}
+              </p>
+              {!downloadNotice.completed && (
+                <div className="w-full bg-slate-800 rounded-full h-1 mt-1 overflow-hidden">
+                  <div className="bg-cyan-400 h-full transition-all duration-300" style={{ width: `${downloadNotice.progress}%` }} />
+                </div>
+              )}
+            </div>
+            {downloadNotice.completed && downloadNotice.savePath && (
+              <button
+                type="button"
+                onClick={() => (window as any).electron?.ipcRenderer?.invoke("show-item-in-folder", downloadNotice.savePath)}
+                title="Show in Folder"
+                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 text-xs flex items-center gap-1"
+              >
+                <FolderOpen className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setDownloadNotice(null)}
+              className="p-1 text-slate-500 hover:text-white"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Distraction-Free Study Reader Overlay */}
+      <AnimatePresence>
+        {isReaderMode && readerArticle && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md overflow-y-auto p-4 md:p-8 flex flex-col items-center"
+          >
+            <div className="w-full max-w-3xl flex items-center justify-between pb-4 border-b border-white/10 mb-6 sticky top-0 bg-slate-950/90 backdrop-blur py-2">
+              <div className="flex items-center gap-2 text-cyan-400 text-xs font-bold uppercase tracking-wider">
+                <BookOpen className="w-4 h-4" />
+                <span>Distraction-Free Study Reader</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-xs font-semibold"
+                >
+                  Print / Save PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsReaderMode(false)}
+                  className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <article className="w-full max-w-3xl text-slate-200">
+              <h1 className="text-2xl md:text-3xl font-extrabold text-white mb-2">{readerArticle.title}</h1>
+              {readerArticle.byline && <p className="text-xs text-slate-400 mb-6 italic">{readerArticle.byline}</p>}
+              <div
+                className="study-reader-content space-y-4 text-sm md:text-base leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: readerArticle.content }}
+              />
+            </article>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── MAIN VIEWPORT: 100% Full Width ── */}
       <div className="flex-1 relative rounded-3xl overflow-hidden border border-white/10 bg-slate-950 shadow-2xl">

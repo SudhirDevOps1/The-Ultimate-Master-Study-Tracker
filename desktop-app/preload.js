@@ -60,6 +60,9 @@ const ALLOWED_INVOKE_CHANNELS = [
   "toggle-extension",
   "remove-extension",
   "toggle-enhanced-adblock",
+  // Download Management IPCs
+  "open-downloads-folder",
+  "show-item-in-folder",
 ];
 
 const ALLOWED_LISTEN_CHANNELS = [
@@ -71,6 +74,8 @@ const ALLOWED_LISTEN_CHANNELS = [
   "timer-state-updated",
   "request-timer-sync",
   "active-window-changed",
+  "download-progress",
+  "download-completed",
 ];
 
 contextBridge.exposeInMainWorld("electron", {

@@ -101,10 +101,13 @@
   },
   "dependencies": {
     "@ghostery/adblocker-electron": "2.20.1",
+    "@mozilla/readability": "^0.5.0",
     "@neondatabase/serverless": "^1.1.0",
+    "@types/dompurify": "^3.0.5",
     "clsx": "2.1.1",
     "date-fns": "^4.1.0",
     "dexie": "^4.3.0",
+    "dompurify": "^3.2.4",
     "electron-chrome-extensions": "4.10.0",
     "electron-updater": "^6.8.9",
     "fabric": "^7.4.0",

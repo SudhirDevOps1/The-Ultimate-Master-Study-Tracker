@@ -32,6 +32,13 @@ try {
 }
 
 // Global Google / Cloudflare Bot Shield Bypass (Pure Chrome 136 Desktop User-Agent)
+let downloadManager = null;
+try {
+  downloadManager = require("./electron-main/download-manager.js");
+} catch (e) {
+  console.warn("[electron] download-manager module load error:", e && e.message);
+}
+
 let browserShield = null;
 try {
   browserShield = require("./electron-main/browser-shield.js");
@@ -978,6 +985,10 @@ app.whenReady().then(() => {
       if (desktopSettings && desktopSettings.webviewEnhancedAdBlock) {
         browserShield.enableEnhancedAdBlocker(portalSession);
       }
+    }
+    if (downloadManager) {
+      downloadManager.setupDownloadManager(portalSession, () => mainWindow);
+      downloadManager.setupDownloadManager(session.defaultSession, () => mainWindow);
     }
     portalSession.setUserAgent(CHROME_DESKTOP_UA);
 
