@@ -309,3 +309,12 @@ export interface Timebox {
   actualMinutes?: number;
   notes?: string;
 }
+
+// ========== Optical Character Recognition (OCR) Timeline (Rule S4) ==========
+export interface OcrEntry {
+  id: string;
+  timestamp: string;
+  appName: string;
+  extractedText: string;
+  confidence?: number;
+}

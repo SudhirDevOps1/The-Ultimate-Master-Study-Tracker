@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Panel } from "@/components/common/Panel";
 import { useAppStore } from "@/store/useAppStore";
+import { isOcrEnabled, setOcrEnabled, searchOcrTimeline } from "@/utils/ocrEngine";
 import { aggregateCodingStats, type HeartbeatItem } from "@/utils/editorInfo";
 import { db } from "@/lib/db";
 
@@ -397,6 +398,15 @@ export function AppTrackingPage() {
   const [liveIdleMs, setLiveIdleMs]     = useState(0);
   const [loading, setLoading]           = useState(false);
   const [activeTab, setActiveTab] = useState<"overview"|"timeline"|"websites"|"developer"|"windows">("overview");
+  const [ocrActive, setOcrActive] = useState(() => isOcrEnabled());
+  const [ocrQuery, setOcrQuery] = useState("");
+  const [ocrResults, setOcrResults] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (ocrActive && activeTab === "timeline") {
+      searchOcrTimeline(ocrQuery).then(setOcrResults).catch(() => setOcrResults([]));
+    }
+  }, [ocrActive, ocrQuery, activeTab]);
   const [heartbeats, setHeartbeats] = useState<HeartbeatItem[]>([]);
 
   useEffect(() => {

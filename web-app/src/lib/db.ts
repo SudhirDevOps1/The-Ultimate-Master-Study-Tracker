@@ -1,5 +1,5 @@
 import Dexie, { type Table } from "dexie";
-import type { AppSettings, StudySession, Subject, Task, Timebox } from "@/types/models";
+import type { AppSettings, StudySession, Subject, Task, Timebox, OcrEntry } from "@/types/models";
 
 class FlowTrackDB extends Dexie {
   subjects!: Table<Subject, string>;
@@ -7,6 +7,7 @@ class FlowTrackDB extends Dexie {
   settings!: Table<AppSettings, string>;
   tasks!: Table<Task, string>;
   timeboxes!: Table<Timebox, string>;
+  ocrEntries!: Table<OcrEntry, string>;
 
   constructor() {
     super("FlowTrackDB");
