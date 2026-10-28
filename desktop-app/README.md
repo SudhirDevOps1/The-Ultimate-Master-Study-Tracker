@@ -1,6 +1,6 @@
 # 🖥️ FlowTrack Pro — Standalone Desktop App (Electron Edition)
 
-> **Version**: `v0.1.2` | **Platform**: Windows 10/11 (64-bit) & macOS | **License**: MIT
+> **Version**: `v0.2.4` | **Platform**: Windows 10/11 (64-bit), Linux (AppImage / deb) & macOS | **License**: MIT
 
 Welcome to the **Standalone Desktop Application** module of FlowTrack Pro. This edition is packaged with Electron 43, embedded C# Win32 active window tracking (`win-tracker.exe`), local Encrypted Password Vault with Chromium DOM Auto-Fill, and silent background auto-updates (`electron-updater`).
 
@@ -8,9 +8,10 @@ Welcome to the **Standalone Desktop Application** module of FlowTrack Pro. This 
 
 > [!NOTE]
 > **Open-Source Architectural Heritage**: Designed with insights from open-source heavyweights:
-> - **ActivityWatch** — Low-overhead active window tracking with zero telemetry.
-> - **Super Productivity** — Flowtime / Pomodoro focus intervals with audio synthesizers.
-> - **Anki SM-2** — SuperMemo spaced repetition algorithm for memory retention.
+> - **ActivityWatch** — Low-overhead active window tracking and OS-level AFK idle detection with zero remote server logging.
+> - **Super Productivity** — Ergonomic 20-20-20 eye-care synthesizer, task timeboxing, and developer focus techniques.
+> - **Anki / SuperMemo SM-2** — Spaced repetition algorithm ($I_n = I_{n-1} \times EF$) with dynamic interval calculation.
+> - **Dayflow & Wakapi** — Passive screen and IDE project categorization (VS Code/JetBrains loopback receiver on `127.0.0.1:7777`).
 
 ---
 

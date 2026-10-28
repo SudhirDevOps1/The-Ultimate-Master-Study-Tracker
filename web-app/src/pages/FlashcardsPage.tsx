@@ -78,6 +78,37 @@ function calculateNextReview(card: Flashcard, score: "again" | "hard" | "good" |
   };
 }
 
+function getPredictedInterval(card: Flashcard, score: "again" | "hard" | "good" | "easy"): string {
+  const gradeMap: Record<string, ReviewGrade> = {
+    again: 1,
+    hard: 2,
+    good: 3,
+    easy: 4,
+  };
+  const grade = gradeMap[score] || 3;
+  const res = calculateSM2(
+    grade,
+    {
+      repetition: card.reviewedCount || 0,
+      easeFactor: card.easeFactor || 2.5,
+      interval: card.intervalDays || 0,
+      nextReviewDate: card.dueDate ? card.dueDate.split("T")[0] : new Date().toISOString().split("T")[0],
+      phase: card.phase,
+      learningStep: card.learningStep,
+      lapses: card.lapses,
+      leech: card.leech,
+      nextReviewAt: card.nextReviewAt,
+    },
+    { cardId: card.id }
+  );
+
+  if (res.phase === "learning" && res.nextReviewAt) {
+    const diffMin = Math.max(1, Math.round((new Date(res.nextReviewAt).getTime() - Date.now()) / 60000));
+    return diffMin < 60 ? `${diffMin}m` : `${Math.round(diffMin / 60)}h`;
+  }
+  return res.interval <= 0 ? "10m" : `${res.interval}d`;
+}
+
 export function FlashcardsPage() {
   const subjects = useAppStore((s: AppState) => s.subjects);
   const [cards, setCards] = useState<Flashcard[]>(loadFlashcards);
@@ -368,41 +399,74 @@ ${aiNoteInput}`;
               </div>
 
               {/* Scoring controls */}
-              {isFlipped && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="grid grid-cols-4 gap-2 mt-4"
-                >
-                  <button
-                    onClick={() => handleRate("again")}
-                    className="flex flex-col items-center justify-center rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 py-3 text-red-200 font-bold transition-colors"
+              {isFlipped && studyCards[currentCardIndex] && (
+                <div className="space-y-3 mt-4">
+                  {/* Anki / SuperMemo SM-2 Live Algorithm HUD */}
+                  <div className="p-3 rounded-2xl bg-purple-950/40 border border-purple-500/20 text-xs flex flex-wrap items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2">
+                      <Brain className="w-4 h-4 text-purple-400 shrink-0" />
+                      <div>
+                        <span className="font-bold text-purple-200">Anki / SM-2 Engine</span>
+                        <span className="ml-2 font-mono text-[10px] text-purple-300 bg-purple-500/15 border border-purple-500/30 px-1.5 py-0.5 rounded-md">
+                          I<sub>n</sub> = I<sub>n-1</sub> × EF
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 text-[11px] font-mono text-slate-300">
+                      <span>Rep: <b className="text-white">{studyCards[currentCardIndex].reviewedCount || 0}</b></span>
+                      <span>EF: <b className="text-cyan-400">{(studyCards[currentCardIndex].easeFactor || 2.5).toFixed(2)}</b></span>
+                      <span>Interval: <b className="text-emerald-400">{studyCards[currentCardIndex].intervalDays || 0}d</b></span>
+                      {studyCards[currentCardIndex].phase && (
+                        <span className="px-1.5 py-0.5 rounded bg-white/10 text-purple-200 text-[10px] font-semibold capitalize">
+                          {studyCards[currentCardIndex].phase}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <motion.div 
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="grid grid-cols-4 gap-2"
                   >
-                    <span>Again</span>
-                    <span className="text-[10px] text-red-400 font-normal">1d</span>
-                  </button>
-                  <button
-                    onClick={() => handleRate("hard")}
-                    className="flex flex-col items-center justify-center rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 py-3 text-amber-200 font-bold transition-colors"
-                  >
-                    <span>Hard</span>
-                    <span className="text-[10px] text-amber-400 font-normal">2d</span>
-                  </button>
-                  <button
-                    onClick={() => handleRate("good")}
-                    className="flex flex-col items-center justify-center rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 py-3 text-indigo-200 font-bold transition-colors"
-                  >
-                    <span>Good</span>
-                    <span className="text-[10px] text-indigo-400 font-normal">4d</span>
-                  </button>
-                  <button
-                    onClick={() => handleRate("easy")}
-                    className="flex flex-col items-center justify-center rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 py-3 text-emerald-200 font-bold transition-colors"
-                  >
-                    <span>Easy</span>
-                    <span className="text-[10px] text-emerald-400 font-normal">7d+</span>
-                  </button>
-                </motion.div>
+                    <button
+                      onClick={() => handleRate("again")}
+                      className="flex flex-col items-center justify-center rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 py-3 text-red-200 font-bold transition-colors group"
+                    >
+                      <span>Again</span>
+                      <span className="text-[10px] text-red-400 font-mono font-medium group-hover:underline">
+                        {getPredictedInterval(studyCards[currentCardIndex], "again")}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => handleRate("hard")}
+                      className="flex flex-col items-center justify-center rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 py-3 text-amber-200 font-bold transition-colors group"
+                    >
+                      <span>Hard</span>
+                      <span className="text-[10px] text-amber-400 font-mono font-medium group-hover:underline">
+                        {getPredictedInterval(studyCards[currentCardIndex], "hard")}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => handleRate("good")}
+                      className="flex flex-col items-center justify-center rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 py-3 text-indigo-200 font-bold transition-colors group"
+                    >
+                      <span>Good</span>
+                      <span className="text-[10px] text-indigo-400 font-mono font-medium group-hover:underline">
+                        {getPredictedInterval(studyCards[currentCardIndex], "good")}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => handleRate("easy")}
+                      className="flex flex-col items-center justify-center rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 py-3 text-emerald-200 font-bold transition-colors group"
+                    >
+                      <span>Easy</span>
+                      <span className="text-[10px] text-emerald-400 font-mono font-medium group-hover:underline">
+                        {getPredictedInterval(studyCards[currentCardIndex], "easy")}
+                      </span>
+                    </button>
+                  </motion.div>
+                </div>
               )}
 
               <div className="flex justify-start mt-4 border-t border-white/5 pt-3">

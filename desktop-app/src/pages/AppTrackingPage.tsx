@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Monitor, Calendar, ShieldAlert, RefreshCw,
   Activity, Download, ChevronLeft, ChevronRight, Eye, Zap, TrendingUp, Globe,
-  Upload, PackageOpen, Trash2, Code2, FolderGit2
+  Upload, PackageOpen, Trash2, Code2, FolderGit2, Shield, Terminal
 } from "lucide-react";
 import { Panel } from "@/components/common/Panel";
 import { useAppStore } from "@/store/useAppStore";
@@ -1052,6 +1052,55 @@ export function AppTrackingPage() {
 
       <AnimatePresence mode="wait">
         <motion.div key="usage" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} className="space-y-5">
+
+            {/* ── Open-Source Engine Foundations Status Bar ── */}
+            <div className="grid sm:grid-cols-2 gap-3">
+              {/* ActivityWatch Engine Card */}
+              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-950/30 via-slate-900 to-slate-950 border border-emerald-500/20 flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shrink-0">
+                  <Shield className="w-4 h-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <span>ActivityWatch Telemetry Core</span>
+                      <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        LOCAL-FIRST
+                      </span>
+                    </h4>
+                    <span className="text-[10px] font-mono text-emerald-400 font-semibold">
+                      {liveIdleMs >= 10 * 60 * 1000 ? "⏸ AFK TRIGGERED" : "✅ 0ms LAG"}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                    OS-level AFK idle detection & win-tracker daemon. <b>100% on-device</b> SQLite WAL / Dexie; 0 telemetry packets emitted to remote servers.
+                  </p>
+                </div>
+              </div>
+
+              {/* Dayflow & Wakapi Categorization Card */}
+              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-cyan-950/30 via-slate-900 to-slate-950 border border-cyan-500/20 flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 shrink-0">
+                  <Terminal className="w-4 h-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <span>Dayflow & Wakapi Classifier</span>
+                      <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                        PORT 7777
+                      </span>
+                    </h4>
+                    <span className="text-[10px] font-mono text-cyan-400 font-semibold">
+                      {heartbeats.length > 0 ? `⚡ ${heartbeats.length} Heartbeats` : "🟢 Ready"}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                    Passive IDE project categorization (VS Code / JetBrains) & screen-time analysis across Coding, Deep Study, and Web Research.
+                  </p>
+                </div>
+              </div>
+            </div>
 
             {/* ── Tabs ── */}
             <div className="flex flex-wrap items-center gap-1.5 bg-slate-950/80 border border-white/10 rounded-2xl p-1.5 shadow-lg backdrop-blur-md">

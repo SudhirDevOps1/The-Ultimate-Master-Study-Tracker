@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Panel } from "@/components/common/Panel";
 import { FeedbackButton } from "@/components/common/FeedbackButton";
@@ -850,6 +850,90 @@ export function GuidePage() {
               </div>
             </div>
           </Panel>
+
+          {/* 🏛️ 4 Core Open-Source Foundations */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <span>🏛️ Architectural Foundations & Open-Source Lineage</span>
+            </h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-950/40 to-slate-900 border border-emerald-500/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-emerald-400 text-sm flex items-center gap-1.5">
+                    <span>🛡️ ActivityWatch</span>
+                  </h4>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/20">
+                    Local Telemetry
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Automated local-first active window tracking and OS-level AFK idle detection with <b>zero remote server logging</b>. Complete on-device SQLite WAL & Dexie privacy.
+                </p>
+                <div className="pt-1">
+                  <a href="https://github.com/ActivityWatch/activitywatch" target="_blank" rel="noreferrer" className="text-[11px] text-emerald-400 hover:underline flex items-center gap-1">
+                    github.com/ActivityWatch/activitywatch ↗
+                  </a>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-950/40 to-slate-900 border border-indigo-500/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-indigo-400 text-sm flex items-center gap-1.5">
+                    <span>🧘 Super Productivity</span>
+                  </h4>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-500/20">
+                    Ergonomics
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Ergonomic 20-20-20 eye-care synthesizer, task timeboxing, and developer focus techniques. Web Audio API harmonic chime notifications without heavy external media assets.
+                </p>
+                <div className="pt-1">
+                  <a href="https://github.com/super-productivity/super-productivity" target="_blank" rel="noreferrer" className="text-[11px] text-indigo-400 hover:underline flex items-center gap-1">
+                    github.com/super-productivity/super-productivity ↗
+                  </a>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-950/40 to-slate-900 border border-purple-500/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-purple-400 text-sm flex items-center gap-1.5">
+                    <span>🧠 Anki / SuperMemo SM-2</span>
+                  </h4>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-500/15 text-purple-300 border border-purple-500/20">
+                    Spaced Repetition
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Spaced repetition algorithm (<code className="font-mono text-purple-300">I_n = I_(n-1) × EF</code>) for programming syntax, interview problems & concepts. Dynamic recall intervals with deterministic fuzzing.
+                </p>
+                <div className="pt-1">
+                  <a href="https://github.com/ankitects/anki" target="_blank" rel="noreferrer" className="text-[11px] text-purple-400 hover:underline flex items-center gap-1">
+                    github.com/ankitects/anki ↗
+                  </a>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-cyan-950/40 to-slate-900 border border-cyan-500/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-cyan-400 text-sm flex items-center gap-1.5">
+                    <span>⚡ Dayflow & Wakapi</span>
+                  </h4>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/20">
+                    IDE Categorizer
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Passive screen & IDE project categorization between deep study, coding, and web research. Loopback heartbeat telemetry receiver on <b>127.0.0.1:7777</b> for VS Code & JetBrains.
+                </p>
+                <div className="pt-1">
+                  <a href="https://github.com/muety/wakapi" target="_blank" rel="noreferrer" className="text-[11px] text-cyan-400 hover:underline flex items-center gap-1">
+                    github.com/muety/wakapi ↗
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Cards Grid */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

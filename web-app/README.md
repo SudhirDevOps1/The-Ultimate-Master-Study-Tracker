@@ -6,6 +6,15 @@ Welcome to the **Web Application** module of FlowTrack Pro. This app operates 10
 
 ---
 
+> [!NOTE]
+> **Open-Source Architectural Heritage**: Designed with insights from open-source heavyweights:
+> - **ActivityWatch** — Low-overhead active window tracking and OS-level AFK idle detection with zero remote server logging.
+> - **Super Productivity** — Ergonomic 20-20-20 eye-care synthesizer, task timeboxing, and developer focus techniques.
+> - **Anki / SuperMemo SM-2** — Spaced repetition algorithm ($I_n = I_{n-1} \times EF$) with dynamic interval calculation.
+> - **Dayflow & Wakapi** — Passive screen and IDE project categorization between deep study, coding, and web research.
+
+---
+
 ## 📌 Web App Features
 
 - ⚡ **Vercel CDN Ready**: Instantly deployed on Vercel or any static web host.

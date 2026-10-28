@@ -24,6 +24,13 @@ All notable changes, version updates, feature additions, architectural improveme
 
 ---
 
+## [0.2.4](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v0.2.3...v0.2.4) (2026-10-27)
+
+### 🐛 Bug Fixes & Patches
+
+* **desktop:** bundle adBlockList in asar and add resilient fallback patterns ([60d8333](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/60d833378a82c4e03e96c45b1c90777c53f01ee1))
+* **telemetry:** surface ActivityWatch local telemetry, Super Productivity 20-20-20 synthesizer, Anki SM-2 dynamic calculations, and Dayflow classifier
+
 ## [0.2.3](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v0.2.2...v0.2.3) (2026-10-27)
 
 

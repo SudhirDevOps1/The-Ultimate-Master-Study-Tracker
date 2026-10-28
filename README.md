@@ -99,7 +99,7 @@ FlowTrack Pro features an enterprise-grade automated update pipeline engineered 
 
 ```
 ┌────────────────────────────────────────────────────────┐
-│               GitHub Release Published (v0.2.0)        │
+│               GitHub Release Published (v0.2.4)        │
 └──────────────────────────┬─────────────────────────────┘
                            │
                            ▼
@@ -111,7 +111,7 @@ FlowTrack Pro features an enterprise-grade automated update pipeline engineered 
                            ▼
 ┌────────────────────────────────────────────────────────┐
 │     In-App Floating Pill & Interactive Modal           │
-│   • Version delta (Current v0.1.1 ➔ Target v0.2.0)     │
+│   • Version delta (Current v0.2.3 ➔ Target v0.2.4)     │
 │   • Live Changelog, Features & Bug Fixes View          │
 │   • 1-Click "Restart & Install Update" or Snooze       │
 └──────────────────────────┬─────────────────────────────┘
@@ -132,6 +132,20 @@ FlowTrack Pro features an enterprise-grade automated update pipeline engineered 
 2. **Interactive Changelog Reviewer**: Read what is new, bug fixes, and performance improvements before applying the update.
 3. **Pre-Update Memory Flush**: Automatically writes any ongoing study session and window tracking buffer to disk before restarting.
 4. **Permanent Data Preservation**: All session streaks, Pomodoro timers, subject goals, flashcard ease factors, and custom settings remain 100% intact across every version update.
+
+### 📦 GitHub Release Artifacts Guide: Why is `latest.yml` present?
+
+When viewing [FlowTrack Pro GitHub Releases](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases), you will see several files:
+
+| Release Asset | Target Platform / Purpose | Who Should Download? |
+|:---|:---|:---|
+| **`FlowTrackPro.Setup.0.2.4.exe`** | **Windows 10 / 11** | End-users (standard 1-click Windows installer). |
+| **`FlowTrackPro-0.2.4.AppImage`** | **Linux (Universal)** | Linux users wanting a zero-install executable. |
+| **`FlowTrackPro-0.2.4.deb`** | **Ubuntu / Debian / Mint** | Linux users installing via APT or Software Center. |
+| **`latest.yml` & `latest-linux.yml`** | **Electron Auto-Update Manifests** | **Required for In-App Updates**. Not intended for manual download. |
+
+> [!NOTE]
+> **Why `latest.yml` is required**: `electron-updater` requests `latest.yml` during application launch to compare local versions against GitHub releases and verify the **SHA-512 cryptographic checksum**. This ensures updates are tamper-proof and prevents corrupt downloads. Removing `latest.yml` would break the in-app auto-updater!
 
 ---
 

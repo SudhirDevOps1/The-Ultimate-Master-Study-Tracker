@@ -48,6 +48,52 @@ function PomodoroSettingsPanel() {
   const pomodoro = usePomodoro();
   const { settings, saveSettings } = pomodoro;
 
+  const [breakSettings, setBreakSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem("flowtrack_break_settings");
+      return saved ? JSON.parse(saved) : {
+        eyeCare2020Enabled: true,
+        continuousFocus50Enabled: true,
+        postureStretch90Enabled: true,
+        timeboxingStrict: true
+      };
+    } catch {
+      return {
+        eyeCare2020Enabled: true,
+        continuousFocus50Enabled: true,
+        postureStretch90Enabled: true,
+        timeboxingStrict: true
+      };
+    }
+  });
+
+  const updateBreakSetting = (key: string, value: boolean) => {
+    setBreakSettings((prev: any) => {
+      const next = { ...prev, [key]: value };
+      localStorage.setItem("flowtrack_break_settings", JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const playSynthesizedChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880.00, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.09, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.45);
+    } catch {}
+  };
+
   const updateSetting = <K extends keyof typeof settings>(key: K, value: typeof settings[K]) => {
     const newSettings = { ...settings, [key]: value };
     saveSettings(newSettings);
@@ -143,6 +189,82 @@ function PomodoroSettingsPanel() {
         >
           Request Notification Permission
         </button>
+      </div>
+
+      {/* Super Productivity Ergonomics & 20-20-20 Synthesizer */}
+      <div className="col-span-full pt-4 border-t border-white/10 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h4 className="text-sm font-bold text-emerald-400 flex items-center gap-2">
+              <span>🧘 Super Productivity Ergonomic Rest & 20-20-20 Synthesizer</span>
+            </h4>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Ergonomic eye-care rules, scheduled physical micro-stretches & harmonic audio chimes.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={playSynthesizedChime}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]"
+            title="Preview the Web Audio API synthesized harmonic chime"
+          >
+            <span>🔔 Test Chime Sound</span>
+          </button>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-3 text-xs pt-1">
+          <label className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-900/60 border border-white/10 cursor-pointer hover:border-emerald-500/30 transition-all">
+            <input
+              type="checkbox"
+              checked={breakSettings.eyeCare2020Enabled}
+              onChange={(e) => updateBreakSetting("eyeCare2020Enabled", e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-white/10 bg-slate-800 text-emerald-500"
+            />
+            <div>
+              <span className="font-semibold text-slate-200 block">20-20-20 Eye-Care Rest</span>
+              <span className="text-[11px] text-slate-400">Every 20 min, relax ocular muscles by looking 20 feet away for 20 seconds.</span>
+            </div>
+          </label>
+
+          <label className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-900/60 border border-white/10 cursor-pointer hover:border-indigo-500/30 transition-all">
+            <input
+              type="checkbox"
+              checked={breakSettings.continuousFocus50Enabled}
+              onChange={(e) => updateBreakSetting("continuousFocus50Enabled", e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-white/10 bg-slate-800 text-indigo-500"
+            />
+            <div>
+              <span className="font-semibold text-slate-200 block">50m Continuous Focus Stretch</span>
+              <span className="text-[11px] text-slate-400">Prompts ergonomic posture relief & hydration after 50 min unbroken focus.</span>
+            </div>
+          </label>
+
+          <label className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-900/60 border border-white/10 cursor-pointer hover:border-purple-500/30 transition-all">
+            <input
+              type="checkbox"
+              checked={breakSettings.postureStretch90Enabled}
+              onChange={(e) => updateBreakSetting("postureStretch90Enabled", e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-white/10 bg-slate-800 text-purple-500"
+            />
+            <div>
+              <span className="font-semibold text-slate-200 block">90m Posture & Walk Cycle</span>
+              <span className="text-[11px] text-slate-400">Encourages standing desk transition or 5-minute physical walk.</span>
+            </div>
+          </label>
+
+          <label className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-900/60 border border-white/10 cursor-pointer hover:border-cyan-500/30 transition-all">
+            <input
+              type="checkbox"
+              checked={breakSettings.timeboxingStrict}
+              onChange={(e) => updateBreakSetting("timeboxingStrict", e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-white/10 bg-slate-800 text-cyan-500"
+            />
+            <div>
+              <span className="font-semibold text-slate-200 block">Strict Developer Timeboxing</span>
+              <span className="text-[11px] text-slate-400">Forces structured block finishes to prevent hyper-focus burnout.</span>
+            </div>
+          </label>
+        </div>
       </div>
     </div>
   );
