@@ -60,11 +60,21 @@ export function AppBlockingPanel() {
   const loadRules = async () => {
     setLoading(true);
     try {
+      const normalizeRules = (arr: AppBlockRule[]): AppBlockRule[] => {
+        return arr.map(r => {
+          if (r.appName.toLowerCase().endsWith(".exe") && r.ruleType === "website") {
+            return { ...r, ruleType: "app" };
+          }
+          return r;
+        });
+      };
+
       const ipc = getIpc();
       if (ipc) {
         const res = await ipc.invoke("get-block-rules");
         if (res && Array.isArray(res.rules)) {
-          setRules(res.rules);
+          const normalized = normalizeRules(res.rules);
+          setRules(normalized);
           if (typeof res.globalEnabled === "boolean") setGlobalEnabled(res.globalEnabled);
           setLoading(false);
           return;
@@ -73,7 +83,7 @@ export function AppBlockingPanel() {
 
       const storedRules = localStorage.getItem("app_block_rules");
       let currentRules: AppBlockRule[] = storedRules ? JSON.parse(storedRules) : [];
-      setRules(currentRules);
+      setRules(normalizeRules(currentRules));
     } catch (e) {
       console.error(e);
     }
@@ -126,10 +136,16 @@ export function AppBlockingPanel() {
       return;
     }
 
+    // Auto-detect rule type: If it ends with .exe or has no dot, it's always an app!
+    let finalRuleType = ruleTypeOverride || newRuleType;
+    if (targetName.toLowerCase().endsWith(".exe") || !targetName.includes(".")) {
+      finalRuleType = "app";
+    }
+
     const newRule: AppBlockRule = {
       id: crypto.randomUUID(),
       appName: targetName,
-      ruleType: ruleTypeOverride || newRuleType,
+      ruleType: finalRuleType,
       blocked: true,
       strictLevel,
       schedule,
@@ -399,7 +415,13 @@ export function AppBlockingPanel() {
                 type="text"
                 placeholder="e.g., discord.exe, spotify, chrome"
                 value={newAppName}
-                onChange={(e) => setNewAppName(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setNewAppName(val);
+                  if (val.toLowerCase().endsWith(".exe") || (!val.includes(".") && val.trim().length > 0)) {
+                    setNewRuleType("app");
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
@@ -411,7 +433,10 @@ export function AppBlockingPanel() {
               {(runningApps.length > 0 || installedApps.length > 0) && (
                 <select
                   onChange={(e) => {
-                    if (e.target.value) setNewAppName(e.target.value);
+                    if (e.target.value) {
+                      setNewAppName(e.target.value);
+                      setNewRuleType("app");
+                    }
                   }}
                   value=""
                   className="rounded-lg border border-white/10 bg-slate-900 px-2 py-2 text-xs text-slate-300 focus:outline-none focus:border-cyan-400 max-w-[140px]"

@@ -228,7 +228,10 @@ export function AIAssistantPage() {
     setConnectionResult(null);
     try {
       if (provider === "local_rules") {
-        setConnectionResult({ success: true, message: "Local rules engine is always connected!" });
+        setConnectionResult({ 
+          success: true, 
+          message: "🟢 Local Offline Rules Engine is active & ready on your device!" 
+        });
         setTestingConnection(false);
         return;
       }
@@ -928,10 +931,29 @@ ${studyContext.recentActivity}`;
 
             {/* AI Setup Config Panel */}
             <Panel className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Settings2 className="w-5 h-5 text-cyan-400" />
-                <h3 className="text-lg font-bold text-white">AI Setup Configuration</h3>
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+                  <Settings2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">AI Setup Configuration</h3>
+                  <p className="text-[11px] text-slate-400">
+                    Choose 100% private offline rules, free cloud AI (Groq), or local Ollama LLMs.
+                  </p>
+                </div>
               </div>
+
+              {provider === "local_rules" && (
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/20 p-3 space-y-1.5">
+                  <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>Local Offline Rules Engine Active</span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    Zero setup, zero API keys, and 100% private. Operates directly on your machine using your study history and revision algorithms.
+                  </p>
+                </div>
+              )}
 
               {/* Provider Select */}
               <div className="space-y-2">
@@ -1085,13 +1107,13 @@ ${studyContext.recentActivity}`;
                 </div>
               )}
 
-              {/* Model Name (non-Groq, non-Ollama-detected) */}
-              {provider !== "groq" && !(provider === "ollama" && detectedModels.length > 0) && (
+              {/* Model Name (non-Groq, non-local, non-Ollama-detected) */}
+              {provider !== "groq" && provider !== "local_rules" && !(provider === "ollama" && detectedModels.length > 0) && (
                 <div className="space-y-2">
                   <label className="block text-xs text-slate-400 font-semibold uppercase">Model Name</label>
                   <input
                     type="text"
-                    placeholder="Enter model identifier..."
+                    placeholder="Enter model identifier (e.g. gpt-4o-mini, gemini-1.5-flash)..."
                     value={model}
                     onChange={(e) => setModel(e.target.value)}
                     className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-400"

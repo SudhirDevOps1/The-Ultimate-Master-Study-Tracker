@@ -22,11 +22,21 @@ export function AppBlockingPanel() {
   const loadRules = async () => {
     setLoading(true);
     try {
+      const normalizeRules = (arr: AppBlockRule[]): AppBlockRule[] => {
+        return arr.map(r => {
+          if (r.appName.toLowerCase().endsWith(".exe") && r.ruleType === "website") {
+            return { ...r, ruleType: "app" };
+          }
+          return r;
+        });
+      };
+
       const ipc = getIpc();
       if (ipc) {
         const res = await ipc.invoke("get-block-rules");
         if (res && Array.isArray(res.rules)) {
-          setRules(res.rules);
+          const normalized = normalizeRules(res.rules);
+          setRules(normalized);
           if (typeof res.globalEnabled === "boolean") setGlobalEnabled(res.globalEnabled);
           setLoading(false);
           return;
@@ -35,7 +45,7 @@ export function AppBlockingPanel() {
 
       const storedRules = localStorage.getItem("app_block_rules");
       let currentRules: AppBlockRule[] = storedRules ? JSON.parse(storedRules) : [];
-      setRules(currentRules);
+      setRules(normalizeRules(currentRules));
     } catch (e) {
       console.error(e);
     }
@@ -70,11 +80,18 @@ export function AppBlockingPanel() {
   };
 
   const addRule = async () => {
-    if (!newAppName.trim()) return;
+    const target = newAppName.trim();
+    if (!target) return;
+
+    let finalRuleType = newRuleType;
+    if (target.toLowerCase().endsWith(".exe") || !target.includes(".")) {
+      finalRuleType = "app";
+    }
+
     const newRule: AppBlockRule = {
       id: crypto.randomUUID(),
-      appName: newAppName.trim(),
-      ruleType: newRuleType,
+      appName: target,
+      ruleType: finalRuleType,
       blocked: true,
       strictLevel,
       schedule,
@@ -169,7 +186,13 @@ export function AppBlockingPanel() {
               type="text"
               placeholder="e.g., discord.exe, spotify, instagram, youtube"
               value={newAppName}
-              onChange={(e) => setNewAppName(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setNewAppName(val);
+                if (val.toLowerCase().endsWith(".exe") || (!val.includes(".") && val.trim().length > 0)) {
+                  setNewRuleType("app");
+                }
+              }}
               className="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
             />
           </div>

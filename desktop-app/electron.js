@@ -492,16 +492,20 @@ function startActivityTracker() {
           const exeName = processName.toLowerCase().endsWith(".exe") ? processName : `${processName}.exe`;
           const appDisplayName = normalizeAppName(processName) || cleanActive;
 
-          if (blockCooldowns[exeName] && (now - blockCooldowns[exeName] < 10000)) {
+          if (blockCooldowns[exeName] && (now - blockCooldowns[exeName] < 3000)) {
             break;
           }
           blockCooldowns[exeName] = now;
+
+          // Check if this rule is explicitly an app executable (e.g. "brave.exe", "discord.exe", or matches the process executable)
+          const isExecutableTarget = target.endsWith(".exe") || target.includes(".exe");
+          const isDirectProcessMatch = cleanActive === cleanTarget || activeProc === target || activeProc.startsWith(cleanTarget + ".");
 
           // 🌐 SMART WEBSITE BLOCKER: If it's a browser and the match is only in the title (e.g. "Instagram - Google Chrome")
           const isBrowser = ["chrome", "msedge", "firefox", "brave", "opera", "vivaldi", "safari"].some(b => cleanActive.includes(b));
           const isInternalWebview = cleanActive === "web-portal-browser";
           const isTitleMatchOnly = !cleanActive.includes(cleanTarget) && activeTitle.includes(cleanTarget);
-          const isExplicitWebsiteRule = rule.ruleType === "website";
+          const isExplicitWebsiteRule = rule.ruleType === "website" && !isExecutableTarget && !isDirectProcessMatch;
 
           if (isInternalWebview && (isTitleMatchOnly || isExplicitWebsiteRule)) {
             // Block internal web portal by sending IPC to close it
@@ -512,7 +516,7 @@ function startActivityTracker() {
             break;
           }
 
-          if (isBrowser && (isTitleMatchOnly || isExplicitWebsiteRule)) {
+          if (isBrowser && !isDirectProcessMatch && !isExecutableTarget && (isTitleMatchOnly || isExplicitWebsiteRule)) {
              // It's a website tab! Safely send Ctrl+W to close the active tab instead of killing the browser.
              if (process.platform === "win32") {
                execFile("powershell.exe", [
@@ -1277,7 +1281,7 @@ ipcMain.handle("sync-hosts-file", async () => {
       const activeWebBlocks = (blockRulesData.rules || [])
         .filter(r => r.ruleType === "website" && r.blocked && blockRulesData.globalEnabled)
         .map(r => r.appName.trim())
-        .filter(Boolean);
+        .filter(name => Boolean(name) && !name.toLowerCase().endsWith(".exe"));
 
       let entries = "";
       if (activeWebBlocks.length > 0) {
@@ -1320,14 +1324,17 @@ try {
 }
 `;
       
-      const tempScriptPath = path.join(app.getPath("userData"), "update_hosts.ps1");
+      const tempScriptPath = path.join(require('os').tmpdir(), "flowtrack_update_hosts.ps1");
       const logPath = path.join(require('os').tmpdir(), "flowtrack_hosts_sync.log");
-      if (fs.existsSync(logPath)) fs.unlinkSync(logPath);
+      if (fs.existsSync(logPath)) {
+        try { fs.unlinkSync(logPath); } catch {}
+      }
 
       fs.writeFileSync(tempScriptPath, scriptContent, "utf8");
 
-      // Execute powershell with runas (UAC Prompt)
-      const command = `powershell -Command "Start-Process powershell -ArgumentList '-ExecutionPolicy Bypass -WindowStyle Hidden -File "${tempScriptPath}"' -Verb RunAs -Wait"`;
+      // Execute powershell with runas (UAC Prompt) using argument array to safely handle any path with spaces
+      const safeScriptPath = tempScriptPath.replace(/'/g, "''");
+      const command = `powershell -NoProfile -NonInteractive -Command "Start-Process powershell -Verb RunAs -Wait -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', '${safeScriptPath}')"`;
       
       exec(command, (error, stdout, stderr) => {
         let errorReason = "Unknown Error";
@@ -1339,6 +1346,8 @@ try {
             if (logContent.startsWith("ERROR:")) {
                 errorReason = logContent.replace("ERROR:", "").trim();
             }
+        } else if (error) {
+            errorReason = error.message || stderr || "UAC Elevation cancelled or permission denied.";
         }
         
         console.error("Hosts Sync Error:", error || errorReason);

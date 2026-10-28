@@ -20,14 +20,14 @@ export interface MindNode {
 }
 
 const COLOR_PRESETS = [
-  { name: "Purple", hex: "#a855f7", bg: "rgba(168,85,247,0.18)", border: "#a855f7", text: "#f3e8ff" },
-  { name: "Pink", hex: "#ec4899", bg: "rgba(236,72,153,0.18)", border: "#ec4899", text: "#fce7f3" },
-  { name: "Teal/Emerald", hex: "#10b981", bg: "rgba(16,185,129,0.18)", border: "#10b981", text: "#d1fae5" },
-  { name: "Cyan/Sky", hex: "#06b6d4", bg: "rgba(6,182,212,0.18)", border: "#06b6d4", text: "#cffaff" },
-  { name: "Indigo/Blue", hex: "#3b82f6", bg: "rgba(59,130,246,0.18)", border: "#3b82f6", text: "#dbeafe" },
-  { name: "Orange", hex: "#f97316", bg: "rgba(249,115,22,0.18)", border: "#f97316", text: "#ffedd5" },
-  { name: "Amber", hex: "#eab308", bg: "rgba(234,179,8,0.18)", border: "#eab308", text: "#fef9c3" },
-  { name: "Rose", hex: "#f43f5e", bg: "rgba(244,63,94,0.18)", border: "#f43f5e", text: "#ffe4e6" }
+  { name: "Purple", hex: "#a855f7", bg: "rgba(168,85,247,0.25)", border: "#c084fc", text: "#faf5ff" },
+  { name: "Pink", hex: "#ec4899", bg: "rgba(236,72,153,0.25)", border: "#f472b6", text: "#fdf2f8" },
+  { name: "Teal/Emerald", hex: "#10b981", bg: "rgba(16,185,129,0.25)", border: "#34d399", text: "#ecfdf5" },
+  { name: "Cyan/Sky", hex: "#06b6d4", bg: "rgba(6,182,212,0.25)", border: "#22d3ee", text: "#f0fdfa" },
+  { name: "Indigo/Blue", hex: "#3b82f6", bg: "rgba(59,130,246,0.25)", border: "#60a5fa", text: "#eff6ff" },
+  { name: "Orange", hex: "#f97316", bg: "rgba(249,115,22,0.25)", border: "#fb923c", text: "#fff7ed" },
+  { name: "Amber/Gold", hex: "#eab308", bg: "rgba(234,179,8,0.25)", border: "#facc15", text: "#fefce8" },
+  { name: "Rose", hex: "#f43f5e", bg: "rgba(244,63,94,0.25)", border: "#fb7185", text: "#fff1f2" }
 ];
 
 const STORAGE_KEY = "flowtrack_tree_mindmap_v2";
@@ -251,6 +251,20 @@ export function MindMapPage() {
     setZoom(1);
     setPan({ x: 0, y: 0 });
     showToast("Tree Auto-Aligned!", "success");
+  };
+
+  // Center Mind Map on Central Idea in Viewport
+  const centerMindMap = () => {
+    const root = nodes.find(n => n.id === "root");
+    if (containerRef.current && root) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setPan({
+        x: rect.width / 2 - (root.x + 110),
+        y: rect.height / 2 - (root.y + 24)
+      });
+      setZoom(1);
+      showToast("Centered on Central Idea", "info");
+    }
   };
 
   // ── Drag & Canvas Handling ─────────────────────────────────────────────────
@@ -519,33 +533,56 @@ export function MindMapPage() {
           ref={containerRef}
           onMouseMove={handleMouseMoveCanvas}
           onMouseUp={handleMouseUpCanvas}
+          onMouseLeave={handleMouseUpCanvas}
           onMouseDown={(e) => {
-            if (e.target === containerRef.current) {
-              setSelectedNodeId(null);
-              setIsPanning(true);
-              setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+            const target = e.target as HTMLElement;
+            if (
+              target.closest(".mindmap-node") || 
+              target.closest("button") || 
+              target.closest("input") || 
+              target.closest("select")
+            ) {
+              return;
+            }
+            setSelectedNodeId(null);
+            setIsPanning(true);
+            setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+          }}
+          onWheel={(e) => {
+            if (e.ctrlKey || e.metaKey) {
+              e.preventDefault();
+              const factor = e.deltaY < 0 ? 1.08 : 0.92;
+              setZoom(z => Math.min(2.5, Math.max(0.3, z * factor)));
+            } else {
+              setPan(p => ({
+                x: p.x - e.deltaX * 0.9,
+                y: p.y - e.deltaY * 0.9
+              }));
             }
           }}
-          className={`relative w-full ${isFullscreen ? "h-[calc(100vh-140px)]" : "h-[760px]"} rounded-2xl bg-[#0B0F19] border border-slate-800/80 overflow-hidden shadow-2xl select-none cursor-grab active:cursor-grabbing`}
+          className={`relative w-full ${isFullscreen ? "h-[calc(100vh-140px)]" : "h-[calc(100vh-210px)] min-h-[620px]"} rounded-2xl bg-[#070b14] border border-slate-800/80 overflow-hidden shadow-2xl select-none cursor-grab active:cursor-grabbing`}
           style={{
-            backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.05) 1px, transparent 0)",
-            backgroundSize: "24px 24px"
+            backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.08) 1.5px, transparent 0)",
+            backgroundSize: "28px 28px"
           }}
         >
           {/* Zoom Controls */}
-          <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 bg-slate-900/90 border border-slate-800 p-1.5 rounded-xl backdrop-blur-md">
-            <button onClick={() => setZoom(z => Math.max(0.4, z - 0.1))} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-300">
+          <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 bg-slate-900/90 border border-slate-800 p-1.5 rounded-xl backdrop-blur-md shadow-xl">
+            <button onClick={() => setZoom(z => Math.max(0.3, z - 0.1))} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-300" title="Zoom Out">
               <ZoomOut className="w-4 h-4" />
             </button>
-            <span className="text-xs font-semibold text-slate-400 px-2">{Math.round(zoom * 100)}%</span>
-            <button onClick={() => setZoom(z => Math.min(2, z + 0.1))} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-300">
+            <span className="text-xs font-semibold text-slate-400 px-2 min-w-[42px] text-center">{Math.round(zoom * 100)}%</span>
+            <button onClick={() => setZoom(z => Math.min(2.5, z + 0.1))} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-300" title="Zoom In">
               <ZoomIn className="w-4 h-4" />
             </button>
-            <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-300" title="Reset View">
+            <button onClick={centerMindMap} className="p-1.5 hover:bg-slate-800 rounded-lg text-cyan-400" title="Center on Central Idea">
+              <Move className="w-4 h-4" />
+            </button>
+            <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-300" title="Reset View (100%)">
               <Maximize2 className="w-4 h-4" />
             </button>
-            <button onClick={() => setIsFullscreen(!isFullscreen)} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-300" title="Toggle Fullscreen">
-              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4 text-purple-400" />}
+            <button onClick={() => setIsFullscreen(!isFullscreen)} className="p-1.5 hover:bg-slate-800 rounded-lg text-purple-400" title="Toggle Fullscreen">
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
             </button>
           </div>
 
@@ -638,19 +675,25 @@ export function MindMapPage() {
                   key={node.id}
                   onMouseDown={(e) => handleMouseDownNode(e, node)}
                   onDoubleClick={() => startInlineEdit(node)}
-                  className={`absolute z-10 rounded-full flex items-center justify-between px-5 py-2.5 cursor-grab active:cursor-grabbing transition-shadow duration-200 border shadow-xl backdrop-blur-md ${
-                    isSelected ? "ring-2 ring-white ring-offset-2 ring-offset-[#0B0F19] scale-105" : "hover:scale-102"
+                  className={`mindmap-node absolute z-10 rounded-2xl flex items-center justify-between px-4 py-2 cursor-grab active:cursor-grabbing transition-all duration-150 border-2 shadow-2xl backdrop-blur-xl ${
+                    isSelected ? "ring-4 ring-white/50 shadow-white/10 scale-105 z-20" : "hover:scale-102 hover:border-white/40"
                   }`}
                   style={{
                     left: `${node.x}px`,
                     top: `${node.y}px`,
-                    width: isRoot ? "200px" : "170px",
-                    height: "46px",
-                    backgroundColor: colorObj.bg,
-                    borderColor: colorObj.border,
-                    boxShadow: `0 8px 24px -6px ${node.color}33`
+                    width: isRoot ? "220px" : "180px",
+                    height: "48px",
+                    background: isRoot
+                      ? "linear-gradient(135deg, rgba(168,85,247,0.4) 0%, rgba(99,102,241,0.3) 100%)"
+                      : `linear-gradient(135deg, ${colorObj.bg} 0%, rgba(15,23,42,0.92) 100%)`,
+                    borderColor: isSelected ? "#ffffff" : colorObj.border,
+                    boxShadow: `0 8px 30px -4px ${node.color}55, inset 0 1px 0 rgba(255,255,255,0.15)`
                   }}
                 >
+                  <span
+                    className="w-2.5 h-2.5 rounded-full shrink-0 mr-2 shadow"
+                    style={{ backgroundColor: node.color || colorObj.border }}
+                  />
                   {isEditing ? (
                     <input
                       type="text"
@@ -659,7 +702,7 @@ export function MindMapPage() {
                       onKeyDown={(e) => { if (e.key === "Enter") saveInlineEdit(); }}
                       onBlur={saveInlineEdit}
                       autoFocus
-                      className="w-full bg-transparent text-white font-semibold text-center text-sm outline-none border-b border-white"
+                      className="w-full bg-transparent text-white font-bold text-center text-sm outline-none border-b border-white"
                     />
                   ) : (
                     <span 
