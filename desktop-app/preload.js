@@ -65,6 +65,8 @@ const ALLOWED_INVOKE_CHANNELS = [
   // Download Management IPCs
   "open-downloads-folder",
   "show-item-in-folder",
+  // Low-RAM Memory Trimmer
+  "purge-memory",
 ];
 
 const ALLOWED_LISTEN_CHANNELS = [

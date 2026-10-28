@@ -1094,7 +1094,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
               <p className="text-xs text-slate-400">Subjects</p>
             </div>
             <div className="rounded-xl bg-white/5 px-4 py-2 text-center">
-              <p className="text-lg font-bold text-purple-400">v0.0.1</p>
+              <p className="text-lg font-bold text-purple-400">v0.2.4</p>
               <p className="text-xs text-slate-400">Version</p>
             </div>
           </div>

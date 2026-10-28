@@ -117,7 +117,7 @@ export function GuidePage() {
 
   const appInfo = {
     name: "FlowTrack Pro – Smart Study & Productivity Tracker",
-    version: "v0.0.1 (Production Release)",
+    version: "v0.2.4 (Production Release)",
     developer: "Sudhir DevOps (FlowTrack Engineering Team)",
     repo: "SudhirDevOps1/The-Ultimate-Master-Study-Tracker",
     techStack: [
@@ -133,7 +133,7 @@ export function GuidePage() {
     { id: "overview", label: "🌟 App Overview", icon: <Sparkles className="w-4 h-4" /> },
     { id: "features", label: "🚀 All Features Matrix", icon: <Zap className="w-4 h-4 text-amber-400" /> },
     { id: "shortcuts", label: "⌨️ Keyboard Shortcuts & Tips", icon: <Keyboard className="w-4 h-4 text-indigo-400" /> },
-    { id: "fixes", label: "✨ New in v0.0.1", icon: <CheckCircle2 className="w-4 h-4 text-emerald-400" /> },
+    { id: "fixes", label: "✨ New in v0.2.4", icon: <CheckCircle2 className="w-4 h-4 text-emerald-400" /> },
     { id: "storage", label: "📂 Data Storage & Privacy", icon: <HardDrive className="w-4 h-4 text-purple-400" /> },
     { id: "tech", label: "🛠️ Tech Architecture", icon: <Cpu className="w-4 h-4" /> },
     { id: "credits", label: "🎁 Open-Source Credits", icon: <Heart className="w-4 h-4 text-rose-400 animate-pulse" /> },

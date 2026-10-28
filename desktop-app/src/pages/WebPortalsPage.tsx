@@ -691,7 +691,7 @@ export function WebPortalsPage() {
           }
         };
 
-        setInterval(handleAds, 300);
+        setInterval(handleAds, 1000);
       })();
     `;
     try {

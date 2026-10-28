@@ -553,9 +553,10 @@ export function AppTrackingPage() {
   useEffect(() => {
     if (timeScope === "day" && selectedDate !== today) return;
     const id = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
       void fetchLog(timeScope, selectedDate);
       void fetchPeriodTotals();
-    }, 5_000);
+    }, 6_000);
     return () => clearInterval(id);
   }, [timeScope, selectedDate, today, fetchLog, fetchPeriodTotals]);
 
@@ -975,11 +976,33 @@ export function AppTrackingPage() {
         <motion.div key="usage" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} className="space-y-5">
 
             {/* ── Tabs ── */}
-            <div className="flex gap-1 bg-slate-900/60 border border-white/10 rounded-2xl p-1 w-fit">
-              {(["overview","timeline","websites","windows"] as const).map(tab => (
-                <button key={tab} onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all ${activeTab === tab ? "bg-white/10 text-white shadow-sm" : "text-slate-500 hover:text-slate-300"}`}>
-                  {tab === "overview" ? "📊 Overview" : tab === "timeline" ? "📈 Timeline" : tab === "websites" ? "🌐 Web Sites & Tabs" : "🪟 Windows"}
+            <div className="flex flex-wrap items-center gap-1.5 bg-slate-950/80 border border-white/10 rounded-2xl p-1.5 shadow-lg backdrop-blur-md">
+              {[
+                { id: "overview", label: "📊 Overview", count: appSummaries.length },
+                { id: "timeline", label: "📈 Timeline", count: dailyLog.length > 0 ? 1 : 0 },
+                { id: "websites", label: "🌐 Web Sites & Tabs", count: webTabSummaries.length },
+                { id: "developer", label: "⚡ Code & Projects", count: 0 },
+                { id: "windows", label: "🪟 Windows Log", count: dailyLog.length },
+              ].map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setActiveTab(t.id as any)}
+                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all select-none cursor-pointer ${
+                    activeTab === t.id
+                      ? "bg-gradient-to-r from-cyan-500/20 to-indigo-500/20 text-cyan-200 border border-cyan-400/40 shadow-sm shadow-cyan-500/10"
+                      : "text-slate-400 hover:text-white hover:bg-white/5 border border-transparent"
+                  }`}
+                >
+                  <span>{t.label}</span>
+                  {t.count > 0 && (
+                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-semibold ${
+                      activeTab === t.id
+                        ? "bg-cyan-400/20 text-cyan-300 border border-cyan-400/30"
+                        : "bg-slate-800 text-slate-400"
+                    }`}>
+                      {t.count}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>

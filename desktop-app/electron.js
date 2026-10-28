@@ -1537,14 +1537,24 @@ ipcMain.handle("get-active-window", async () => {
 });
 
 ipcMain.handle("get-foreground-window", async () => {
-  const info = await getForegroundWindow();
-  if (!info) return { title: "", process: "", appName: "", isSelf: false, skip: true };
-  const skip = shouldSkip(info.process, info.title);
+  // Ultra-low CPU: Return cached currentActivity maintained by the tracker loop
+  // Avoids spawning duplicate child processes from renderer polling.
+  let process = currentActivity && currentActivity.processName;
+  let title = currentActivity && currentActivity.windowTitle;
+  if (!process) {
+    const fresh = await getForegroundWindow();
+    if (fresh) {
+      process = fresh.process;
+      title = fresh.title;
+    }
+  }
+  if (!process) return { title: "", process: "", appName: "", isSelf: false, skip: true };
+  const skip = shouldSkip(process, title);
   return {
-    title:    info.title   || "",
-    process:  info.process || "unknown",
-    appName:  skip ? "" : normalizeAppName(info.process),
-    isSelf:   isSelf(info.process, info.title),
+    title:    title   || "",
+    process:  process || "unknown",
+    appName:  skip ? "" : normalizeAppName(process),
+    isSelf:   isSelf(process, title),
     skip,
   };
 });

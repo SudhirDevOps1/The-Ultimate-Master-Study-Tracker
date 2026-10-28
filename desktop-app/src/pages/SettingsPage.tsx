@@ -275,16 +275,26 @@ export function SettingsPage() {
     const isElectron = typeof window !== "undefined" && Boolean((window as any).electron?.isElectron);
     if (!isElectron) return;
     const loadStats = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
       (window as any).electron?.ipcRenderer?.invoke?.("heartbeat-get-day").then((res: any) => {
         if (Array.isArray(res)) setCodingHeartbeats(res);
       }).catch(() => {});
     };
     loadStats();
-    const iv = setInterval(loadStats, 4000);
+    const iv = setInterval(loadStats, 6000);
     return () => clearInterval(iv);
   }, []);
 
   const codingStats = useMemo(() => aggregateCodingStats(codingHeartbeats), [codingHeartbeats]);
+  const [installedVersion, setInstalledVersion] = useState("0.2.4");
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && (window as any).electron) {
+      (window as any).electron.ipcRenderer?.invoke?.("get-app-version").then((v: string) => {
+        if (v) setInstalledVersion(v);
+      }).catch(() => {});
+    }
+  }, []);
   const [backupPassInput, setBackupPassInput] = useState("");
   const [isExportingDb, setIsExportingDb] = useState(false);
   const [isImportingDb, setIsImportingDb] = useState(false);
@@ -1555,7 +1565,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
               <p className="text-xs text-slate-400">Subjects</p>
             </div>
             <div className="rounded-xl bg-white/5 px-4 py-2 text-center">
-              <p className="text-lg font-bold text-purple-400">v0.0.1</p>
+              <p className="text-lg font-bold text-purple-400">v{installedVersion}</p>
               <p className="text-xs text-slate-400">Version</p>
             </div>
           </div>
