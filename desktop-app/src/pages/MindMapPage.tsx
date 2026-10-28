@@ -79,6 +79,7 @@ export function MindMapPage() {
   const [engineMode, setEngineMode] = useState<"tree" | "excalidraw">("tree");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [curveWidth, setCurveWidth] = useState<number>(2.5);
+  const [activeColor, setActiveColor] = useState<string>(COLOR_PRESETS[0].hex);
   
   // Canvas View transform
   const [zoom, setZoom] = useState(1);
@@ -117,7 +118,7 @@ export function MindMapPage() {
       text: "New Main Topic",
       x: 350 + Math.random() * 150,
       y: 180 + Math.random() * 150,
-      color: COLOR_PRESETS[(nodes.length + 1) % COLOR_PRESETS.length].hex
+      color: activeColor || COLOR_PRESETS[(nodes.length + 1) % COLOR_PRESETS.length].hex
     };
 
     setNodes(prev => [...prev, newNode]);
@@ -145,7 +146,7 @@ export function MindMapPage() {
       text: "New Subtopic",
       x: parent.x + xOffset,
       y: parent.y + yOffset,
-      color: COLOR_PRESETS[(nodes.length + 1) % COLOR_PRESETS.length].hex,
+      color: activeColor || COLOR_PRESETS[(nodes.length + 1) % COLOR_PRESETS.length].hex,
       side
     };
 
@@ -205,6 +206,8 @@ export function MindMapPage() {
       { id: "root", parentId: null, text: "Central Idea", x: 450, y: 300, color: "#a855f7" }
     ]);
     setSelectedNodeId("root");
+    setPan({ x: 0, y: 0 });
+    setZoom(1);
     showToast("Canvas Reset to Central Idea", "info");
   };
 
@@ -254,17 +257,34 @@ export function MindMapPage() {
   };
 
   // Center Mind Map on Central Idea in Viewport
-  const centerMindMap = () => {
-    const root = nodes.find(n => n.id === "root");
+  const centerMindMap = useCallback(() => {
+    const root = nodes.find(n => n.id === "root") || nodes[0];
     if (containerRef.current && root) {
       const rect = containerRef.current.getBoundingClientRect();
       setPan({
-        x: rect.width / 2 - (root.x + 110),
+        x: rect.width / 2 - (root.x + 100),
         y: rect.height / 2 - (root.y + 24)
       });
       setZoom(1);
       showToast("Centered on Central Idea", "info");
     }
+  }, [nodes, showToast]);
+
+  const zoomAroundPoint = (factor: number, clientX?: number, clientY?: number) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const anchorX = clientX !== undefined ? clientX - rect.left : rect.width / 2;
+    const anchorY = clientY !== undefined ? clientY - rect.top : rect.height / 2;
+
+    const newZoom = Math.min(2.5, Math.max(0.35, Number((zoom * factor).toFixed(2))));
+    if (newZoom === zoom) return;
+
+    const scaleChange = newZoom / zoom;
+    setPan(p => ({
+      x: anchorX - (anchorX - p.x) * scaleChange,
+      y: anchorY - (anchorY - p.y) * scaleChange
+    }));
+    setZoom(newZoom);
   };
 
   // ── Drag & Canvas Handling ─────────────────────────────────────────────────
@@ -439,17 +459,44 @@ export function MindMapPage() {
               <>
                 <button
                   onClick={addIndependentTopic}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 transition flex items-center gap-1"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 transition flex items-center gap-1.5"
+                  title="Add independent main topic box"
                 >
-                  <Plus className="w-4 h-4" /> + Topic Box
+                  <Plus className="w-3.5 h-3.5" /> <span>Topic Box</span>
                 </button>
 
                 <button
                   onClick={() => addSubtopic(selectedNodeId || "root")}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 transition flex items-center gap-1"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 transition flex items-center gap-1.5"
+                  title="Add connected child subtopic"
                 >
-                  <Plus className="w-4 h-4" /> + Subtopic
+                  <Plus className="w-3.5 h-3.5" /> <span>Subtopic</span>
                 </button>
+
+                {/* 🎨 Dedicated Color Box Bar */}
+                <div className="flex items-center gap-1 bg-slate-950/80 border border-slate-800 rounded-lg px-2.5 py-1">
+                  <Palette className="w-3.5 h-3.5 text-cyan-400 mr-1 shrink-0" />
+                  <div className="flex items-center gap-1.5">
+                    {COLOR_PRESETS.map((preset) => (
+                      <button
+                        key={preset.name}
+                        onClick={() => {
+                          setActiveColor(preset.hex);
+                          if (selectedNodeId) {
+                            updateNodeColor(selectedNodeId, preset.hex);
+                          }
+                        }}
+                        className={`w-4 h-4 rounded-full transition-transform hover:scale-125 border ${
+                          (selectedNode?.color === preset.hex || (!selectedNode && activeColor === preset.hex))
+                            ? "border-white ring-2 ring-cyan-400 scale-125 shadow-lg"
+                            : "border-transparent opacity-75 hover:opacity-100"
+                        }`}
+                        style={{ backgroundColor: preset.hex }}
+                        title={`${preset.name} ${selectedNode ? "— Change selected node color" : "— Active color for new nodes"}`}
+                      />
+                    ))}
+                  </div>
+                </div>
 
                 {/* Templates Dropdown */}
                 <div className="flex items-center gap-1 bg-slate-950/80 border border-slate-800 rounded-lg px-2 py-1">
@@ -470,6 +517,14 @@ export function MindMapPage() {
                   className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 transition flex items-center gap-1"
                 >
                   <RefreshCw className="w-3.5 h-3.5" /> Auto Align
+                </button>
+
+                <button
+                  onClick={centerMindMap}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 transition flex items-center gap-1"
+                  title="Center View on Mind Map"
+                >
+                  <Move className="w-3.5 h-3.5" /> Center View
                 </button>
 
                 <button
@@ -551,12 +606,12 @@ export function MindMapPage() {
           onWheel={(e) => {
             if (e.ctrlKey || e.metaKey) {
               e.preventDefault();
-              const factor = e.deltaY < 0 ? 1.08 : 0.92;
-              setZoom(z => Math.min(2.5, Math.max(0.3, z * factor)));
+              const factor = e.deltaY < 0 ? 1.12 : 0.88;
+              zoomAroundPoint(factor, e.clientX, e.clientY);
             } else {
               setPan(p => ({
-                x: p.x - e.deltaX * 0.9,
-                y: p.y - e.deltaY * 0.9
+                x: p.x - e.deltaX * 0.85,
+                y: p.y - e.deltaY * 0.85
               }));
             }
           }}
@@ -566,23 +621,37 @@ export function MindMapPage() {
             backgroundSize: "28px 28px"
           }}
         >
-          {/* Zoom Controls */}
-          <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 bg-slate-900/90 border border-slate-800 p-1.5 rounded-xl backdrop-blur-md shadow-xl">
-            <button onClick={() => setZoom(z => Math.max(0.3, z - 0.1))} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-300" title="Zoom Out">
+          {/* Zoom & Viewport Controls */}
+          <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 bg-slate-900/95 border border-slate-800 p-1.5 rounded-xl backdrop-blur-md shadow-2xl">
+            <button onClick={() => zoomAroundPoint(0.85)} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-300 transition-colors" title="Zoom Out">
               <ZoomOut className="w-4 h-4" />
             </button>
-            <span className="text-xs font-semibold text-slate-400 px-2 min-w-[42px] text-center">{Math.round(zoom * 100)}%</span>
-            <button onClick={() => setZoom(z => Math.min(2.5, z + 0.1))} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-300" title="Zoom In">
+            <button 
+              onClick={() => { setZoom(1); centerMindMap(); }} 
+              className="text-xs font-bold text-cyan-300 hover:text-white px-2 py-0.5 rounded hover:bg-white/5 transition-colors min-w-[46px] text-center"
+              title="Click to Reset Zoom to 100%"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <button onClick={() => zoomAroundPoint(1.15)} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-300 transition-colors" title="Zoom In">
               <ZoomIn className="w-4 h-4" />
             </button>
-            <button onClick={centerMindMap} className="p-1.5 hover:bg-slate-800 rounded-lg text-cyan-400" title="Center on Central Idea">
-              <Move className="w-4 h-4" />
+            <div className="w-[1px] h-4 bg-white/10 mx-0.5" />
+            <button onClick={centerMindMap} className="p-1.5 hover:bg-slate-800 rounded-lg text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-1 text-xs font-semibold px-2" title="Center View on Nodes">
+              <Move className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Center</span>
             </button>
-            <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-300" title="Reset View (100%)">
-              <Maximize2 className="w-4 h-4" />
-            </button>
-            <button onClick={() => setIsFullscreen(!isFullscreen)} className="p-1.5 hover:bg-slate-800 rounded-lg text-purple-400" title="Toggle Fullscreen">
+            <button onClick={() => setIsFullscreen(!isFullscreen)} className="p-1.5 hover:bg-slate-800 rounded-lg text-purple-400 transition-colors" title="Toggle Fullscreen">
               {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </button>
+          </div>
+
+          {/* Quick Helper Floating Pill */}
+          <div className="absolute bottom-4 left-4 z-20 flex items-center gap-2 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-xl backdrop-blur-md text-[11px] text-slate-400 shadow-xl">
+            <span>Nodes: <strong className="text-white">{nodes.length}</strong></span>
+            <span>•</span>
+            <button onClick={centerMindMap} className="text-cyan-400 hover:underline font-semibold flex items-center gap-1">
+              <Move className="w-3 h-3" /> Center View
             </button>
           </div>
 
@@ -608,11 +677,11 @@ export function MindMapPage() {
 
           {/* Canvas SVG Lines & Floating Nodes Container */}
           <div 
-            className="w-full h-full transform-gpu origin-top-left transition-transform duration-75"
+            className="w-full h-full transform-gpu origin-top-left"
             style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
           >
             {/* SVG Connecting Curves */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
+            <svg className="absolute inset-0 w-full h-full overflow-visible pointer-events-none z-0">
               <defs>
                 <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
                   <feGaussianBlur stdDeviation="3" result="blur" />
@@ -676,7 +745,7 @@ export function MindMapPage() {
                   onMouseDown={(e) => handleMouseDownNode(e, node)}
                   onDoubleClick={() => startInlineEdit(node)}
                   className={`mindmap-node absolute z-10 rounded-2xl flex items-center justify-between px-4 py-2 cursor-grab active:cursor-grabbing transition-all duration-150 border-2 shadow-2xl backdrop-blur-xl ${
-                    isSelected ? "ring-4 ring-white/50 shadow-white/10 scale-105 z-20" : "hover:scale-102 hover:border-white/40"
+                    isSelected ? "ring-4 ring-cyan-400/50 shadow-cyan-400/20 scale-105 z-20" : "hover:scale-102 hover:border-white/40"
                   }`}
                   style={{
                     left: `${node.x}px`,
@@ -684,10 +753,12 @@ export function MindMapPage() {
                     width: isRoot ? "220px" : "180px",
                     height: "48px",
                     background: isRoot
-                      ? "linear-gradient(135deg, rgba(168,85,247,0.4) 0%, rgba(99,102,241,0.3) 100%)"
-                      : `linear-gradient(135deg, ${colorObj.bg} 0%, rgba(15,23,42,0.92) 100%)`,
-                    borderColor: isSelected ? "#ffffff" : colorObj.border,
-                    boxShadow: `0 8px 30px -4px ${node.color}55, inset 0 1px 0 rgba(255,255,255,0.15)`
+                      ? "linear-gradient(135deg, rgba(168,85,247,0.35) 0%, rgba(30,41,59,0.95) 100%)"
+                      : `linear-gradient(135deg, ${colorObj.bg} 0%, rgba(15,23,42,0.95) 100%)`,
+                    borderColor: colorObj.border,
+                    boxShadow: isSelected 
+                      ? `0 0 25px ${colorObj.border}88, 0 8px 25px -4px ${colorObj.border}55` 
+                      : `0 8px 20px -4px ${node.color}44`
                   }}
                 >
                   <span

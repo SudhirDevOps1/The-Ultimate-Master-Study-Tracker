@@ -796,6 +796,26 @@ function createWindow() {
     return { action: "allow" };
   });
 
+  // 🔍 Universal App Zoom Shortcuts (Ctrl++, Ctrl+-, Ctrl+0)
+  mainWindow.webContents.on("before-input-event", (event, input) => {
+    if (input.control || input.meta) {
+      if (input.type === "keyDown") {
+        if (input.key === "=" || input.key === "+" || input.key === "Add") {
+          event.preventDefault();
+          const currentZoom = mainWindow.webContents.getZoomFactor();
+          mainWindow.webContents.setZoomFactor(Math.min(currentZoom + 0.1, 2.0));
+        } else if (input.key === "-" || input.key === "Subtract") {
+          event.preventDefault();
+          const currentZoom = mainWindow.webContents.getZoomFactor();
+          mainWindow.webContents.setZoomFactor(Math.max(currentZoom - 0.1, 0.5));
+        } else if (input.key === "0" || input.key === "NumPad0") {
+          event.preventDefault();
+          mainWindow.webContents.setZoomFactor(1.0);
+        }
+      }
+    }
+  });
+
   mainWindow.webContents.on("will-navigate", (event, url) => {
     if (url.startsWith("http:") || url.startsWith("https:")) {
       // Allow localhost dev server reloading
