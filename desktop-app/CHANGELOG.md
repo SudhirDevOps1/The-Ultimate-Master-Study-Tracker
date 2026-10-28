@@ -1,5 +1,54 @@
 # Changelog
 
+## [0.3.0](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v0.2.4...v0.3.0) (2026-10-28)
+
+
+### ✨ Features & Enhancements
+
+* **api:** local read-only query API for external tools ([a961e9c](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/a961e9c5c57d1334aff9c35609f100d3055e0568))
+* **breaks:** global AFK-aware break engine ([aae7184](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/aae7184f61ee91527e5220542a0e9fd2d80f5800))
+* **browser:** downloads, find-in-page, context menu, zoom, dark mode, reader mode ([ec2a1f1](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/ec2a1f18a666863d3b15034c4aba6b27068125d4))
+* **browser:** real ad blocking + opt-in Chrome extensions ([387d6d5](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/387d6d5ad7443902942409373a84f8ea73698d15))
+* **data:** local backup/restore + unified local search + licences screen ([3efd227](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/3efd227bed75275017f6f65b084ef0d11a928859))
+* **engines:** surface ActivityWatch, Super Productivity 20-20-20 synthesizer, Anki SM-2 dynamic HUD, and Dayflow classifier ([efd4bd2](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/efd4bd2146f13b3d917ca3a782013e0fafc77602))
+* **heartbeat:** local WakaTime-compatible receiver in the Electron main process ([02513b2](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/02513b2fe61fcbbc1f05039bfb99073290b1daf7))
+* **mindmap:** add AI mind map generator, tree auto-align, study status badges, keyboard shortcuts, and full whiteboard studio ([022260c](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/022260c98d795ff9a3ad6f57496029ecb6da37dc))
+* **ocr:** opt-in timeline with local OCR ([b456f2d](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/b456f2de0ad77ac3279edd1259053e260172c767))
+* **review:** daily standup & weekly review markdown export ([3ec6cee](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/3ec6cee1daa913306f02dd2052e25d1cc196107c))
+* **tasks:** task model, timeboxing, task-to-session hand-off ([9e4a160](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/9e4a160623aee72fbee1834995761a6426158d08))
+* **telemetry:** add visual coding telemetry cockpit, query-param routing, and hardened loopback receiver ([8d25011](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/8d250113e32714dde841de40da4b4890a0570bb9))
+* **timer:** flowtime mode + transparent focus score ([67cccad](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/67cccad32e25fc94fa1fd8cf793cf0abfe4c88c7))
+* **tracking:** AFK tracking in 2s loop, idle threshold, auto-pause ([893d44f](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/893d44f93ad61c986aa80be38d4fcd11dc5a180a))
+* **tracking:** coding stats tab consuming heartbeat receiver ([366dd9a](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/366dd9a35dfa3ad4440c251d60ba43fdc9a9dd74))
+* **ui-ux:** add tactile FeedbackButton with sound synthesis, real database inspector, and guide diagnostics cockpit ([234a556](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/234a556f6527ece900b9a9ced76211d077f096f0))
+* **ui:** complete visual overhaul, universal Markdown and Mermaid engine, and FlowTrack Studio telemetry ([5668180](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/5668180e8a7f122cb746a066c0b142243bb15db8))
+
+
+### 🐛 Bug Fixes & Patches
+
+* **blocker,mindmap,ai:** fix process killer for brave, hosts sync quoting, mindmap fullpage pan/zoom, and clarify offline AI setup ([cb5901a](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/cb5901a2dc465f715521fbda15ffb8e97a51a435))
+* **browser:** resolve login popup dismissal, UI blinking, and youtube buffering loop ([1ec4d8a](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/1ec4d8a879b7c371a623482e3be8a0f7f7fb6def))
+* **calculations:** bulletproof division-by-zero, NaN guards, and date parsing across dashboard, time utils, and tasks ([76c68b8](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/76c68b89a0b0aade44551cb1706df3aff03d70db))
+* **dashboard:** enhance weekly target widget with daily breakdown and add 1-click start and session cleanup buttons ([dc0d255](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/dc0d255c2f3515a45a2cb5b5f19f79a4fac05f4a))
+* **export,ai:** add universal native image saving and expand AI assistant to technical tutoring ([92646d4](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/92646d4181361348a64027b1fb54f85963c38218))
+* **export:** implement content-aware bounding box cropping and aesthetic card rendering across mindmap, whiteboard, and sticky board ([b7a9a04](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/b7a9a04ead8e889ddbd46b43cfee0864f72e58a0))
+* **ipc:** whitelist purge-memory, bind dynamic v0.2.4, throttle background tracking, and polish app tracking tabs ([0034587](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/0034587215342c69be56c2e372fa170390ad4735))
+* **mindmap:** add dedicated color palette bar, zoom-to-cursor, center view hud, and global app zoom shortcuts ([eac5a9f](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/eac5a9f77bc90dc3cf2af85f7d4e6f763a7593cc))
+* **security:** configure gitleaks ignore and sanitize unit test mock tokens ([7477976](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/747797673d10cc498364bd36d2d0ff43af9e63de))
+* **settings-wakatime-youtube:** resolve vs code wakatime uuid validation, fix youtube video playback, and overhaul settings ui with category navigation ([b89cc73](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/b89cc73dba539df6bb6397d0b346814ad4921362))
+* **srs:** correct SM-2 grade mapping; add learning steps, leech, fuzz ([be2fecc](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/be2fecc67a2e18bf14abf15d3482ae1213b5bf13))
+* **wakatime:** add root info endpoint, IPC handlers, and auto-configuration for 127.0.0.1:7777 ([d302c96](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/d302c968107efb605802d58d9856d04b7e0e5522))
+
+
+### ⚡ Performance Improvements
+
+* **memory:** merge chromium processes, suspend idle webviews, and add low-ram purge trimmer ([858ebf2](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/858ebf25370eb8b0532f5eae8ea235f4481bd4e2))
+
+
+### 📚 Documentation Updates
+
+* update ecosystem guides, READMEs, architecture matrices, and privacy tracking policy ([014f884](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/014f88416314cbebcfcce95e6b97a5d2c3e99d0a))
+
 ## [0.2.4](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v0.2.3...v0.2.4) (2026-10-27)
 
 
