@@ -47,6 +47,11 @@ jobs:
           cd desktop-app
           npm run build
 
+      - name: Run E2E Integration Suite
+        run: |
+          cd desktop-app
+          npm run test:e2e
+
       - name: Start Local Web Preview Server
         run: |
           cd desktop-app
