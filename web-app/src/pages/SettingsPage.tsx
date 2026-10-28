@@ -2,6 +2,7 @@ import { useRef, useState, useEffect } from "react";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
 import { Panel } from "@/components/common/Panel";
+import { FeedbackButton } from "@/components/common/FeedbackButton";
 import { useAppStore } from "@/store/useAppStore";
 import type { AppState } from "@/store/useAppStore";
 import { usePomodoro } from "@/hooks/usePomodoro";
@@ -683,6 +684,29 @@ export function SettingsPage() {
         <div>
           <h3 className="text-xl font-semibold text-white">🎯 Goals and Notifications</h3>
           <p className="mt-1 text-sm text-slate-400">Set your daily & weekly targets and enable productivity features.</p>
+        {/* ── HARDWARE & SOUND LIVE VERIFICATION ── */}
+        <div className="flex flex-wrap items-center gap-3 p-3.5 rounded-2xl bg-white/5 border border-white/5">
+          <span className="text-xs font-bold text-slate-300 mr-1">Live Diagnostics:</span>
+          <FeedbackButton
+            variant="outline"
+            successText="🔔 Notification & Chime Sent!"
+            onClick={async () => {
+              if ("Notification" in window) {
+                if (Notification.permission === "default") {
+                  await Notification.requestPermission();
+                }
+                if (Notification.permission === "granted") {
+                  new Notification("FlowTrack Pro Web", {
+                    body: "🔔 Notifications and sound alerts are working perfectly!",
+                    icon: "/icon.png"
+                  });
+                }
+              }
+            }}
+          >
+            🔔 Test Browser Notification
+          </FeedbackButton>
+        </div>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-2">

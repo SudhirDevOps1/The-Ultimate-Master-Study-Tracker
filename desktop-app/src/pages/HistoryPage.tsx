@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format, addDays } from "date-fns";
 import { Panel } from "@/components/common/Panel";
+import { FeedbackButton } from "@/components/common/FeedbackButton";
 import { SessionEditor } from "@/components/session/SessionEditor";
 import { useAppStore } from "@/store/useAppStore";
 import { formatDate12Hour, formatTimeRange12Hour, toDurationLabel } from "@/utils/time";

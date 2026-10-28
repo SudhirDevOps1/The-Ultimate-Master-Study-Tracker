@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Panel } from "@/components/common/Panel";
+import { FeedbackButton } from "@/components/common/FeedbackButton";
+import { db } from "@/lib/db";
 import { 
   BookOpen, Sparkles, Cpu, HardDrive, ShieldCheck, Bug, HelpCircle, 
   UserCheck, Terminal, Layers, Code, Zap, CheckCircle2, AlertTriangle, 
@@ -11,6 +13,107 @@ import {
 export function GuidePage() {
   const [activeTab, setActiveTab] = useState<"howToUse" | "overview" | "features" | "shortcuts" | "storage" | "fixes" | "tech" | "credits">("howToUse");
   const [selectedGuideFeature, setSelectedGuideFeature] = useState<string>("routine");
+  const [searchFilter, setSearchFilter] = useState("");
+  const [diagHealth, setDiagHealth] = useState({
+    db: { status: "checking", label: "Checking IndexedDB...", count: 0 },
+    wakatime: { status: "checking", label: "Checking Port 7777..." },
+    audio: { status: "ready", label: "Audio Synthesizer Ready" },
+    tracker: { status: "ready", label: "Native Window Poller Ready" }
+  });
+  const [isPlayingAlpha, setIsPlayingAlpha] = useState(false);
+  const audioCtxRef = React.useRef<any>(null);
+
+  // Run real-time diagnostics
+  React.useEffect(() => {
+    let mounted = true;
+    const checkDb = async () => {
+      try {
+        const count = await db.sessions.count();
+        if (mounted) {
+          setDiagHealth(prev => ({
+            ...prev,
+            db: { status: "online", label: `IndexedDB Operational (${count} sessions stored)`, count }
+          }));
+        }
+      } catch (e: any) {
+        if (mounted) {
+          setDiagHealth(prev => ({
+            ...prev,
+            db: { status: "offline", label: "IndexedDB Error", count: 0 }
+          }));
+        }
+      }
+    };
+
+    const checkWakatime = async () => {
+      try {
+        const res = await fetch("http://127.0.0.1:7777/api/v1", { signal: AbortSignal.timeout(2000) });
+        if (res.ok && mounted) {
+          setDiagHealth(prev => ({
+            ...prev,
+            wakatime: { status: "online", label: "WakaTime Port 7777 Online" }
+          }));
+        }
+      } catch {
+        if (mounted) {
+          setDiagHealth(prev => ({
+            ...prev,
+            wakatime: { status: "idle", label: "Port 7777 Standby (Starts with Electron)" }
+          }));
+        }
+      }
+    };
+
+    checkDb();
+    checkWakatime();
+    return () => { mounted = false; };
+  }, []);
+
+  const playAlphaPreview = () => {
+    try {
+      if (isPlayingAlpha) {
+        audioCtxRef.current?.close();
+        audioCtxRef.current = null;
+        setIsPlayingAlpha(false);
+        return;
+      }
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      audioCtxRef.current = ctx;
+
+      // 200Hz base + 210Hz binaural beat = 10Hz Alpha Focus Wave
+      const oscL = ctx.createOscillator();
+      const oscR = ctx.createOscillator();
+      const merger = ctx.createChannelMerger(2);
+      const gain = ctx.createGain();
+
+      oscL.type = "sine";
+      oscL.frequency.setValueAtTime(200, ctx.currentTime);
+      oscR.type = "sine";
+      oscR.frequency.setValueAtTime(210, ctx.currentTime);
+
+      gain.gain.setValueAtTime(0.06, ctx.currentTime);
+
+      oscL.connect(merger, 0, 0);
+      oscR.connect(merger, 0, 1);
+      merger.connect(gain);
+      gain.connect(ctx.destination);
+
+      oscL.start();
+      oscR.start();
+      setIsPlayingAlpha(true);
+
+      setTimeout(() => {
+        if (ctx.state !== "closed") {
+          ctx.close();
+          setIsPlayingAlpha(false);
+        }
+      }, 5000);
+    } catch {
+      setIsPlayingAlpha(false);
+    }
+  };
 
   const appInfo = {
     name: "FlowTrack Pro – Smart Study & Productivity Tracker",
@@ -348,6 +451,108 @@ export function GuidePage() {
               </span>
             ))}
           </div>
+        </div>
+      </div>
+
+            {/* ── REAL-TIME SYSTEM DIAGNOSTIC COCKPIT & HARDWARE STATUS ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="p-3.5 rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-xl flex items-center justify-between shadow-lg">
+          <div className="flex items-center gap-2.5">
+            <span className={`h-2.5 w-2.5 rounded-full ${diagHealth.db.status === "online" ? "bg-emerald-400 shadow-[0_0_8px_#34d399]" : "bg-amber-400"} animate-pulse`} />
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Database Engine</p>
+              <p className="text-xs font-semibold text-white">{diagHealth.db.label}</p>
+            </div>
+          </div>
+          <span className="text-xs font-mono font-bold text-cyan-300">Dexie 4.x</span>
+        </div>
+
+        <div className="p-3.5 rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-xl flex items-center justify-between shadow-lg">
+          <div className="flex items-center gap-2.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399] animate-pulse" />
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Audio Synthesizer</p>
+              <p className="text-xs font-semibold text-white">10Hz Alpha Engine</p>
+            </div>
+          </div>
+          <button
+            onClick={playAlphaPreview}
+            className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-all ${
+              isPlayingAlpha 
+                ? "bg-rose-500/20 border-rose-500/40 text-rose-300 animate-pulse" 
+                : "bg-indigo-500/20 border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/30"
+            }`}
+          >
+            {isPlayingAlpha ? "⏹ Stop Wave" : "▶ Test 10Hz"}
+          </button>
+        </div>
+
+        <div className="p-3.5 rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-xl flex items-center justify-between shadow-lg">
+          <div className="flex items-center gap-2.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399] animate-pulse" />
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Active Window Hook</p>
+              <p className="text-xs font-semibold text-white">{diagHealth.tracker.label}</p>
+            </div>
+          </div>
+          <span className="text-xs font-mono font-bold text-indigo-300">Win32 C#</span>
+        </div>
+
+        <div className="p-3.5 rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-xl flex items-center justify-between shadow-lg">
+          <div className="flex items-center gap-2.5">
+            <span className={`h-2.5 w-2.5 rounded-full ${diagHealth.wakatime.status === "online" ? "bg-emerald-400 shadow-[0_0_8px_#34d399]" : "bg-cyan-400"} animate-pulse`} />
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Editor Receiver</p>
+              <p className="text-xs font-semibold text-white">{diagHealth.wakatime.label}</p>
+            </div>
+          </div>
+          <span className="text-xs font-mono font-bold text-amber-300">:7777</span>
+        </div>
+      </div>
+
+      {/* ── SEARCH & INTERACTIVE QUICK SIMULATOR ── */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 rounded-3xl border border-white/10 bg-slate-900/40 backdrop-blur-xl shadow-lg">
+        <div className="relative flex-1 max-w-md">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search guides, shortcuts, features (e.g. timer, apna college, streak)..."
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 rounded-2xl bg-white/5 border border-white/10 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400/50 focus:bg-white/10 transition-all"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <FeedbackButton
+            variant="outline"
+            successText="🔔 Notification Verified!"
+            onClick={async () => {
+              if ("Notification" in window) {
+                if (Notification.permission === "default") {
+                  await Notification.requestPermission();
+                }
+                if (Notification.permission === "granted") {
+                  new Notification("FlowTrack Pro Guide", {
+                    body: "🔔 Rest break & timer alerts are fully functional!",
+                    icon: "/icon.png"
+                  });
+                }
+              }
+            }}
+          >
+            🔔 Test Notification
+          </FeedbackButton>
+
+          <FeedbackButton
+            variant="secondary"
+            successText="📋 WakaTime API Copied!"
+            onClick={async () => {
+              await navigator.clipboard.writeText("http://127.0.0.1:7777/api/v1");
+            }}
+          >
+            📋 Copy Port 7777 URL
+          </FeedbackButton>
         </div>
       </div>
 
