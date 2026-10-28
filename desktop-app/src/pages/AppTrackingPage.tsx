@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Monitor, Calendar, ShieldAlert, RefreshCw,
@@ -397,7 +398,16 @@ export function AppTrackingPage() {
   const [liveApp, setLiveApp]           = useState<{ process: string; title: string } | null>(null);
   const [liveIdleMs, setLiveIdleMs]     = useState(0);
   const [loading, setLoading]           = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview"|"timeline"|"websites"|"developer"|"windows">("overview");
+  const [searchParams] = useSearchParams();
+  const initialTab = (searchParams.get("tab") as "overview"|"timeline"|"websites"|"developer"|"windows") || "overview";
+  const [activeTab, setActiveTab] = useState<"overview"|"timeline"|"websites"|"developer"|"windows">(initialTab);
+
+  useEffect(() => {
+    const tabFromUrl = searchParams.get("tab");
+    if (tabFromUrl && ["overview", "timeline", "websites", "developer", "windows"].includes(tabFromUrl)) {
+      setActiveTab(tabFromUrl as any);
+    }
+  }, [searchParams]);
   const [ocrActive, setOcrActive] = useState(() => isOcrEnabled());
   const [ocrQuery, setOcrQuery] = useState("");
   const [ocrResults, setOcrResults] = useState<any[]>([]);
@@ -1045,7 +1055,7 @@ export function AppTrackingPage() {
               {(["overview","timeline","websites","developer","windows"] as const).map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)}
                   className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all ${activeTab === tab ? "bg-white/10 text-white shadow-sm" : "text-slate-500 hover:text-slate-300"}`}>
-                  {tab === "overview" ? "📊 Overview" : tab === "timeline" ? "📈 Timeline" : tab === "websites" ? "🌐 Web Sites & Tabs" : tab === "developer" ? "⚡ Code & Projects" : "🪟 Windows"}
+                  {tab === "overview" ? "📊 Overview" : tab === "timeline" ? "📈 Timeline" : tab === "websites" ? "🌐 Web Sites & Tabs" : tab === "developer" ? `⚡ Code & Projects${heartbeats.length > 0 ? ` (${heartbeats.length})` : ""}` : "🪟 Windows"}
                 </button>
               ))}
             </div>
@@ -1233,9 +1243,23 @@ export function AppTrackingPage() {
                       <span className="text-[10px] text-slate-500 font-mono">WakaTime / IDE Receiver</span>
                     </div>
                     {(realCodingStats.languages.length === 0 && devSummaries.languages.length === 0) ? (
-                      <div className="py-12 text-center text-slate-500 text-xs space-y-2">
+                      <div className="py-10 text-center text-slate-500 text-xs space-y-3">
                         <p>No active coding heartbeats detected for {selectedDate}.</p>
-                        <p className="text-[11px] text-slate-600">Connect VS Code, Cursor, or VSCodium by pointing api_url to http://127.0.0.1:7777/api/v1 in ~/.wakatime.cfg</p>
+                        <p className="text-[11px] text-slate-400">Connect VS Code, Cursor, or VSCodium by pointing api_url to http://127.0.0.1:7777/api/v1 in ~/.wakatime.cfg</p>
+                        <button
+                          onClick={async () => {
+                            const ipc = getIpc();
+                            if (ipc) {
+                              await ipc.invoke("send-test-heartbeat");
+                              ipc.invoke("heartbeat-get-day", selectedDate).then((items: any) => {
+                                if (Array.isArray(items)) setHeartbeats(items);
+                              });
+                            }
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-xs font-semibold hover:bg-cyan-500/30 transition-all cursor-pointer"
+                        >
+                          🧪 Generate Test Heartbeat & Refresh
+                        </button>
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -1298,6 +1322,44 @@ export function AppTrackingPage() {
                     )}
                   </Panel>
                 </div>
+
+                {/* 🕒 Live Heartbeat Stream */}
+                <Panel className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <Activity className="w-4 h-4 text-emerald-400" /> Recent Heartbeats Stream
+                    </h3>
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      {heartbeats.length} logged today • 100% Local (127.0.0.1:7777)
+                    </span>
+                  </div>
+                  {heartbeats.length === 0 ? (
+                    <p className="text-xs text-slate-500 text-center py-6">No raw heartbeats logged for this date.</p>
+                  ) : (
+                    <div className="space-y-1.5 max-h-[300px] overflow-y-auto pretty-scrollbar pr-1">
+                      {[...heartbeats].reverse().slice(0, 20).map((h, idx) => (
+                        <div key={h.id || idx} className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.02] border border-white/5 hover:border-cyan-500/30 transition-all text-xs">
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <span className="px-2 py-0.5 rounded-md bg-cyan-500/15 border border-cyan-500/30 text-[10px] font-bold text-cyan-300 shrink-0">
+                              {h.language || "Code"}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="font-mono text-slate-200 truncate text-[11px]" title={h.entity}>
+                                {h.entity}
+                              </p>
+                              <p className="text-[9px] text-slate-500">
+                                Project: <span className="text-slate-400 font-semibold">{h.project || "Default"}</span> • Editor: <span className="text-slate-400">{h.editor || "Editor"}</span>
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-mono shrink-0 ml-3">
+                            {new Date(h.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Panel>
               </div>
             )}
 

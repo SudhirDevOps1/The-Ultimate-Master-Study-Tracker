@@ -1,4 +1,5 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
 import { Panel } from "@/components/common/Panel";
@@ -10,6 +11,7 @@ import { exportData, importBackup } from "@/utils/exportImport";
 import { exportLocalDatabase, importLocalDatabase } from "@/utils/backupEngine";
 import { LicensesModal } from "@/components/LicensesModal";
 import { exportSessionsToCSV, exportSubjectStatsToCSV, exportAllDataToCSV } from "@/utils/dataExport";
+import { aggregateCodingStats, type HeartbeatItem } from "@/utils/editorInfo";
 import { db } from "@/lib/db";
 
 import type { ThemeName } from "@/types/models";
@@ -266,6 +268,23 @@ export function SettingsPage() {
   const [statusMessage, setStatusMessage] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const [showLicensesModal, setShowLicensesModal] = useState(false);
+  const navigate = useNavigate();
+  const [codingHeartbeats, setCodingHeartbeats] = useState<HeartbeatItem[]>([]);
+
+  useEffect(() => {
+    const isElectron = typeof window !== "undefined" && Boolean((window as any).electron?.isElectron);
+    if (!isElectron) return;
+    const loadStats = () => {
+      (window as any).electron?.ipcRenderer?.invoke?.("heartbeat-get-day").then((res: any) => {
+        if (Array.isArray(res)) setCodingHeartbeats(res);
+      }).catch(() => {});
+    };
+    loadStats();
+    const iv = setInterval(loadStats, 4000);
+    return () => clearInterval(iv);
+  }, []);
+
+  const codingStats = useMemo(() => aggregateCodingStats(codingHeartbeats), [codingHeartbeats]);
   const [backupPassInput, setBackupPassInput] = useState("");
   const [isExportingDb, setIsExportingDb] = useState(false);
   const [isImportingDb, setIsImportingDb] = useState(false);
@@ -727,6 +746,95 @@ api_url = http://127.0.0.1:7777/api/v1`}
             >
               <FolderOpen className="w-3.5 h-3.5" /> 📂 Open Heartbeats Folder
             </FeedbackButton>
+            <FeedbackButton
+              variant="secondary"
+              className="text-xs bg-cyan-500/15 border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/25 font-bold"
+              onClick={() => {
+                navigate("/app-tracking?tab=developer");
+              }}
+              successText="Opening Dashboard..."
+            >
+              <Code2 className="w-3.5 h-3.5 text-cyan-400" /> 📊 Open Developer Dashboard ↗
+            </FeedbackButton>
+          </div>
+
+          {/* 📊 Live Coding Telemetry Widget */}
+          <div className="p-4 rounded-xl bg-slate-950/70 border border-cyan-500/20 space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-xs font-bold text-white uppercase tracking-wider">Live Telemetry Cockpit</span>
+                <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] font-mono text-cyan-300">
+                  100% Local (127.0.0.1:7777)
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-slate-400">Today:</span>
+                <span className="font-mono text-white font-bold">{codingHeartbeats.length} Heartbeat{codingHeartbeats.length === 1 ? "" : "s"}</span>
+                <span className="text-slate-500">•</span>
+                <span className="font-mono text-cyan-300 font-bold">
+                  {Math.floor(codingStats.totalSeconds / 3600)}h {Math.floor((codingStats.totalSeconds % 3600) / 60)}m {codingStats.totalSeconds % 60}s
+                </span>
+              </div>
+            </div>
+
+            {codingHeartbeats.length === 0 ? (
+              <div className="py-4 text-center rounded-lg bg-white/[0.02] border border-dashed border-white/10">
+                <p className="text-xs text-slate-400">No coding heartbeats recorded today yet.</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">Click &quot;🧪 Send Test Heartbeat&quot; or edit files in VS Code / Cursor to see live languages and time.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                {/* Top Languages */}
+                <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5 space-y-2">
+                  <p className="text-[11px] font-semibold text-slate-300 flex items-center justify-between">
+                    <span>Top Languages</span>
+                    <span className="text-[10px] text-slate-500">{codingStats.languages.length} detected</span>
+                  </p>
+                  <div className="space-y-1.5">
+                    {codingStats.languages.slice(0, 4).map(l => (
+                      <div key={l.name} className="space-y-0.5">
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-white font-medium">{l.name}</span>
+                          <span className="text-cyan-300 font-mono">{l.percent}%</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-cyan-400 to-indigo-500 rounded-full" style={{ width: `${l.percent}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Top Project & Recent File */}
+                <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5 space-y-2 text-xs">
+                  <p className="text-[11px] font-semibold text-slate-300">Active Workspace & File</p>
+                  <div className="space-y-1 text-[11px]">
+                    <p className="text-slate-400 truncate">
+                      Project: <span className="text-white font-semibold">{codingStats.projects[0]?.name || "Default Workspace"}</span>
+                    </p>
+                    <p className="text-slate-400 truncate" title={codingHeartbeats[codingHeartbeats.length - 1]?.entity}>
+                      Last File: <span className="text-cyan-300 font-mono">{codingHeartbeats[codingHeartbeats.length - 1]?.entity || "—"}</span>
+                    </p>
+                    <p className="text-slate-500 text-[10px]">
+                      Editor: <span className="text-slate-300">{codingHeartbeats[codingHeartbeats.length - 1]?.editor || "Editor"}</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between pt-1 border-t border-white/5 text-[11px]">
+              <span className="text-emerald-400 flex items-center gap-1.5 font-medium">
+                <ShieldCheck className="w-3.5 h-3.5" /> Zero Cloud Telemetry Leakage (Audited)
+              </span>
+              <button
+                onClick={() => navigate("/app-tracking?tab=developer")}
+                className="text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                Open Full Developer Dashboard &rarr;
+              </button>
+            </div>
           </div>
 
           <div className="p-3.5 rounded-xl bg-slate-950/60 border border-white/5 text-xs text-slate-300 space-y-2">

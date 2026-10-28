@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
 import { Panel } from "@/components/common/Panel";
@@ -239,6 +240,7 @@ export function SettingsPage() {
     setStatusMessage("Profile updated successfully!");
   };
 
+  const navigate = useNavigate();
   const showMessage = (msg: string) => {
     setStatusMessage(msg);
     setTimeout(() => setStatusMessage(""), 3000);
@@ -476,6 +478,19 @@ export function SettingsPage() {
 api_key = 00000000-0000-4000-8000-000000000000
 api_url = http://127.0.0.1:7777/api/v1`}
             </pre>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5 pt-1">
+            <FeedbackButton
+              variant="secondary"
+              className="text-xs bg-cyan-500/15 border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/25 font-bold"
+              onClick={() => {
+                navigate("/app-tracking?tab=developer");
+              }}
+              successText="Opening Dashboard..."
+            >
+              <Code2 className="w-3.5 h-3.5 text-cyan-400" /> 📊 Open Developer Dashboard ↗
+            </FeedbackButton>
           </div>
 
           <div className="p-3.5 rounded-xl bg-slate-950/60 border border-white/5 text-xs text-slate-300 space-y-2">

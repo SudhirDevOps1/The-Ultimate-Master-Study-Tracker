@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Monitor, Calendar, ShieldAlert, RefreshCw,
@@ -303,7 +304,16 @@ export function AppTrackingPage() {
   const [liveApp, setLiveApp]           = useState<{ process: string; title: string } | null>(null);
   const [liveIdleMs, setLiveIdleMs]     = useState(0);
   const [loading, setLoading]           = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview"|"timeline"|"websites"|"developer"|"windows">("overview");
+  const [searchParams] = useSearchParams();
+  const initialTab = (searchParams.get("tab") as "overview"|"timeline"|"websites"|"developer"|"windows") || "overview";
+  const [activeTab, setActiveTab] = useState<"overview"|"timeline"|"websites"|"developer"|"windows">(initialTab);
+
+  useEffect(() => {
+    const tabFromUrl = searchParams.get("tab");
+    if (tabFromUrl && ["overview", "timeline", "websites", "developer", "windows"].includes(tabFromUrl)) {
+      setActiveTab(tabFromUrl as any);
+    }
+  }, [searchParams]);
   const [ocrActive, setOcrActive] = useState(() => isOcrEnabled());
   const [ocrQuery, setOcrQuery] = useState("");
   const [ocrResults, setOcrResults] = useState<any[]>([]);

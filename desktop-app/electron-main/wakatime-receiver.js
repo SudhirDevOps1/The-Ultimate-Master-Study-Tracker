@@ -159,6 +159,19 @@ function purgeOldHeartbeats() {
   }
 }
 
+function sanitizeEntityPath(rawPath) {
+  if (typeof rawPath !== "string") return "unknown-file";
+  let str = rawPath.trim();
+  try {
+    const os = require("os");
+    const homedir = os.homedir();
+    if (homedir && str.toLowerCase().startsWith(homedir.toLowerCase())) {
+      str = "~" + str.slice(homedir.length);
+    }
+  } catch {}
+  return str.replace(/\\/g, "/").slice(0, 500);
+}
+
 /**
  * Process a single heartbeat payload
  */
@@ -201,7 +214,7 @@ function processHeartbeat(raw, userAgent = "") {
   }
 
   const record = {
-    entity: String(raw.entity).slice(0, 500),
+    entity: sanitizeEntityPath(raw.entity),
     type: String(raw.type || "file").slice(0, 50),
     time: timeVal,
     project: String(raw.project || "Unknown Project").slice(0, 100),
@@ -529,8 +542,12 @@ function stopReceiver() {
  * Retrieve raw heartbeat records for a specific date (YYYY-MM-DD)
  */
 function getDayHeartbeats(targetDate = getLocalDateString()) {
-  if (targetDate === getLocalDateString()) {
-    return [...todayHeartbeats];
+  const localToday = getLocalDateString();
+  const utcToday = new Date().toISOString().split("T")[0];
+  if (!targetDate || targetDate === localToday || targetDate === utcToday) {
+    if (todayHeartbeats.length > 0) {
+      return [...todayHeartbeats];
+    }
   }
   if (heartbeatsDir) {
     const filePath = path.join(heartbeatsDir, `${targetDate}.json`);
@@ -543,6 +560,9 @@ function getDayHeartbeats(targetDate = getLocalDateString()) {
     } catch {
       return [];
     }
+  }
+  if (!targetDate || targetDate === localToday || targetDate === utcToday) {
+    return [...todayHeartbeats];
   }
   return [];
 }
