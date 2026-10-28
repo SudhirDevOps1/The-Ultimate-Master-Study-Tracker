@@ -1,7 +1,10 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { 
   Download, Plus, Trash2, Edit3, Sparkles, RefreshCw, ZoomIn, ZoomOut, 
-  Maximize2, Minimize2, Palette, Layers, Eye, Move, Check, CornerDownRight, Share2, RotateCcw, LayoutTemplate, Sliders
+  Maximize2, Minimize2, Palette, Eye, Move, Check, CornerDownRight, 
+  Share2, RotateCcw, LayoutTemplate, Sliders, Search, Wand2, Undo, Redo, 
+  CheckCircle2, Circle, Clock, FileText, Upload, ChevronRight, ChevronDown, 
+  BookOpen, BrainCircuit, X, Compass, HelpCircle
 } from "lucide-react";
 import { useToast } from "@/components/common/Toast";
 import { Panel } from "@/components/common/Panel";
@@ -9,6 +12,8 @@ import { FabricWhiteboard } from "@/components/common/FabricWhiteboard";
 import { saveImageSafely } from "@/utils/dataExport";
 
 // ─── Mind Map Tree Engine Models ──────────────────────────────────────────────
+export type NodeStatus = "todo" | "in-progress" | "done";
+
 export interface MindNode {
   id: string;
   parentId: string | null;
@@ -18,6 +23,8 @@ export interface MindNode {
   color: string;       // Accent color hex
   side?: "left" | "right";
   collapsed?: boolean;
+  status?: NodeStatus; // Study progress badge: todo, in-progress, done
+  notes?: string;      // Detailed study notes for this node
 }
 
 const COLOR_PRESETS = [
@@ -31,38 +38,90 @@ const COLOR_PRESETS = [
   { name: "Rose", hex: "#f43f5e", bg: "rgba(244,63,94,0.25)", border: "#fb7185", text: "#fff1f2" }
 ];
 
-const STORAGE_KEY = "flowtrack_tree_mindmap_v2";
+const STORAGE_KEY = "flowtrack_pro_mindmap_nodes_v2";
 
 const DEFAULT_NODES: MindNode[] = [
-  { id: "root", parentId: null, text: "Central Idea", x: 450, y: 300, color: "#a855f7" },
-  
-  // Left Side Nodes
-  { id: "l1", parentId: "root", text: "New Subtopic", x: 200, y: 180, color: "#06b6d4", side: "left" },
-  { id: "l2", parentId: "root", text: "New Subtopic", x: 200, y: 320, color: "#f97316", side: "left" },
+  // Center Root
+  { id: "root", parentId: null, text: "☕ Java Full Stack & DSA", x: 500, y: 320, color: "#a855f7", status: "in-progress" },
 
-  // Right Side Nodes
-  { id: "r1", parentId: "root", text: "New Subtopic", x: 700, y: 160, color: "#10b981", side: "right" },
-  { id: "r2", parentId: "root", text: "New Subtopic", x: 700, y: 280, color: "#3b82f6", side: "right" },
-  { id: "r3", parentId: "root", text: "New Subtopic", x: 700, y: 400, color: "#eab308", side: "right" }
+  // Left Side Subtopics
+  { id: "l1", parentId: "root", text: "Core OOPs & JVM", x: 220, y: 180, color: "#06b6d4", side: "left", status: "done" },
+  { id: "l1-1", parentId: "l1", text: "Inheritance & Polymorphism", x: -40, y: 140, color: "#06b6d4", side: "left", status: "done" },
+  { id: "l1-2", parentId: "l1", text: "JVM Garbage Collection", x: -40, y: 220, color: "#06b6d4", side: "left", status: "in-progress" },
+
+  { id: "l2", parentId: "root", text: "Spring Boot 3 REST", x: 220, y: 440, color: "#f97316", side: "left", status: "in-progress" },
+  { id: "l2-1", parentId: "l2", text: "Dependency Injection & IoC", x: -40, y: 440, color: "#f97316", side: "left", status: "todo" },
+
+  // Right Side Subtopics
+  { id: "r1", parentId: "root", text: "Data Structures & Algos", x: 780, y: 180, color: "#10b981", side: "right", status: "in-progress" },
+  { id: "r1-1", parentId: "r1", text: "Trees, Graphs & BFS/DFS", x: 1040, y: 140, color: "#10b981", side: "right", status: "in-progress" },
+  { id: "r1-2", parentId: "r1", text: "Dynamic Programming (DP)", x: 1040, y: 220, color: "#10b981", side: "right", status: "todo" },
+
+  { id: "r2", parentId: "root", text: "SQL & Database Schema", x: 780, y: 440, color: "#3b82f6", side: "right", status: "done" },
+  { id: "r2-1", parentId: "r2", text: "Indexing & Query Tuning", x: 1040, y: 440, color: "#3b82f6", side: "right", status: "done" }
 ];
 
 // Pre-built Mind Map Templates
-const TEMPLATES: Record<string, MindNode[]> = {
-  chapter: [
-    { id: "root", parentId: null, text: "📖 Chapter Study Plan", x: 450, y: 300, color: "#a855f7" },
-    { id: "c1", parentId: "root", text: "Key Concepts", x: 200, y: 180, color: "#ec4899", side: "left" },
-    { id: "c1-1", parentId: "c1", text: "Definitions & Formulae", x: 20, y: 180, color: "#ec4899", side: "left" },
-    { id: "c2", parentId: "root", text: "Important Theorems", x: 200, y: 320, color: "#06b6d4", side: "left" },
-    { id: "c3", parentId: "root", text: "Solved Examples", x: 700, y: 180, color: "#10b981", side: "right" },
-    { id: "c4", parentId: "root", text: "Revision Notes & Flashcards", x: 700, y: 320, color: "#eab308", side: "right" }
-  ],
-  project: [
-    { id: "root", parentId: null, text: "🚀 Project Architecture", x: 450, y: 300, color: "#3b82f6" },
-    { id: "p1", parentId: "root", text: "Frontend UI", x: 200, y: 200, color: "#06b6d4", side: "left" },
-    { id: "p2", parentId: "root", text: "Backend API", x: 200, y: 340, color: "#10b981", side: "left" },
-    { id: "p3", parentId: "root", text: "Database Schema", x: 700, y: 200, color: "#f97316", side: "right" },
-    { id: "p4", parentId: "root", text: "Deployment & CI/CD", x: 700, y: 340, color: "#a855f7", side: "right" }
-  ]
+const TEMPLATES: Record<string, { name: string; nodes: MindNode[] }> = {
+  java: {
+    name: "☕ Java OOPs & Spring Ecosystem",
+    nodes: [
+      { id: "root", parentId: null, text: "☕ Java Backend Architecture", x: 500, y: 320, color: "#a855f7", status: "in-progress" },
+      { id: "j1", parentId: "root", text: "OOPs Principles", x: 220, y: 180, color: "#ec4899", side: "left", status: "done" },
+      { id: "j1-1", parentId: "j1", text: "Encapsulation & Abstraction", x: -30, y: 150, color: "#ec4899", side: "left", status: "done" },
+      { id: "j1-2", parentId: "j1", text: "Polymorphism & Interfaces", x: -30, y: 220, color: "#ec4899", side: "left", status: "done" },
+      { id: "j2", parentId: "root", text: "JVM Memory Management", x: 220, y: 440, color: "#06b6d4", side: "left", status: "in-progress" },
+      { id: "j2-1", parentId: "j2", text: "Heap vs Stack Memory", x: -30, y: 440, color: "#06b6d4", side: "left", status: "todo" },
+      { id: "j3", parentId: "root", text: "Spring Boot 3 Web", x: 780, y: 180, color: "#10b981", side: "right", status: "in-progress" },
+      { id: "j3-1", parentId: "j3", text: "REST Controller & DTO", x: 1040, y: 140, color: "#10b981", side: "right", status: "done" },
+      { id: "j3-2", parentId: "j3", text: "Spring Security & JWT", x: 1040, y: 220, color: "#10b981", side: "right", status: "todo" },
+      { id: "j4", parentId: "root", text: "Relational DB & Hibernate", x: 780, y: 440, color: "#eab308", side: "right", status: "done" },
+      { id: "j4-1", parentId: "j4", text: "JPA Repository & Queries", x: 1040, y: 440, color: "#eab308", side: "right", status: "done" }
+    ]
+  },
+  dsa: {
+    name: "📊 Data Structures & Algorithms Roadmap",
+    nodes: [
+      { id: "root", parentId: null, text: "📊 DSA Master Roadmap", x: 500, y: 320, color: "#3b82f6", status: "in-progress" },
+      { id: "d1", parentId: "root", text: "Arrays & Strings", x: 220, y: 180, color: "#06b6d4", side: "left", status: "done" },
+      { id: "d1-1", parentId: "d1", text: "Two Pointers & Sliding Window", x: -30, y: 180, color: "#06b6d4", side: "left", status: "done" },
+      { id: "d2", parentId: "root", text: "Linked Lists & Stacks", x: 220, y: 440, color: "#f97316", side: "left", status: "done" },
+      { id: "d2-1", parentId: "d2", text: "Fast & Slow Pointers", x: -30, y: 440, color: "#f97316", side: "left", status: "done" },
+      { id: "d3", parentId: "root", text: "Trees & Binary Search", x: 780, y: 180, color: "#10b981", side: "right", status: "in-progress" },
+      { id: "d3-1", parentId: "d3", text: "Lowest Common Ancestor", x: 1040, y: 180, color: "#10b981", side: "right", status: "todo" },
+      { id: "d4", parentId: "root", text: "Graphs & Dynamic Prog", x: 780, y: 440, color: "#a855f7", side: "right", status: "todo" },
+      { id: "d4-1", parentId: "d4", text: "0/1 Knapsack & Grid DP", x: 1040, y: 440, color: "#a855f7", side: "right", status: "todo" }
+    ]
+  },
+  python: {
+    name: "⚡ Python & AI Engineering",
+    nodes: [
+      { id: "root", parentId: null, text: "⚡ Python & AI Engineering", x: 500, y: 320, color: "#10b981", status: "in-progress" },
+      { id: "py1", parentId: "root", text: "Core Python & Typing", x: 220, y: 180, color: "#3b82f6", side: "left", status: "done" },
+      { id: "py1-1", parentId: "py1", text: "Decorators & Generators", x: -30, y: 180, color: "#3b82f6", side: "left", status: "done" },
+      { id: "py2", parentId: "root", text: "FastAPI & Pydantic", x: 220, y: 440, color: "#f97316", side: "left", status: "in-progress" },
+      { id: "py2-1", parentId: "py2", text: "Async Request Handlers", x: -30, y: 440, color: "#f97316", side: "left", status: "in-progress" },
+      { id: "py3", parentId: "root", text: "Data Science Stack", x: 780, y: 180, color: "#ec4899", side: "right", status: "done" },
+      { id: "py3-1", parentId: "py3", text: "NumPy Vectorization & Pandas", x: 1040, y: 180, color: "#ec4899", side: "right", status: "done" },
+      { id: "py4", parentId: "root", text: "LLM Orchestration", x: 780, y: 440, color: "#a855f7", side: "right", status: "in-progress" },
+      { id: "py4-1", parentId: "py4", text: "Embeddings & Vector Search", x: 1040, y: 440, color: "#a855f7", side: "right", status: "todo" }
+    ]
+  },
+  calculus: {
+    name: "🧮 Mathematics & Engineering Calculus",
+    nodes: [
+      { id: "root", parentId: null, text: "🧮 Engineering Mathematics", x: 500, y: 320, color: "#eab308", status: "in-progress" },
+      { id: "m1", parentId: "root", text: "Differential Calculus", x: 220, y: 180, color: "#06b6d4", side: "left", status: "done" },
+      { id: "m1-1", parentId: "m1", text: "Limits & Continuity", x: -30, y: 150, color: "#06b6d4", side: "left", status: "done" },
+      { id: "m1-2", parentId: "m1", text: "Chain Rule & Derivatives", x: -30, y: 220, color: "#06b6d4", side: "left", status: "done" },
+      { id: "m2", parentId: "root", text: "Integral Calculus", x: 220, y: 440, color: "#10b981", side: "left", status: "in-progress" },
+      { id: "m2-1", parentId: "m2", text: "Definite Integrals & Areas", x: -30, y: 440, color: "#10b981", side: "left", status: "todo" },
+      { id: "m3", parentId: "root", text: "Linear Algebra", x: 780, y: 180, color: "#3b82f6", side: "right", status: "done" },
+      { id: "m3-1", parentId: "m3", text: "Matrices & Eigenvalues", x: 1040, y: 180, color: "#3b82f6", side: "right", status: "done" },
+      { id: "m4", parentId: "root", text: "Probability & Statistics", x: 780, y: 440, color: "#f43f5e", side: "right", status: "in-progress" },
+      { id: "m4-1", parentId: "m4", text: "Bayes' Theorem & Distributions", x: 1040, y: 440, color: "#f43f5e", side: "right", status: "todo" }
+    ]
+  }
 };
 
 export function MindMapPage() {
@@ -74,13 +133,21 @@ export function MindMapPage() {
     return DEFAULT_NODES;
   });
 
+  const [history, setHistory] = useState<MindNode[][]>([]);
+  const [historyIdx, setHistoryIdx] = useState<number>(-1);
+
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>("root");
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
-  const [engineMode, setEngineMode] = useState<"tree" | "excalidraw">("tree");
+  const [engineMode, setEngineMode] = useState<"tree" | "whiteboard">("tree");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [curveWidth, setCurveWidth] = useState<number>(2.5);
+  const [curveStyle, setCurveStyle] = useState<"bezier" | "straight" | "rounded">("bezier");
   const [activeColor, setActiveColor] = useState<string>(COLOR_PRESETS[0].hex);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [customAiTopic, setCustomAiTopic] = useState("");
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   
   // Canvas View transform
   const [zoom, setZoom] = useState(1);
@@ -92,285 +159,512 @@ export function MindMapPage() {
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
-  // Excalidraw Dynamic State & API
-  const [excalidrawComp, setExcalidrawComp] = useState<any>(null);
-  const [excalidrawAPI, setExcalidrawAPI] = useState<any>(null);
-  const [isExcalidrawLoading, setIsExcalidrawLoading] = useState(false);
-
   const containerRef = useRef<HTMLDivElement>(null);
-  const excalidrawContainerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const { showToast } = useToast();
 
-  // Save Nodes
+  // Save Nodes & Sync History
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(nodes));
     } catch { /* ignore */ }
   }, [nodes]);
 
-  // ── Node Helper Functions ──────────────────────────────────────────────────
-  const selectedNode = nodes.find(n => n.id === selectedNodeId);
+  const pushState = useCallback((newNodes: MindNode[]) => {
+    setHistory(prev => {
+      const sliced = prev.slice(0, historyIdx + 1);
+      return [...sliced, newNodes];
+    });
+    setHistoryIdx(prev => prev + 1);
+    setNodes(newNodes);
+  }, [historyIdx]);
 
-  // Add Independent New Topic Box
-  const addIndependentTopic = () => {
+  const undo = useCallback(() => {
+    if (historyIdx > 0) {
+      const prevNodes = history[historyIdx - 1];
+      setHistoryIdx(prev => prev - 1);
+      setNodes(prevNodes);
+      showToast("Undo performed", "info");
+    }
+  }, [history, historyIdx, showToast]);
+
+  const redo = useCallback(() => {
+    if (historyIdx < history.length - 1) {
+      const nextNodes = history[historyIdx + 1];
+      setHistoryIdx(prev => prev + 1);
+      setNodes(nextNodes);
+      showToast("Redo performed", "info");
+    }
+  }, [history, historyIdx, showToast]);
+
+  // ── Node Helper Functions ──────────────────────────────────────────────────
+  const selectedNode = useMemo(() => nodes.find(n => n.id === selectedNodeId), [nodes, selectedNodeId]);
+
+  // Smart Auto-Align Algorithm: Computes beautiful balanced Left/Right Tree Hierarchy
+  const autoAlignTree = useCallback(() => {
+    if (nodes.length === 0) return;
+    const root = nodes.find(n => n.parentId === null) || nodes[0];
+    const rootX = 500;
+    const rootY = 320;
+
+    // Children of root
+    const rootChildren = nodes.filter(n => n.parentId === root.id);
+    const leftChildren: MindNode[] = [];
+    const rightChildren: MindNode[] = [];
+
+    rootChildren.forEach((child, idx) => {
+      if (child.side === "left" || (child.side === undefined && idx % 2 === 0)) {
+        leftChildren.push(child);
+      } else {
+        rightChildren.push(child);
+      }
+    });
+
+    const updatedMap = new Map<string, MindNode>();
+    updatedMap.set(root.id, { ...root, x: rootX, y: rootY });
+
+    // Position Left Branch
+    const leftHeight = Math.max(leftChildren.length * 120, 200);
+    let leftStartY = rootY - leftHeight / 2 + 60;
+    leftChildren.forEach(child => {
+      const childX = rootX - 280;
+      const childY = leftStartY;
+      leftStartY += 120;
+      updatedMap.set(child.id, { ...child, x: childX, y: childY, side: "left" });
+
+      // Grandchildren
+      const grandchildren = nodes.filter(n => n.parentId === child.id);
+      let gStartY = childY - ((grandchildren.length - 1) * 70) / 2;
+      grandchildren.forEach(gc => {
+        updatedMap.set(gc.id, { ...gc, x: childX - 260, y: gStartY, side: "left" });
+        gStartY += 75;
+      });
+    });
+
+    // Position Right Branch
+    const rightHeight = Math.max(rightChildren.length * 120, 200);
+    let rightStartY = rootY - rightHeight / 2 + 60;
+    rightChildren.forEach(child => {
+      const childX = rootX + 280;
+      const childY = rightStartY;
+      rightStartY += 120;
+      updatedMap.set(child.id, { ...child, x: childX, y: childY, side: "right" });
+
+      // Grandchildren
+      const grandchildren = nodes.filter(n => n.parentId === child.id);
+      let gStartY = childY - ((grandchildren.length - 1) * 70) / 2;
+      grandchildren.forEach(gc => {
+        updatedMap.set(gc.id, { ...gc, x: childX + 260, y: gStartY, side: "right" });
+        gStartY += 75;
+      });
+    });
+
+    // Preserve any unconnected independent boxes
+    nodes.forEach(n => {
+      if (!updatedMap.has(n.id)) {
+        updatedMap.set(n.id, n);
+      }
+    });
+
+    const newNodes = Array.from(updatedMap.values());
+    pushState(newNodes);
+    showToast("⚡ Tree Auto-Aligned with Clean Hierarchy!", "success");
+  }, [nodes, pushState, showToast]);
+
+  // Add Independent Main Topic
+  const addIndependentTopic = (xPos?: number, yPos?: number) => {
     const newNode: MindNode = {
       id: crypto.randomUUID(),
       parentId: null,
-      text: "New Main Topic",
-      x: 350 + Math.random() * 150,
-      y: 180 + Math.random() * 150,
-      color: activeColor || COLOR_PRESETS[(nodes.length + 1) % COLOR_PRESETS.length].hex
+      text: "New Topic Concept",
+      x: xPos !== undefined ? xPos : (350 + Math.random() * 150),
+      y: yPos !== undefined ? yPos : (250 + Math.random() * 150),
+      color: activeColor,
+      status: "todo"
     };
-
-    setNodes(prev => [...prev, newNode]);
+    const next = [...nodes, newNode];
+    pushState(next);
     setSelectedNodeId(newNode.id);
     setEditingNodeId(newNode.id);
-    setEditText("New Main Topic");
-    showToast("New Topic added!", "success");
+    setEditText("New Topic Concept");
+    showToast("New Main Topic Created! Press Enter to save", "info");
   };
 
-  // Add Subtopic Child
-  const addSubtopic = (parentId: string) => {
-    const parent = nodes.find(n => n.id === parentId);
+  // Add Subtopic to Selected Node
+  const addSubtopic = (parentId?: string) => {
+    const targetParentId = parentId || selectedNodeId || (nodes[0] ? nodes[0].id : null);
+    if (!targetParentId) {
+      addIndependentTopic();
+      return;
+    }
+
+    const parent = nodes.find(n => n.id === targetParentId);
     if (!parent) return;
 
-    const childCount = nodes.filter(n => n.parentId === parentId).length;
-    const isRoot = parentId === "root";
-    const side = isRoot ? (childCount % 2 === 0 ? "right" : "left") : (parent.side || "right");
+    // Determine direction
+    const isRoot = parent.parentId === null;
+    let side = parent.side;
+    if (isRoot) {
+      const leftCount = nodes.filter(n => n.parentId === parent.id && n.side === "left").length;
+      const rightCount = nodes.filter(n => n.parentId === parent.id && n.side === "right").length;
+      side = leftCount <= rightCount ? "left" : "right";
+    }
 
-    const xOffset = side === "left" ? -220 : 220;
-    const yOffset = (childCount - 1) * 70;
+    const siblings = nodes.filter(n => n.parentId === targetParentId);
+    const offsetX = side === "left" ? -260 : 260;
+    const offsetY = (siblings.length - 1) * 75 + (Math.random() * 20 - 10);
 
     const newNode: MindNode = {
       id: crypto.randomUUID(),
-      parentId,
+      parentId: targetParentId,
       text: "New Subtopic",
-      x: parent.x + xOffset,
-      y: parent.y + yOffset,
-      color: activeColor || COLOR_PRESETS[(nodes.length + 1) % COLOR_PRESETS.length].hex,
-      side
+      x: parent.x + offsetX,
+      y: parent.y + offsetY,
+      color: parent.color || activeColor,
+      side,
+      status: "todo"
     };
 
-    setNodes(prev => [...prev, newNode]);
+    // Auto expand parent if it was collapsed
+    const next = nodes.map(n => n.id === parent.id ? { ...n, collapsed: false } : n).concat(newNode);
+    pushState(next);
     setSelectedNodeId(newNode.id);
     setEditingNodeId(newNode.id);
     setEditText("New Subtopic");
-    showToast("Subtopic added!", "success");
+    showToast("Subtopic Added! (Press Tab to add more)", "success");
   };
 
-  const deleteNode = (id: string) => {
-    if (id === "root" && nodes.length === 1) {
-      showToast("Cannot delete last remaining node", "warning");
+  // Add Sibling Topic (same level)
+  const addSiblingTopic = () => {
+    if (!selectedNode || !selectedNode.parentId) {
+      addIndependentTopic();
       return;
     }
-    const getSubtreeIds = (targetId: string): string[] => {
-      const children = nodes.filter(n => n.parentId === targetId);
-      const childIds = children.flatMap(c => getSubtreeIds(c.id));
-      return [targetId, ...childIds];
-    };
-    const toDelete = new Set(getSubtreeIds(id));
-    setNodes(prev => prev.filter(n => !toDelete.has(n.id)));
-    setSelectedNodeId("root");
-    showToast("Node deleted", "info");
+    addSubtopic(selectedNode.parentId);
   };
 
-  const updateNodeColor = (id: string, colorHex: string) => {
-    setNodes(prev => prev.map(n => n.id === id ? { ...n, color: colorHex } : n));
+  // Delete Selected Node (with cascading delete of children)
+  const deleteSelectedNode = () => {
+    if (!selectedNodeId) return;
+    if (nodes.length <= 1) {
+      showToast("Cannot delete the only remaining node", "warning");
+      return;
+    }
+
+    // Collect all descendant ids
+    const toDelete = new Set<string>([selectedNodeId]);
+    let foundNew = true;
+    while (foundNew) {
+      foundNew = false;
+      nodes.forEach(n => {
+        if (n.parentId && toDelete.has(n.parentId) && !toDelete.has(n.id)) {
+          toDelete.add(n.id);
+          foundNew = true;
+        }
+      });
+    }
+
+    const next = nodes.filter(n => !toDelete.has(n.id));
+    pushState(next);
+    setSelectedNodeId(next[0]?.id || null);
+    showToast(`Deleted ${toDelete.size} topic(s)`, "info");
   };
 
+  // Toggle Collapse on a Node
+  const toggleCollapse = (nodeId: string) => {
+    setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, collapsed: !n.collapsed } : n));
+  };
+
+  // Cycle Node Status: todo -> in-progress -> done
+  const cycleNodeStatus = (nodeId: string) => {
+    setNodes(prev => prev.map(n => {
+      if (n.id !== nodeId) return n;
+      const current = n.status || "todo";
+      const next: NodeStatus = current === "todo" ? "in-progress" : current === "in-progress" ? "done" : "todo";
+      return { ...n, status: next };
+    }));
+  };
+
+  // Inline Editing
   const startInlineEdit = (node: MindNode) => {
     setEditingNodeId(node.id);
     setEditText(node.text);
   };
 
   const saveInlineEdit = () => {
-    if (editingNodeId && editText.trim()) {
-      setNodes(prev => prev.map(n => n.id === editingNodeId ? { ...n, text: editText.trim() } : n));
+    if (!editingNodeId) return;
+    const trimmed = editText.trim();
+    if (trimmed) {
+      const next = nodes.map(n => (n.id === editingNodeId ? { ...n, text: trimmed } : n));
+      pushState(next);
     }
     setEditingNodeId(null);
   };
 
+  // Change Color of Selected Node & Descendants
+  const setNodeColor = (colorHex: string) => {
+    setActiveColor(colorHex);
+    if (!selectedNodeId) return;
+    const next = nodes.map(n => (n.id === selectedNodeId ? { ...n, color: colorHex } : n));
+    pushState(next);
+  };
+
   // Load Template
   const loadTemplate = (key: string) => {
-    if (TEMPLATES[key]) {
-      setNodes(TEMPLATES[key]);
-      setSelectedNodeId("root");
-      setZoom(1);
-      setPan({ x: 0, y: 0 });
-      showToast(`Loaded ${key === "chapter" ? "Chapter Study" : "Project Architecture"} Template!`, "success");
-    }
-  };
-
-  // Clear Canvas (Reset to Central Idea)
-  const clearTreeCanvas = () => {
-    setNodes([
-      { id: "root", parentId: null, text: "Central Idea", x: 450, y: 300, color: "#a855f7" }
-    ]);
+    const tpl = TEMPLATES[key];
+    if (!tpl) return;
+    pushState(tpl.nodes);
     setSelectedNodeId("root");
-    setPan({ x: 0, y: 0 });
-    setZoom(1);
-    showToast("Canvas Reset to Central Idea", "info");
+    showToast(`Loaded Template: ${tpl.name}`, "success");
+    setShowAiModal(false);
   };
 
-  // Auto Layout Tree around Root
-  const autoLayout = () => {
-    const root = nodes.find(n => n.id === "root") || { id: "root", x: 450, y: 300 };
-    const children = nodes.filter(n => n.parentId === "root");
-    
-    const lefts = children.filter((_, idx) => idx % 2 === 1);
-    const rights = children.filter((_, idx) => idx % 2 === 0);
+  // Generate Custom AI Topic Mind Map
+  const generateCustomAiMap = () => {
+    const topic = customAiTopic.trim();
+    if (!topic) {
+      showToast("Please enter a topic name", "warning");
+      return;
+    }
 
-    const updatedMap = new Map<string, { x: number; y: number; side: "left" | "right" }>();
+    const rootId = "root";
+    const generated: MindNode[] = [
+      { id: rootId, parentId: null, text: `📖 ${topic}`, x: 500, y: 320, color: "#a855f7", status: "in-progress" },
+      { id: "sub-1", parentId: rootId, text: "Core Concepts & Fundamentals", x: 220, y: 180, color: "#06b6d4", side: "left", status: "done" },
+      { id: "sub-1-1", parentId: "sub-1", text: "Key Terminology & Definitions", x: -40, y: 180, color: "#06b6d4", side: "left", status: "done" },
+      { id: "sub-2", parentId: rootId, text: "Practical Implementation", x: 220, y: 440, color: "#10b981", side: "left", status: "in-progress" },
+      { id: "sub-2-1", parentId: "sub-2", text: "Real-world Applications", x: -40, y: 440, color: "#10b981", side: "left", status: "todo" },
+      { id: "sub-3", parentId: rootId, text: "Advanced Patterns & Architecture", x: 780, y: 180, color: "#f97316", side: "right", status: "todo" },
+      { id: "sub-3-1", parentId: "sub-3", text: "Edge Cases & Optimization", x: 1040, y: 180, color: "#f97316", side: "right", status: "todo" },
+      { id: "sub-4", parentId: rootId, text: "Revision Checklist & Exam Qs", x: 780, y: 440, color: "#eab308", side: "right", status: "done" },
+      { id: "sub-4-1", parentId: "sub-4", text: "Previous Year Doubts", x: 1040, y: 440, color: "#eab308", side: "right", status: "todo" }
+    ];
 
-    lefts.forEach((child, idx) => {
-      const yPos = root.y + (idx - (lefts.length - 1) / 2) * 85;
-      updatedMap.set(child.id, { x: root.x - 250, y: yPos, side: "left" });
-    });
-
-    rights.forEach((child, idx) => {
-      const yPos = root.y + (idx - (rights.length - 1) / 2) * 85;
-      updatedMap.set(child.id, { x: root.x + 250, y: yPos, side: "right" });
-    });
-
-    nodes.forEach(node => {
-      if (node.parentId && node.parentId !== "root") {
-        const parentInfo = updatedMap.get(node.parentId) || nodes.find(n => n.id === node.parentId);
-        if (parentInfo) {
-          const siblings = nodes.filter(n => n.parentId === node.parentId);
-          const sIdx = siblings.findIndex(s => s.id === node.id);
-          const side = (parentInfo as any).side || "right";
-          const xPos = side === "left" ? parentInfo.x - 220 : parentInfo.x + 220;
-          const yPos = parentInfo.y + (sIdx - (siblings.length - 1) / 2) * 75;
-          updatedMap.set(node.id, { x: xPos, y: yPos, side });
-        }
-      }
-    });
-
-    setNodes(prev => prev.map(n => {
-      if (n.id === "root") return { ...n, x: 450, y: 300 };
-      const info = updatedMap.get(n.id);
-      return info ? { ...n, x: info.x, y: info.y, side: info.side } : n;
-    }));
-
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
-    showToast("Tree Auto-Aligned!", "success");
+    pushState(generated);
+    setSelectedNodeId(rootId);
+    setCustomAiTopic("");
+    setShowAiModal(false);
+    showToast(`✨ Generated AI Mind Map for "${topic}"!`, "success");
   };
 
-  // Center Mind Map on Central Idea in Viewport
-  const centerMindMap = useCallback(() => {
-    const root = nodes.find(n => n.id === "root") || nodes[0];
+  // Center Root in View
+  const centerView = () => {
+    const root = nodes.find(n => n.parentId === null) || nodes[0];
     if (containerRef.current && root) {
       const rect = containerRef.current.getBoundingClientRect();
       setPan({
-        x: rect.width / 2 - (root.x + 100),
-        y: rect.height / 2 - (root.y + 24)
+        x: rect.width / 2 - root.x * zoom - 90 * zoom,
+        y: rect.height / 2 - root.y * zoom - 24 * zoom
       });
       setZoom(1);
-      showToast("Centered on Central Idea", "info");
     }
-  }, [nodes, showToast]);
-
-  const zoomAroundPoint = (factor: number, clientX?: number, clientY?: number) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const anchorX = clientX !== undefined ? clientX - rect.left : rect.width / 2;
-    const anchorY = clientY !== undefined ? clientY - rect.top : rect.height / 2;
-
-    const newZoom = Math.min(2.5, Math.max(0.35, Number((zoom * factor).toFixed(2))));
-    if (newZoom === zoom) return;
-
-    const scaleChange = newZoom / zoom;
-    setPan(p => ({
-      x: anchorX - (anchorX - p.x) * scaleChange,
-      y: anchorY - (anchorY - p.y) * scaleChange
-    }));
-    setZoom(newZoom);
   };
 
-  // ── Drag & Canvas Handling ─────────────────────────────────────────────────
-  const handleMouseDownNode = (e: React.MouseEvent, node: MindNode) => {
+  // Keyboard Shortcuts Listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept if user is typing in an input or textarea
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      if (e.key === "Tab") {
+        e.preventDefault();
+        addSubtopic();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        addSiblingTopic();
+      } else if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        deleteSelectedNode();
+      } else if (e.key === "F2" || (e.code === "Space" && selectedNode)) {
+        e.preventDefault();
+        if (selectedNode) startInlineEdit(selectedNode);
+      } else if (e.key === "Escape") {
+        setEditingNodeId(null);
+        setSelectedNodeId(null);
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        if (e.shiftKey) redo();
+        else undo();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
+        e.preventDefault();
+        redo();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedNode, addSubtopic, addSiblingTopic, deleteSelectedNode, undo, redo]);
+
+  // Double Click Canvas to Add Topic Box
+  const handleCanvasDoubleClick = (e: React.MouseEvent) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const clickX = (e.clientX - rect.left - pan.x) / zoom;
+    const clickY = (e.clientY - rect.top - pan.y) / zoom;
+    addIndependentTopic(clickX - 90, clickY - 24);
+  };
+
+  // Zoom to Mouse Pointer
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+      const newZoom = Math.min(Math.max(zoom * zoomFactor, 0.25), 3);
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      setPan(prev => ({
+        x: mouseX - (mouseX - prev.x) * (newZoom / zoom),
+        y: mouseY - (mouseY - prev.y) * (newZoom / zoom)
+      }));
+      setZoom(newZoom);
+    } else {
+      setPan(prev => ({ x: prev.x - e.deltaX, y: prev.y - e.deltaY }));
+    }
+  };
+
+  // Node Dragging Handlers
+  const handleNodeMouseDown = (e: React.MouseEvent, node: MindNode) => {
     e.stopPropagation();
     setSelectedNodeId(node.id);
     setDraggingNodeId(node.id);
-    setDragOffset({ x: e.clientX - node.x, y: e.clientY - node.y });
+    setDragOffset({
+      x: e.clientX / zoom - node.x,
+      y: e.clientY / zoom - node.y
+    });
   };
 
-  const handleMouseMoveCanvas = (e: React.MouseEvent) => {
+  // Canvas Pan Handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button === 0 || e.button === 1) {
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
     if (draggingNodeId) {
-      const newX = e.clientX - dragOffset.x;
-      const newY = e.clientY - dragOffset.y;
-      setNodes(prev => prev.map(n => n.id === draggingNodeId ? { ...n, x: newX, y: newY } : n));
+      const newX = e.clientX / zoom - dragOffset.x;
+      const newY = e.clientY / zoom - dragOffset.y;
+      setNodes(prev => prev.map(n => (n.id === draggingNodeId ? { ...n, x: newX, y: newY } : n)));
     } else if (isPanning) {
       setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
     }
   };
 
-  const handleMouseUpCanvas = () => {
-    setDraggingNodeId(null);
+  const handleMouseUp = () => {
+    if (draggingNodeId) {
+      setDraggingNodeId(null);
+    }
     setIsPanning(false);
   };
 
-  // Export Mind Map Canvas to Ultra 4K High Definition PNG
+  // Export Mind Map Canvas to Ultra 4K PNG
   const exportPNG = async () => {
     const canvas = document.createElement("canvas");
-    // Ultra 4K Crisp Resolution (3840x2160)
     canvas.width = 3840;
     canvas.height = 2160;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Enable high definition text anti-aliasing
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "high";
+    // Dark Studio Background
+    const bgGrad = ctx.createLinearGradient(0, 0, 3840, 2160);
+    bgGrad.addColorStop(0, "#070B14");
+    bgGrad.addColorStop(0.5, "#0D1527");
+    bgGrad.addColorStop(1, "#070B14");
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, 3840, 2160);
 
-    ctx.scale(2, 2); // 2x Scale for 4K canvas context
+    // Subtle Grid dots
+    ctx.fillStyle = "rgba(255, 255, 255, 0.04)";
+    for (let x = 0; x < 3840; x += 40) {
+      for (let y = 0; y < 2160; y += 40) {
+        ctx.beginPath();
+        ctx.arc(x, y, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
 
-    ctx.fillStyle = "#0B0F19";
-    ctx.fillRect(0, 0, 1920, 1080);
+    // Top watermark branding
+    ctx.fillStyle = "rgba(168, 85, 247, 0.6)";
+    ctx.font = "bold 26px sans-serif";
+    ctx.fillText("FLOWTRACK PRO • ULTRA HD STUDY MIND MAP", 80, 80);
 
+    ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+    ctx.font = "16px sans-serif";
+    ctx.fillText(`Exported on ${new Date().toLocaleDateString()} • ${nodes.length} Key Concepts`, 80, 115);
+
+    // Bounding Box Calculation
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    nodes.forEach(n => {
+      minX = Math.min(minX, n.x);
+      minY = Math.min(minY, n.y);
+      maxX = Math.max(maxX, n.x + 200);
+      maxY = Math.max(maxY, n.y + 60);
+    });
+
+    const treeW = maxX - minX || 1000;
+    const treeH = maxY - minY || 800;
+    const scale = Math.min(3000 / treeW, 1600 / treeH, 1.6);
+    const offsetX = (3840 - treeW * scale) / 2 - minX * scale;
+    const offsetY = (2160 - treeH * scale) / 2 - minY * scale + 40;
+
+    // Draw Connectors
     nodes.forEach(node => {
       if (!node.parentId) return;
       const parent = nodes.find(n => n.id === node.parentId);
       if (!parent) return;
 
-      const pX = parent.x + 80;
-      const pY = parent.y + 20;
-      const cX = node.x + 80;
-      const cY = node.y + 20;
-      const midX = (pX + cX) / 2;
+      const pW = parent.parentId === null ? 220 : 180;
+      const pH = 48;
+      const nW = 180;
+      const nH = 48;
+
+      const isLeft = node.x < parent.x;
+      const startX = (isLeft ? parent.x : parent.x + pW) * scale + offsetX;
+      const startY = (parent.y + pH / 2) * scale + offsetY;
+      const endX = (isLeft ? node.x + nW : node.x) * scale + offsetX;
+      const endY = (node.y + nH / 2) * scale + offsetY;
 
       ctx.beginPath();
-      ctx.moveTo(pX, pY);
-      ctx.bezierCurveTo(midX, pY, midX, cY, cX, cY);
-      ctx.strokeStyle = node.color || "#a855f7";
-      ctx.lineWidth = curveWidth * 1.2;
+      ctx.moveTo(startX, startY);
+      const cpX = (startX + endX) / 2;
+      ctx.bezierCurveTo(cpX, startY, cpX, endY, endX, endY);
+      ctx.strokeStyle = node.color || "#8b5cf6";
+      ctx.lineWidth = 4 * scale;
       ctx.stroke();
     });
 
+    // Draw Nodes
     nodes.forEach(node => {
-      const w = node.id === "root" ? 180 : 160;
-      const h = 44;
-      const radius = 22;
+      const isRoot = node.parentId === null;
+      const w = (isRoot ? 220 : 180) * scale;
+      const h = 48 * scale;
+      const x = node.x * scale + offsetX;
+      const y = node.y * scale + offsetY;
 
-      ctx.fillStyle = node.id === "root" ? "rgba(168,85,247,0.35)" : "rgba(15,23,42,0.9)";
-      ctx.strokeStyle = node.color || "#a855f7";
-      ctx.lineWidth = 2;
-
+      // Glow & Card
+      ctx.fillStyle = isRoot ? "#1e1b4b" : "#0f172a";
+      ctx.strokeStyle = node.color || "#c084fc";
+      ctx.lineWidth = 3 * scale;
       ctx.beginPath();
       if (typeof ctx.roundRect === "function") {
-        ctx.roundRect(node.x, node.y, w, h, radius);
+        ctx.roundRect(x, y, w, h, 14 * scale);
       } else {
-        ctx.rect(node.x, node.y, w, h);
+        ctx.rect(x, y, w, h);
       }
       ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = "#FFFFFF";
-      ctx.font = "bold 14px Inter, sans-serif";
+      // Text
+      ctx.fillStyle = "#ffffff";
+      ctx.font = `bold ${Math.round(15 * scale)}px sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(node.text, node.x + w / 2, node.y + h / 2);
+      ctx.fillText(node.text, x + w / 2, y + h / 2);
     });
 
     const dataUrl = canvas.toDataURL("image/png", 1.0);
@@ -381,59 +675,53 @@ export function MindMapPage() {
     }
   };
 
-  // Excalidraw Clear Canvas
-  const clearExcalidrawCanvas = () => {
-    if (excalidrawAPI) {
-      excalidrawAPI.resetScene();
-      showToast("Excalidraw Whiteboard Cleared!", "info");
-    } else {
-      showToast("Excalidraw engine initializing...", "info");
-    }
+  // Export Mind Map as Markdown Outline
+  const exportMarkdown = () => {
+    const root = nodes.find(n => n.parentId === null) || nodes[0];
+    let md = `# ${root.text}\n\n`;
+
+    const buildSubtree = (parentId: string, level: number) => {
+      const children = nodes.filter(n => n.parentId === parentId);
+      children.forEach(child => {
+        const indent = "  ".repeat(level);
+        const statusEmoji = child.status === "done" ? " [x]" : " [ ]";
+        md += `${indent}-${statusEmoji} **${child.text}**\n`;
+        buildSubtree(child.id, level + 1);
+      });
+    };
+
+    buildSubtree(root.id, 0);
+
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `FlowTrack_MindMap_${new Date().toISOString().slice(0, 10)}.md`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast("Mind Map Outline exported as Markdown!", "success");
   };
 
-  // Whiteboard Canvas PNG Export
-  const exportExcalidrawPNG = async () => {
-    try {
-      const container = excalidrawContainerRef.current;
-      const canvasEl = container ? container.querySelector("canvas") : document.querySelector("canvas");
-      if (canvasEl && canvasEl instanceof HTMLCanvasElement) {
-        const dataUrl = canvasEl.toDataURL("image/png");
-        const defaultFilename = `Whiteboard_${new Date().toISOString().slice(0, 10)}.png`;
-        const res = await saveImageSafely(dataUrl, defaultFilename);
-        if (res.success) {
-          showToast(`✅ Whiteboard saved: ${res.filename || defaultFilename}`, "success");
-        }
-        return;
-      }
-    } catch (err) {
-      console.warn("Canvas DOM export error:", err);
-    }
-    showToast("Whiteboard image export ready!", "info");
-  };
+  // Filtered nodes by search query
+  const matchingNodeIds = useMemo(() => {
+    if (!searchQuery.trim()) return new Set<string>();
+    const q = searchQuery.toLowerCase();
+    return new Set(nodes.filter(n => n.text.toLowerCase().includes(q)).map(n => n.id));
+  }, [nodes, searchQuery]);
 
   return (
-    <div className={`space-y-6 ${isFullscreen ? "fixed inset-0 z-50 bg-[#0B0F19] p-6 overflow-hidden" : ""}`}>
-      {/* ─── Header Controls Panel ────────────────────────────────────────── */}
-      <Panel className="bg-slate-900/90 border-slate-800 backdrop-blur-md p-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center space-x-3">
-            <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 shadow-lg shadow-purple-500/5">
-              <Sparkles className="w-5 h-5 animate-pulse" />
+    <div className="flex flex-col h-[calc(100vh-4rem)] p-4 space-y-3 bg-slate-950 text-slate-100 overflow-hidden select-none">
+      {/* ─── Header Toolbar ─────────────────────────────────────────────────── */}
+      <Panel className="p-3 bg-slate-900/90 backdrop-blur border-slate-800 shadow-xl rounded-2xl shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* Left: Mode Tabs & Title */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 mr-2">
+              <BrainCircuit className="w-5 h-5 text-purple-400 animate-pulse" />
+              <span className="font-extrabold text-sm tracking-wide text-white">Visual Studio</span>
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-                🧠 Mind Map Whiteboard
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                  {engineMode === "tree" ? "Organic Curved Tree Engine" : "Excalidraw Freehand Engine"}
-                </span>
-              </h1>
-              <p className="text-xs text-slate-400">Interactive Visual Topic & Branch Planner</p>
-            </div>
-          </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Dual Engine Tabs */}
-            <div className="flex items-center p-1 rounded-xl bg-slate-950/80 border border-slate-800">
+            <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
               <button
                 onClick={() => setEngineMode("tree")}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
@@ -442,368 +730,536 @@ export function MindMapPage() {
                     : "text-slate-400 hover:text-slate-200"
                 }`}
               >
-                🧠 Organic Mind Map
+                🧠 Smart Mind Map
               </button>
               <button
-                onClick={() => setEngineMode("excalidraw")}
+                onClick={() => setEngineMode("whiteboard")}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                  engineMode === "excalidraw"
+                  engineMode === "whiteboard"
                     ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
                     : "text-slate-400 hover:text-slate-200"
                 }`}
               >
-                ✏️ Excalidraw Whiteboard
+                🎨 Studio Whiteboard
               </button>
             </div>
 
-            {/* Tree Engine Toolbar Actions */}
+            {/* Quick Templates Dropdown */}
+            {engineMode === "tree" && (
+              <div className="hidden lg:flex items-center gap-1.5 pl-2 border-l border-slate-800">
+                <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
+                  <LayoutTemplate className="w-3.5 h-3.5 text-purple-400" /> Templates:
+                </span>
+                {Object.entries(TEMPLATES).map(([key, t]) => (
+                  <button
+                    key={key}
+                    onClick={() => loadTemplate(key)}
+                    className="px-2.5 py-1 text-[11px] font-medium bg-slate-800/80 hover:bg-purple-600/30 hover:text-purple-200 rounded-lg text-slate-300 border border-slate-700/60 transition"
+                  >
+                    {t.name.split(" ")[0]} {t.name.split(" ")[1]}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Right: Actions */}
+          <div className="flex items-center gap-2">
             {engineMode === "tree" && (
               <>
-                <button
-                  onClick={addIndependentTopic}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 transition flex items-center gap-1.5"
-                  title="Add independent main topic box"
-                >
-                  <Plus className="w-3.5 h-3.5" /> <span>Topic Box</span>
-                </button>
-
-                <button
-                  onClick={() => addSubtopic(selectedNodeId || "root")}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 transition flex items-center gap-1.5"
-                  title="Add connected child subtopic"
-                >
-                  <Plus className="w-3.5 h-3.5" /> <span>Subtopic</span>
-                </button>
-
-                {/* 🎨 Dedicated Color Box Bar */}
-                <div className="flex items-center gap-1 bg-slate-950/80 border border-slate-800 rounded-lg px-2.5 py-1">
-                  <Palette className="w-3.5 h-3.5 text-cyan-400 mr-1 shrink-0" />
-                  <div className="flex items-center gap-1.5">
-                    {COLOR_PRESETS.map((preset) => (
-                      <button
-                        key={preset.name}
-                        onClick={() => {
-                          setActiveColor(preset.hex);
-                          if (selectedNodeId) {
-                            updateNodeColor(selectedNodeId, preset.hex);
-                          }
-                        }}
-                        className={`w-4 h-4 rounded-full transition-transform hover:scale-125 border ${
-                          (selectedNode?.color === preset.hex || (!selectedNode && activeColor === preset.hex))
-                            ? "border-white ring-2 ring-cyan-400 scale-125 shadow-lg"
-                            : "border-transparent opacity-75 hover:opacity-100"
-                        }`}
-                        style={{ backgroundColor: preset.hex }}
-                        title={`${preset.name} ${selectedNode ? "— Change selected node color" : "— Active color for new nodes"}`}
-                      />
-                    ))}
-                  </div>
+                {/* Search Bar */}
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    placeholder="Find concept..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-36 md:w-44 pl-8 pr-2.5 py-1.5 text-xs bg-slate-950 border border-slate-700/70 rounded-xl text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:w-52 transition-all"
+                  />
+                  {searchQuery && (
+                    <button 
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
 
-                {/* Templates Dropdown */}
-                <div className="flex items-center gap-1 bg-slate-950/80 border border-slate-800 rounded-lg px-2 py-1">
-                  <LayoutTemplate className="w-3.5 h-3.5 text-purple-400" />
-                  <select 
-                    onChange={(e) => loadTemplate(e.target.value)}
-                    defaultValue=""
-                    className="bg-transparent text-xs text-slate-300 outline-none cursor-pointer"
+                {/* AI Mind Map Generator Button */}
+                <button
+                  onClick={() => setShowAiModal(true)}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-600/25 border border-purple-400/30 transition flex items-center gap-1.5 animate-pulse"
+                >
+                  <Wand2 className="w-3.5 h-3.5" /> <span>AI Generator</span>
+                </button>
+
+                {/* Auto-Align Tree */}
+                <button
+                  onClick={autoAlignTree}
+                  className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 transition flex items-center gap-1.5"
+                  title="Auto-organize nodes into clean hierarchical layout"
+                >
+                  <LayoutTemplate className="w-3.5 h-3.5" /> <span>Auto-Align</span>
+                </button>
+
+                {/* Add Topic Box */}
+                <button
+                  onClick={() => addIndependentTopic()}
+                  className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 transition flex items-center gap-1"
+                  title="Add independent topic box"
+                >
+                  <Plus className="w-3.5 h-3.5" /> <span>+ Topic</span>
+                </button>
+
+                {/* Add Subtopic */}
+                <button
+                  onClick={() => addSubtopic()}
+                  className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 transition flex items-center gap-1"
+                  title="Add child subtopic to selected node (Shortcut: Tab)"
+                >
+                  <CornerDownRight className="w-3.5 h-3.5" /> <span>+ Subtopic</span>
+                </button>
+
+                {/* Color Palette Picker */}
+                <div className="hidden xl:flex items-center gap-1 px-2 py-1 bg-slate-950/80 border border-slate-800 rounded-xl">
+                  {COLOR_PRESETS.map(c => (
+                    <button
+                      key={c.hex}
+                      onClick={() => setNodeColor(c.hex)}
+                      className={`w-4 h-4 rounded-full transition transform hover:scale-125 ${
+                        activeColor === c.hex ? "ring-2 ring-white scale-110" : ""
+                      }`}
+                      style={{ backgroundColor: c.hex }}
+                      title={`Accent: ${c.name}`}
+                    />
+                  ))}
+                </div>
+
+                {/* Undo / Redo */}
+                <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-0.5">
+                  <button
+                    onClick={undo}
+                    disabled={historyIdx <= 0}
+                    className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400"
+                    title="Undo (Ctrl+Z)"
                   >
-                    <option value="" disabled>Templates</option>
-                    <option value="chapter" className="bg-slate-900 text-slate-200">📖 Chapter Plan</option>
-                    <option value="project" className="bg-slate-900 text-slate-200">🚀 Project Plan</option>
-                  </select>
+                    <Undo className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={redo}
+                    disabled={historyIdx >= history.length - 1}
+                    className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400"
+                    title="Redo (Ctrl+Y)"
+                  >
+                    <Redo className="w-3.5 h-3.5" />
+                  </button>
                 </div>
 
-                <button
-                  onClick={autoLayout}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 transition flex items-center gap-1"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" /> Auto Align
-                </button>
-
-                <button
-                  onClick={centerMindMap}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 transition flex items-center gap-1"
-                  title="Center View on Mind Map"
-                >
-                  <Move className="w-3.5 h-3.5" /> Center View
-                </button>
-
+                {/* Export Dropdown / Buttons */}
                 <button
                   onClick={exportPNG}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1"
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-purple-600/30 hover:bg-purple-600/40 text-purple-200 border border-purple-500/40 transition flex items-center gap-1 shadow-md shadow-purple-500/20"
+                  title="Export High-Resolution 4K PNG"
                 >
-                  <Download className="w-3.5 h-3.5" /> Export PNG
+                  <Download className="w-3.5 h-3.5" /> <span>4K PNG</span>
                 </button>
 
                 <button
-                  onClick={clearTreeCanvas}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 transition flex items-center gap-1"
+                  onClick={exportMarkdown}
+                  className="p-1.5 rounded-xl text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition"
+                  title="Export Markdown Outline (.md)"
                 >
-                  <RotateCcw className="w-3.5 h-3.5" /> Reset
+                  <FileText className="w-3.5 h-3.5" />
                 </button>
 
-                {selectedNodeId && selectedNodeId !== "root" && (
-                  <button
-                    onClick={() => deleteNode(selectedNodeId)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 transition flex items-center gap-1"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" /> Delete Node
-                  </button>
-                )}
+                {/* Shortcuts Guide */}
+                <button
+                  onClick={() => setShowShortcutsModal(true)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition"
+                  title="Keyboard Shortcuts"
+                >
+                  <HelpCircle className="w-3.5 h-3.5" />
+                </button>
               </>
             )}
 
-            {/* Excalidraw Engine Toolbar Actions */}
-            {engineMode === "excalidraw" && (
-              <>
-                <button
-                  onClick={exportExcalidrawPNG}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-600/30 hover:bg-purple-600/40 text-purple-200 border border-purple-500/40 transition flex items-center gap-1 shadow-md shadow-purple-500/20"
-                >
-                  <Download className="w-3.5 h-3.5" /> Download PNG
-                </button>
-
-                <button
-                  onClick={clearExcalidrawCanvas}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 transition flex items-center gap-1"
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> Clear All
-                </button>
-
-                <button
-                  onClick={() => setIsFullscreen(!isFullscreen)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1"
-                >
-                  {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5 text-purple-400" />}
-                  {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-                </button>
-              </>
-            )}
+            {/* Fullscreen Toggle */}
+            <button
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              className="p-1.5 rounded-xl text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition"
+              title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+            >
+              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5 text-purple-400" />}
+            </button>
           </div>
         </div>
       </Panel>
 
-      {/* ─── Main Mind Map Canvas ─────────────────────────────────────────── */}
+      {/* ─── Main Mind Map Canvas / Whiteboard ───────────────────────────────── */}
       {engineMode === "tree" ? (
-        <div 
-          ref={containerRef}
-          onMouseMove={handleMouseMoveCanvas}
-          onMouseUp={handleMouseUpCanvas}
-          onMouseLeave={handleMouseUpCanvas}
-          onMouseDown={(e) => {
-            const target = e.target as HTMLElement;
-            if (
-              target.closest(".mindmap-node") || 
-              target.closest("button") || 
-              target.closest("input") || 
-              target.closest("select")
-            ) {
-              return;
-            }
-            setSelectedNodeId(null);
-            setIsPanning(true);
-            setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-          }}
-          onWheel={(e) => {
-            if (e.ctrlKey || e.metaKey) {
-              e.preventDefault();
-              const factor = e.deltaY < 0 ? 1.12 : 0.88;
-              zoomAroundPoint(factor, e.clientX, e.clientY);
-            } else {
-              setPan(p => ({
-                x: p.x - e.deltaX * 0.85,
-                y: p.y - e.deltaY * 0.85
-              }));
-            }
-          }}
-          className={`relative w-full ${isFullscreen ? "h-[calc(100vh-140px)]" : "h-[calc(100vh-210px)] min-h-[620px]"} rounded-2xl bg-[#070b14] border border-slate-800/80 overflow-hidden shadow-2xl select-none cursor-grab active:cursor-grabbing`}
-          style={{
-            backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.08) 1.5px, transparent 0)",
-            backgroundSize: "28px 28px"
-          }}
-        >
-          {/* Zoom & Viewport Controls */}
-          <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 bg-slate-900/95 border border-slate-800 p-1.5 rounded-xl backdrop-blur-md shadow-2xl">
-            <button onClick={() => zoomAroundPoint(0.85)} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-300 transition-colors" title="Zoom Out">
-              <ZoomOut className="w-4 h-4" />
-            </button>
-            <button 
-              onClick={() => { setZoom(1); centerMindMap(); }} 
-              className="text-xs font-bold text-cyan-300 hover:text-white px-2 py-0.5 rounded hover:bg-white/5 transition-colors min-w-[46px] text-center"
-              title="Click to Reset Zoom to 100%"
-            >
-              {Math.round(zoom * 100)}%
-            </button>
-            <button onClick={() => zoomAroundPoint(1.15)} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-300 transition-colors" title="Zoom In">
-              <ZoomIn className="w-4 h-4" />
-            </button>
-            <div className="w-[1px] h-4 bg-white/10 mx-0.5" />
-            <button onClick={centerMindMap} className="p-1.5 hover:bg-slate-800 rounded-lg text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-1 text-xs font-semibold px-2" title="Center View on Nodes">
-              <Move className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Center</span>
-            </button>
-            <button onClick={() => setIsFullscreen(!isFullscreen)} className="p-1.5 hover:bg-slate-800 rounded-lg text-purple-400 transition-colors" title="Toggle Fullscreen">
-              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-            </button>
-          </div>
-
-          {/* Quick Helper Floating Pill */}
-          <div className="absolute bottom-4 left-4 z-20 flex items-center gap-2 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-xl backdrop-blur-md text-[11px] text-slate-400 shadow-xl">
-            <span>Nodes: <strong className="text-white">{nodes.length}</strong></span>
-            <span>•</span>
-            <button onClick={centerMindMap} className="text-cyan-400 hover:underline font-semibold flex items-center gap-1">
-              <Move className="w-3 h-3" /> Center View
-            </button>
-          </div>
-
-          {/* Color Palette bar for selected node */}
-          {selectedNode && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-slate-900/95 border border-slate-800 px-4 py-2 rounded-2xl backdrop-blur-md shadow-xl">
-              <span className="text-xs font-semibold text-slate-400 flex items-center gap-1">
-                <Palette className="w-3.5 h-3.5 text-purple-400" /> Color:
-              </span>
-              <div className="flex items-center gap-1.5">
-                {COLOR_PRESETS.map((preset) => (
-                  <button
-                    key={preset.name}
-                    onClick={() => updateNodeColor(selectedNode.id, preset.hex)}
-                    className={`w-6 h-6 rounded-full border transition transform hover:scale-110 ${selectedNode.color === preset.hex ? "border-white ring-2 ring-purple-500 scale-110" : "border-transparent"}`}
-                    style={{ backgroundColor: preset.hex }}
-                    title={preset.name}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Canvas SVG Lines & Floating Nodes Container */}
-          <div 
-            className="w-full h-full transform-gpu origin-top-left"
-            style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
+        <div className="relative flex-1 rounded-2xl overflow-hidden border border-slate-800/80 bg-[#070B14] shadow-2xl">
+          <div
+            ref={containerRef}
+            className={`w-full h-full relative overflow-hidden select-none ${
+              isPanning ? "cursor-grabbing" : "cursor-grab"
+            }`}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onWheel={handleWheel}
+            onDoubleClick={handleCanvasDoubleClick}
           >
-            {/* SVG Connecting Curves */}
-            <svg className="absolute inset-0 w-full h-full overflow-visible pointer-events-none z-0">
-              <defs>
-                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="3" result="blur" />
-                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                </filter>
-              </defs>
+            {/* Ambient Background Grid Pattern */}
+            <div
+              className="absolute inset-0 pointer-events-none opacity-20"
+              style={{
+                backgroundImage: `radial-gradient(circle at 1.5px 1.5px, #8b5cf6 1.2px, transparent 0)`,
+                backgroundSize: `${32 * zoom}px ${32 * zoom}px`,
+                backgroundPosition: `${pan.x}px ${pan.y}px`
+              }}
+            />
 
+            {/* Transform Container for SVG & Floating Nodes */}
+            <div
+              className="absolute inset-0 origin-top-left"
+              style={{
+                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                transition: isPanning || draggingNodeId ? "none" : "transform 0.08s ease-out"
+              }}
+            >
+              {/* Dynamic Connecting Curved Lines */}
+              <svg className="absolute inset-0 w-[8000px] h-[8000px] pointer-events-none overflow-visible">
+                <defs>
+                  <linearGradient id="curveGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#a855f7" stopOpacity="0.8" />
+                    <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.8" />
+                  </linearGradient>
+                </defs>
+
+                {nodes.map(node => {
+                  if (!node.parentId) return null;
+                  const parent = nodes.find(n => n.id === node.parentId);
+                  if (!parent || parent.collapsed) return null;
+
+                  const pW = parent.parentId === null ? 220 : 180;
+                  const pH = 48;
+                  const nW = 180;
+                  const nH = 48;
+
+                  const isLeft = node.x < parent.x;
+                  const startX = isLeft ? parent.x : parent.x + pW;
+                  const startY = parent.y + pH / 2;
+                  const endX = isLeft ? node.x + nW : node.x;
+                  const endY = node.y + nH / 2;
+
+                  let pathD = "";
+                  if (curveStyle === "bezier") {
+                    const cpX = (startX + endX) / 2;
+                    pathD = `M ${startX} ${startY} C ${cpX} ${startY}, ${cpX} ${endY}, ${endX} ${endY}`;
+                  } else if (curveStyle === "straight") {
+                    pathD = `M ${startX} ${startY} L ${endX} ${endY}`;
+                  } else {
+                    const midX = (startX + endX) / 2;
+                    pathD = `M ${startX} ${startY} H ${midX} V ${endY} H ${endX}`;
+                  }
+
+                  const isParentSelected = selectedNodeId === parent.id || selectedNodeId === node.id;
+
+                  return (
+                    <path
+                      key={`line-${node.id}`}
+                      d={pathD}
+                      fill="none"
+                      stroke={node.color || "#8b5cf6"}
+                      strokeWidth={isParentSelected ? curveWidth + 1.5 : curveWidth}
+                      strokeOpacity={isParentSelected ? 0.95 : 0.65}
+                      strokeLinecap="round"
+                      className="transition-all duration-200"
+                    />
+                  );
+                })}
+              </svg>
+
+              {/* Node Cards */}
               {nodes.map(node => {
-                if (!node.parentId) return null;
-                const parent = nodes.find(n => n.id === node.parentId);
-                if (!parent) return null;
+                // If parent is collapsed, hide this node
+                let current = node;
+                let isHidden = false;
+                while (current.parentId) {
+                  const p = nodes.find(n => n.id === current.parentId);
+                  if (p?.collapsed) {
+                    isHidden = true;
+                    break;
+                  }
+                  if (!p) break;
+                  current = p;
+                }
+                if (isHidden) return null;
 
-                const parentIsRoot = parent.id === "root";
-                const isLeft = node.side === "left";
-
-                const pW = parentIsRoot ? 180 : 160;
-                const pH = 44;
-                const cW = 160;
-                const cH = 44;
-
-                const pX = isLeft ? parent.x : parent.x + pW;
-                const pY = parent.y + pH / 2;
-
-                const cX = isLeft ? node.x + cW : node.x;
-                const cY = node.y + cH / 2;
-
-                const controlDist = Math.abs(cX - pX) * 0.55;
-                const cp1X = isLeft ? pX - controlDist : pX + controlDist;
-                const cp2X = isLeft ? cX + controlDist : cX - controlDist;
-
-                const strokeColor = node.color || "#a855f7";
+                const isSelected = selectedNodeId === node.id;
+                const isEditing = editingNodeId === node.id;
+                const isRoot = node.parentId === null;
+                const colorObj = COLOR_PRESETS.find(c => c.hex === node.color) || COLOR_PRESETS[0];
+                const hasChildren = nodes.some(n => n.parentId === node.id);
+                const isSearchMatch = matchingNodeIds.has(node.id);
 
                 return (
-                  <g key={`link-${node.id}`}>
-                    <path
-                      d={`M ${pX} ${pY} C ${cp1X} ${pY}, ${cp2X} ${cY}, ${cX} ${cY}`}
-                      fill="none"
-                      stroke={strokeColor}
-                      strokeWidth={curveWidth}
-                      strokeLinecap="round"
-                      opacity="0.85"
-                      filter="url(#glow)"
-                    />
-                    <circle cx={pX} cy={pY} r="3.5" fill={strokeColor} />
-                    <circle cx={cX} cy={cY} r="3.5" fill={strokeColor} />
-                  </g>
+                  <div
+                    key={node.id}
+                    onMouseDown={(e) => handleNodeMouseDown(e, node)}
+                    onDoubleClick={(e) => { e.stopPropagation(); startInlineEdit(node); }}
+                    className={`absolute flex items-center justify-between px-3 py-2 rounded-2xl cursor-pointer border transition-shadow select-none group ${
+                      isSelected
+                        ? "ring-4 ring-cyan-400/60 shadow-cyan-400/30 scale-[1.03] z-30"
+                        : "hover:scale-[1.02] hover:border-white/50 z-10"
+                    } ${isSearchMatch ? "ring-4 ring-amber-400 shadow-amber-400/40 animate-bounce" : ""}`}
+                    style={{
+                      left: `${node.x}px`,
+                      top: `${node.y}px`,
+                      width: isRoot ? "220px" : "180px",
+                      height: "48px",
+                      background: isRoot
+                        ? "linear-gradient(135deg, rgba(168,85,247,0.4) 0%, rgba(30,41,59,0.95) 100%)"
+                        : `linear-gradient(135deg, ${colorObj.bg} 0%, rgba(15,23,42,0.95) 100%)`,
+                      borderColor: isSearchMatch ? "#fbbf24" : colorObj.border,
+                      boxShadow: isSelected 
+                        ? `0 0 25px ${colorObj.border}88, 0 8px 25px -4px ${colorObj.border}55` 
+                        : `0 8px 20px -4px ${node.color}33`
+                    }}
+                  >
+                    {/* Status Pill Toggle */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); cycleNodeStatus(node.id); }}
+                      className="shrink-0 mr-2 p-0.5 rounded-full hover:bg-white/20 transition"
+                      title={`Status: ${node.status || "todo"} (Click to cycle)`}
+                    >
+                      {node.status === "done" ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      ) : node.status === "in-progress" ? (
+                        <Clock className="w-3.5 h-3.5 text-amber-400 animate-spin" />
+                      ) : (
+                        <Circle className="w-3.5 h-3.5 text-slate-400" />
+                      )}
+                    </button>
+
+                    {/* Text Field or Editable Input */}
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        onKeyDown={(e) => { 
+                          if (e.key === "Enter") saveInlineEdit();
+                          if (e.key === "Escape") setEditingNodeId(null);
+                        }}
+                        onBlur={saveInlineEdit}
+                        autoFocus
+                        className="w-full bg-slate-900 text-white font-bold text-center text-xs outline-none border-b-2 border-cyan-400 px-1 py-0.5 rounded"
+                      />
+                    ) : (
+                      <span 
+                        className="w-full text-center font-bold text-xs tracking-wide truncate text-white"
+                        style={{ color: colorObj.text }}
+                      >
+                        {node.text}
+                      </span>
+                    )}
+
+                    {/* Collapse / Expand Toggle Button for Parents */}
+                    {hasChildren && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleCollapse(node.id); }}
+                        className="shrink-0 ml-1.5 p-1 rounded-md bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition"
+                        title={node.collapsed ? "Expand subtopics" : "Collapse subtopics"}
+                      >
+                        {node.collapsed ? <ChevronRight className="w-3 h-3 text-cyan-300" /> : <ChevronDown className="w-3 h-3" />}
+                      </button>
+                    )}
+
+                    {/* Add Subtopic Quick (+) Action on Hover or Select */}
+                    {isSelected && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); addSubtopic(node.id); }}
+                        className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-purple-600 hover:bg-purple-500 text-white flex items-center justify-center text-xs font-bold shadow-lg border border-white/20 transition transform hover:scale-125 z-40"
+                        title="Add Subtopic (Shortcut: Tab)"
+                      >
+                        +
+                      </button>
+                    )}
+                  </div>
                 );
               })}
-            </svg>
+            </div>
+          </div>
 
-            {/* Mind Map Pill Nodes */}
-            {nodes.map(node => {
-              const isRoot = node.id === "root";
-              const isSelected = selectedNodeId === node.id;
-              const isEditing = editingNodeId === node.id;
-              const colorObj = COLOR_PRESETS.find(c => c.hex === node.color) || COLOR_PRESETS[0];
+          {/* Floating Canvas Quick Navigation Pill */}
+          <div className="absolute bottom-4 left-4 flex items-center gap-2 bg-slate-900/95 backdrop-blur border border-slate-800 rounded-2xl px-3 py-2 shadow-2xl z-30">
+            <button
+              onClick={() => setZoom(prev => Math.min(prev * 1.2, 3))}
+              className="p-1.5 hover:bg-slate-800 rounded-xl text-slate-300 hover:text-white transition"
+              title="Zoom In (Ctrl + Wheel)"
+            >
+              <ZoomIn className="w-4 h-4" />
+            </button>
+            <span className="text-xs font-mono font-bold text-slate-300 w-12 text-center">
+              {Math.round(zoom * 100)}%
+            </span>
+            <button
+              onClick={() => setZoom(prev => Math.max(prev * 0.8, 0.25))}
+              className="p-1.5 hover:bg-slate-800 rounded-xl text-slate-300 hover:text-white transition"
+              title="Zoom Out (Ctrl + Wheel)"
+            >
+              <ZoomOut className="w-4 h-4" />
+            </button>
 
-              return (
-                <div
-                  key={node.id}
-                  onMouseDown={(e) => handleMouseDownNode(e, node)}
-                  onDoubleClick={() => startInlineEdit(node)}
-                  className={`mindmap-node absolute z-10 rounded-2xl flex items-center justify-between px-4 py-2 cursor-grab active:cursor-grabbing transition-all duration-150 border-2 shadow-2xl backdrop-blur-xl ${
-                    isSelected ? "ring-4 ring-cyan-400/50 shadow-cyan-400/20 scale-105 z-20" : "hover:scale-102 hover:border-white/40"
-                  }`}
-                  style={{
-                    left: `${node.x}px`,
-                    top: `${node.y}px`,
-                    width: isRoot ? "220px" : "180px",
-                    height: "48px",
-                    background: isRoot
-                      ? "linear-gradient(135deg, rgba(168,85,247,0.35) 0%, rgba(30,41,59,0.95) 100%)"
-                      : `linear-gradient(135deg, ${colorObj.bg} 0%, rgba(15,23,42,0.95) 100%)`,
-                    borderColor: colorObj.border,
-                    boxShadow: isSelected 
-                      ? `0 0 25px ${colorObj.border}88, 0 8px 25px -4px ${colorObj.border}55` 
-                      : `0 8px 20px -4px ${node.color}44`
-                  }}
-                >
-                  <span
-                    className="w-2.5 h-2.5 rounded-full shrink-0 mr-2 shadow"
-                    style={{ backgroundColor: node.color || colorObj.border }}
-                  />
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={editText}
-                      onChange={(e) => setEditText(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") saveInlineEdit(); }}
-                      onBlur={saveInlineEdit}
-                      autoFocus
-                      className="w-full bg-transparent text-white font-bold text-center text-sm outline-none border-b border-white"
-                    />
-                  ) : (
-                    <span 
-                      className="w-full text-center font-bold text-sm tracking-wide truncate"
-                      style={{ color: colorObj.text }}
-                    >
-                      {node.text}
-                    </span>
-                  )}
+            <div className="h-4 w-px bg-slate-800 mx-1" />
 
-                  {/* Add Subtopic (+) Quick Action Button */}
-                  {isSelected && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); addSubtopic(node.id); }}
-                      className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-purple-600 hover:bg-purple-500 text-white flex items-center justify-center text-xs font-bold shadow-lg border border-white/20 transition transform hover:scale-125 z-30"
-                      title="Add Subtopic"
-                    >
-                      +
-                    </button>
-                  )}
-                </div>
-              );
-            })}
+            <button
+              onClick={centerView}
+              className="px-2.5 py-1 text-xs font-semibold bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 rounded-xl border border-purple-500/30 transition flex items-center gap-1"
+              title="Center View on Root Node"
+            >
+              <Compass className="w-3.5 h-3.5" /> <span>Center</span>
+            </button>
+          </div>
+
+          {/* Floating Instructions Banner */}
+          <div className="hidden md:flex absolute bottom-4 right-4 items-center gap-3 bg-slate-900/80 backdrop-blur border border-slate-800/80 rounded-2xl px-3.5 py-2 text-[11px] text-slate-400 z-20">
+            <span>✨ Double-click canvas to create Topic</span>
+            <span>•</span>
+            <span>Tab: Add Subtopic</span>
+            <span>•</span>
+            <span>Enter: Add Sibling</span>
+            <span>•</span>
+            <span>Del: Delete</span>
           </div>
         </div>
       ) : (
-        /* ─── Fabric.js Whiteboard Engine Mode ───────────────────────────────── */
-        <FabricWhiteboard storageKey="flowtrack_fabric_whiteboard_desktop_v1" />
+        /* ─── Studio Whiteboard Engine Mode ──────────────────────────────────── */
+        <div className="flex-1 rounded-2xl overflow-hidden border border-slate-800/80 shadow-2xl relative">
+          <FabricWhiteboard storageKey="flowtrack_fabric_whiteboard_desktop_v1" />
+        </div>
+      )}
+
+      {/* ─── AI Mind Map Generator Modal ────────────────────────────────────── */}
+      {showAiModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <Wand2 className="w-5 h-5 text-purple-400" />
+                <h3 className="font-extrabold text-base text-white">AI Mind Map Generator</h3>
+              </div>
+              <button 
+                onClick={() => setShowAiModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Custom Prompt Box */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-300">
+                Enter any Subject, Chapter, or Concept:
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="e.g. Operating Systems, Thermodynamics, SQL Queries..."
+                  value={customAiTopic}
+                  onChange={(e) => setCustomAiTopic(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") generateCustomAiMap(); }}
+                  className="flex-1 px-3.5 py-2.5 text-xs bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"
+                  autoFocus
+                />
+                <button
+                  onClick={generateCustomAiMap}
+                  className="px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-purple-600/30 flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5" /> <span>Generate</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Pre-built Academic Master Templates */}
+            <div className="space-y-2.5 pt-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                Instant Academic Blueprints:
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {Object.entries(TEMPLATES).map(([key, t]) => (
+                  <button
+                    key={key}
+                    onClick={() => loadTemplate(key)}
+                    className="p-3 text-left rounded-2xl bg-slate-950/70 hover:bg-purple-900/30 border border-slate-800 hover:border-purple-500/50 transition group"
+                  >
+                    <p className="text-xs font-bold text-white group-hover:text-purple-300 transition">
+                      {t.name}
+                    </p>
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      {t.nodes.length} Structured Concepts • Balanced Tree
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Keyboard Shortcuts Modal ────────────────────────────────────────── */}
+      {showShortcutsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-purple-400" />
+                <h3 className="font-extrabold text-base text-white">Keyboard Shortcuts</h3>
+              </div>
+              <button 
+                onClick={() => setShowShortcutsModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between py-1.5 border-b border-slate-800/60">
+                <span className="text-slate-300">Add Child Subtopic</span>
+                <kbd className="px-2 py-0.5 bg-slate-800 rounded font-mono font-bold text-purple-300">Tab</kbd>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-slate-800/60">
+                <span className="text-slate-300">Add Sibling Topic</span>
+                <kbd className="px-2 py-0.5 bg-slate-800 rounded font-mono font-bold text-purple-300">Enter</kbd>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-slate-800/60">
+                <span className="text-slate-300">Edit Selected Node</span>
+                <kbd className="px-2 py-0.5 bg-slate-800 rounded font-mono font-bold text-purple-300">F2 / Space</kbd>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-slate-800/60">
+                <span className="text-slate-300">Delete Node & Branches</span>
+                <kbd className="px-2 py-0.5 bg-slate-800 rounded font-mono font-bold text-purple-300">Del / Backspace</kbd>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-slate-800/60">
+                <span className="text-slate-300">Undo / Redo</span>
+                <kbd className="px-2 py-0.5 bg-slate-800 rounded font-mono font-bold text-purple-300">Ctrl+Z / Ctrl+Y</kbd>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-slate-800/60">
+                <span className="text-slate-300">Zoom Canvas</span>
+                <kbd className="px-2 py-0.5 bg-slate-800 rounded font-mono font-bold text-purple-300">Ctrl + Mouse Wheel</kbd>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-slate-800/60">
+                <span className="text-slate-300">Create Node at Cursor</span>
+                <kbd className="px-2 py-0.5 bg-slate-800 rounded font-mono font-bold text-purple-300">Double Click</kbd>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
