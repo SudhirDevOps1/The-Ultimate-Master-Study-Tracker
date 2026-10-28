@@ -617,23 +617,20 @@ export function WebPortalsPage() {
     const currentUrl = wv.getURL?.() || activeUrlRef.current || "";
     const isYouTube = /youtube\.com|youtube-nocookie\.com/i.test(currentUrl);
 
-    // ONLY apply YouTube ad acceleration and styling on YouTube!
+    // ONLY apply safe YouTube ad handling on YouTube
     // Never inject YouTube styles or scripts into Apna College or other portals.
     if (!isYouTube) return;
 
+    // Hide only standalone promo banners without breaking the HTML5 player layout
     const adCSS = `
-      .video-ads, .ytp-ad-module, .ytp-ad-overlay-container,
-      #masthead-ad, ytd-promoted-sparkles-web-renderer,
+      #masthead-ad, ytd-banner-promo-renderer,
+      ytd-statement-banner-renderer, #player-ads,
+      ytd-promoted-sparkles-web-renderer,
       ytd-promoted-video-renderer, ytd-display-ad-renderer,
-      ytd-statement-banner-renderer, ytd-banner-promo-renderer,
-      ytd-ad-slot-renderer, ytd-in-feed-ad-layout-renderer,
-      #player-ads, .sparkles-light-cta, #fulfilled-layout,
-      .ad-container, .adsbygoogle {
+      .adsbygoogle {
         display: none !important;
         visibility: hidden !important;
         height: 0px !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
       }
     `;
     try {
@@ -644,6 +641,8 @@ export function WebPortalsPage() {
       (() => {
         if (window.__flowtrack_yt_adskip_init) return;
         window.__flowtrack_yt_adskip_init = true;
+
+        let wasMutedByAdSkipper = false;
 
         const handleAds = () => {
           // 1. Skip button click (highest priority)
@@ -665,29 +664,32 @@ export function WebPortalsPage() {
           if (!video) return;
 
           if (isAdActive) {
-            // An ad is actively playing! Mute ad audio and fast-forward at 16x
-            video.muted = true;
-            try {
-              video.playbackRate = 16.0;
-            } catch(e) {}
-            if (!isNaN(video.duration) && isFinite(video.duration) && video.duration > 0.5) {
-              if (video.currentTime < video.duration - 0.2) {
-                video.currentTime = video.duration - 0.1;
-              }
+            // An ad is actively playing: Mute and accelerate playback safely
+            if (!video.muted) {
+              video.muted = true;
+              wasMutedByAdSkipper = true;
             }
+            try {
+              video.playbackRate = 8.0;
+            } catch(e) {}
+            // Attempt to trigger skip button again
             const skipBtn2 = document.querySelector(".ytp-skip-ad-button, .ytp-ad-skip-button, .ytp-ad-skip-button-modern");
             if (skipBtn2) {
               try { skipBtn2.click(); } catch(e) {}
             }
           } else {
-            // Normal video playback! Restore speed if it was accelerated by ad blocker
-            if (video.playbackRate > 4.0) {
+            // Normal video playback: Restore normal speed & unmute if muted by ad skipper
+            if (video.playbackRate > 3.0) {
               video.playbackRate = 1.0;
+            }
+            if (wasMutedByAdSkipper) {
+              video.muted = false;
+              wasMutedByAdSkipper = false;
             }
           }
         };
 
-        setInterval(handleAds, 250);
+        setInterval(handleAds, 300);
       })();
     `;
     try {

@@ -13,13 +13,6 @@ const AD_BLOCK_PATTERNS = [
   "*://pagead2.googlesyndication.com/*",
   "*://*.google-analytics.com/*",
 
-  // YouTube Specific Video Ad & Telemetry Endpoints
-  "*://*.youtube.com/pagead/*",
-  "*://*.youtube.com/api/stats/ads*",
-  "*://*.youtube.com/ptracking*",
-  "*://*.youtube.com/get_midroll_info*",
-  "*://*.youtube.com/youtubei/v1/player/ad_break*",
-
   // Third-Party Ad & Retargeting Networks
   "*://*.adnxs.com/*",
   "*://*.adroll.com/*",

@@ -13,6 +13,34 @@ import { exportSessionsToCSV, exportSubjectStatsToCSV, exportAllDataToCSV } from
 import { db } from "@/lib/db";
 
 import type { ThemeName } from "@/types/models";
+import {
+  Monitor,
+  Palette,
+  User,
+  ShieldCheck,
+  FileArchive,
+  FileSpreadsheet,
+  Clock,
+  Cloud,
+  BellRing,
+  Timer,
+  Laptop,
+  Code2,
+  AlertTriangle,
+  Database,
+  Copy,
+  FolderOpen,
+  Zap,
+  LayoutGrid,
+  Info,
+  Flame,
+  CheckCircle2,
+  Check,
+  RefreshCw,
+  Bell,
+  Volume2,
+  Terminal
+} from "lucide-react";
 
 function PomodoroSettingsPanel() {
   const pomodoro = usePomodoro();
@@ -314,13 +342,50 @@ export function SettingsPage() {
     setTimeout(() => setStatusMessage(""), 3000);
   };
 
+  type SettingsTab = "all" | "desktop" | "coding" | "theme" | "profile" | "data" | "cloud" | "pomodoro" | "danger";
+  const [activeTab, setActiveTab] = useState<SettingsTab>("all");
+
   return (
     <div className="space-y-5">
+      {/* 🧭 Professional Quick Category Navigation Bar */}
+      <div className="sticky top-0 z-20 -mx-2 px-2 py-2.5 bg-slate-950/85 backdrop-blur-xl border-b border-white/10 rounded-2xl flex items-center gap-1.5 overflow-x-auto no-scrollbar shadow-lg">
+        {[
+          { id: "all", label: "All Settings", icon: LayoutGrid },
+          { id: "desktop", label: "Desktop Native", icon: Monitor },
+          { id: "coding", label: "Coding & WakaTime", icon: Code2 },
+          { id: "theme", label: "Themes", icon: Palette },
+          { id: "profile", label: "Study Profile", icon: User },
+          { id: "pomodoro", label: "Pomodoro & Goals", icon: Timer },
+          { id: "data", label: "Storage & Vault", icon: Database },
+          { id: "cloud", label: "Cloud Sync", icon: Cloud },
+          { id: "danger", label: "Danger Zone", icon: AlertTriangle },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id as SettingsTab)}
+              className={`shrink-0 flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                isActive
+                  ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm shadow-cyan-500/10"
+                  : "bg-white/5 text-slate-400 hover:text-slate-200 hover:bg-white/10 border border-white/5"
+              }`}
+            >
+              <Icon className={`w-3.5 h-3.5 ${isActive ? "text-cyan-400" : "text-slate-400"}`} />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* 🖥️ Desktop Native Controls & Floating HUD Panel */}
+      {(activeTab === "all" || activeTab === "desktop") && (
       <Panel className="border-l-4 border-cyan-400 bg-slate-900/40 backdrop-blur-md space-y-4">
         <div>
-          <h3 className="text-xl font-bold text-white flex items-center gap-2">
-            🖥️ Desktop Native App Controls
+          <h3 className="text-xl font-bold text-white flex items-center gap-2.5">
+            <Monitor className="w-5 h-5 text-cyan-400" /> Desktop Native App Controls
           </h3>
           <p className="mt-1 text-xs text-slate-400">
             Configure system tray behavior, non-intrusive floating HUD mode, and background launch options.
@@ -464,117 +529,6 @@ export function SettingsPage() {
               Block video ads, telemetry, and tracking banners inside embedded study portals (YouTube, etc.).
             </p>
           </div>
-
-          {/* 7. Editor & Coding Integration (WakaTime Receiver) */}
-          <div className="p-4 rounded-2xl bg-slate-900/40 backdrop-blur-md shadow-inner border border-white/10 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-base">💻</span>
-                <span className="text-sm font-semibold text-white">Editor & Coding Integration</span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  Port 7777 (WakaTime Compatible)
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    const res = await (window as any).electron?.ipcRenderer?.invoke?.("heartbeat-status");
-                    if (res && res.isRunning) {
-                      showMessage(`✅ Local receiver running on port ${res.port}! Today: ${res.heartbeatsToday} heartbeats`);
-                    } else {
-                      showMessage("⚠️ Local receiver is not active or running.");
-                    }
-                  } catch {
-                    showMessage("⚠️ Heartbeat receiver status unavailable in web mode.");
-                  }
-                }}
-                className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold border border-white/10 transition-all"
-              >
-                Test Connection
-              </button>
-            </div>
-            <p className="text-xs text-slate-400">
-              FlowTrack runs a local, privacy-first WakaTime-compatible receiver on loopback (<code className="px-1 py-0.5 rounded bg-black/40 text-cyan-300">127.0.0.1:7777</code>). Seamlessly logs coding stats from VS Code, VSCodium, Google Antigravity, Cursor, and JetBrains.
-            </p>
-            <div className="p-3 rounded-xl bg-slate-950/80 border border-white/5 flex flex-col gap-2 font-mono text-xs text-slate-300">
-              <div className="flex items-center justify-between text-[11px] text-slate-400 font-sans">
-                <span>Configuration Snippet (~/.wakatime.cfg):</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const cfg = `[settings]\napi_key = flowtrack-local\napi_url = http://127.0.0.1:7777/api/v1\n`;
-                    navigator.clipboard.writeText(cfg);
-                    showMessage("📋 WakaTime config snippet copied to clipboard!");
-                  }}
-                  className="px-2 py-0.5 rounded bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 font-sans text-xs font-bold transition-all"
-                >
-                  Copy Config
-                </button>
-              </div>
-              <pre className="text-[11px] text-cyan-200/90 overflow-x-auto select-all whitespace-pre font-mono leading-relaxed bg-black/40 p-2.5 rounded-lg border border-white/5 block">
-{`[settings]
-api_key = flowtrack-local
-api_url = http://127.0.0.1:7777/api/v1`}
-              </pre>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    const res = await (window as any).electron?.ipcRenderer?.invoke?.("auto-configure-wakatime-cfg");
-                    if (res && res.ok) {
-                      showMessage(`⚡ Auto-configured ~/.wakatime.cfg! (${res.message || "Ready"})`);
-                    } else {
-                      showMessage(`⚠️ Failed: ${res?.error || "Could not write ~/.wakatime.cfg"}`);
-                    }
-                  } catch {
-                    showMessage("⚠️ Auto-config requires FlowTrack Pro desktop app.");
-                  }
-                }}
-                className="px-3 py-1.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-xs font-semibold border border-cyan-500/40 transition-all flex items-center gap-1.5 shadow-sm"
-              >
-                ⚡ Auto-Configure ~/.wakatime.cfg
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    const res = await (window as any).electron?.ipcRenderer?.invoke?.("send-test-heartbeat");
-                    if (res && res.ok) {
-                      showMessage("🧪 Test heartbeat logged! Check App Tracking > Developer tab.");
-                    } else {
-                      showMessage("⚠️ Could not log test heartbeat.");
-                    }
-                  } catch {
-                    showMessage("⚠️ Test heartbeat requires desktop mode.");
-                  }
-                }}
-                className="px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-semibold border border-emerald-500/40 transition-all flex items-center gap-1.5"
-              >
-                🧪 Send Test Heartbeat
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  (window as any).electron?.ipcRenderer?.invoke?.("open-heartbeat-folder");
-                }}
-                className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold border border-white/10 transition-all"
-              >
-                📂 Open Heartbeats Folder
-              </button>
-            </div>
-            <div className="p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/20 text-xs text-slate-300 space-y-1.5">
-              <p className="font-bold text-cyan-300 text-[11px] uppercase tracking-wide">3-Step Editor Setup Guide:</p>
-              <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-400">
-                <li>Install the free <strong className="text-white">WakaTime</strong> extension in VS Code, Cursor, Antigravity, or JetBrains (<code className="px-1 rounded bg-black/40 text-cyan-300">Ctrl+Shift+X</code> &rarr; search &quot;WakaTime&quot;).</li>
-                <li>Click <strong className="text-cyan-300">&quot;⚡ Auto-Configure ~/.wakatime.cfg&quot;</strong> above (or paste snippet into <code className="px-1 rounded bg-black/40 text-cyan-300">~/.wakatime.cfg</code>).</li>
-                <li>Start typing code! Your programming languages, files, and editors will appear under <strong className="text-white">App Tracking &gt; Developer</strong>.</li>
-              </ol>
-            </div>
-          </div>
         </div>
 
         {/* 💡 Troubleshooting Guidance: Hosts File Blocks Tip */}
@@ -602,11 +556,180 @@ api_url = http://127.0.0.1:7777/api/v1`}
         {/* 🚀 New Update Checker Card */}
         <UpdateChecker showMessage={showMessage} />
       </Panel>
+      )}
+
+      {/* 💻 Editor & Coding Integration (Port 7777 WakaTime Engine) */}
+      {(activeTab === "all" || activeTab === "coding") && (
+        <Panel className="border-l-4 border-emerald-400 bg-slate-900/40 backdrop-blur-md space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+                <Code2 className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-xl font-bold text-white">Editor & Coding Integration</h3>
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Port 7777 (WakaTime Engine)
+                  </span>
+                </div>
+                <p className="mt-0.5 text-xs text-slate-400">
+                  Local, privacy-first telemetry receiver on loopback (127.0.0.1:7777) for VS Code, VSCodium, Antigravity, Cursor, and JetBrains.
+                </p>
+              </div>
+            </div>
+            <FeedbackButton
+              variant="secondary"
+              className="text-xs"
+              onClick={async () => {
+                try {
+                  const res = await (window as any).electron?.ipcRenderer?.invoke?.("heartbeat-status");
+                  if (res && res.isRunning) {
+                    showMessage(`✅ Local receiver running on port ${res.port}! Today: ${res.heartbeatsToday} heartbeats`);
+                  } else {
+                    showMessage("⚠️ Local receiver is not active or running.");
+                  }
+                } catch {
+                  showMessage("⚠️ Heartbeat receiver status unavailable in web mode.");
+                }
+              }}
+              successText="Receiver Online!"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> Test Receiver Status
+            </FeedbackButton>
+          </div>
+
+          {/* 🔑 Important WakaTime VS Code Key Format Notice */}
+          <div className="p-3.5 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-xs text-cyan-200 space-y-2">
+            <div className="flex items-start gap-2.5">
+              <Info className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-semibold text-white">VS Code API Key Requirement:</p>
+                <p className="text-[11px] text-cyan-200/90 leading-relaxed">
+                  VS Code&apos;s official WakaTime extension requires a 36-character UUID format (e.g. <code className="px-1.5 py-0.5 rounded bg-black/50 text-cyan-300 font-mono font-bold select-all">00000000-0000-4000-8000-000000000000</code>). When prompted by VS Code for your API key, enter this UUID to satisfy extension validation!
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl bg-slate-950/80 border border-white/5 flex flex-col gap-2.5 font-mono text-xs text-slate-300">
+            <div className="flex items-center justify-between text-[11px] text-slate-400 font-sans flex-wrap gap-2">
+              <span className="font-medium text-slate-300 flex items-center gap-1.5">
+                <Terminal className="w-3.5 h-3.5 text-cyan-400" />
+                Configuration Snippet (<code className="text-cyan-300 font-mono">~/.wakatime.cfg</code>):
+              </span>
+              <div className="flex items-center gap-2">
+                <FeedbackButton
+                  variant="outline"
+                  className="text-xs py-1 px-2.5"
+                  onClick={() => {
+                    navigator.clipboard.writeText("00000000-0000-4000-8000-000000000000");
+                    showMessage("📋 UUID Key copied to clipboard!");
+                  }}
+                  successText="UUID Copied!"
+                >
+                  <Copy className="w-3.5 h-3.5" /> Copy UUID Key
+                </FeedbackButton>
+                <FeedbackButton
+                  variant="secondary"
+                  className="text-xs py-1 px-2.5"
+                  onClick={() => {
+                    const cfg = `[settings]\napi_key = 00000000-0000-4000-8000-000000000000\napi_url = http://127.0.0.1:7777/api/v1\n`;
+                    navigator.clipboard.writeText(cfg);
+                    showMessage("📋 WakaTime config snippet copied to clipboard!");
+                  }}
+                  successText="Config Copied!"
+                >
+                  <Copy className="w-3.5 h-3.5" /> Copy Config
+                </FeedbackButton>
+              </div>
+            </div>
+            <pre className="text-[11px] text-cyan-200/90 overflow-x-auto select-all whitespace-pre font-mono leading-relaxed bg-black/50 p-3 rounded-lg border border-white/5 block">
+{`[settings]
+api_key = 00000000-0000-4000-8000-000000000000
+api_url = http://127.0.0.1:7777/api/v1`}
+            </pre>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5 pt-1">
+            <FeedbackButton
+              variant="primary"
+              className="text-xs"
+              onClick={async () => {
+                try {
+                  const res = await (window as any).electron?.ipcRenderer?.invoke?.("auto-configure-wakatime-cfg");
+                  if (res && res.ok) {
+                    showMessage(`⚡ Auto-configured ~/.wakatime.cfg! (${res.message || "Ready"})`);
+                  } else {
+                    showMessage(`⚠️ Failed: ${res?.error || "Could not write ~/.wakatime.cfg"}`);
+                  }
+                } catch {
+                  showMessage("⚠️ Auto-config requires FlowTrack Pro desktop app.");
+                }
+              }}
+              successText="Configured ~/.wakatime.cfg!"
+            >
+              <Zap className="w-3.5 h-3.5" /> ⚡ Auto-Configure ~/.wakatime.cfg
+            </FeedbackButton>
+            <FeedbackButton
+              variant="outline"
+              className="text-xs"
+              onClick={async () => {
+                try {
+                  const res = await (window as any).electron?.ipcRenderer?.invoke?.("send-test-heartbeat");
+                  if (res && res.ok) {
+                    showMessage("🧪 Test heartbeat logged! Check App Tracking > Developer tab.");
+                  } else {
+                    showMessage("⚠️ Could not log test heartbeat.");
+                  }
+                } catch {
+                  showMessage("⚠️ Test heartbeat requires desktop mode.");
+                }
+              }}
+              successText="Heartbeat Sent!"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" /> 🧪 Send Test Heartbeat
+            </FeedbackButton>
+            <FeedbackButton
+              variant="ghost"
+              className="text-xs"
+              onClick={() => {
+                (window as any).electron?.ipcRenderer?.invoke?.("open-heartbeat-folder");
+              }}
+              successText="Folder Opened!"
+            >
+              <FolderOpen className="w-3.5 h-3.5" /> 📂 Open Heartbeats Folder
+            </FeedbackButton>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-white/5 text-xs text-slate-300 space-y-2">
+            <p className="font-bold text-cyan-300 text-[11px] uppercase tracking-wide flex items-center gap-1.5">
+              <Check className="w-3.5 h-3.5 text-cyan-400" />
+              3-Step Editor Setup Guide:
+            </p>
+            <ol className="list-decimal list-inside space-y-1.5 text-[11px] text-slate-400 leading-relaxed">
+              <li>
+                Install the free <strong className="text-white">WakaTime</strong> extension in VS Code, Cursor, Antigravity, or JetBrains (<code className="px-1.5 py-0.5 rounded bg-black/40 text-cyan-300 font-mono">Ctrl+Shift+X</code> &rarr; search &quot;WakaTime&quot;).
+              </li>
+              <li>
+                When VS Code prompts for your <strong className="text-white">WakaTime API Key</strong>, enter the valid UUID <code className="px-1.5 py-0.5 rounded bg-black/40 text-cyan-300 font-mono font-bold select-all">00000000-0000-4000-8000-000000000000</code>, or click <strong className="text-cyan-300">&quot;⚡ Auto-Configure ~/.wakatime.cfg&quot;</strong> above!
+              </li>
+              <li>
+                Start typing code! Your programming languages, files, and project names will appear in real time under <strong className="text-white">App Tracking &gt; Developer</strong>.
+              </li>
+            </ol>
+          </div>
+        </Panel>
+      )}
 
       {/* Theme Customization */}
+      {(activeTab === "all" || activeTab === "theme") && (
       <Panel>
         <div className="mb-4">
-          <h3 className="text-xl font-semibold text-white">🎨 Theme Customization</h3>
+          <h3 className="text-xl font-semibold text-white flex items-center gap-2.5">
+            <Palette className="w-5 h-5 text-violet-400" /> Theme Customization
+          </h3>
           <p className="mt-1 text-sm text-slate-400">Choose a color theme that matches your style.</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
@@ -645,11 +768,15 @@ api_url = http://127.0.0.1:7777/api/v1`}
           ))}
         </div>
       </Panel>
+      )}
 
       {/* Profile Section */}
+      {(activeTab === "all" || activeTab === "profile") && (
       <Panel className="space-y-4">
         <div>
-          <h3 className="text-xl font-semibold text-white">👤 Study Profile</h3>
+          <h3 className="text-xl font-semibold text-white flex items-center gap-2.5">
+            <User className="w-5 h-5 text-indigo-400" /> Study Profile
+          </h3>
           <p className="mt-1 text-sm text-slate-400">Personalize greetings and AI prompts based on your study journey.</p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -722,26 +849,32 @@ api_url = http://127.0.0.1:7777/api/v1`}
             </label>
           </div>
           
-          <button
+          <FeedbackButton
+            variant="primary"
             onClick={handleSaveProfile}
-            className="rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 px-6 py-2.5 font-bold text-slate-950 shadow-lg hover:scale-105 transition-transform"
+            successText="Profile Saved!"
           >
-            💾 Save Profile
-          </button>
+            <CheckCircle2 className="w-4 h-4" /> Save Profile
+          </FeedbackButton>
         </div>
       </Panel>
+      )}
 
-
+      {/* Backup and Data Storage */}
+      {(activeTab === "all" || activeTab === "data") && (
       <div className="grid gap-5 lg:grid-cols-2">
         {/* Backup */}
         <Panel className="space-y-6">
           <div>
-            <h3 className="text-xl font-semibold text-white">🔒 Encrypted Database Backup & Privacy Vault (Rule S10)</h3>
+            <h3 className="text-xl font-semibold text-white flex items-center gap-2.5">
+              <ShieldCheck className="w-5 h-5 text-emerald-400" /> Encrypted Database Backup & Privacy Vault
+            </h3>
         {/* ── REAL-TIME DATABASE HEALTH & STORAGE INSPECTOR ── */}
         <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-              <span>📊 Local Database Storage Inspector</span>
+              <Database className="w-4 h-4 text-cyan-400" />
+              <span>Local Database Storage Inspector</span>
             </h4>
             <FeedbackButton variant="ghost" className="text-xs" onClick={loadDbStats} successText="Refreshed!">
               🔄 Refresh Stats
@@ -837,7 +970,9 @@ api_url = http://127.0.0.1:7777/api/v1`}
           </div>
 
           <div className="mb-4">
-            <h3 className="text-xl font-semibold text-white">📦 Legacy JSON Backup</h3>
+            <h3 className="text-xl font-semibold text-white flex items-center gap-2.5">
+              <FileArchive className="w-5 h-5 text-amber-400" /> Legacy JSON Backup
+            </h3>
             <p className="mt-1 text-sm text-slate-400">Export or restore subjects, sessions, and settings in human-readable JSON.</p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -935,7 +1070,9 @@ api_url = http://127.0.0.1:7777/api/v1`}
         {/* CSV Data Export */}
         <Panel className="space-y-4">
           <div>
-            <h3 className="text-xl font-semibold text-white">📊 CSV Export</h3>
+            <h3 className="text-xl font-semibold text-white flex items-center gap-2.5">
+              <FileSpreadsheet className="w-5 h-5 text-teal-400" /> CSV Export
+            </h3>
             <p className="mt-1 text-sm text-slate-400">Export your study data as CSV files for backup or analysis.</p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -972,7 +1109,9 @@ api_url = http://127.0.0.1:7777/api/v1`}
         {/* Manual Time Entry */}
         <Panel className="space-y-4">
           <div>
-            <h3 className="text-xl font-semibold text-white">✏️ Manual Time Entry</h3>
+            <h3 className="text-xl font-semibold text-white flex items-center gap-2.5">
+              <Clock className="w-5 h-5 text-sky-400" /> Manual Time Entry
+            </h3>
             <p className="mt-1 text-sm text-slate-400">Add missed study time manually.</p>
           </div>
           <select value={manualSubjectId} onChange={(event) => setManualSubjectId(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white">
@@ -1018,11 +1157,15 @@ api_url = http://127.0.0.1:7777/api/v1`}
           </button>
         </Panel>
       </div>
+      )}
 
       {/* Cloud Sync Settings */}
+      {(activeTab === "all" || activeTab === "cloud") && (
       <Panel className="space-y-4">
         <div>
-          <h3 className="text-xl font-semibold text-white">☁️ Cloud Sync (PostgreSQL)</h3>
+          <h3 className="text-xl font-semibold text-white flex items-center gap-2.5">
+            <Cloud className="w-5 h-5 text-blue-400" /> Cloud Sync (PostgreSQL)
+          </h3>
           <p className="mt-1 text-sm text-slate-400">Sync your local data to a Neon serverless PostgreSQL database.</p>
         </div>
         <div className="space-y-4">
@@ -1091,11 +1234,16 @@ api_url = http://127.0.0.1:7777/api/v1`}
           </div>
         </div>
       </Panel>
+      )}
 
       {/* Goals and Notifications */}
+      {(activeTab === "all" || activeTab === "pomodoro") && (
+      <>
       <Panel className="space-y-4">
         <div>
-          <h3 className="text-xl font-semibold text-white">🎯 Goals and Notifications</h3>
+          <h3 className="text-xl font-semibold text-white flex items-center gap-2.5">
+            <BellRing className="w-5 h-5 text-pink-400" /> Goals and Notifications
+          </h3>
           <p className="mt-1 text-sm text-slate-400">Set your daily & weekly targets and enable productivity features.</p>
         {/* ── HARDWARE & SOUND LIVE VERIFICATION ── */}
         <div className="flex flex-wrap items-center gap-3 p-3.5 rounded-2xl bg-white/5 border border-white/5">
@@ -1241,17 +1389,24 @@ api_url = http://127.0.0.1:7777/api/v1`}
       {/* Pomodoro Settings */}
       <Panel className="space-y-4">
         <div>
-          <h3 className="text-xl font-semibold text-white">🍅 Pomodoro Settings</h3>
+          <h3 className="text-xl font-semibold text-white flex items-center gap-2.5">
+            <Timer className="w-5 h-5 text-rose-400" /> Pomodoro Settings
+          </h3>
           <p className="mt-1 text-sm text-slate-400">Customize your focus and break intervals.</p>
         </div>
         <PomodoroSettingsPanel />
       </Panel>
+      </>
+      )}
 
       {/* App Info & Developer details */}
+      {(activeTab === "all" || activeTab === "desktop" || activeTab === "profile") && (
       <div className="grid gap-5 lg:grid-cols-2">
         <Panel className="space-y-4">
           <div>
-            <h3 className="text-xl font-semibold text-white">📱 FlowTrack Pro Desktop App</h3>
+            <h3 className="text-xl font-semibold text-white flex items-center gap-2.5">
+              <Laptop className="w-5 h-5 text-indigo-400" /> FlowTrack Pro Desktop App
+            </h3>
             <p className="mt-1 text-sm text-slate-400">
               100% Offline & Native Electron Desktop Application. Your data stays 100% private on your machine.
             </p>
@@ -1275,7 +1430,9 @@ api_url = http://127.0.0.1:7777/api/v1`}
         <Panel className="space-y-4 border-l-4 border-cyan-400 bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950/20">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between">
             <div>
-              <h3 className="text-xl font-black text-white flex items-center gap-2">👨‍💻 About Developer</h3>
+              <h3 className="text-xl font-black text-white flex items-center gap-2.5">
+                <Flame className="w-5 h-5 text-amber-400" /> About Developer
+              </h3>
               <p className="mt-1 text-xs text-slate-400 font-semibold uppercase tracking-wider">Premium & Private Edition</p>
             </div>
             <div className="flex gap-2">
@@ -1294,11 +1451,15 @@ api_url = http://127.0.0.1:7777/api/v1`}
           </p>
         </Panel>
       </div>
+      )}
 
       {/* Danger Zone */}
+      {(activeTab === "all" || activeTab === "danger") && (
       <Panel className="space-y-4 border border-red-500/20 bg-red-950/5">
         <div>
-          <h3 className="text-xl font-semibold text-red-400">⚠️ Danger Zone</h3>
+          <h3 className="text-xl font-semibold text-red-400 flex items-center gap-2.5">
+            <AlertTriangle className="w-5 h-5 text-red-400" /> Danger Zone
+          </h3>
           <p className="mt-1 text-sm text-slate-400">Irreversible actions. Please be careful.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -1346,6 +1507,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
           <p className="text-xs text-slate-500">Deletes app tracking logs, subjects, sessions, settings, and reloads the app fresh.</p>
         </div>
       </Panel>
+      )}
     </div>
   );
 }

@@ -1208,13 +1208,13 @@ ipcMain.handle("auto-configure-wakatime-cfg", async () => {
   const os = require("os");
   const homeDir = os.homedir();
   const cfgPath = path.join(homeDir, ".wakatime.cfg");
-  const cfgContent = `[settings]\napi_key = flowtrack-local\napi_url = http://127.0.0.1:7777/api/v1\n`;
+  const cfgContent = `[settings]\napi_key = 00000000-0000-4000-8000-000000000000\napi_url = http://127.0.0.1:7777/api/v1\n`;
 
   try {
     if (fs.existsSync(cfgPath)) {
       const existing = fs.readFileSync(cfgPath, "utf8");
-      if (existing.includes("127.0.0.1:7777")) {
-        return { ok: true, path: cfgPath, message: "Already configured!" };
+      if (existing.includes("127.0.0.1:7777") && !existing.includes("flowtrack-local")) {
+        return { ok: true, path: cfgPath, message: "Already configured with valid UUID key!" };
       }
       fs.writeFileSync(`${cfgPath}.bak`, existing, "utf8");
     }
@@ -1560,7 +1560,7 @@ ipcMain.handle("set-taskbar-progress", async (_e, { progress }) => {
 });
 
 let normalWindowBounds = null;
-let desktopSettings = { alwaysOnTop: false, compactFloating: false, openAtLogin: false, webviewAdBlock: true, webviewEnhancedAdBlock: true };
+let desktopSettings = { alwaysOnTop: false, compactFloating: false, openAtLogin: false, webviewAdBlock: true, webviewEnhancedAdBlock: false };
 
 function getDesktopSettingsFile() {
   return path.join(app.getPath("userData"), "desktop-settings.json");

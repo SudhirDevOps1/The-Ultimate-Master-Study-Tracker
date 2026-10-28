@@ -15,7 +15,7 @@ let receiverConfig = {
   enabled: true,
   port: 7777,
   requireApiKey: false,
-  apiKey: "flowtrack-local",
+  apiKey: "00000000-0000-4000-8000-000000000000",
   debugLogging: false,
 };
 
@@ -302,7 +302,7 @@ async function handleRequest(req, res) {
             buckets: "/api/0/buckets",
           },
           config_example:
-            "[settings]\napi_key = flowtrack-local\napi_url = http://127.0.0.1:" +
+            "[settings]\napi_key = 00000000-0000-4000-8000-000000000000\napi_url = http://127.0.0.1:" +
             activePort +
             "/api/v1",
         },
@@ -316,7 +316,7 @@ async function handleRequest(req, res) {
   if (receiverConfig.requireApiKey) {
     const authHeader = req.headers["authorization"] || "";
     const key = extractAuthKey(authHeader);
-    if (!timingSafeEqualStr(key, receiverConfig.apiKey)) {
+    if (!timingSafeEqualStr(key, receiverConfig.apiKey) && !timingSafeEqualStr(key, "flowtrack-local")) {
       res.writeHead(401);
       return res.end(JSON.stringify({ ok: false, error: "Unauthorized: Invalid API key" }));
     }
