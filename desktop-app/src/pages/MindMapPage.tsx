@@ -10,6 +10,7 @@ import { useToast } from "@/components/common/Toast";
 import { Panel } from "@/components/common/Panel";
 import { FabricWhiteboard } from "@/components/common/FabricWhiteboard";
 import { saveImageSafely } from "@/utils/dataExport";
+import { callUnifiedAI } from "@/utils/aiClient";
 
 // ─── Mind Map Tree Engine Models ──────────────────────────────────────────────
 export type NodeStatus = "todo" | "in-progress" | "done";
@@ -147,6 +148,7 @@ export function MindMapPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAiModal, setShowAiModal] = useState(false);
   const [customAiTopic, setCustomAiTopic] = useState("");
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   
   // Canvas View transform
@@ -420,26 +422,130 @@ export function MindMapPage() {
   };
 
   // Generate Custom AI Topic Mind Map
-  const generateCustomAiMap = () => {
+  const generateCustomAiMap = async () => {
     const topic = customAiTopic.trim();
     if (!topic) {
       showToast("Please enter a topic name", "warning");
       return;
     }
 
+    setIsAiGenerating(true);
     const rootId = "root";
-    const generated: MindNode[] = [
-      { id: rootId, parentId: null, text: `📖 ${topic}`, x: 500, y: 320, color: "#a855f7", status: "in-progress" },
-      { id: "sub-1", parentId: rootId, text: "Core Concepts & Fundamentals", x: 220, y: 180, color: "#06b6d4", side: "left", status: "done" },
-      { id: "sub-1-1", parentId: "sub-1", text: "Key Terminology & Definitions", x: -40, y: 180, color: "#06b6d4", side: "left", status: "done" },
-      { id: "sub-2", parentId: rootId, text: "Practical Implementation", x: 220, y: 440, color: "#10b981", side: "left", status: "in-progress" },
-      { id: "sub-2-1", parentId: "sub-2", text: "Real-world Applications", x: -40, y: 440, color: "#10b981", side: "left", status: "todo" },
-      { id: "sub-3", parentId: rootId, text: "Advanced Patterns & Architecture", x: 780, y: 180, color: "#f97316", side: "right", status: "todo" },
-      { id: "sub-3-1", parentId: "sub-3", text: "Edge Cases & Optimization", x: 1040, y: 180, color: "#f97316", side: "right", status: "todo" },
-      { id: "sub-4", parentId: rootId, text: "Revision Checklist & Exam Qs", x: 780, y: 440, color: "#eab308", side: "right", status: "done" },
-      { id: "sub-4-1", parentId: "sub-4", text: "Previous Year Doubts", x: 1040, y: 440, color: "#eab308", side: "right", status: "todo" }
-    ];
+    let generated: MindNode[] | null = null;
 
+    try {
+      const userPrompt = `Generate a structured mind map tree for the study topic: "${topic}".
+Output ONLY valid JSON with this exact schema:
+{
+  "leftBranches": [
+    { "title": "Subtopic Title", "children": ["Concept 1", "Concept 2"] }
+  ],
+  "rightBranches": [
+    { "title": "Subtopic Title", "children": ["Concept 3", "Concept 4"] }
+  ]
+}`;
+      const sysPrompt = "You are FlowTrack Pro's academic mind map architect. Generate high-yield study subtopics formatted strictly as JSON without extra prose.";
+
+      const aiRes = await callUnifiedAI(userPrompt, sysPrompt);
+      if (aiRes.success && aiRes.text) {
+        const jsonMatch = aiRes.text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          const leftBranches = Array.isArray(parsed.leftBranches) ? parsed.leftBranches : [];
+          const rightBranches = Array.isArray(parsed.rightBranches) ? parsed.rightBranches : [];
+
+          if (leftBranches.length > 0 || rightBranches.length > 0) {
+            const nodesArr: MindNode[] = [
+              { id: rootId, parentId: null, text: `📖 ${topic}`, x: 500, y: 320, color: "#a855f7", status: "in-progress" }
+            ];
+
+            const leftColors = ["#06b6d4", "#10b981", "#3b82f6", "#0ea5e9"];
+            leftBranches.forEach((b: any, bIdx: number) => {
+              const bId = `left-${bIdx}`;
+              const yPos = 180 + bIdx * 200;
+              const color = leftColors[bIdx % leftColors.length];
+              nodesArr.push({
+                id: bId,
+                parentId: rootId,
+                text: b.title || `Concept ${bIdx + 1}`,
+                x: 220,
+                y: yPos,
+                color,
+                side: "left",
+                status: "done"
+              });
+
+              if (Array.isArray(b.children)) {
+                b.children.slice(0, 3).forEach((child: string, cIdx: number) => {
+                  nodesArr.push({
+                    id: `${bId}-${cIdx}`,
+                    parentId: bId,
+                    text: typeof child === "string" ? child : String(child),
+                    x: -40,
+                    y: yPos + (cIdx === 0 ? -30 : cIdx === 1 ? 30 : 0),
+                    color,
+                    side: "left",
+                    status: cIdx === 0 ? "done" : "in-progress"
+                  });
+                });
+              }
+            });
+
+            const rightColors = ["#f97316", "#eab308", "#ec4899", "#f43f5e"];
+            rightBranches.forEach((b: any, bIdx: number) => {
+              const bId = `right-${bIdx}`;
+              const yPos = 180 + bIdx * 200;
+              const color = rightColors[bIdx % rightColors.length];
+              nodesArr.push({
+                id: bId,
+                parentId: rootId,
+                text: b.title || `Advanced ${bIdx + 1}`,
+                x: 780,
+                y: yPos,
+                color,
+                side: "right",
+                status: "in-progress"
+              });
+
+              if (Array.isArray(b.children)) {
+                b.children.slice(0, 3).forEach((child: string, cIdx: number) => {
+                  nodesArr.push({
+                    id: `${bId}-${cIdx}`,
+                    parentId: bId,
+                    text: typeof child === "string" ? child : String(child),
+                    x: 1040,
+                    y: yPos + (cIdx === 0 ? -30 : cIdx === 1 ? 30 : 0),
+                    color,
+                    side: "right",
+                    status: "todo"
+                  });
+                });
+              }
+            });
+
+            generated = nodesArr;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Unified AI mind map generator failed, falling back to local template", err);
+    }
+
+    if (!generated) {
+      generated = [
+        { id: rootId, parentId: null, text: `📖 ${topic}`, x: 500, y: 320, color: "#a855f7", status: "in-progress" },
+        { id: "sub-1", parentId: rootId, text: `${topic}: Core Fundamentals`, x: 220, y: 180, color: "#06b6d4", side: "left", status: "done" },
+        { id: "sub-1-1", parentId: "sub-1", text: "Key Terminology & Syntax", x: -40, y: 180, color: "#06b6d4", side: "left", status: "done" },
+        { id: "sub-2", parentId: rootId, text: `${topic}: Practical Implementation`, x: 220, y: 440, color: "#10b981", side: "left", status: "in-progress" },
+        { id: "sub-2-1", parentId: "sub-2", text: "Real-world Applications & APIs", x: -40, y: 440, color: "#10b981", side: "left", status: "todo" },
+        { id: "sub-3", parentId: rootId, text: `${topic}: Architecture & Optimization`, x: 780, y: 180, color: "#f97316", side: "right", status: "todo" },
+        { id: "sub-3-1", parentId: "sub-3", text: "Edge Cases & Performance Tuning", x: 1040, y: 180, color: "#f97316", side: "right", status: "todo" },
+        { id: "sub-4", parentId: rootId, text: `${topic}: Exam & Interview Doubts`, x: 780, y: 440, color: "#eab308", side: "right", status: "done" },
+        { id: "sub-4-1", parentId: "sub-4", text: "Revision Checklist & Quick Test", x: 1040, y: 440, color: "#eab308", side: "right", status: "todo" }
+      ];
+    }
+
+    setIsAiGenerating(false);
     pushState(generated);
     setSelectedNodeId(rootId);
     setCustomAiTopic("");
@@ -762,10 +868,12 @@ export function MindMapPage() {
     });
 
     const dataUrl = canvas.toDataURL("image/png", 1.0);
-    const defaultFilename = `FlowTrack_MindMap_${(rootNode?.text || "Export").replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().slice(0, 10)}.png`;
+    const cleanTopic = (rootNode?.text || "StudyMap").replace(/[^\w\s-]/g, "").trim().slice(0, 30).replace(/\s+/g, "_") || "StudyMap";
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const defaultFilename = `FlowTrack_MindMap_${cleanTopic}_${dateStr}.png`;
     const res = await saveImageSafely(dataUrl, defaultFilename);
     if (res.success) {
-      showToast(`✅ Mind Map saved: ${res.filename || defaultFilename}`, "success");
+      showToast(`💾 Saved: ${res.filename || defaultFilename}`, "success");
     }
   };
 
@@ -787,13 +895,16 @@ export function MindMapPage() {
     buildSubtree(root.id, 0);
 
     const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const cleanTopic = (root?.text || "StudyNotes").replace(/[^\w\s-]/g, "").trim().slice(0, 30).replace(/\s+/g, "_") || "StudyNotes";
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filename = `FlowTrack_MindMap_Notes_${cleanTopic}_${dateStr}.md`;
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `FlowTrack_MindMap_${new Date().toISOString().slice(0, 10)}.md`;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToast("Mind Map Outline exported as Markdown!", "success");
+    showToast(`💾 Exported: ${filename}`, "success");
   };
 
   // Filtered nodes by search query
@@ -1272,9 +1383,11 @@ export function MindMapPage() {
                 />
                 <button
                   onClick={generateCustomAiMap}
-                  className="px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-purple-600/30 flex items-center gap-1.5"
+                  disabled={isAiGenerating}
+                  className="px-4 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-purple-600/30 flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Sparkles className="w-3.5 h-3.5" /> <span>Generate</span>
+                  {isAiGenerating ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  <span>{isAiGenerating ? "Generating..." : "Generate"}</span>
                 </button>
               </div>
             </div>

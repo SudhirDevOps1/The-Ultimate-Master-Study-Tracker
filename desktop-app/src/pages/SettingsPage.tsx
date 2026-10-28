@@ -1781,12 +1781,44 @@ api_url = http://127.0.0.1:7777/api/v1`}
 // ─── UpdateChecker Helper Component (electron-updater + GitHub Releases) ─────────
 function UpdateChecker({ showMessage }: { showMessage: (msg: string) => void }) {
   const [currentVersion, setCurrentVersion] = useState("0.0.1");
-  const [updateStatus, setUpdateStatus]     = useState<string>("idle"); // idle | checking | available | downloading | downloaded | error
+  const [updateStatus, setUpdateStatus]     = useState<string>("idle"); // idle | checking | available | downloading | downloaded | error | not-available
   const [newVersion, setNewVersion]         = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState<number>(0);
   const [updateUrl, setUpdateUrl]           = useState("https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases");
+  const [directDownloadUrl, setDirectDownloadUrl] = useState<string | null>(null);
 
   const isElectron = typeof window !== "undefined" && !!(window as any).electron;
+
+  const handleGitHubApiCheck = async () => {
+    try {
+      const res = await fetch("https://api.github.com/repos/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest");
+      if (res.ok) {
+        const data = await res.json();
+        const tag = (data.tag_name || "").replace(/^v/, "");
+        setNewVersion(tag);
+        if (data.html_url) setUpdateUrl(data.html_url);
+
+        const asset = data.assets?.find((a: any) => a.name?.endsWith(".exe") || a.name?.endsWith(".AppImage"));
+        if (asset?.browser_download_url) {
+          setDirectDownloadUrl(asset.browser_download_url);
+        }
+
+        if (tag && tag !== currentVersion) {
+          setUpdateStatus("available");
+          showMessage(`🎁 New Update Available: v${tag}!`);
+        } else {
+          setUpdateStatus("not-available");
+          showMessage("✅ FlowTrack is up to date.");
+        }
+      } else {
+        setUpdateStatus("idle");
+        showMessage("✅ FlowTrack is up to date.");
+      }
+    } catch {
+      setUpdateStatus("idle");
+      showMessage("❌ Network error checking updates.");
+    }
+  };
 
   useEffect(() => {
     if (!isElectron) return;
@@ -1809,53 +1841,38 @@ function UpdateChecker({ showMessage }: { showMessage: (msg: string) => void }) 
         showMessage(`🎁 New update v${data.version} found! Downloading in background...`);
       } else if (data.status === "not-available") {
         showMessage("✅ FlowTrack is up to date.");
+      } else if (data.status === "error") {
+        handleGitHubApiCheck();
       }
     });
 
     return () => {
       if (typeof removeListener === "function") removeListener();
     };
-  }, [isElectron, showMessage]);
+  }, [isElectron, showMessage, currentVersion]);
 
   const handleCheckUpdate = async () => {
     setUpdateStatus("checking");
+
+    // Race timeout: If electron-updater hasn't responded within 4s, check GitHub releases directly
+    const timer = setTimeout(() => {
+      handleGitHubApiCheck();
+    }, 4000);
+
     if (isElectron) {
       try {
         const res = await (window as any).electron.ipcRenderer.invoke("check-for-updates");
-        if (!res.success) {
+        if (!res?.success) {
+          clearTimeout(timer);
           await handleGitHubApiCheck();
         }
       } catch {
+        clearTimeout(timer);
         await handleGitHubApiCheck();
       }
     } else {
+      clearTimeout(timer);
       await handleGitHubApiCheck();
-    }
-  };
-
-  const handleGitHubApiCheck = async () => {
-    try {
-      const res = await fetch("https://api.github.com/repos/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest");
-      if (res.ok) {
-        const data = await res.json();
-        const tag = (data.tag_name || "").replace(/^v/, "");
-        setNewVersion(tag);
-        if (data.html_url) setUpdateUrl(data.html_url);
-
-        if (tag && tag !== currentVersion) {
-          setUpdateStatus("available");
-          showMessage(`🎁 New Update Available: v${tag}!`);
-        } else {
-          setUpdateStatus("not-available");
-          showMessage("✅ FlowTrack is up to date.");
-        }
-      } else {
-        setUpdateStatus("idle");
-        showMessage("✅ FlowTrack is up to date.");
-      }
-    } catch {
-      setUpdateStatus("idle");
-      showMessage("❌ Network error checking updates.");
     }
   };
 
@@ -1864,10 +1881,10 @@ function UpdateChecker({ showMessage }: { showMessage: (msg: string) => void }) 
       try {
         await (window as any).electron.ipcRenderer.invoke("restart-and-install-update");
       } catch {
-        window.open(updateUrl, "_blank");
+        window.open(directDownloadUrl || updateUrl, "_blank");
       }
     } else {
-      window.open(updateUrl, "_blank");
+      window.open(directDownloadUrl || updateUrl, "_blank");
     }
   };
 
@@ -1881,7 +1898,7 @@ function UpdateChecker({ showMessage }: { showMessage: (msg: string) => void }) 
 
           {updateStatus === "checking" && (
             <span className="animate-pulse bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-md font-bold text-[10px]">
-              🔄 Checking electron-updater...
+              🔄 Checking updates...
             </span>
           )}
 
@@ -1902,6 +1919,12 @@ function UpdateChecker({ showMessage }: { showMessage: (msg: string) => void }) 
               ✨ New Release v{newVersion} Available
             </span>
           )}
+
+          {updateStatus === "not-available" && (
+            <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-md font-medium text-[10px]">
+              ✅ Up to date
+            </span>
+          )}
         </div>
 
         <p className="text-slate-400">
@@ -1911,7 +1934,7 @@ function UpdateChecker({ showMessage }: { showMessage: (msg: string) => void }) 
             ? `Downloading update package silently in background (${downloadProgress}%)...`
             : newVersion && newVersion !== currentVersion
             ? `New release v${newVersion} is available on GitHub with performance & feature upgrades.`
-            : "Automatic electron-updater background service verifies releases directly with GitHub."}
+            : "Automatic update background service verifies releases directly with GitHub."}
         </p>
       </div>
 
@@ -1919,7 +1942,7 @@ function UpdateChecker({ showMessage }: { showMessage: (msg: string) => void }) 
         {updateStatus === "downloaded" ? (
           <button
             onClick={handleRestartInstall}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold hover:scale-105 transition-all shadow-lg text-xs"
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold hover:scale-105 transition-all shadow-lg text-xs cursor-pointer"
           >
             ⚡ Restart & Install Update
           </button>
@@ -1928,18 +1951,27 @@ function UpdateChecker({ showMessage }: { showMessage: (msg: string) => void }) 
             <button
               onClick={handleCheckUpdate}
               disabled={updateStatus === "checking" || updateStatus === "downloading"}
-              className="px-3.5 py-2 rounded-xl bg-slate-900 text-slate-300 border border-white/10 font-semibold hover:bg-slate-800 transition-all flex items-center gap-1.5 disabled:opacity-50 text-xs"
+              className="px-3.5 py-2 rounded-xl bg-slate-900 text-slate-300 border border-white/10 font-semibold hover:bg-slate-800 transition-all flex items-center gap-1.5 disabled:opacity-50 text-xs cursor-pointer"
             >
               {updateStatus === "checking" ? "⌛ Checking..." : "🔄 Check for Updates"}
             </button>
 
             {newVersion && newVersion !== currentVersion && (
-              <button
-                onClick={() => window.open(updateUrl, "_blank")}
-                className="px-3.5 py-2 rounded-xl bg-cyan-500 text-slate-950 font-bold hover:bg-cyan-400 transition-all shadow-md text-xs"
-              >
-                🌐 View Release
-              </button>
+              directDownloadUrl ? (
+                <button
+                  onClick={() => window.open(directDownloadUrl, "_blank")}
+                  className="px-3.5 py-2 rounded-xl bg-purple-600 text-white font-bold hover:bg-purple-500 transition-all shadow-md text-xs cursor-pointer"
+                >
+                  ⚡ Download v{newVersion}
+                </button>
+              ) : (
+                <button
+                  onClick={() => window.open(updateUrl, "_blank")}
+                  className="px-3.5 py-2 rounded-xl bg-cyan-500 text-slate-950 font-bold hover:bg-cyan-400 transition-all shadow-md text-xs cursor-pointer"
+                >
+                  🌐 View Release
+                </button>
+              )
             )}
           </>
         )}
