@@ -400,7 +400,7 @@ CORE TUTORING CAPABILITIES:
    - Offer customized schedule advice, pomodoro timeboxing, and revision tips when relevant, but NEVER refuse or dismiss questions as irrelevant.
 3. Formatting Standards:
    - Use clean GitHub-Flavored Markdown (headers, bullet points, code blocks).
-   - Use Mermaid diagrams (e.g. flowchart TD, graph LR) whenever a visual diagram helps explain a concept.
+   - Use Mermaid diagrams (e.g. \`\`\`mermaid\nflowchart TD\n...\`\`\`) whenever explaining concepts, architectures, workflows, algorithms, or study maps. Always wrap Mermaid code in valid fenced code blocks so FlowTrack renders it as an interactive diagram.
 
 User Profile:
 - Name: ${studyContext.userName}
@@ -425,6 +425,10 @@ ${studyContext.recentActivity}`;
     const q = query.toLowerCase();
     const name = studyContext.userName;
     const subjectsList = subjects.map(s => s.name).join(", ");
+
+    if (q.includes("diagram") || q.includes("mermaid") || q.includes("flowchart") || q.includes("architecture")) {
+      return `### 📊 Visual Study Architecture Map\n\nYahan aapke core study concepts ka interactive **Mermaid Diagram** hai:\n\n\`\`\`mermaid\nflowchart TD\n    A["☕ Core Programming & Concepts"] --> B["🧱 Data Structures & Algorithms"]\n    A --> C["🌐 Backend Engineering & APIs"]\n    B --> D["⚡ Search & Sort: O(log n)"]\n    B --> E["🌲 Trees, Heaps & DP"]\n    C --> F["🗄️ Database Architecture (ACID / WAL)"]\n    C --> G["🚀 REST Endpoints & Security"]\n    D --> H["🧠 Long-Term Memory (SM-2 SRS)"]\n    F --> H\n\`\`\`\n\n#### 💡 Key Takeaways:\n1. **Theoretical Foundations**: Master fundamental syntax and data structures first.\n2. **Applied Engineering**: Connect DSA directly with databases and REST APIs.\n3. **Spaced Repetition**: Keep intervals fresh in **SRS Flashcards** to beat the Ebbinghaus forgetting curve!`;
+    }
 
     if (q.includes("java")) {
       return `### ☕ Java Programming Language\n\n**Java** ek powerful, high-level, class-based aur object-oriented programming language hai jise 1995 mein Sun Microsystems ne develop kiya tha (ab Oracle ke paas hai).\n\n#### 🌟 Key Features of Java:\n1. **Platform Independent (WORA)**: *"Write Once, Run Anywhere"* — Java code compile hokar **Bytecode** (.class) banta hai jo kisi bhi OS par **JVM (Java Virtual Machine)** ke through run hota hai.\n2. **Object-Oriented**: Java OOPs principles (Encapsulation, Inheritance, Polymorphism, Abstraction) par depend karta hai.\n3. **Memory Management**: Automatic Garbage Collection ke sath secure memory handling provide karta hai.\n4. **Multithreaded**: Concurrency aur background processing support karta hai.\n\n\`\`\`java\npublic class HelloWorld {\n    public static void main(String[] args) {\n        System.out.println("Hello, FlowTrack Student!");\n    }\n}\n\`\`\`\n\n#### 💡 Where is Java Used?\n- Android App Development\n- Enterprise Backend APIs (Spring Boot, Microservices)\n- High-performance financial & banking applications\n- Big Data (Apache Hadoop, Apache Spark)\n\n*Aap apne Study Tracker mein **Java** subject add karke sessions track karna shuru kar sakte hain!*`;
@@ -856,9 +860,10 @@ ${studyContext.recentActivity}`;
             <p className="text-xs font-semibold text-slate-400">💡 Suggested Prompts:</p>
             <div className="flex flex-wrap gap-2">
               {[
-                { label: "Why did I study less?", text: "Why did I study less this week? Give me an analysis based on my subjects." },
-                { label: "Optimize my schedule", text: "When is my peak study time? Analyze my sessions and recommend when to study." },
-                { label: "Create revision plan", text: "Generate a custom 3-day revision routine for my subjects." }
+                { label: "📊 Architecture Flowchart (Mermaid)", text: "Draw a comprehensive study architecture diagram for my subjects using a Mermaid flowchart, explaining the core concepts and connections." },
+                { label: "☕ Java OOPs with Diagram", text: "Explain Java OOP concepts with clean code examples and an interactive Mermaid class/inheritance diagram." },
+                { label: "⚡ Peak Study Optimization", text: "When is my peak study time? Analyze my sessions and recommend when to study." },
+                { label: "📅 3-Day Revision Plan", text: "Generate a custom 3-day revision routine for my subjects." }
               ].map((p, idx) => (
                 <button
                   key={idx}

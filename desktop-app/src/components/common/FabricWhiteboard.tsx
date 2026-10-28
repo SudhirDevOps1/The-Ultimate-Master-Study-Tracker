@@ -1264,13 +1264,28 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
     mutateSelection((o) => { if (isTextObj(o)) o.set({ fontSize: v }); });
   };
 
+  const getDescriptiveFilename = (extension: string, extra = ""): string => {
+    const c = fcRef.current;
+    let label = "StudyNotes";
+    if (c) {
+      const textObj = c.getObjects().find((o: any) => typeof o.text === "string" && o.text.trim().length > 0) as any;
+      if (textObj && textObj.text) {
+        const clean = textObj.text.replace(/[^\w\s-]/g, "").trim().slice(0, 30).replace(/\s+/g, "_");
+        if (clean) label = clean;
+      }
+    }
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const suffix = extra ? `_${extra}` : "";
+    return `FlowTrack_Whiteboard_${label}${suffix}_${dateStr}.${extension}`;
+  };
+
   /* --- Import / export ------------------------------------------------ */
   const downloadURL = async (href: string, name: string, revoke = false) => {
     if (href.startsWith("data:image/")) {
       const res = await saveImageSafely(href, name);
       if (revoke) window.setTimeout(() => URL.revokeObjectURL(href), 4000);
       if (res.success) {
-        showToast(`Whiteboard image exported! ${res.filename || ""}`, "success");
+        showToast(`💾 Saved: ${res.filename || name}`, "success");
       }
       return;
     }
@@ -1280,6 +1295,7 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
     a.click();
     a.remove();
     if (revoke) window.setTimeout(() => URL.revokeObjectURL(href), 4000);
+    showToast(`💾 Downloaded: ${name}`, "success");
   };
 
   const onImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1368,8 +1384,8 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
       () => c.toDataURL({ format: "png", quality: 1, multiplier, enableRetinaScaling: false, ...cropOpts }),
       transparent,
     );
-    downloadURL(url, `board-${multiplier}x-${Date.now()}.png`);
-    showToast(`Whiteboard PNG (${multiplier}×) exported`, "success");
+    const filename = getDescriptiveFilename("png", multiplier > 1 ? `${multiplier}x` : "");
+    downloadURL(url, filename);
   };
 
   const exportSVG = () => {
@@ -1377,8 +1393,8 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
     if (!c) return;
     setExportOpen(false);
     const svg = withBackground(() => c.toSVG(), false);
-    downloadURL(URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" })), `board-${Date.now()}.svg`, true);
-    showToast("SVG exported", "success");
+    const filename = getDescriptiveFilename("svg");
+    downloadURL(URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" })), filename, true);
   };
 
   const exportJSON = () => {
@@ -1387,7 +1403,7 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
     setExportOpen(false);
     downloadURL(
       URL.createObjectURL(new Blob([JSON.stringify(c.toJSON())], { type: "application/json" })),
-      `board-${Date.now()}.json`, true,
+      getDescriptiveFilename("json"), true,
     );
     showToast("Board file exported", "success");
   };
