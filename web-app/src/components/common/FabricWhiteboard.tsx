@@ -1339,12 +1339,37 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
     const c = fcRef.current;
     if (!c) return;
     setExportOpen(false);
+
+    // Calculate content-aware bounding box of all objects to avoid giant empty voids
+    const objects = c.getObjects();
+    let cropOpts: Record<string, number> = {};
+
+    if (objects.length > 0) {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      objects.forEach(obj => {
+        const bound = obj.getBoundingRect();
+        minX = Math.min(minX, bound.left);
+        minY = Math.min(minY, bound.top);
+        maxX = Math.max(maxX, bound.left + bound.width);
+        maxY = Math.max(maxY, bound.top + bound.height);
+      });
+
+      if (isFinite(minX) && isFinite(minY) && isFinite(maxX) && isFinite(maxY)) {
+        const padding = 60;
+        const left = Math.max(0, Math.floor(minX - padding));
+        const top = Math.max(0, Math.floor(minY - padding));
+        const width = Math.ceil((maxX - minX) + padding * 2);
+        const height = Math.ceil((maxY - minY) + padding * 2);
+        cropOpts = { left, top, width, height };
+      }
+    }
+
     const url = withBackground(
-      () => c.toDataURL({ format: "png", quality: 1, multiplier, enableRetinaScaling: false }),
+      () => c.toDataURL({ format: "png", quality: 1, multiplier, enableRetinaScaling: false, ...cropOpts }),
       transparent,
     );
     downloadURL(url, `board-${multiplier}x-${Date.now()}.png`);
-    showToast(`PNG ${multiplier}× exported`, "success");
+    showToast(`Whiteboard PNG (${multiplier}×) exported`, "success");
   };
 
   const exportSVG = () => {

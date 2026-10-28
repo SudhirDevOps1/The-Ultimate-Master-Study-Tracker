@@ -562,61 +562,109 @@ export function MindMapPage() {
     setIsPanning(false);
   };
 
-  // Export Mind Map Canvas to Ultra 4K PNG
+  // Export Mind Map Canvas to Content-Aware Crisp PNG (No Giant Void!)
   const exportPNG = async () => {
+    if (nodes.length === 0) {
+      showToast("Mind Map is empty", "warning");
+      return;
+    }
+
+    // 1. Calculate Content Bounding Box of all active nodes
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    nodes.forEach(n => {
+      const isRoot = n.parentId === null;
+      const w = isRoot ? 220 : 180;
+      const h = 48;
+      minX = Math.min(minX, n.x);
+      minY = Math.min(minY, n.y);
+      maxX = Math.max(maxX, n.x + w);
+      maxY = Math.max(maxY, n.y + h);
+    });
+
+    if (!isFinite(minX) || !isFinite(minY)) return;
+
+    // Generous, proportional margins & title header space
+    const paddingX = 80;
+    const paddingY = 90;
+    const headerHeight = 120;
+
+    const rawWidth = (maxX - minX) + paddingX * 2;
+    const rawHeight = (maxY - minY) + paddingY * 2 + headerHeight;
+
+    // High-Definition Crisp Resolution (2.5x Retina Scale)
+    const dpr = 2.5;
+    const canvasWidth = Math.max(Math.round(rawWidth * dpr), 1400);
+    const canvasHeight = Math.max(Math.round(rawHeight * dpr), 900);
+
     const canvas = document.createElement("canvas");
-    canvas.width = 3840;
-    canvas.height = 2160;
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Dark Studio Background
-    const bgGrad = ctx.createLinearGradient(0, 0, 3840, 2160);
+    // Scale context for ultra-crisp Retina text and curves
+    ctx.scale(dpr, dpr);
+
+    const virtualW = canvasWidth / dpr;
+    const virtualH = canvasHeight / dpr;
+
+    // Center the content in the virtual canvas
+    const offsetX = (virtualW - rawWidth) / 2 + paddingX - minX;
+    const offsetY = (virtualH - rawHeight) / 2 + paddingY + headerHeight - minY;
+
+    // 2. Dark Studio Gradient Background
+    const bgGrad = ctx.createLinearGradient(0, 0, virtualW, virtualH);
     bgGrad.addColorStop(0, "#070B14");
     bgGrad.addColorStop(0.5, "#0D1527");
     bgGrad.addColorStop(1, "#070B14");
     ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, 3840, 2160);
+    ctx.fillRect(0, 0, virtualW, virtualH);
 
-    // Subtle Grid dots
-    ctx.fillStyle = "rgba(255, 255, 255, 0.04)";
-    for (let x = 0; x < 3840; x += 40) {
-      for (let y = 0; y < 2160; y += 40) {
+    // Subtle decorative grid dots
+    ctx.fillStyle = "rgba(139, 92, 246, 0.08)";
+    for (let x = 0; x < virtualW; x += 32) {
+      for (let y = 0; y < virtualH; y += 32) {
         ctx.beginPath();
         ctx.arc(x, y, 1.2, 0, Math.PI * 2);
         ctx.fill();
       }
     }
 
-    // Top watermark branding
-    ctx.fillStyle = "rgba(168, 85, 247, 0.6)";
-    ctx.font = "bold 26px sans-serif";
-    ctx.fillText("FLOWTRACK PRO • ULTRA HD STUDY MIND MAP", 80, 80);
+    // Outer subtle border
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(20, 20, virtualW - 40, virtualH - 40);
 
-    ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
-    ctx.font = "16px sans-serif";
-    ctx.fillText(`Exported on ${new Date().toLocaleDateString()} • ${nodes.length} Key Concepts`, 80, 115);
+    // 3. Centered Elegant Header Banner
+    const rootNode = nodes.find(n => n.parentId === null) || nodes[0];
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
 
-    // Bounding Box Calculation
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    nodes.forEach(n => {
-      minX = Math.min(minX, n.x);
-      minY = Math.min(minY, n.y);
-      maxX = Math.max(maxX, n.x + 200);
-      maxY = Math.max(maxY, n.y + 60);
-    });
+    // Top Brand Tag
+    ctx.fillStyle = "#A855F7";
+    ctx.font = "bold 12px Inter, sans-serif";
+    ctx.fillText("FLOWTRACK PRO • VISUAL STUDY ARCHITECTURE", virtualW / 2, 45);
 
-    const treeW = maxX - minX || 1000;
-    const treeH = maxY - minY || 800;
-    const scale = Math.min(3000 / treeW, 1600 / treeH, 1.6);
-    const offsetX = (3840 - treeW * scale) / 2 - minX * scale;
-    const offsetY = (2160 - treeH * scale) / 2 - minY * scale + 40;
+    // Root Title Banner
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "bold 26px Inter, sans-serif";
+    ctx.fillText(rootNode ? rootNode.text : "Mind Map", virtualW / 2, 75);
 
-    // Draw Connectors
+    // Metadata Subtitle
+    ctx.fillStyle = "#94A3B8";
+    ctx.font = "12px Inter, sans-serif";
+    const masteredCount = nodes.filter(n => n.status === "done").length;
+    ctx.fillText(
+      `${nodes.length} Concepts • ${masteredCount} Mastered • Exported ${new Date().toLocaleDateString()}`,
+      virtualW / 2,
+      102
+    );
+
+    // 4. Draw Connecting Bezier Curves
     nodes.forEach(node => {
       if (!node.parentId) return;
       const parent = nodes.find(n => n.id === node.parentId);
-      if (!parent) return;
+      if (!parent || parent.collapsed) return;
 
       const pW = parent.parentId === null ? 220 : 180;
       const pH = 48;
@@ -624,51 +672,97 @@ export function MindMapPage() {
       const nH = 48;
 
       const isLeft = node.x < parent.x;
-      const startX = (isLeft ? parent.x : parent.x + pW) * scale + offsetX;
-      const startY = (parent.y + pH / 2) * scale + offsetY;
-      const endX = (isLeft ? node.x + nW : node.x) * scale + offsetX;
-      const endY = (node.y + nH / 2) * scale + offsetY;
+      const startX = (isLeft ? parent.x : parent.x + pW) + offsetX;
+      const startY = parent.y + pH / 2 + offsetY;
+      const endX = (isLeft ? node.x + nW : node.x) + offsetX;
+      const endY = node.y + nH / 2 + offsetY;
 
       ctx.beginPath();
       ctx.moveTo(startX, startY);
       const cpX = (startX + endX) / 2;
       ctx.bezierCurveTo(cpX, startY, cpX, endY, endX, endY);
-      ctx.strokeStyle = node.color || "#8b5cf6";
-      ctx.lineWidth = 4 * scale;
+
+      // Gradient Stroke for Curve
+      const lineGrad = ctx.createLinearGradient(startX, startY, endX, endY);
+      lineGrad.addColorStop(0, parent.color || "#8B5CF6");
+      lineGrad.addColorStop(1, node.color || "#06B6D4");
+
+      ctx.strokeStyle = lineGrad;
+      ctx.lineWidth = 3.5;
+      ctx.lineCap = "round";
       ctx.stroke();
     });
 
-    // Draw Nodes
+    // 5. Draw Node Cards
     nodes.forEach(node => {
-      const isRoot = node.parentId === null;
-      const w = (isRoot ? 220 : 180) * scale;
-      const h = 48 * scale;
-      const x = node.x * scale + offsetX;
-      const y = node.y * scale + offsetY;
+      let current = node;
+      let isHidden = false;
+      while (current.parentId) {
+        const p = nodes.find(n => n.id === current.parentId);
+        if (p?.collapsed) { isHidden = true; break; }
+        if (!p) break;
+        current = p;
+      }
+      if (isHidden) return;
 
-      // Glow & Card
-      ctx.fillStyle = isRoot ? "#1e1b4b" : "#0f172a";
-      ctx.strokeStyle = node.color || "#c084fc";
-      ctx.lineWidth = 3 * scale;
+      const isRoot = node.parentId === null;
+      const w = isRoot ? 220 : 180;
+      const h = 48;
+      const x = node.x + offsetX;
+      const y = node.y + offsetY;
+      const colorObj = COLOR_PRESETS.find(c => c.hex === node.color) || COLOR_PRESETS[0];
+
+      // Card Background Gradient
+      const cardGrad = ctx.createLinearGradient(x, y, x, y + h);
+      if (isRoot) {
+        cardGrad.addColorStop(0, "rgba(88, 28, 135, 0.95)");
+        cardGrad.addColorStop(1, "rgba(15, 23, 42, 0.98)");
+      } else {
+        cardGrad.addColorStop(0, "rgba(30, 41, 59, 0.95)");
+        cardGrad.addColorStop(1, "rgba(15, 23, 42, 0.98)");
+      }
+
+      ctx.fillStyle = cardGrad;
       ctx.beginPath();
       if (typeof ctx.roundRect === "function") {
-        ctx.roundRect(x, y, w, h, 14 * scale);
+        ctx.roundRect(x, y, w, h, 14);
       } else {
         ctx.rect(x, y, w, h);
       }
       ctx.fill();
+
+      // Card Glowing Border
+      ctx.strokeStyle = node.color || colorObj.border;
+      ctx.lineWidth = isRoot ? 2.8 : 2;
       ctx.stroke();
 
-      // Text
-      ctx.fillStyle = "#ffffff";
-      ctx.font = `bold ${Math.round(15 * scale)}px sans-serif`;
+      // Status indicator circle
+      const dotX = x + 16;
+      const dotY = y + h / 2;
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = node.status === "done" ? "#10B981" : node.status === "in-progress" ? "#F59E0B" : "#64748B";
+      ctx.fill();
+
+      // Node Text
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = `bold ${isRoot ? 14 : 12.5}px Inter, sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(node.text, x + w / 2, y + h / 2);
+
+      const maxTextWidth = w - 40;
+      let displayText = node.text;
+      if (ctx.measureText(displayText).width > maxTextWidth) {
+        while (displayText.length > 3 && ctx.measureText(displayText + "...").width > maxTextWidth) {
+          displayText = displayText.slice(0, -1);
+        }
+        displayText += "...";
+      }
+      ctx.fillText(displayText, x + w / 2 + 6, y + h / 2);
     });
 
     const dataUrl = canvas.toDataURL("image/png", 1.0);
-    const defaultFilename = `FlowTrack_MindMap_4K_${new Date().toISOString().slice(0, 10)}.png`;
+    const defaultFilename = `FlowTrack_MindMap_${(rootNode?.text || "Export").replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().slice(0, 10)}.png`;
     const res = await saveImageSafely(dataUrl, defaultFilename);
     if (res.success) {
       showToast(`✅ Mind Map saved: ${res.filename || defaultFilename}`, "success");

@@ -183,127 +183,214 @@ export function StudyNotesBoardPage() {
     }
 
     try {
-      showToast("Generating high-resolution Sticky Board PNG...", "info");
+      showToast("Rendering High-Definition Sticky Board PNG...", "info");
       const safeFileName = `FlowTrack_StickyBoard_${new Date().toISOString().slice(0, 10)}.png`;
 
-      // Method 1: html2canvas on notes container
-      if (notesContainerRef.current) {
-        try {
-          const canvas = await html2canvas(notesContainerRef.current, {
-            backgroundColor: "#0F172A",
-            scale: 2,
-            logging: false,
-            useCORS: true,
-            allowTaint: true,
-            scrollX: 0,
-            scrollY: 0
-          });
+      // Color Theme Palette Map for Visual Beauty
+      const COLOR_MAP: Record<string, { bg: string; border: string; pillBg: string; pillText: string; text: string }> = {
+        Yellow: { bg: "#1C1808", border: "#F59E0B", pillBg: "#FEF08A", pillText: "#854D0E", text: "#FEF9C3" },
+        Emerald: { bg: "#062016", border: "#10B981", pillBg: "#A7F3D0", pillText: "#065F46", text: "#ECFDF5" },
+        Cyan: { bg: "#081D2A", border: "#06B6D4", pillBg: "#BAE6FD", pillText: "#0369A1", text: "#F0FDFA" },
+        Purple: { bg: "#1A112C", border: "#A855F7", pillBg: "#E9D5FF", pillText: "#6B21A8", text: "#FAF5FF" },
+        Pink: { bg: "#250D19", border: "#EC4899", pillBg: "#FBCFE8", pillText: "#9D174D", text: "#FDF2F8" },
+        Rose: { bg: "#270D12", border: "#F43F5E", pillBg: "#FECDD3", pillText: "#9F1239", text: "#FFF1F2" },
+        "Dark Slate": { bg: "#0F172A", border: "#64748B", pillBg: "#E2E8F0", pillText: "#1E293B", text: "#F8FAFC" }
+      };
 
-          const image = canvas.toDataURL("image/png");
-          if (image && image.length > 200) {
-            const res = await saveImageSafely(image, safeFileName);
-            if (res.success) {
-              showToast(`Sticky Board exported as High-Res PNG! ${res.filename || ""}`, "success");
+      // Responsive Grid Calculation based on number of notes
+      const count = stickyNotes.length;
+      const cols = count === 1 ? 1 : count === 2 ? 2 : count <= 4 ? 2 : 3;
+      const cardWidth = count === 1 ? 480 : 380;
+      const gap = 24;
+      const paddingX = 40;
+      const paddingY = 40;
+      const headerHeight = 110;
+
+      // Wrap text helper with measurements
+      const measureCardHeight = (note: StickyNote, width: number, ctx: CanvasRenderingContext2D) => {
+        const textWidth = width - 40;
+        ctx.font = "13.5px Inter, sans-serif";
+        let linesCount = 0;
+        const paragraphs = note.text.split("\n");
+        paragraphs.forEach(p => {
+          if (!p.trim()) { linesCount += 0.6; return; }
+          const words = p.split(" ");
+          let curLine = "";
+          words.forEach(w => {
+            const test = curLine ? `${curLine} ${w}` : w;
+            if (ctx.measureText(test).width > textWidth) {
+              linesCount++;
+              curLine = w;
+            } else {
+              curLine = test;
             }
-            return;
-          }
-        } catch (m1Err) {
-          console.warn("html2canvas Sticky Board export failed, using Fallback Canvas 2D Grid Renderer...", m1Err);
-        }
+          });
+          if (curLine) linesCount++;
+        });
+
+        const titleHeight = note.title ? 32 : 0;
+        const contentHeight = Math.max(linesCount * 22, 60);
+        return Math.max(70 + titleHeight + contentHeight + 45, 200);
+      };
+
+      // Create measurement canvas
+      const testCanvas = document.createElement("canvas");
+      const testCtx = testCanvas.getContext("2d")!;
+
+      // Calculate row heights
+      const cardHeights = stickyNotes.map(n => measureCardHeight(n, cardWidth, testCtx));
+      const rowHeights: number[] = [];
+      for (let i = 0; i < count; i += cols) {
+        const rowSlice = cardHeights.slice(i, i + cols);
+        rowHeights.push(Math.max(...rowSlice));
       }
 
-      // Method 2: Direct Canvas 2D Grid Renderer Fallback (Foolproof Guarantee!)
+      const totalCardsHeight = rowHeights.reduce((a, b) => a + b, 0) + (rowHeights.length - 1) * gap;
+      const totalWidth = paddingX * 2 + Math.min(count, cols) * cardWidth + (Math.min(count, cols) - 1) * gap;
+      const totalHeight = paddingY * 2 + headerHeight + totalCardsHeight;
+
+      // 2.5x Retina Scale for sharp, clean rendering
+      const dpr = 2.5;
       const canvas = document.createElement("canvas");
+      canvas.width = Math.round(totalWidth * dpr);
+      canvas.height = Math.round(totalHeight * dpr);
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("Could not create canvas 2d context");
 
-      const cols = 3;
-      const cardWidth = 360;
-      const cardHeight = 220;
-      const gap = 20;
-      const padding = 30;
+      ctx.scale(dpr, dpr);
 
-      const rows = Math.ceil(stickyNotes.length / cols);
-      const totalWidth = padding * 2 + Math.min(stickyNotes.length, cols) * cardWidth + (Math.min(stickyNotes.length, cols) - 1) * gap;
-      const totalHeight = padding * 2 + 60 + rows * cardHeight + (rows - 1) * gap;
-
-      canvas.width = totalWidth * 2;
-      canvas.height = totalHeight * 2;
-      ctx.scale(2, 2);
-
-      // Dark Board Background
-      ctx.fillStyle = "#0F172A";
+      // Studio Dark Background
+      const bgGrad = ctx.createLinearGradient(0, 0, totalWidth, totalHeight);
+      bgGrad.addColorStop(0, "#070B14");
+      bgGrad.addColorStop(0.5, "#0D1527");
+      bgGrad.addColorStop(1, "#070B14");
+      ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, totalWidth, totalHeight);
 
-      // Header Title
+      // Outer Decorative Border
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(16, 16, totalWidth - 32, totalHeight - 32);
+
+      // Centered Top Header Banner
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
       ctx.fillStyle = "#A855F7";
-      ctx.font = "bold 13px sans-serif";
-      ctx.fillText("FLOWTRACK PRO • STICKY STUDY BOARD", padding, padding + 15);
+      ctx.font = "bold 12px Inter, sans-serif";
+      ctx.fillText("FLOWTRACK PRO • STICKY STUDY BOARD", totalWidth / 2, paddingY + 15);
 
       ctx.fillStyle = "#FFFFFF";
-      ctx.font = "bold 20px sans-serif";
-      ctx.fillText(`Sticky Notes (${stickyNotes.length})`, padding, padding + 40);
+      ctx.font = "bold 24px Inter, sans-serif";
+      ctx.fillText(`Sticky Notes Collection (${count})`, totalWidth / 2, paddingY + 45);
 
-      // Draw each sticky note card
-      stickyNotes.forEach((note, index) => {
-        const col = index % cols;
-        const row = Math.floor(index / cols);
-        const x = padding + col * (cardWidth + gap);
-        const y = padding + 65 + row * (cardHeight + gap);
+      ctx.fillStyle = "#94A3B8";
+      ctx.font = "12px Inter, sans-serif";
+      ctx.fillText(`Exported on ${new Date().toLocaleDateString()} • Synchronized Study Notes`, totalWidth / 2, paddingY + 72);
 
-        // Card Background
-        ctx.fillStyle = "#1E293B";
-        ctx.beginPath();
-        if (typeof ctx.roundRect === "function") {
-          ctx.roundRect(x, y, cardWidth, cardHeight, 14);
-        } else {
-          ctx.rect(x, y, cardWidth, cardHeight);
-        }
-        ctx.fill();
+      // Draw each card with rich aesthetic
+      let currentY = paddingY + headerHeight;
+      for (let r = 0; r < rowHeights.length; r++) {
+        const rowH = rowHeights[r];
+        const rowStartIdx = r * cols;
+        const rowNotes = stickyNotes.slice(rowStartIdx, rowStartIdx + cols);
 
-        // Card Border Accent
-        ctx.strokeStyle = note.pinned ? "#A855F7" : "#334155";
-        ctx.lineWidth = note.pinned ? 2 : 1;
-        ctx.stroke();
+        rowNotes.forEach((note, cIdx) => {
+          const x = paddingX + cIdx * (cardWidth + gap);
+          const y = currentY;
 
-        // Subject Tag Pill
-        ctx.fillStyle = "#334155";
-        ctx.beginPath();
-        if (typeof ctx.roundRect === "function") {
-          ctx.roundRect(x + 15, y + 15, 80, 20, 6);
-        } else {
-          ctx.rect(x + 15, y + 15, 80, 20);
-        }
-        ctx.fill();
+          // Resolve color theme
+          const themeName = NOTE_BACKGROUNDS.find(b => b.class === note.color)?.name || "Purple";
+          const theme = COLOR_MAP[themeName] || COLOR_MAP["Purple"];
 
-        ctx.fillStyle = "#E2E8F0";
-        ctx.font = "bold 10px sans-serif";
-        ctx.fillText(note.subject.toUpperCase(), x + 23, y + 29);
+          // Card Background
+          ctx.fillStyle = theme.bg;
+          ctx.beginPath();
+          if (typeof ctx.roundRect === "function") {
+            ctx.roundRect(x, y, cardWidth, rowH, 18);
+          } else {
+            ctx.rect(x, y, cardWidth, rowH);
+          }
+          ctx.fill();
 
-        // Title
-        let textStartY = y + 55;
-        if (note.title) {
-          ctx.fillStyle = "#FFFFFF";
-          ctx.font = "bold 14px sans-serif";
-          ctx.fillText(note.title, x + 15, textStartY);
-          textStartY += 22;
-        }
+          // Card Glowing Border
+          ctx.strokeStyle = note.pinned ? "#C084FC" : theme.border;
+          ctx.lineWidth = note.pinned ? 2.5 : 1.5;
+          ctx.stroke();
 
-        // Content text
-        ctx.fillStyle = "#CBD5E1";
-        ctx.font = "12px sans-serif";
-        const noteLines = note.text.split("\n");
-        noteLines.slice(0, 4).forEach((line, lIdx) => {
-          ctx.fillText(line.slice(0, 45), x + 15, textStartY + lIdx * 18);
+          // Subject Capsule Tag
+          ctx.fillStyle = theme.pillBg;
+          ctx.beginPath();
+          const pillText = `📌 ${note.subject.toUpperCase()}`;
+          ctx.font = "bold 10.5px Inter, sans-serif";
+          const pillWidth = ctx.measureText(pillText).width + 16;
+          if (typeof ctx.roundRect === "function") {
+            ctx.roundRect(x + 18, y + 16, pillWidth, 22, 6);
+          } else {
+            ctx.rect(x + 18, y + 16, pillWidth, 22);
+          }
+          ctx.fill();
+
+          ctx.fillStyle = theme.pillText;
+          ctx.textAlign = "left";
+          ctx.textBaseline = "middle";
+          ctx.fillText(pillText, x + 26, y + 27);
+
+          // Pinned Star/Indicator
+          if (note.pinned) {
+            ctx.fillStyle = "#C084FC";
+            ctx.font = "bold 11px Inter, sans-serif";
+            ctx.textAlign = "right";
+            ctx.fillText("★ PINNED", x + cardWidth - 18, y + 27);
+          }
+
+          // Card Title
+          let textStartY = y + 55;
+          if (note.title) {
+            ctx.fillStyle = "#FFFFFF";
+            ctx.font = "bold 16px Inter, sans-serif";
+            ctx.textAlign = "left";
+            ctx.fillText(note.title, x + 18, textStartY);
+            textStartY += 26;
+          }
+
+          // Card Body Text Wrapping
+          ctx.fillStyle = theme.text;
+          ctx.font = "13.5px Inter, sans-serif";
+          const textWidth = cardWidth - 36;
+          const paragraphs = note.text.split("\n");
+          let lineY = textStartY;
+
+          paragraphs.forEach(p => {
+            if (!p.trim()) { lineY += 12; return; }
+            const words = p.split(" ");
+            let curLine = "";
+            words.forEach(w => {
+              const test = curLine ? `${curLine} ${w}` : w;
+              if (ctx.measureText(test).width > textWidth) {
+                ctx.fillText(curLine, x + 18, lineY);
+                lineY += 21;
+                curLine = w;
+              } else {
+                curLine = test;
+              }
+            });
+            if (curLine) {
+              ctx.fillText(curLine, x + 18, lineY);
+              lineY += 21;
+            }
+          });
+
+          // Footer Metadata
+          ctx.fillStyle = "rgba(148, 163, 184, 0.7)";
+          ctx.font = "10.5px Inter, sans-serif";
+          ctx.fillText(`🕒 ${note.date} • ${note.time}`, x + 18, y + rowH - 18);
         });
 
-        // Date Footer
-        ctx.fillStyle = "#64748B";
-        ctx.font = "10px sans-serif";
-        ctx.fillText(`${note.date} • ${note.time}`, x + 15, y + cardHeight - 15);
-      });
+        currentY += rowH + gap;
+      }
 
-      const dataUrl = canvas.toDataURL("image/png");
+      const dataUrl = canvas.toDataURL("image/png", 1.0);
       const res = await saveImageSafely(dataUrl, safeFileName);
       if (res.success) {
         showToast(`Sticky Board exported as High-Res PNG! ${res.filename || ""}`, "success");
