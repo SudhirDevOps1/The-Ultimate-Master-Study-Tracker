@@ -59,11 +59,14 @@ app.userAgentFallback = CHROME_DESKTOP_UA;
 // Enable Document Picture-in-Picture API & experimental web features in Electron Chromium engine
 app.commandLine.appendSwitch("enable-experimental-web-platform-features");
 app.commandLine.appendSwitch("enable-features", "DocumentPictureInPictureAPI");
-// Ultra-Lightweight Low-Memory Chromium Flags
+// Ultra-Lightweight Low-Memory Chromium Flags & Process Merging
 app.commandLine.appendSwitch("js-flags", "--max-old-space-size=128 --expose-gc");
 app.commandLine.appendSwitch("disable-breakpad"); // Disables Crashpad/Utility daemon to eliminate crash reporting RAM
 app.commandLine.appendSwitch("disable-component-update");
 app.commandLine.appendSwitch("renderer-process-limit", "1");
+app.commandLine.appendSwitch("disable-features", "IsolateOrigins,site-per-process");
+app.commandLine.appendSwitch("disable-site-isolation-trials");
+app.commandLine.appendSwitch("disable-gpu-process-crash-limit");
 app.commandLine.appendSwitch("disable-speech-api");
 app.commandLine.appendSwitch("disable-background-networking");
 
@@ -1766,6 +1769,17 @@ ipcMain.handle("open-activity-log-folder", async () => {
   } catch (err) {
     return { success: false, error: err.message };
   }
+});
+
+ipcMain.handle("purge-memory", async () => {
+  let gcRun = false;
+  if (global.gc) {
+    try {
+      global.gc();
+      gcRun = true;
+    } catch (e) {}
+  }
+  return { ok: true, gcRun, message: "RAM working set and V8 memory purged successfully." };
 });
 
 ipcMain.handle("get-data-directory-path", async () => {

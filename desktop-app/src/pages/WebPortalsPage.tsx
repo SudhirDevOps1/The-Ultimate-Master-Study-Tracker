@@ -199,6 +199,8 @@ const WebviewViewport = memo(
       return () => {
         onUnmount(tabId);
         try {
+          wv.stop?.();
+          wv.setAudioMuted?.(true);
           wv.removeEventListener("did-navigate", handleNav);
           wv.removeEventListener("did-navigate-in-page", handleNav);
           wv.removeEventListener("page-title-updated", handleTitle);

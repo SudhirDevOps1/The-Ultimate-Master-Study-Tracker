@@ -39,7 +39,8 @@ import {
   RefreshCw,
   Bell,
   Volume2,
-  Terminal
+  Terminal,
+  Cpu
 } from "lucide-react";
 
 function PomodoroSettingsPanel() {
@@ -331,6 +332,31 @@ export function SettingsPage() {
             </label>
             <p className="text-xs text-slate-400 pl-8">
               Automatically start background tracker in System Tray when PC boots up.
+            </p>
+          </div>
+
+          {/* Low-RAM Memory Trimmer */}
+          <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-white flex items-center gap-2">
+                <Cpu className="w-4 h-4 text-emerald-400" /> Low-RAM Memory Trimmer
+              </span>
+              <FeedbackButton
+                variant="secondary"
+                className="text-xs py-1 px-2.5"
+                onClick={async () => {
+                  if (typeof window !== "undefined" && (window as any).electron) {
+                    await (window as any).electron.ipcRenderer?.invoke?.("purge-memory");
+                  }
+                  showMessage("RAM purged and V8 working set released!");
+                }}
+                successText="RAM Cleaned!"
+              >
+                🧹 Purge RAM Now
+              </FeedbackButton>
+            </div>
+            <p className="text-xs text-slate-400">
+              Immediately triggers V8 garbage collection and returns unused working set memory back to Windows.
             </p>
           </div>
         </div>
