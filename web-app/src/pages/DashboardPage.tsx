@@ -428,7 +428,7 @@ export function DashboardPage() {
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-purple-300 bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 rounded">
               💻 Native Desktop App Available
             </span>
-            <span className="text-[10px] font-mono text-cyan-400 font-bold">v0.0.1</span>
+            <span className="text-[10px] font-mono text-cyan-400 font-bold">v0.2.4</span>
           </div>
           <p className="text-sm font-bold text-white">
             Want Native App & Browser Tab Blocker + PiP Floating Timer?
@@ -439,7 +439,7 @@ export function DashboardPage() {
         </div>
 
         <a
-          href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/tag/v0.0.1"
+          href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest"
           target="_blank"
           rel="noopener noreferrer"
           className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white text-xs font-bold shadow-lg shadow-purple-500/25 active:scale-95 transition-all text-center shrink-0"
@@ -936,14 +936,14 @@ function WelcomeChangelogModal() {
 
   useEffect(() => {
     // Show only once per major release version update
-    const seenVersion = localStorage.getItem("flowtrack_changelog_v0.0.1");
+    const seenVersion = localStorage.getItem("flowtrack_changelog_v0.2.4");
     if (!seenVersion) {
       setIsOpen(true);
     }
   }, []);
 
   const handleClose = () => {
-    localStorage.setItem("flowtrack_changelog_v0.0.1", "true");
+    localStorage.setItem("flowtrack_changelog_v0.2.4", "true");
     setIsOpen(false);
   };
 
@@ -959,10 +959,10 @@ function WelcomeChangelogModal() {
           >
             <div className="space-y-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">
-                🚀 Shipped: v0.0.1
+                🚀 Shipped: v0.2.4
               </span>
               <h3 className="text-2xl font-black text-white">
-                What&apos;s New in FlowTrack Pro v0.0.1!
+                What&apos;s New in FlowTrack Pro v0.2.4!
               </h3>
               <p className="text-xs text-slate-400">
                 Explore the latest premium features and security updates added to your tracker.

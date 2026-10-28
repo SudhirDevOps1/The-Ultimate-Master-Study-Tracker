@@ -1187,7 +1187,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
 
 // ─── UpdateChecker Helper Component (electron-updater + GitHub Releases) ─────────
 function UpdateChecker({ showMessage }: { showMessage: (msg: string) => void }) {
-  const [currentVersion, setCurrentVersion] = useState("0.0.1");
+  const [currentVersion, setCurrentVersion] = useState("0.2.4");
   const [updateStatus, setUpdateStatus]     = useState<string>("idle"); // idle | checking | available | downloading | downloaded | error
   const [newVersion, setNewVersion]         = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState<number>(0);

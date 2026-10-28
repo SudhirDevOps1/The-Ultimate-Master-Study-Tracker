@@ -726,12 +726,12 @@ export function GuidePage() {
         </Panel>
       )}
 
-      {/* TAB 5: FIXES IN V0.0.1 */}
+      {/* TAB 5: FIXES IN V0.2.4 */}
       {activeTab === "fixes" && (
         <Panel className="space-y-6 p-6 border-l-4 border-emerald-500">
           <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-sm">
             <CheckCircle2 className="w-5 h-5 shrink-0" />
-            <span className="font-bold">v0.0.1 Production Release Audit & Fixes — 100% Tested & Verified!</span>
+            <span className="font-bold">v0.2.4 Production Release Audit & Fixes — 100% Tested & Verified!</span>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 text-xs">
@@ -880,7 +880,7 @@ export function GuidePage() {
               },
               {
                 name: "Vite",
-                version: "v0.0.1",
+                version: "v7.3",
                 role: "Next-Generation Frontend Tooling & Bundler",
                 color: "from-purple-500/10 to-pink-500/10 border-purple-500/30 text-purple-400",
                 badgeColor: "bg-purple-500/10 text-purple-300 border-purple-500/20",
@@ -904,7 +904,7 @@ export function GuidePage() {
               },
               {
                 name: "Fabric.js",
-                version: "v0.0.1",
+                version: "v7.4",
                 role: "HTML5 Canvas & Mind Mapping Engine",
                 color: "from-amber-500/10 to-orange-500/10 border-amber-500/30 text-amber-400",
                 badgeColor: "bg-amber-500/10 text-amber-300 border-amber-500/20",
@@ -976,7 +976,7 @@ export function GuidePage() {
               },
               {
                 name: "Tesseract.js",
-                version: "v0.0.1",
+                version: "v7.0",
                 role: "Client-Side Neural OCR & Text Extraction",
                 color: "from-violet-500/10 to-purple-500/10 border-violet-500/30 text-violet-400",
                 badgeColor: "bg-violet-500/10 text-violet-300 border-violet-500/20",
@@ -1012,7 +1012,7 @@ export function GuidePage() {
               },
               {
                 name: "React Router",
-                version: "v0.0.1",
+                version: "v7.1",
                 role: "Declarative Single-Page Routing & History Manager",
                 color: "from-orange-500/10 to-amber-500/10 border-orange-500/30 text-orange-400",
                 badgeColor: "bg-orange-500/10 text-orange-300 border-orange-500/20",
