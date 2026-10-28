@@ -1936,6 +1936,53 @@ ipcMain.handle("save-image-dialog", async (_e, { base64Data, defaultFilename }) 
   }
 });
 
+ipcMain.handle("save-image-file", async (_e, { dataUrl, defaultFilename }) => {
+  try {
+    const base64Data = (dataUrl || "").split(";base64,").pop();
+    if (!base64Data) return { success: false, error: "Invalid image data" };
+
+    const downloadsPath = app.getPath("downloads");
+    const targetName = defaultFilename || `FlowTrack_Export_${Date.now()}.png`;
+    const defaultSavePath = path.join(downloadsPath, targetName);
+
+    const { filePath, canceled } = await dialog.showSaveDialog(mainWindow, {
+      title: "Save Image to PC",
+      defaultPath: defaultSavePath,
+      filters: [{ name: "PNG Images", extensions: ["png"] }]
+    });
+
+    if (canceled || !filePath) {
+      return { success: false, reason: "canceled" };
+    }
+
+    fs.writeFileSync(filePath, base64Data, { encoding: "base64" });
+    return { success: true, filePath, filename: path.basename(filePath) };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle("open-image-safely", async (_e, filePath) => {
+  try {
+    if (!filePath || !fs.existsSync(filePath)) return { success: false, error: "File not found" };
+    
+    // First try opening normally
+    const err = await shell.openPath(filePath);
+    if (err) {
+      // Fallback to MSPaint if Windows Photos default handler is corrupted (e.g. "Incorrect function")
+      execFile("mspaint.exe", [filePath], () => {});
+    }
+    return { success: true };
+  } catch (err) {
+    try {
+      execFile("mspaint.exe", [filePath], () => {});
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+});
+
 // ─── Full App Data Export (JSON Backup) ───────────────────────────────────────
 ipcMain.handle("export-app-data", async (_e, { appData }) => {
   try {

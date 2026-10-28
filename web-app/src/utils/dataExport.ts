@@ -107,3 +107,62 @@ function downloadCSV(content: string, filename: string): void {
   document.body.removeChild(element);
   URL.revokeObjectURL(element.href);
 }
+
+/**
+ * Universal Native & Browser Image Saver.
+ * In Electron: triggers native Windows/OS save dialog and saves directly to disk.
+ * In Web Browser: triggers automatic anchor download.
+ */
+export async function saveImageSafely(
+  dataUrl: string,
+  defaultFilename: string
+): Promise<{ success: boolean; filePath?: string; filename?: string; canceled?: boolean; error?: string }> {
+  const ipc = (window as any).electron?.ipcRenderer;
+  if (ipc) {
+    try {
+      const res = await ipc.invoke("save-image-file", { dataUrl, defaultFilename });
+      if (res?.success) {
+        return { success: true, filePath: res.filePath, filename: res.filename };
+      }
+      if (res?.reason === "canceled") {
+        return { success: false, canceled: true };
+      }
+      if (res?.error) {
+        console.warn("Native file save error, falling back to browser download:", res.error);
+      }
+    } catch (err: any) {
+      console.warn("Native file save invoke failed, falling back to browser download:", err);
+    }
+  }
+
+  // Web Browser / DOM Fallback
+  try {
+    const link = document.createElement("a");
+    link.href = dataUrl;
+    link.download = defaultFilename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    return { success: true, filename: defaultFilename };
+  } catch (err: any) {
+    console.error("DOM image download failed:", err);
+    return { success: false, error: err?.message || "Failed to download image" };
+  }
+}
+
+/**
+ * Safely opens a saved image.
+ * Uses native MSPaint fallback if default Windows Photo viewer throws "Incorrect function".
+ */
+export async function openSavedImageSafely(filePath: string): Promise<boolean> {
+  const ipc = (window as any).electron?.ipcRenderer;
+  if (ipc && filePath) {
+    try {
+      const res = await ipc.invoke("open-image-safely", filePath);
+      return !!res?.success;
+    } catch (err) {
+      console.warn("open-image-safely failed:", err);
+    }
+  }
+  return false;
+}

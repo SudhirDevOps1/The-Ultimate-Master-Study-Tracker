@@ -6,6 +6,7 @@ import {
 import { useToast } from "@/components/common/Toast";
 import { Panel } from "@/components/common/Panel";
 import { FabricWhiteboard } from "@/components/common/FabricWhiteboard";
+import { saveImageSafely } from "@/utils/dataExport";
 
 // ─── Mind Map Tree Engine Models ──────────────────────────────────────────────
 export interface MindNode {
@@ -311,7 +312,7 @@ export function MindMapPage() {
   };
 
   // Export Mind Map Canvas to Ultra 4K High Definition PNG
-  const exportPNG = () => {
+  const exportPNG = async () => {
     const canvas = document.createElement("canvas");
     // Ultra 4K Crisp Resolution (3840x2160)
     canvas.width = 3840;
@@ -372,11 +373,12 @@ export function MindMapPage() {
       ctx.fillText(node.text, node.x + w / 2, node.y + h / 2);
     });
 
-    const link = document.createElement("a");
-    link.download = `FlowTrack_MindMap_4K_${new Date().toISOString().slice(0, 10)}.png`;
-    link.href = canvas.toDataURL("image/png", 1.0);
-    link.click();
-    showToast("Mind Map High-Res PNG Exported!", "success");
+    const dataUrl = canvas.toDataURL("image/png", 1.0);
+    const defaultFilename = `FlowTrack_MindMap_4K_${new Date().toISOString().slice(0, 10)}.png`;
+    const res = await saveImageSafely(dataUrl, defaultFilename);
+    if (res.success) {
+      showToast(`✅ Mind Map saved: ${res.filename || defaultFilename}`, "success");
+    }
   };
 
   // Excalidraw Clear Canvas
@@ -396,11 +398,11 @@ export function MindMapPage() {
       const canvasEl = container ? container.querySelector("canvas") : document.querySelector("canvas");
       if (canvasEl && canvasEl instanceof HTMLCanvasElement) {
         const dataUrl = canvasEl.toDataURL("image/png");
-        const link = document.createElement("a");
-        link.download = `Whiteboard_${new Date().toISOString().slice(0, 10)}.png`;
-        link.href = dataUrl;
-        link.click();
-        showToast("Whiteboard Canvas Image Exported!", "success");
+        const defaultFilename = `Whiteboard_${new Date().toISOString().slice(0, 10)}.png`;
+        const res = await saveImageSafely(dataUrl, defaultFilename);
+        if (res.success) {
+          showToast(`✅ Whiteboard saved: ${res.filename || defaultFilename}`, "success");
+        }
         return;
       }
     } catch (err) {

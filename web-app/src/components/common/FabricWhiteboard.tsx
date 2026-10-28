@@ -22,6 +22,7 @@ import {
   ImagePlus, Lock, Unlock, BringToFront, SendToBack, Copy, Ban, X, Sparkles,
 } from "lucide-react";
 import { useToast } from "@/components/common/Toast";
+import { saveImageSafely } from "@/utils/dataExport";
 
 /* -------------------------------------------------------------------------- */
 /*  Types & constants                                                         */
@@ -1264,7 +1265,15 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
   };
 
   /* --- Import / export ------------------------------------------------ */
-  const downloadURL = (href: string, name: string, revoke = false) => {
+  const downloadURL = async (href: string, name: string, revoke = false) => {
+    if (href.startsWith("data:image/")) {
+      const res = await saveImageSafely(href, name);
+      if (revoke) window.setTimeout(() => URL.revokeObjectURL(href), 4000);
+      if (res.success) {
+        showToast(`Whiteboard image exported! ${res.filename || ""}`, "success");
+      }
+      return;
+    }
     const a = document.createElement("a");
     a.href = href; a.download = name;
     document.body.appendChild(a);

@@ -11,6 +11,7 @@ import html2canvas from "html2canvas";
 import { useToast } from "@/components/common/Toast";
 import { MarkdownRenderer } from "@/components/common/MarkdownRenderer";
 import { type StickyNote, type NotepadDoc, NOTE_BACKGROUNDS, NOTE_TEXT_COLORS, NOTE_FONTS } from "@/types/notes";
+import { saveImageSafely } from "@/utils/dataExport";
 
 // ─── Data Models ──────────────────────────────────────────────────────────────
 
@@ -200,11 +201,10 @@ export function StudyNotesBoardPage() {
 
           const image = canvas.toDataURL("image/png");
           if (image && image.length > 200) {
-            const link = document.createElement("a");
-            link.href = image;
-            link.download = safeFileName;
-            link.click();
-            showToast("Sticky Board exported as High-Res PNG!", "success");
+            const res = await saveImageSafely(image, safeFileName);
+            if (res.success) {
+              showToast(`Sticky Board exported as High-Res PNG! ${res.filename || ""}`, "success");
+            }
             return;
           }
         } catch (m1Err) {
@@ -304,11 +304,10 @@ export function StudyNotesBoardPage() {
       });
 
       const dataUrl = canvas.toDataURL("image/png");
-      const link = document.createElement("a");
-      link.href = dataUrl;
-      link.download = safeFileName;
-      link.click();
-      showToast("Sticky Board exported as High-Res PNG!", "success");
+      const res = await saveImageSafely(dataUrl, safeFileName);
+      if (res.success) {
+        showToast(`Sticky Board exported as High-Res PNG! ${res.filename || ""}`, "success");
+      }
     } catch (err) {
       console.error("Failed to export board image:", err);
       showToast("Failed to export Sticky Board image", "warning");
@@ -420,11 +419,10 @@ export function StudyNotesBoardPage() {
 
           const dataUrl = canvas.toDataURL("image/png");
           if (dataUrl && dataUrl.length > 200) {
-            const link = document.createElement("a");
-            link.download = fileName;
-            link.href = dataUrl;
-            link.click();
-            showToast("High Quality PNG Image Exported!", "success");
+            const res = await saveImageSafely(dataUrl, fileName);
+            if (res.success) {
+              showToast(`High Quality PNG Image Exported! ${res.filename || ""}`, "success");
+            }
             return;
           }
         } catch (m1Err) {
@@ -503,11 +501,10 @@ export function StudyNotesBoardPage() {
       });
 
       const fallbackDataUrl = canvas.toDataURL("image/png");
-      const link = document.createElement("a");
-      link.download = fileName;
-      link.href = fallbackDataUrl;
-      link.click();
-      showToast("High Quality PNG Image Exported!", "success");
+      const res = await saveImageSafely(fallbackDataUrl, fileName);
+      if (res.success) {
+        showToast(`High Quality PNG Image Exported! ${res.filename || ""}`, "success");
+      }
     } catch (err) {
       console.error("Failed to export doc PNG:", err);
       showToast("Failed to export PNG image", "warning");

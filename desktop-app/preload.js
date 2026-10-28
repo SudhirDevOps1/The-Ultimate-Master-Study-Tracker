@@ -10,6 +10,8 @@ const ALLOWED_INVOKE_CHANNELS = [
   "get-tracked-dates",
   "export-activity-csv",
   "save-image-dialog",
+  "save-image-file",
+  "open-image-safely",
   "export-app-data",
   "import-app-data",
   "get-app-version",

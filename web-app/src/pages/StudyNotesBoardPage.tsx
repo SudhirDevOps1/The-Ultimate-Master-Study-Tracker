@@ -10,76 +10,27 @@ import {
 import html2canvas from "html2canvas";
 import { useToast } from "@/components/common/Toast";
 import { MarkdownRenderer } from "@/components/common/MarkdownRenderer";
+import { type StickyNote, type NotepadDoc, NOTE_BACKGROUNDS, NOTE_TEXT_COLORS, NOTE_FONTS } from "@/types/notes";
+import { saveImageSafely } from "@/utils/dataExport";
 
 // ─── Data Models ──────────────────────────────────────────────────────────────
-export interface StickyNote {
-  id: string;
-  title?: string;
-  text: string;
-  color: string;      // Background Color Class
-  textColor: string;  // Custom Text Color Class
-  font: string;       // Custom Font Class
-  date: string;
-  time: string;
-  subject: string;
-  pinned?: boolean;
-  image?: string;     // Base64 / URL image attachment
-}
-
-export interface NotepadDoc {
-  id: string;
-  title: string;
-  content: string;
-  category: string;
-  updatedAt: string;
-  createdAt: string;
-  pinned?: boolean;
-}
-
-const NOTE_BACKGROUNDS = [
-  { name: "Yellow", class: "bg-yellow-500/15 border-yellow-400/35" },
-  { name: "Emerald", class: "bg-emerald-500/15 border-emerald-400/35" },
-  { name: "Cyan", class: "bg-cyan-500/15 border-cyan-400/35" },
-  { name: "Purple", class: "bg-purple-500/15 border-purple-400/35" },
-  { name: "Pink", class: "bg-pink-500/15 border-pink-400/35" },
-  { name: "Rose", class: "bg-rose-500/15 border-rose-400/35" },
-  { name: "Dark Slate", class: "bg-slate-900/60 border-slate-700/60" }
-];
-
-const NOTE_TEXT_COLORS = [
-  { name: "Amber/Gold", class: "text-amber-200" },
-  { name: "Mint Green", class: "text-emerald-200" },
-  { name: "Aqua Cyan", class: "text-cyan-200" },
-  { name: "Lavender", class: "text-purple-200" },
-  { name: "Hot Pink", class: "text-pink-200" },
-  { name: "Pure White", class: "text-white" },
-  { name: "Cool Gray", class: "text-slate-300" }
-];
-
-const NOTE_FONTS = [
-  { name: "System Sans", class: "font-sans" },
-  { name: "Classic Serif", class: "font-serif" },
-  { name: "Developer Mono", class: "font-mono" },
-  { name: "Poppins Modern", class: "font-[Poppins,sans-serif]" }
-];
 
 const DEFAULT_NOTEPAD_DOCS: NotepadDoc[] = [
   {
     id: "default-doc-1",
-    title: "📖 Physics Formulas & Notes",
-    content: `# Physics Study Notes
+    title: "📖 Java DSA & Web Dev Notes",
+    content: `# Study Notes & Cheatsheet
 
-## Key Formulas
-- Velocity: v = d / t
-- Acceleration: a = (v - u) / t
-- Newton's Second Law: F = m * a
-- Kinetic Energy: KE = 0.5 * m * v^2
+## Key Concepts
+- Time Complexity: O(1) < O(log N) < O(N) < O(N log N) < O(N^2)
+- Fast & Slow Pointer for Linked List cycle detection
+- 0/1 Knapsack: DP Tabulation vs Memoization
 
-## Revision Strategy
-1. Solve 5 numerical problems daily.
-2. Review derivation for wave motion equations.
-3. Test flashcards before bedtime.`,
-    category: "Physics",
+## Daily Checklist
+1. Solve 3-4 LeetCode problems with paper dry run.
+2. Push daily atomic commits to GitHub.
+3. Review flashcards before bedtime.`,
+    category: "Java DSA",
     updatedAt: new Date().toISOString(),
     createdAt: new Date().toISOString(),
     pinned: true
@@ -89,9 +40,9 @@ const DEFAULT_NOTEPAD_DOCS: NotepadDoc[] = [
     title: "📝 Daily Study Journal",
     content: `# Study Journal
 
-- **Today's Goal**: Finish 2 chapters of Mathematics.
-- **Key Takeaways**: Matrix multiplication requires rows of A to match columns of B.
-- **Pending Tasks**: Practice previous year questions.`,
+- **Today's Goal**: Master Apna College Sigma Modules.
+- **Key Takeaways**: Components lifecycle, Hooks & Express Middleware.
+- **Pending Tasks**: Practice previous year coding questions.`,
     category: "General",
     updatedAt: new Date().toISOString(),
     createdAt: new Date().toISOString()
@@ -224,22 +175,142 @@ export function StudyNotesBoardPage() {
     showToast("Sticky note text copied!", "success");
   };
 
+  // Foolproof 2-Layer Sticky Board PNG Exporter
   const exportBoardAsImage = async () => {
-    if (!notesContainerRef.current) return;
+    if (stickyNotes.length === 0) {
+      showToast("No sticky notes on board to export", "warning");
+      return;
+    }
+
     try {
-      showToast("Generating image export...", "info");
-      const canvas = await html2canvas(notesContainerRef.current, {
-        backgroundColor: "#0F172A",
-        scale: 2
+      showToast("Generating high-resolution Sticky Board PNG...", "info");
+      const safeFileName = `FlowTrack_StickyBoard_${new Date().toISOString().slice(0, 10)}.png`;
+
+      // Method 1: html2canvas on notes container
+      if (notesContainerRef.current) {
+        try {
+          const canvas = await html2canvas(notesContainerRef.current, {
+            backgroundColor: "#0F172A",
+            scale: 2,
+            logging: false,
+            useCORS: true,
+            allowTaint: true,
+            scrollX: 0,
+            scrollY: 0
+          });
+
+          const image = canvas.toDataURL("image/png");
+          if (image && image.length > 200) {
+            const res = await saveImageSafely(image, safeFileName);
+            if (res.success) {
+              showToast(`Sticky Board exported as High-Res PNG! ${res.filename || ""}`, "success");
+            }
+            return;
+          }
+        } catch (m1Err) {
+          console.warn("html2canvas Sticky Board export failed, using Fallback Canvas 2D Grid Renderer...", m1Err);
+        }
+      }
+
+      // Method 2: Direct Canvas 2D Grid Renderer Fallback (Foolproof Guarantee!)
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Could not create canvas 2d context");
+
+      const cols = 3;
+      const cardWidth = 360;
+      const cardHeight = 220;
+      const gap = 20;
+      const padding = 30;
+
+      const rows = Math.ceil(stickyNotes.length / cols);
+      const totalWidth = padding * 2 + Math.min(stickyNotes.length, cols) * cardWidth + (Math.min(stickyNotes.length, cols) - 1) * gap;
+      const totalHeight = padding * 2 + 60 + rows * cardHeight + (rows - 1) * gap;
+
+      canvas.width = totalWidth * 2;
+      canvas.height = totalHeight * 2;
+      ctx.scale(2, 2);
+
+      // Dark Board Background
+      ctx.fillStyle = "#0F172A";
+      ctx.fillRect(0, 0, totalWidth, totalHeight);
+
+      // Header Title
+      ctx.fillStyle = "#A855F7";
+      ctx.font = "bold 13px sans-serif";
+      ctx.fillText("FLOWTRACK PRO • STICKY STUDY BOARD", padding, padding + 15);
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "bold 20px sans-serif";
+      ctx.fillText(`Sticky Notes (${stickyNotes.length})`, padding, padding + 40);
+
+      // Draw each sticky note card
+      stickyNotes.forEach((note, index) => {
+        const col = index % cols;
+        const row = Math.floor(index / cols);
+        const x = padding + col * (cardWidth + gap);
+        const y = padding + 65 + row * (cardHeight + gap);
+
+        // Card Background
+        ctx.fillStyle = "#1E293B";
+        ctx.beginPath();
+        if (typeof ctx.roundRect === "function") {
+          ctx.roundRect(x, y, cardWidth, cardHeight, 14);
+        } else {
+          ctx.rect(x, y, cardWidth, cardHeight);
+        }
+        ctx.fill();
+
+        // Card Border Accent
+        ctx.strokeStyle = note.pinned ? "#A855F7" : "#334155";
+        ctx.lineWidth = note.pinned ? 2 : 1;
+        ctx.stroke();
+
+        // Subject Tag Pill
+        ctx.fillStyle = "#334155";
+        ctx.beginPath();
+        if (typeof ctx.roundRect === "function") {
+          ctx.roundRect(x + 15, y + 15, 80, 20, 6);
+        } else {
+          ctx.rect(x + 15, y + 15, 80, 20);
+        }
+        ctx.fill();
+
+        ctx.fillStyle = "#E2E8F0";
+        ctx.font = "bold 10px sans-serif";
+        ctx.fillText(note.subject.toUpperCase(), x + 23, y + 29);
+
+        // Title
+        let textStartY = y + 55;
+        if (note.title) {
+          ctx.fillStyle = "#FFFFFF";
+          ctx.font = "bold 14px sans-serif";
+          ctx.fillText(note.title, x + 15, textStartY);
+          textStartY += 22;
+        }
+
+        // Content text
+        ctx.fillStyle = "#CBD5E1";
+        ctx.font = "12px sans-serif";
+        const noteLines = note.text.split("\n");
+        noteLines.slice(0, 4).forEach((line, lIdx) => {
+          ctx.fillText(line.slice(0, 45), x + 15, textStartY + lIdx * 18);
+        });
+
+        // Date Footer
+        ctx.fillStyle = "#64748B";
+        ctx.font = "10px sans-serif";
+        ctx.fillText(`${note.date} • ${note.time}`, x + 15, y + cardHeight - 15);
       });
-      const image = canvas.toDataURL("image/png");
-      const link = document.createElement("a");
-      link.href = image;
-      link.download = `FlowTrack_StickyBoard_${new Date().toISOString().slice(0, 10)}.png`;
-      link.click();
-      showToast("Sticky Board exported as PNG!", "success");
-    } catch {
-      showToast("Failed to export image", "warning");
+
+      const dataUrl = canvas.toDataURL("image/png");
+      const res = await saveImageSafely(dataUrl, safeFileName);
+      if (res.success) {
+        showToast(`Sticky Board exported as High-Res PNG! ${res.filename || ""}`, "success");
+      }
+    } catch (err) {
+      console.error("Failed to export board image:", err);
+      showToast("Failed to export Sticky Board image", "warning");
     }
   };
 
@@ -348,11 +419,10 @@ export function StudyNotesBoardPage() {
 
           const dataUrl = canvas.toDataURL("image/png");
           if (dataUrl && dataUrl.length > 200) {
-            const link = document.createElement("a");
-            link.download = fileName;
-            link.href = dataUrl;
-            link.click();
-            showToast("High Quality PNG Image Exported!", "success");
+            const res = await saveImageSafely(dataUrl, fileName);
+            if (res.success) {
+              showToast(`High Quality PNG Image Exported! ${res.filename || ""}`, "success");
+            }
             return;
           }
         } catch (m1Err) {
@@ -431,11 +501,10 @@ export function StudyNotesBoardPage() {
       });
 
       const fallbackDataUrl = canvas.toDataURL("image/png");
-      const link = document.createElement("a");
-      link.download = fileName;
-      link.href = fallbackDataUrl;
-      link.click();
-      showToast("High Quality PNG Image Exported!", "success");
+      const res = await saveImageSafely(fallbackDataUrl, fileName);
+      if (res.success) {
+        showToast(`High Quality PNG Image Exported! ${res.filename || ""}`, "success");
+      }
     } catch (err) {
       console.error("Failed to export doc PNG:", err);
       showToast("Failed to export PNG image", "warning");

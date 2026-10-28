@@ -343,13 +343,20 @@ export function AIAssistantPage() {
   }, [sessions, subjects, dailyGoalHours, weeklyTargetHours, profile, streakData]);
 
   const buildSystemPrompt = useCallback(() => {
-    return `You are a strict, helpful, professional, and private AI study coach. Analyze the user's study patterns and give actionable advice. Speak in English (or Hindi if requested).
-   
-CRITICAL BOUNDARIES:
-1. You MUST ONLY answer questions related to the user's studies, study tracker logs, time management, exam preparation, and focus/academic goals.
-2. If the user asks general, external, or irrelevant questions (e.g. coding topics unrelated to their studied subjects, general programming, cooking recipes, random trivia, general chat), politely refuse and remind them to stay focused on their study goals.
-3. Keep answers extremely short and concise to save tokens and avoid distraction.
-4. Format your responses using clean Markdown.
+    return `You are FlowTrack AI, an intelligent, empathetic, and comprehensive study companion, coding tutor, and academic mentor.
+Your primary mission is to help the user learn, master subjects, understand programming languages, solve academic doubts, and maintain productive study routines.
+
+CORE TUTORING CAPABILITIES:
+1. Academic, Technical & Programming Tutor:
+   - Always answer educational, technical, and programming questions (e.g., Java, Python, C++, DSA, Web development, databases, mathematics, science, engineering) thoroughly and helpfully.
+   - Explain concepts clearly with well-commented code blocks, key principles, and real-world analogies.
+   - Respond fluently in the language the user speaks (Hindi, Hinglish, or English).
+2. Personalized Study Strategist:
+   - You have access to the user's real study tracker stats (shown below).
+   - Offer customized schedule advice, pomodoro timeboxing, and revision tips when relevant, but NEVER refuse or dismiss questions as irrelevant.
+3. Formatting Standards:
+   - Use clean GitHub-Flavored Markdown (headers, bullet points, code blocks).
+   - Use Mermaid diagrams (e.g. flowchart TD, graph LR) whenever a visual diagram helps explain a concept.
 
 User Profile:
 - Name: ${studyContext.userName}
@@ -357,13 +364,13 @@ User Profile:
 - Profession/Exam: ${studyContext.userProfession}
 - Primary Goal: ${studyContext.userGoal}
 
-Study Stats:
+Study Tracker Stats:
 - Daily Goal: ${studyContext.dailyGoalHours} hours
 - Weekly Target: ${studyContext.weeklyTargetHours} hours
-- Current Streak: ${studyContext.dailyStreak} days
+- Current Daily Streak: ${studyContext.dailyStreak} days
 - Longest Streak: ${studyContext.longestStreak} days
 - Total Hours Studied: ${studyContext.totalHours}h
-- Subjects breakdown: ${studyContext.subjectsStudied}
+- Subjects Studied: ${studyContext.subjectsStudied || "None logged yet"}
 
 Recent Activity Logs:
 ${studyContext.recentActivity}`;
@@ -374,6 +381,18 @@ ${studyContext.recentActivity}`;
     const q = query.toLowerCase();
     const name = studyContext.userName;
     const subjectsList = subjects.map(s => s.name).join(", ");
+
+    if (q.includes("java")) {
+      return `### ☕ Java Programming Language\n\n**Java** ek powerful, high-level, class-based aur object-oriented programming language hai jise 1995 mein Sun Microsystems ne develop kiya tha (ab Oracle ke paas hai).\n\n#### 🌟 Key Features of Java:\n1. **Platform Independent (WORA)**: *"Write Once, Run Anywhere"* — Java code compile hokar **Bytecode** (.class) banta hai jo kisi bhi OS par **JVM (Java Virtual Machine)** ke through run hota hai.\n2. **Object-Oriented**: Java OOPs principles (Encapsulation, Inheritance, Polymorphism, Abstraction) par depend karta hai.\n3. **Memory Management**: Automatic Garbage Collection ke sath secure memory handling provide karta hai.\n4. **Multithreaded**: Concurrency aur background processing support karta hai.\n\n\`\`\`java\npublic class HelloWorld {\n    public static void main(String[] args) {\n        System.out.println("Hello, FlowTrack Student!");\n    }\n}\n\`\`\`\n\n#### 💡 Where is Java Used?\n- Android App Development\n- Enterprise Backend APIs (Spring Boot, Microservices)\n- High-performance financial & banking applications\n- Big Data (Apache Hadoop, Apache Spark)\n\n*Aap apne Study Tracker mein **Java** subject add karke sessions track karna shuru kar sakte hain!*`;
+    }
+
+    if (q.includes("python")) {
+      return `### 🐍 Python Programming Language\n\n**Python** ek versatile, high-level, aur beginner-friendly programming language hai jise Guido van Rossum ne design kiya tha.\n\n#### 🌟 Key Highlights:\n- **Clean & Readable Syntax**: Code English ki tarah aasaani se padha ja sakta hai.\n- **Dominant in AI & Data Science**: NumPy, Pandas, Scikit-learn, PyTorch, TensorFlow.\n- **Web Backend**: Django, FastAPI, Flask.\n\n\`\`\`python\ndef greet_student(name):\n    return f"Keep learning and growing, {name}!"\n\nprint(greet_student("${name}"))\n\`\`\``;
+    }
+
+    if (q.includes("dsa") || q.includes("data structure") || q.includes("algorithm")) {
+      return `### 🌳 Data Structures & Algorithms (DSA)\n\n**Data Structures** data ko memory mein systematically store karne ke models hain (Arrays, Linked Lists, Stacks, Queues, Trees, Graphs).\n**Algorithms** problems ko systematically solve karne ke step-by-step procedures hain.\n\n#### 🚀 Recommended Focus Order:\n1. **Complexity Analysis**: Big-O notation ($O(1)$, $O(n)$, $O(\\log n)$).\n2. **Linear Structures**: Arrays, Two-Pointer technique, HashMaps, Sliding Window.\n3. **Non-linear Structures**: Binary Search Trees, Heaps, BFS/DFS Graphs.\n4. **Dynamic Programming**: Memoization, Tabulation.\n\n*Tip: Daily 1-2 coding problems practice karein aur Flashcards mein revision notes banayein!*`;
+    }
 
     if (q.includes("why") && q.includes("less") || q.includes("kam padha") || q.includes("inconsistent")) {
       return `### 📊 Study Consistency Analysis for **${name}**\n\nLooking at your recent study sessions, you studied a total of **${studyContext.totalHours} hours** across your subjects.\n\nHere are some reasons why study output might be dropping:\n1. **Lack of scheduling**: You have planned sessions but the gap between them might be too large. Try setting a standard study routine.\n2. **Neglected subjects**: You studied **${studyContext.subjectsStudied || "no subjects yet"}**. If you focus on only one topic, you get burned out. Try shuffling subjects!\n\n**💡 Actionable Tip**: Start a small 15-minute study block today in **Strict Focus mode** to restart your momentum.`;
@@ -387,7 +406,7 @@ ${studyContext.recentActivity}`;
       return `### 📅 Personalized Study Routine for **${name}**\n\nYour primary goal is: *"${studyContext.userGoal}"* as a **${studyContext.userProfession}**.\n\nHere is a suggested plan based on your subjects (**${subjectsList || "No subjects added yet"}**):\n1. **Morning Block (45 mins)**: Focus on revision and high-difficulty topics first.\n2. **Midday Block (60 mins)**: Hands-on practice, coding, math, or notes writing.\n3. **Evening Block (30 mins)**: Light revision, planning tomorrow's sessions.\n\nMake sure to carry forward sessions automatically so you have a planned template ready every day!`;
     }
 
-    return `### 🤖 Study Assistant Insights\n\nThank you for asking, **${name}**! Here is a summary of your stats:\n- **All Time Hours**: ${studyContext.totalHours} hours\n- **Completed Sessions**: ${studyContext.completedCount} focus blocks\n- **Streak**: ${studyContext.dailyStreak} days\n- **Subjects tracked**: ${studyContext.subjectsStudied || "None yet"}\n\n**💡 Recommended Study Tip**: Try to study at least 1 hour daily to maintain your **${studyContext.dailyStreak} days streak**. Focus on *${subjects[0]?.name || "your primary subject"}* tomorrow morning. Ask me more questions about your focus to get targeted advice!`;
+    return `### 🤖 FlowTrack AI Assistant\n\nHello **${name}**! I am here to help you study, understand concepts, and achieve your targets.\n\n**Your Current Study Status**:\n- **All Time Hours**: ${studyContext.totalHours} hours\n- **Completed Sessions**: ${studyContext.completedCount} focus blocks\n- **Current Streak**: ${studyContext.dailyStreak} days\n- **Tracked Subjects**: ${studyContext.subjectsStudied || "None logged yet"}\n\nFeel free to ask me any programming questions (Java, Python, DSA, C++, etc.), conceptual doubts, or ask for personalized study advice!`;
   };
 
   // ─── Groq Streaming Fetch ──────────────────────────────────────────
