@@ -200,25 +200,32 @@ export function AppShell() {
         </div>
 
         {/* Navigation Bar */}
-        <nav className="f7-segmented overflow-x-auto p-1 max-w-full flex-nowrap scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent gap-1 rounded-2xl bg-slate-950/70 border border-white/5 backdrop-blur-md">
-          {links.map((link) => {
+        <nav className="f7-segmented overflow-x-auto p-1.5 max-w-full flex items-center scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent gap-1 rounded-2xl bg-slate-950/80 border border-white/10 backdrop-blur-xl shadow-xl">
+          {links.map((link, idx) => {
             const LinkIcon = link.Icon;
+            const prevLink = idx > 0 ? links[idx - 1] : null;
+            const isCategoryBreak = prevLink && prevLink.category !== link.category;
+
             return (
-              <NavLink
-                key={link.to}
-                to={link.to}
-                className={({ isActive }) =>
-                  cn(
-                    "f7-segmented-btn flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all select-none",
-                    isActive
-                      ? "active bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
-                      : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
-                  )
-                }
-              >
-                <LinkIcon className="w-3.5 h-3.5 shrink-0" />
-                <span>{link.label}</span>
-              </NavLink>
+              <div key={link.to} className="flex items-center shrink-0">
+                {isCategoryBreak && (
+                  <div className="h-4 w-px bg-white/10 mx-1 shrink-0" />
+                )}
+                <NavLink
+                  to={link.to}
+                  className={({ isActive }) =>
+                    cn(
+                      "f7-segmented-btn flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-1.5 text-xs font-semibold rounded-xl transition-all select-none cursor-pointer",
+                      isActive
+                        ? "active bg-gradient-to-r from-cyan-500/20 via-indigo-500/20 to-cyan-500/10 text-cyan-200 border border-cyan-400/50 shadow-sm shadow-cyan-500/20 font-bold"
+                        : "text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent"
+                    )
+                  }
+                >
+                  <LinkIcon className="w-3.5 h-3.5 shrink-0" />
+                  <span>{link.label}</span>
+                </NavLink>
+              </div>
             );
           })}
         </nav>

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import { useToast } from "@/components/common/Toast";
+import { MarkdownRenderer } from "@/components/common/MarkdownRenderer";
 
 // ─── Data Models ──────────────────────────────────────────────────────────────
 export interface StickyNote {
@@ -97,135 +98,9 @@ const DEFAULT_NOTEPAD_DOCS: NotepadDoc[] = [
   }
 ];
 
-// ─── Simple Markdown Renderer Component ─────────────────────────────────────
+// ─── Universal Markdown & Mermaid Renderer ─────────────────────────────────────
 function MarkdownPreview({ content }: { content: string }) {
-  if (!content.trim()) {
-    return (
-      <div className="py-12 text-center text-slate-500 italic text-sm">
-        (Empty Document Preview)
-      </div>
-    );
-  }
-
-  const lines = content.split("\n");
-  let inCodeBlock = false;
-  let codeBuffer: string[] = [];
-
-  const renderedElements: React.ReactNode[] = [];
-
-  lines.forEach((line, index) => {
-    // Code block toggle ```
-    if (line.trim().startsWith("```")) {
-      if (inCodeBlock) {
-        renderedElements.push(
-          <pre key={`code-${index}`} className="my-3 p-3.5 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-purple-300 overflow-x-auto">
-            <code>{codeBuffer.join("\n")}</code>
-          </pre>
-        );
-        codeBuffer = [];
-        inCodeBlock = false;
-      } else {
-        inCodeBlock = true;
-      }
-      return;
-    }
-
-    if (inCodeBlock) {
-      codeBuffer.push(line);
-      return;
-    }
-
-    // Inline formatting helper
-    const formatInline = (text: string): React.ReactNode => {
-      const parts = text.split(/(\*\*.*?\*\*|\*.*?\*|`.*?`)/g);
-      return parts.map((part, pIdx) => {
-        if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
-          return <strong key={pIdx} className="font-extrabold text-purple-300">{part.slice(2, -2)}</strong>;
-        }
-        if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
-          return <em key={pIdx} className="italic text-slate-200">{part.slice(1, -1)}</em>;
-        }
-        if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
-          return <code key={pIdx} className="px-1.5 py-0.5 rounded bg-slate-800 text-cyan-300 font-mono text-xs">{part.slice(1, -1)}</code>;
-        }
-        return part;
-      });
-    };
-
-    // Headings
-    if (line.startsWith("# ")) {
-      renderedElements.push(
-        <h1 key={index} className="text-2xl font-black text-white mt-4 mb-2 pb-1 border-b border-slate-800">
-          {formatInline(line.slice(2))}
-        </h1>
-      );
-    } else if (line.startsWith("## ")) {
-      renderedElements.push(
-        <h2 key={index} className="text-lg font-bold text-purple-300 mt-3 mb-1.5">
-          {formatInline(line.slice(3))}
-        </h2>
-      );
-    } else if (line.startsWith("### ")) {
-      renderedElements.push(
-        <h3 key={index} className="text-base font-semibold text-slate-200 mt-2 mb-1">
-          {formatInline(line.slice(4))}
-        </h3>
-      );
-    } 
-    // Bullet Lists
-    else if (line.trim().startsWith("- ") || line.trim().startsWith("* ")) {
-      const itemText = line.trim().slice(2);
-      if (itemText.startsWith("[ ] ") || itemText.startsWith("[x] ")) {
-        const checked = itemText.startsWith("[x] ");
-        const checkText = itemText.slice(4);
-        renderedElements.push(
-          <div key={index} className="flex items-center gap-2 my-1 text-xs text-slate-200">
-            <input type="checkbox" checked={checked} readOnly className="rounded border-slate-700 bg-slate-900 text-purple-600" />
-            <span className={checked ? "line-through text-slate-500" : ""}>{formatInline(checkText)}</span>
-          </div>
-        );
-      } else {
-        renderedElements.push(
-          <li key={index} className="ml-4 text-xs text-slate-300 list-disc my-0.5">
-            {formatInline(itemText)}
-          </li>
-        );
-      }
-    } 
-    // Numbered List
-    else if (/^\d+\.\s/.test(line.trim())) {
-      const itemText = line.trim().replace(/^\d+\.\s/, "");
-      renderedElements.push(
-        <li key={index} className="ml-4 text-xs text-slate-300 list-decimal my-0.5">
-          {formatInline(itemText)}
-        </li>
-      );
-    } 
-    // Quotes
-    else if (line.trim().startsWith("> ")) {
-      renderedElements.push(
-        <blockquote key={index} className="pl-3 border-l-2 border-purple-500 italic text-slate-400 my-2 text-xs">
-          {formatInline(line.trim().slice(2))}
-        </blockquote>
-      );
-    } 
-    // Empty line / paragraph
-    else if (line.trim() === "") {
-      renderedElements.push(<div key={index} className="h-2" />);
-    } else {
-      renderedElements.push(
-        <p key={index} className="text-xs text-slate-300 leading-relaxed my-1">
-          {formatInline(line)}
-        </p>
-      );
-    }
-  });
-
-  return (
-    <div className="prose prose-invert max-w-none space-y-1 select-text">
-      {renderedElements}
-    </div>
-  );
+  return <MarkdownRenderer content={content} />;
 }
 
 export function StudyNotesBoardPage() {

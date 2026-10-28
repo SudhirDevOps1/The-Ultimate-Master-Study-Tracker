@@ -9,8 +9,8 @@ import {
 import { Panel } from "@/components/common/Panel";
 import { useAppStore } from "@/store/useAppStore";
 import { isOcrEnabled, setOcrEnabled, searchOcrTimeline } from "@/utils/ocrEngine";
-import { aggregateCodingStats } from "@/utils/editorInfo";
-import { Code2, FolderGit2, Shield, Terminal } from "lucide-react";
+import { aggregateCodingStats, type HeartbeatItem } from "@/utils/editorInfo";
+import { Code2, FolderGit2, Shield, Terminal, Search, Laptop, Clock, Flame, CheckCircle2, Copy } from "lucide-react";
 import { db } from "@/lib/db";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -165,6 +165,35 @@ const CAT_TAG: Record<string, string> = {
 };
 const CAT_EMOJI: Record<string, string> = {
   study:"💻", browser:"🌐", social:"💬", entertainment:"🎮", system:"⚙️"
+};
+
+const LANG_COLORS: Record<string, string> = {
+  TypeScript: "#3178c6",
+  JavaScript: "#f7df1e",
+  Python: "#3572A5",
+  "React / TSX": "#61dafb",
+  React: "#61dafb",
+  "C/C++": "#f34b7d",
+  "C++": "#f34b7d",
+  C: "#555555",
+  "C#": "#178600",
+  Java: "#b07219",
+  Go: "#00ADD8",
+  Rust: "#dea584",
+  HTML: "#e34c26",
+  CSS: "#563d7c",
+  SCSS: "#c6538c",
+  Markdown: "#083fa1",
+  Documentation: "#083fa1",
+  JSON: "#cb171e",
+  Configuration: "#cb171e",
+  YAML: "#cb171e",
+  SQL: "#e38c00",
+  Shell: "#89e051",
+  Bash: "#89e051",
+  PHP: "#4F5D95",
+  Ruby: "#701516",
+  Other: "#64748b",
 };
 
 function fmt(secs: number): string {
@@ -323,6 +352,57 @@ export function AppTrackingPage() {
       searchOcrTimeline(ocrQuery).then(setOcrResults).catch(() => setOcrResults([]));
     }
   }, [ocrActive, ocrQuery, activeTab]);
+
+  const [heartbeats, setHeartbeats] = useState<HeartbeatItem[]>([]);
+
+  useEffect(() => {
+    const ipc = getIpc();
+    if (!ipc) return;
+    const loadHeartbeats = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      ipc.invoke("heartbeat-get-day", selectedDate).then((items: any) => {
+        if (Array.isArray(items)) setHeartbeats(items);
+        else setHeartbeats([]);
+      }).catch(() => setHeartbeats([]));
+    };
+    loadHeartbeats();
+    const interval = setInterval(loadHeartbeats, 6000);
+    return () => clearInterval(interval);
+  }, [selectedDate]);
+
+  const realCodingStats = useMemo(() => aggregateCodingStats(heartbeats), [heartbeats]);
+  const [heartbeatSearch, setHeartbeatSearch] = useState("");
+  const [copiedConfig, setCopiedConfig] = useState(false);
+
+  const displayLanguages = useMemo(() => realCodingStats.languages, [realCodingStats.languages]);
+  const displayProjects  = useMemo(() => realCodingStats.projects,  [realCodingStats.projects]);
+  const totalDevSeconds  = useMemo(() => realCodingStats.totalSeconds || 0, [realCodingStats.totalSeconds]);
+
+  const hourlyCodingDistribution = useMemo(() => {
+    const hours = Array(24).fill(0);
+    for (const h of heartbeats) {
+      const hr = new Date(h.time * 1000).getHours();
+      if (hr >= 0 && hr < 24) hours[hr] += 120;
+    }
+    return hours;
+  }, [heartbeats]);
+
+  const maxHourlySecs  = useMemo(() => Math.max(...hourlyCodingDistribution, 1), [hourlyCodingDistribution]);
+  const peakHourIndex  = useMemo(() => {
+    let max = 0, idx = -1;
+    hourlyCodingDistribution.forEach((s, hr) => { if (s > max) { max = s; idx = hr; } });
+    return idx;
+  }, [hourlyCodingDistribution]);
+
+  const filteredHeartbeats = useMemo(() => {
+    if (!heartbeatSearch.trim()) return heartbeats;
+    const q = heartbeatSearch.toLowerCase();
+    return heartbeats.filter(h =>
+      (h.entity   && h.entity.toLowerCase().includes(q)) ||
+      (h.project  && h.project.toLowerCase().includes(q)) ||
+      (h.language && h.language.toLowerCase().includes(q))
+    );
+  }, [heartbeats, heartbeatSearch]);
   const [exportStatus, setExportStatus] = useState<"idle"|"exporting"|"importing">("idle");
   const [weeklyOverview, setWeeklyOverview] = useState<{ date: string; seconds: number }[]>([]);
   const [periodTotals, setPeriodTotals] = useState<{ today: number; week: number; month: number; allTime: number }>({
@@ -985,13 +1065,13 @@ export function AppTrackingPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
-                      <span>ActivityWatch Telemetry Core</span>
+                      <span>FlowTrack Native Sensor Core</span>
                       <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                         LOCAL-FIRST
                       </span>
                     </h4>
                     <span className="text-[10px] font-mono text-emerald-400 font-semibold">
-                      {liveIdleMs >= 10 * 60 * 1000 ? "⏸ AFK TRIGGERED" : "✅ 0ms LAG"}
+                      {liveIdleMs >= 10 * 60 * 1000 ? "⏸ AFK DETECTED" : "✅ 0ms LAG"}
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
@@ -1008,7 +1088,7 @@ export function AppTrackingPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
-                      <span>Dayflow & Wakapi Classifier</span>
+                      <span>FlowTrack Developer Intelligence</span>
                       <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
                         PORT 7777
                       </span>
@@ -1030,7 +1110,7 @@ export function AppTrackingPage() {
                 { id: "overview", label: "📊 Overview", count: appSummaries.length },
                 { id: "timeline", label: "📈 Timeline", count: dailyLog.length > 0 ? 1 : 0 },
                 { id: "websites", label: "🌐 Web Sites & Tabs", count: webTabSummaries.length },
-                { id: "developer", label: "⚡ Code & Projects", count: 0 },
+                { id: "developer", label: "⚡ Developer Studio", count: heartbeats.length },
                 { id: "windows", label: "🪟 Windows Log", count: dailyLog.length },
               ].map(t => (
                 <button
@@ -1208,30 +1288,421 @@ export function AppTrackingPage() {
               </Panel>
             )}
 
-                        {activeTab === "developer" && (
-              <div className="grid gap-5 md:grid-cols-2">
-                <Panel className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      <Code2 className="w-4 h-4 text-cyan-400" /> Programming Languages
-                    </h3>
-                    <span className="text-[10px] text-slate-500 font-mono">WakaTime Compatible</span>
+            {activeTab === "developer" && (
+              <div className="space-y-6">
+                {/* ── 1. Developer Studio Cockpit Cards ── */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* Total Coding Time */}
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-cyan-950/40 via-slate-900 to-slate-950 border border-cyan-500/30">
+                    <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
+                      <span className="flex items-center gap-1.5 text-cyan-400">
+                        <Clock className="w-3.5 h-3.5" /> Total Coding Time
+                      </span>
+                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                        TODAY
+                      </span>
+                    </div>
+                    <p className="mt-2 text-2xl font-black text-white tabular-nums">
+                      {fmt(totalDevSeconds)}
+                    </p>
+                    <p className="mt-1 text-[11px] text-slate-400 font-mono">
+                      {heartbeats.length} editor pulses logged
+                    </p>
                   </div>
-                  <div className="py-12 text-center text-slate-500 text-xs space-y-2">
-                    <p>No active coding heartbeats detected for {selectedDate}.</p>
-                    <p className="text-[11px] text-slate-600">In the Desktop App or with backend.py, heartbeats from VS Code and Cursor populate here automatically.</p>
+
+                  {/* Peak Focus Hour */}
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-950/40 via-slate-900 to-slate-950 border border-indigo-500/30">
+                    <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
+                      <span className="flex items-center gap-1.5 text-indigo-400">
+                        <Flame className="w-3.5 h-3.5" /> Peak Coding Rhythm
+                      </span>
+                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                        RHYTHM
+                      </span>
+                    </div>
+                    <p className="mt-2 text-2xl font-black text-white">
+                      {peakHourIndex >= 0 ? `${peakHourIndex % 12 || 12} ${peakHourIndex >= 12 ? "PM" : "AM"}` : "None Yet"}
+                    </p>
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      {peakHourIndex >= 0 ? `${fmt(hourlyCodingDistribution[peakHourIndex])} focused coding` : "Awaiting IDE pulses"}
+                    </p>
+                  </div>
+
+                  {/* Top Language */}
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-950/40 via-slate-900 to-slate-950 border border-purple-500/30">
+                    <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
+                      <span className="flex items-center gap-1.5 text-purple-400">
+                        <Code2 className="w-3.5 h-3.5" /> Dominant Syntax
+                      </span>
+                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                        {displayLanguages.length} Languages
+                      </span>
+                    </div>
+                    <p className="mt-2 text-2xl font-black text-white truncate">
+                      {displayLanguages[0]?.name || "None"}
+                    </p>
+                    <p className="mt-1 text-[11px] text-slate-400 font-mono">
+                      {displayLanguages[0] ? `${displayLanguages[0].percent}% of total coding` : "No language detected"}
+                    </p>
+                  </div>
+
+                  {/* Top Workspace */}
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-950 border border-emerald-500/30">
+                    <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
+                      <span className="flex items-center gap-1.5 text-emerald-400">
+                        <FolderGit2 className="w-3.5 h-3.5" /> Top Project
+                      </span>
+                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        {displayProjects.length} Active
+                      </span>
+                    </div>
+                    <p className="mt-2 text-2xl font-black text-white truncate" title={displayProjects[0]?.name}>
+                      {displayProjects[0]?.name || "None"}
+                    </p>
+                    <p className="mt-1 text-[11px] text-slate-400 font-mono">
+                      {displayProjects[0] ? fmt(displayProjects[0].seconds) : "No project active"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* ── 2. Languages Multi-Colored Segmented Bar & Cards ── */}
+                <Panel className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-3">
+                    <div>
+                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                        <Code2 className="w-4 h-4 text-cyan-400" /> Programming Languages Breakdown
+                      </h3>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Real-time syntax classification captured live from your editor buffer.
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                      {displayLanguages.length} Active Languages
+                    </span>
+                  </div>
+
+                  {displayLanguages.length === 0 ? (
+                    <div className="py-10 text-center text-slate-500 text-xs space-y-3">
+                      <p>No active coding heartbeats detected for {selectedDate}.</p>
+                      <p className="text-[11px] text-slate-400">Connect VS Code, Cursor, or JetBrains to see your live languages distribution.</p>
+                      <button
+                        onClick={async () => {
+                          const ipc = getIpc();
+                          if (ipc) {
+                            await ipc.invoke("send-test-heartbeat");
+                            ipc.invoke("heartbeat-get-day", selectedDate).then((items: any) => {
+                              if (Array.isArray(items)) setHeartbeats(items);
+                            });
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-xs font-semibold hover:bg-cyan-500/30 transition-all cursor-pointer"
+                      >
+                        <span>🧪 Generate Test Pulse & Refresh</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Segmented Color Bar */}
+                      <div className="h-3.5 w-full bg-slate-900 rounded-full overflow-hidden flex shadow-inner border border-white/10 p-0.5">
+                        {displayLanguages.map(l => (
+                          <div
+                            key={l.name}
+                            style={{
+                              width: `${Math.max(l.percent, 2)}%`,
+                              backgroundColor: LANG_COLORS[l.name] || "#38bdf8"
+                            }}
+                            className="h-full transition-all duration-500 first:rounded-l-full last:rounded-r-full hover:brightness-125 cursor-pointer"
+                            title={`${l.name}: ${fmt(l.seconds)} (${l.percent}%)`}
+                          />
+                        ))}
+                      </div>
+
+                      {/* Language Badges Grid */}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 pt-1">
+                        {displayLanguages.map(l => {
+                          const color = LANG_COLORS[l.name] || "#38bdf8";
+                          return (
+                            <div
+                              key={l.name}
+                              className="p-3 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-cyan-500/30 transition-all flex flex-col justify-between"
+                            >
+                              <div className="flex items-center justify-between gap-1.5">
+                                <span className="flex items-center gap-2 text-xs font-bold text-white truncate">
+                                  <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: color }} />
+                                  <span className="truncate">{l.name}</span>
+                                </span>
+                                <span className="text-[11px] font-mono font-bold text-slate-300">
+                                  {l.percent}%
+                                </span>
+                              </div>
+                              <div className="mt-2 flex items-center justify-between text-[11px] font-mono text-slate-400">
+                                <span>{fmt(l.seconds)}</span>
+                                <div className="h-1 w-14 bg-slate-800 rounded-full overflow-hidden">
+                                  <div className="h-full rounded-full" style={{ width: `${l.percent}%`, backgroundColor: color }} />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </Panel>
+
+                {/* ── 3. 24-Hour Coding Rhythm Chart ── */}
+                <Panel className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                    <div>
+                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-indigo-400" /> 24-Hour Coding Rhythm
+                      </h3>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Hourly focus volume throughout the day. Hover any bar to view duration.
+                      </p>
+                    </div>
+                    {peakHourIndex >= 0 && (
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
+                        Peak Hour: {peakHourIndex % 12 || 12} {peakHourIndex >= 12 ? "PM" : "AM"}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="pt-2">
+                    <div className="h-28 flex items-end justify-between gap-1 px-1">
+                      {hourlyCodingDistribution.map((sec, hr) => {
+                        const heightPct = Math.max((sec / maxHourlySecs) * 100, sec > 0 ? 12 : 4);
+                        const isPeak = hr === peakHourIndex && sec > 0;
+                        const label = `${hr % 12 || 12}${hr >= 12 ? "p" : "a"}`;
+                        return (
+                          <div
+                            key={hr}
+                            className="flex-1 flex flex-col items-center gap-1 group relative cursor-pointer"
+                            title={`${hr}:00 - ${hr + 1}:00: ${fmt(sec)}`}
+                          >
+                            <div className="w-full flex items-end justify-center h-20">
+                              <div
+                                style={{ height: `${heightPct}%` }}
+                                className={`w-full rounded-t-md transition-all duration-300 ${
+                                  isPeak
+                                    ? "bg-gradient-to-t from-cyan-500 to-indigo-400 shadow-lg shadow-cyan-500/20"
+                                    : sec > 0
+                                    ? "bg-indigo-500/50 group-hover:bg-indigo-400"
+                                    : "bg-slate-800/40 group-hover:bg-slate-700/60"
+                                }`}
+                              />
+                            </div>
+                            <span className="text-[9px] font-mono text-slate-500 group-hover:text-slate-300">
+                              {hr % 3 === 0 ? label : ""}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </Panel>
+
+                {/* ── 4. Projects & Editors Matrix ── */}
+                <div className="grid gap-5 md:grid-cols-2">
+                  {/* Projects */}
+                  <Panel className="space-y-4">
+                    <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                        <FolderGit2 className="w-4 h-4 text-indigo-400" /> Active Projects & Workspaces
+                      </h3>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {displayProjects.length} Repositories
+                      </span>
+                    </div>
+
+                    {displayProjects.length === 0 ? (
+                      <div className="py-12 text-center text-slate-500 text-xs">
+                        No project workspaces detected yet. Work in any code repository to see time per project.
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-[340px] overflow-y-auto pretty-scrollbar pr-1">
+                        {displayProjects.map((proj, idx) => (
+                          <div
+                            key={proj.name}
+                            className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-indigo-500/30 transition-all"
+                          >
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <div className="w-8 h-8 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-300 shrink-0 font-bold text-xs">
+                                #{idx + 1}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-bold text-white truncate">{proj.name}</p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <div className="h-1 flex-1 max-w-[120px] bg-slate-800 rounded-full overflow-hidden">
+                                    <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${proj.percent}%` }} />
+                                  </div>
+                                  <span className="text-[10px] text-slate-400 font-mono">{proj.percent}%</span>
+                                </div>
+                              </div>
+                            </div>
+                            <span className="text-xs font-mono font-bold text-indigo-300 ml-3 shrink-0">
+                              {fmt(proj.seconds)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </Panel>
+
+                  {/* Editors & IDEs */}
+                  <Panel className="space-y-4">
+                    <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                        <Laptop className="w-4 h-4 text-cyan-400" /> Editors & Environments
+                      </h3>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {realCodingStats.editors.length || 1} Detected
+                      </span>
+                    </div>
+
+                    {realCodingStats.editors.length === 0 ? (
+                      <div className="py-12 text-center text-slate-500 text-xs space-y-2">
+                        <p>No editor telemetry recorded yet.</p>
+                        <p className="text-[11px] text-slate-400">VS Code, Cursor, Antigravity, and JetBrains stream editor telemetry automatically.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-[340px] overflow-y-auto pretty-scrollbar pr-1">
+                        {realCodingStats.editors.map(ed => (
+                          <div
+                            key={ed.name}
+                            className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-cyan-500/30 transition-all"
+                          >
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <div className="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-300 shrink-0 font-bold text-xs">
+                                IDE
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-bold text-white truncate">{ed.name}</p>
+                                <p className="text-[10px] text-slate-400 font-mono">{ed.percent}% of coding time</p>
+                              </div>
+                            </div>
+                            <span className="text-xs font-mono font-bold text-cyan-300 ml-3 shrink-0">
+                              {fmt(ed.seconds)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </Panel>
+                </div>
+
+                {/* ── 5. Live Pulse Stream with Instant Search ── */}
                 <Panel className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      <FolderGit2 className="w-4 h-4 text-indigo-400" /> Coding Projects
-                    </h3>
-                    <span className="text-[10px] text-slate-500 font-mono">Workspace Engine</span>
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/5 pb-3">
+                    <div>
+                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-emerald-400" /> Real-Time Developer Pulse Stream
+                      </h3>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Live stream of code edits, active files, and workspace commits.
+                      </p>
+                    </div>
+
+                    {/* Search & Actions */}
+                    <div className="flex items-center gap-2">
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          value={heartbeatSearch}
+                          onChange={(e) => setHeartbeatSearch(e.target.value)}
+                          placeholder="Search file or project..."
+                          className="pl-8 pr-3 py-1.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 w-44 sm:w-56"
+                        />
+                      </div>
+
+                      <button
+                        onClick={async () => {
+                          const ipc = getIpc();
+                          if (ipc) {
+                            await ipc.invoke("send-test-heartbeat");
+                            ipc.invoke("heartbeat-get-day", selectedDate).then((items: any) => {
+                              if (Array.isArray(items)) setHeartbeats(items);
+                            });
+                          }
+                        }}
+                        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-cyan-300 transition-colors"
+                        title="Generate a test pulse"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="py-12 text-center text-slate-500 text-xs">
-                    No project workspaces detected yet.
+
+                  {filteredHeartbeats.length === 0 ? (
+                    <div className="py-10 text-center text-slate-500 text-xs">
+                      {heartbeats.length === 0 ? "No code pulses recorded for this date." : "No pulses match your search."}
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-[320px] overflow-y-auto pretty-scrollbar pr-1">
+                      {[...filteredHeartbeats].reverse().slice(0, 30).map((h, idx) => {
+                        const langColor = LANG_COLORS[h.language || "Other"] || "#38bdf8";
+                        return (
+                          <div
+                            key={h.id || idx}
+                            className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.02] border border-white/5 hover:border-cyan-500/30 transition-all text-xs"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                              <span
+                                style={{ backgroundColor: `${langColor}20`, borderColor: `${langColor}40`, color: langColor }}
+                                className="px-2 py-0.5 rounded-md border text-[10px] font-bold shrink-0"
+                              >
+                                {h.language || "Code"}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-mono text-slate-200 truncate text-[11px]" title={h.entity}>
+                                  {h.entity}
+                                </p>
+                                <p className="text-[9px] text-slate-500 flex items-center gap-2">
+                                  <span>Project: <b className="text-slate-400">{h.project || "Default"}</b></span>
+                                  <span>•</span>
+                                  <span>Editor: <b className="text-slate-400">{h.editor || "Editor"}</b></span>
+                                  {h.branch && (
+                                    <>
+                                      <span>•</span>
+                                      <span>Branch: <b className="text-indigo-400 font-mono">{h.branch}</b></span>
+                                    </>
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                            <span className="text-[10px] text-slate-400 font-mono shrink-0 ml-3">
+                              {new Date(h.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </Panel>
+
+                {/* ── 6. FlowTrack Studio Quick Setup Assistant ── */}
+                <Panel className="space-y-3 bg-gradient-to-r from-slate-900 to-slate-950 border border-white/10">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Terminal className="w-4 h-4 text-cyan-400" />
+                      <h4 className="text-xs font-bold text-white">FlowTrack Developer Studio Connection Guide</h4>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const config = `[settings]\napi_key = 00000000-0000-4000-8000-000000000000\napi_url = http://127.0.0.1:7777/api/v1\n`;
+                        navigator.clipboard.writeText(config);
+                        setCopiedConfig(true);
+                        setTimeout(() => setCopiedConfig(false), 2500);
+                      }}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 text-[11px] font-semibold transition-all"
+                    >
+                      {copiedConfig ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedConfig ? "Config Copied!" : "1-Click Copy IDE Config"}</span>
+                    </button>
                   </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Point your IDE telemetry plugin (VS Code, Cursor, Antigravity, JetBrains) to local endpoint <code className="font-mono text-cyan-300 bg-black/40 px-1 py-0.5 rounded">http://127.0.0.1:7777/api/v1</code>. All code metrics stream directly to your FlowTrack dashboard with zero cloud dependency.
+                  </p>
                 </Panel>
               </div>
             )}

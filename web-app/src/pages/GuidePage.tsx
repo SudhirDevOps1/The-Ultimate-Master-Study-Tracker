@@ -51,7 +51,7 @@ export function GuidePage() {
         if (res.ok && mounted) {
           setDiagHealth(prev => ({
             ...prev,
-            wakatime: { status: "online", label: "WakaTime Port 7777 Online" }
+            wakatime: { status: "online", label: "FlowTrack Port 7777 Online" }
           }));
         }
       } catch {
@@ -546,7 +546,7 @@ export function GuidePage() {
 
           <FeedbackButton
             variant="secondary"
-            successText="📋 WakaTime API Copied!"
+            successText="📋 FlowTrack IDE URL Copied!"
             onClick={async () => {
               await navigator.clipboard.writeText("http://127.0.0.1:7777/api/v1");
             }}
@@ -860,7 +860,7 @@ export function GuidePage() {
               <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-950/40 to-slate-900 border border-emerald-500/30 space-y-2">
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-emerald-400 text-sm flex items-center gap-1.5">
-                    <span>🛡️ ActivityWatch</span>
+                    <span>🛡️ FlowTrack Native Sensor Core</span>
                   </h4>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/20">
                     Local Telemetry
@@ -871,7 +871,7 @@ export function GuidePage() {
                 </p>
                 <div className="pt-1">
                   <a href="https://github.com/ActivityWatch/activitywatch" target="_blank" rel="noreferrer" className="text-[11px] text-emerald-400 hover:underline flex items-center gap-1">
-                    github.com/ActivityWatch/activitywatch ↗
+                    Architectural Inspiration: ActivityWatch (github) ↗
                   </a>
                 </div>
               </div>
@@ -879,7 +879,7 @@ export function GuidePage() {
               <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-950/40 to-slate-900 border border-indigo-500/30 space-y-2">
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-indigo-400 text-sm flex items-center gap-1.5">
-                    <span>🧘 Super Productivity</span>
+                    <span>🧘 FlowTrack Ergonomic Rest Synthesizer</span>
                   </h4>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-500/20">
                     Ergonomics
@@ -890,7 +890,7 @@ export function GuidePage() {
                 </p>
                 <div className="pt-1">
                   <a href="https://github.com/super-productivity/super-productivity" target="_blank" rel="noreferrer" className="text-[11px] text-indigo-400 hover:underline flex items-center gap-1">
-                    github.com/super-productivity/super-productivity ↗
+                    Architectural Inspiration: Super Productivity (github) ↗
                   </a>
                 </div>
               </div>
@@ -898,7 +898,7 @@ export function GuidePage() {
               <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-950/40 to-slate-900 border border-purple-500/30 space-y-2">
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-purple-400 text-sm flex items-center gap-1.5">
-                    <span>🧠 Anki / SuperMemo SM-2</span>
+                    <span>🧠 FlowTrack Neural Memory Engine</span>
                   </h4>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-500/15 text-purple-300 border border-purple-500/20">
                     Spaced Repetition
@@ -909,7 +909,7 @@ export function GuidePage() {
                 </p>
                 <div className="pt-1">
                   <a href="https://github.com/ankitects/anki" target="_blank" rel="noreferrer" className="text-[11px] text-purple-400 hover:underline flex items-center gap-1">
-                    github.com/ankitects/anki ↗
+                    Architectural Inspiration: Anki (github) ↗
                   </a>
                 </div>
               </div>
@@ -917,7 +917,7 @@ export function GuidePage() {
               <div className="p-4 rounded-2xl bg-gradient-to-br from-cyan-950/40 to-slate-900 border border-cyan-500/30 space-y-2">
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-cyan-400 text-sm flex items-center gap-1.5">
-                    <span>⚡ Dayflow & Wakapi</span>
+                    <span>⚡ FlowTrack Developer Studio</span>
                   </h4>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/20">
                     IDE Categorizer
@@ -928,7 +928,7 @@ export function GuidePage() {
                 </p>
                 <div className="pt-1">
                   <a href="https://github.com/muety/wakapi" target="_blank" rel="noreferrer" className="text-[11px] text-cyan-400 hover:underline flex items-center gap-1">
-                    github.com/muety/wakapi ↗
+                    Architectural Inspiration: Wakapi (github) ↗
                   </a>
                 </div>
               </div>

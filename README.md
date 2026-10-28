@@ -64,11 +64,11 @@
 
 <!-- Tech Stack -->
 <p align="center">
-  <img src="https://img.shields.io/badge/React-19.3-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 19" />
-  <img src="https://img.shields.io/badge/TypeScript-7.0-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/Electron-44.8-47848F?style=flat-square&logo=electron&logoColor=white" alt="Electron" />
-  <img src="https://img.shields.io/badge/Vite-8.3-646CFF?style=flat-square&logo=vite&logoColor=white" alt="Vite" />
-  <img src="https://img.shields.io/badge/TailwindCSS-4.3-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white" alt="Tailwind 4" />
+  <img src="https://img.shields.io/badge/React-19.2-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 19" />
+  <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Electron-43.1-47848F?style=flat-square&logo=electron&logoColor=white" alt="Electron" />
+  <img src="https://img.shields.io/badge/Vite-7.3-646CFF?style=flat-square&logo=vite&logoColor=white" alt="Vite" />
+  <img src="https://img.shields.io/badge/TailwindCSS-4.1-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white" alt="Tailwind 4" />
   <img src="https://img.shields.io/badge/Zustand-5.0-black?style=flat-square&logo=zustand" alt="Zustand" />
   <img src="https://img.shields.io/badge/Dexie.js-IndexedDB-orange?style=flat-square" alt="Dexie" />
 </p>
@@ -155,7 +155,7 @@ When viewing [FlowTrack Pro GitHub Releases](https://github.com/SudhirDevOps1/Th
 |:---|:---|:---|
 | **Local-First Window Tracking** | **ActivityWatch** | Native Win32 tracker (`win-tracker.exe`) with sub-millisecond polling and zero cloud telemetry. |
 | **AFK Idle Guard** | **ActivityWatch** | True OS-level mouse and keyboard inactivity detection via `powerMonitor`. Auto-pauses study timer after idle threshold. |
-| **Local Heartbeat Receiver** | **WakaTime / Wakapi** | Local loopback server (`127.0.0.1:7777`) accepting heartbeats from VS Code, VSCodium, Antigravity, and Cursor. |
+| **Local Heartbeat Receiver** | **FlowTrack Telemetry Pulse** | Local loopback server (`127.0.0.1:7777`) accepting heartbeats from VS Code, VSCodium, Antigravity, and Cursor. |
 | **Local Read-Only Query API** | **ActivityWatch** | Safe local query API (`/api/v1/buckets`, `/events`) for developer workflows and external tools. |
 | **Network-Level Ad Shield** | **Brave / Ghostery** | Declarative request-filtering blocking YouTube, banner, and tracker ads inside in-app browser sessions. |
 | **20-20-20 Eye Care Synthesizer** | **Super Productivity** | Automated 20-minute ergonomic rest prompts (look 20 feet away for 20 seconds) to prevent digital fatigue. |
@@ -196,7 +196,7 @@ Most productivity apps are bloated, require cloud subscriptions, or leak your ac
 |:---|:---|:---:|:---:|
 | **Smart Timer & Flowtime** | Pomodoro & unconstrained Flowtime mode with transparent 0–100 Focus Score | ✅ | ✅ |
 | **Active OS Window Tracker** | Background tracking of active applications and websites via native Win32 | ❌ | ✅ |
-| **WakaTime Heartbeat Receiver** | Local `127.0.0.1:7777` receiver capturing heartbeats from VS Code, Cursor, Antigravity | ❌ | ✅ |
+| **FlowTrack IDE Heartbeat Receiver** | Local `127.0.0.1:7777` receiver capturing heartbeats from VS Code, Cursor, Antigravity | ❌ | ✅ |
 | **Network-Level Ad Blocker** | Ghostery engine blocking ads and trackers within the in-app browser | ❌ | ✅ |
 | **In-App Browser & Reader Mode** | Real browser engine with Mozilla Readability, in-page search (Ctrl+F), zoom, and dangerous download intercept | ❌ | ✅ |
 | **Whiteboard & OCR** | Freehand vector drawing, PDF loading, image-to-text extraction, and opt-in OCR timeline | ✅ | ✅ |

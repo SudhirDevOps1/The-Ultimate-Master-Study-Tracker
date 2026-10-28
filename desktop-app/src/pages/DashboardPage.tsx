@@ -311,6 +311,53 @@ export function DashboardPage() {
           </div>
         </motion.div>
 
+        {/* Widget 6: Quick Knowledge & Study Launchpad (Spans 4 cols on LG) */}
+        <motion.div
+          initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
+          className="col-span-1 md:col-span-3 lg:col-span-4 rounded-3xl bg-slate-900/60 border border-white/5 p-6 backdrop-blur-xl shadow-xl space-y-4"
+        >
+          <div className="flex items-center justify-between border-b border-white/5 pb-3">
+            <div>
+              <h3 className="font-bold text-base text-white flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-cyan-400" />
+                <span>FlowTrack Study & Knowledge Suite Launchpad</span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Instant access to study timers, Markdown & Mermaid notes, spaced repetition flashcards, and developer telemetry.
+              </p>
+            </div>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/25">
+              100% LOCAL & PRIVATE
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {[
+              { to: "/timer", label: "Study Timer", desc: "Focus & Pomodoro", icon: "⏱️", color: "from-indigo-500/20 to-purple-500/20 border-indigo-500/30 text-indigo-300" },
+              { to: "/today", label: "Today Tasks", desc: "Eisenhower Matrix", icon: "📋", color: "from-blue-500/20 to-cyan-500/20 border-blue-500/30 text-blue-300" },
+              { to: "/notes-board", label: "Notes Board", desc: "Markdown & Mermaid", icon: "📝", color: "from-purple-500/20 to-pink-500/20 border-purple-500/30 text-purple-300" },
+              { to: "/flashcards", label: "SRS Flashcards", desc: "SM-2 Repetition", icon: "🧠", color: "from-emerald-500/20 to-teal-500/20 border-emerald-500/30 text-emerald-300" },
+              { to: "/ai", label: "AI Assistant", desc: "Visual Explainer", icon: "🤖", color: "from-amber-500/20 to-orange-500/20 border-amber-500/30 text-amber-300" },
+              { to: "/app-tracking?tab=developer", label: "Developer Studio", desc: "IDE Pulse Stream", icon: "⚡", color: "from-cyan-500/20 to-blue-500/20 border-cyan-500/30 text-cyan-300" },
+            ].map((tool) => (
+              <Link
+                key={tool.to}
+                to={tool.to}
+                className={`p-3.5 rounded-2xl bg-gradient-to-br ${tool.color} border hover:scale-[1.03] active:scale-[0.98] transition-all flex flex-col justify-between group shadow-sm`}
+              >
+                <div className="text-2xl mb-2">{tool.icon}</div>
+                <div>
+                  <p className="text-xs font-bold text-white group-hover:text-cyan-200 transition-colors flex items-center justify-between">
+                    <span>{tool.label}</span>
+                    <span className="text-[10px] text-slate-400 group-hover:translate-x-0.5 transition-transform">→</span>
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5 font-medium">{tool.desc}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </motion.div>
+
       </div>
     </div>
   );

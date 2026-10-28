@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Trash2, BookOpen, Brain, Sparkles, AlertCircle, ChevronLeft, ChevronRight, Check, X, RefreshCw } from "lucide-react";
 import { useAppStore, type AppState } from "@/store/useAppStore";
 import { Panel } from "@/components/common/Panel";
+import { MarkdownRenderer } from "@/components/common/MarkdownRenderer";
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 interface Flashcard {
@@ -382,7 +383,7 @@ ${aiNoteInput}`;
                       exit={{ opacity: 0, y: -10 }}
                       className="text-lg text-white font-medium"
                     >
-                      {studyCards[currentCardIndex].front}
+                      <MarkdownRenderer content={studyCards[currentCardIndex].front} />
                     </motion.div>
                   ) : (
                     <motion.div
@@ -392,7 +393,7 @@ ${aiNoteInput}`;
                       exit={{ opacity: 0, y: 10 }}
                       className="text-base text-purple-200"
                     >
-                      {studyCards[currentCardIndex].back}
+                      <MarkdownRenderer content={studyCards[currentCardIndex].back} />
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -406,7 +407,7 @@ ${aiNoteInput}`;
                     <div className="flex items-center gap-2">
                       <Brain className="w-4 h-4 text-purple-400 shrink-0" />
                       <div>
-                        <span className="font-bold text-purple-200">Anki / SM-2 Engine</span>
+                        <span className="font-bold text-purple-200">FlowTrack Neural Memory Engine</span>
                         <span className="ml-2 font-mono text-[10px] text-purple-300 bg-purple-500/15 border border-purple-500/30 px-1.5 py-0.5 rounded-md">
                           I<sub>n</sub> = I<sub>n-1</sub> × EF
                         </span>

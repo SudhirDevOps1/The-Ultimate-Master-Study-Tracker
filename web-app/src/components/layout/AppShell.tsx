@@ -12,46 +12,47 @@ import {
   BarChart2, 
   Award, 
   History as HistoryIcon, 
-  BookOpen, 
   Book, 
   Settings as SettingsIcon,
-  Globe,
   Target,
-  Clock,
   Palette,
   FileText,
   Globe2,
-  ShieldCheck
+  ShieldCheck,
+  Sparkles,
+  HelpCircle,
+  ScanText,
+  CalendarClock
 } from "lucide-react";
 
 const links = [
   // 1. Core Daily Study
-  { to: "/dashboard", label: "Dashboard", Icon: Home },
-  { to: "/today", label: "Today Tasks", Icon: ClipboardList },
-  { to: "/timer", label: "Study Timer", Icon: Timer },
-  { to: "/scheduler", label: "AI Scheduler", Icon: Clock },
+  { to: "/dashboard", label: "Dashboard", Icon: Home, category: "Core" },
+  { to: "/today", label: "Today Tasks", Icon: ClipboardList, category: "Core" },
+  { to: "/timer", label: "Study Timer", Icon: Timer, category: "Core" },
+  { to: "/web-portals", label: "Web Browser", Icon: Globe2, category: "Core" },
 
-  // 2. Workspaces & Tools
-  { to: "/study-workspace", label: "Study Workspace (PDF/OCR)", Icon: BookOpen },
-  { to: "/notes-board", label: "Notes Board", Icon: FileText },
-  { to: "/mind-map", label: "Mind Maps Board", Icon: Palette },
-  { to: "/web-portals", label: "Web Portals Browser", Icon: Globe2 },
-  { to: "/flashcards", label: "SRS Flashcards", Icon: Brain },
-  { to: "/ai", label: "AI Assistant", Icon: Brain },
+  // 2. Study Tools & Knowledge
+  { to: "/scheduler", label: "AI Scheduler", Icon: CalendarClock, category: "Tools" },
+  { to: "/notes-board", label: "Notes Board", Icon: FileText, category: "Tools" },
+  { to: "/study-workspace", label: "PDF / OCR Reader", Icon: ScanText, category: "Tools" },
+  { to: "/mind-map", label: "Mind Maps", Icon: Palette, category: "Tools" },
+  { to: "/flashcards", label: "SRS Flashcards", Icon: Brain, category: "Tools" },
+  { to: "/ai", label: "AI Assistant", Icon: Sparkles, category: "Tools" },
 
-  // 3. Tracking & Performance
-  { to: "/app-tracking", label: "App Tracking", Icon: Monitor },
-  { to: "/blocker", label: "App & Web Blocker", Icon: ShieldCheck },
-  { to: "/analytics", label: "Analytics", Icon: BarChart2 },
-  { to: "/achievements", label: "Achievements", Icon: Award },
-  { to: "/history", label: "History", Icon: HistoryIcon },
+  // 3. Tracking & Focus Shield
+  { to: "/analytics", label: "Analytics", Icon: BarChart2, category: "Focus" },
+  { to: "/blocker", label: "Focus Blocker", Icon: ShieldCheck, category: "Focus" },
+  { to: "/app-tracking", label: "App Tracking", Icon: Monitor, category: "Focus" },
+  { to: "/achievements", label: "Achievements", Icon: Award, category: "Focus" },
+  { to: "/history", label: "History", Icon: HistoryIcon, category: "Focus" },
 
-  // 4. Planning & System
-  { to: "/calendar", label: "Calendar", Icon: CalendarIcon },
-  { to: "/exams", label: "Exam Countdown", Icon: Target },
-  { to: "/subjects", label: "Subjects", Icon: Book },
-  { to: "/guide", label: "Guide", Icon: BookOpen },
-  { to: "/settings", label: "Settings", Icon: SettingsIcon },
+  // 4. Planning & Preferences
+  { to: "/calendar", label: "Calendar", Icon: CalendarIcon, category: "Planning" },
+  { to: "/exams", label: "Exam Countdown", Icon: Target, category: "Planning" },
+  { to: "/subjects", label: "Subjects", Icon: Book, category: "Planning" },
+  { to: "/guide", label: "Guide", Icon: HelpCircle, category: "Planning" },
+  { to: "/settings", label: "Settings", Icon: SettingsIcon, category: "Planning" },
 ];
 
 export function AppShell() {
@@ -129,25 +130,33 @@ export function AppShell() {
           </div>
         </div>
 
-        <nav className="f7-segmented overflow-x-auto p-1 max-w-full flex-nowrap scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent gap-1">
-          {links.map((link) => {
+        {/* Navigation Bar */}
+        <nav className="f7-segmented overflow-x-auto p-1.5 max-w-full flex items-center scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent gap-1 rounded-2xl bg-slate-950/80 border border-white/10 backdrop-blur-xl shadow-xl">
+          {links.map((link, idx) => {
             const LinkIcon = link.Icon;
+            const prevLink = idx > 0 ? links[idx - 1] : null;
+            const isCategoryBreak = prevLink && prevLink.category !== link.category;
+
             return (
-              <NavLink
-                key={link.to}
-                to={link.to}
-                className={({ isActive }) =>
-                  cn(
-                    "f7-segmented-btn flex shrink-0 items-center gap-1.5 whitespace-nowrap px-4 py-2 text-xs font-bold transition-all",
-                    isActive
-                      ? "active bg-white/10 text-white border border-white/10 shadow-[0_2px_8px_rgba(255,255,255,0.05)]"
-                      : "text-slate-400 hover:text-slate-200"
-                  )
-                }
-              >
-                <LinkIcon className="w-3.5 h-3.5 shrink-0" />
-                <span>{link.label}</span>
-              </NavLink>
+              <div key={link.to} className="flex items-center shrink-0">
+                {isCategoryBreak && (
+                  <div className="h-4 w-px bg-white/10 mx-1 shrink-0" />
+                )}
+                <NavLink
+                  to={link.to}
+                  className={({ isActive }) =>
+                    cn(
+                      "f7-segmented-btn flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-1.5 text-xs font-semibold rounded-xl transition-all select-none cursor-pointer",
+                      isActive
+                        ? "active bg-gradient-to-r from-cyan-500/20 via-indigo-500/20 to-cyan-500/10 text-cyan-200 border border-cyan-400/50 shadow-sm shadow-cyan-500/20 font-bold"
+                        : "text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent"
+                    )
+                  }
+                >
+                  <LinkIcon className="w-3.5 h-3.5 shrink-0" />
+                  <span>{link.label}</span>
+                </NavLink>
+              </div>
             );
           })}
         </nav>

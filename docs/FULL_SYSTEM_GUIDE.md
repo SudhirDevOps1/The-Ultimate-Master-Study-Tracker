@@ -45,7 +45,7 @@ FlowTrack Pro is engineered to run seamlessly across **3 operational categories*
 │  - 100% In-Browser IndexedDB    │             │  - OS Active Window Tracking    │             │  - Kernel Win32 C# Tracking     │
 │  - Zero Install & Zero Signup   │             │  - Local SQLite Database Sync   │             │  - Password Vault & AutoUpdate  │
 │  - AES-256-GCM Backup Vault     │             │  - Mirrored Heartbeats Table    │             │  - Ghostery Ad Blocker          │
-│  - Offline MiniSearch (Ctrl+K)  │             │  - WakaTime Heartbeats Proxy    │             │  - Loopback Receiver (7777)     │
+│  - Offline MiniSearch (Ctrl+K)  │             │  - FlowTrack Heartbeats Proxy   │             │  - Loopback Receiver (7777)     │
 └─────────────────────────────────┘             └─────────────────────────────────┘             └─────────────────────────────────┘
 ```
 
@@ -139,7 +139,7 @@ npm run electron:build
 | **Study Target Timer** | Delta Clock (`Date.now()`) | Delta Clock (`Date.now()`) | Delta Clock + Background Priority |
 | **Pomodoro & Flowtime Engine** | Timestamp-Based + Focus Score | Timestamp-Based + Focus Score | Timestamp-Based (Freeze-Proof) |
 | **Active App Tracking** | ❌ None | ✅ Via `http://localhost:5001` | ✅ Native Win32 (`win-tracker.exe`) |
-| **WakaTime Heartbeat Receiver** | ❌ None | ✅ Mirrored via backend.py | ✅ Embedded (`127.0.0.1:7777`) |
+| **FlowTrack IDE Heartbeat Receiver** | ❌ None | ✅ Mirrored via backend.py | ✅ Embedded (`127.0.0.1:7777`) |
 | **Network-Level Ad Blocker** | ❌ Browser Dependent | ❌ Browser Dependent | ✅ Ghostery Engine in Webview |
 | **Dangerous Download Guard** | ❌ Browser Dependent | ❌ Browser Dependent | ✅ Guard Intercept (.exe, .bat, etc.) |
 | **Reader Mode & In-Page Search** | ❌ Browser Dependent | ❌ Browser Dependent | ✅ Mozilla Readability + Ctrl+F |
@@ -174,7 +174,7 @@ npm run electron:build
 7. 📝 **Notes Board (`/notes-board`)**: Kanban sticky notes board with color tags and PNG export.
 8. 🗓️ **Scheduler (`/scheduler`)**: Planned study block calendar and session scheduling.
 9. 🃏 **Flashcards (`/flashcards`)**: SuperMemo SM-2 spaced repetition flashcard decks with learning steps (1m, 10m, 1d) and leech detection.
-10. 🖥️ **App Tracking (`/app-tracking`)**: 24-hr Gantt timeline of app usage, domain breakdown, WakaTime developer heartbeats tab, and opt-in local OCR timeline search.
+10. 🖥️ **App Tracking (`/app-tracking`)**: 24-hr Gantt timeline of app usage, domain breakdown, FlowTrack Developer Studio tab, and opt-in local OCR timeline search.
 11. 📊 **Analytics (`/analytics`)**: Recharts multi-axis performance trends, streak analysis, study metrics, and 1-click Daily Standup & Weekly Review Markdown export.
 12. 🗓️ **History (`/history`)**: Filterable session history logs, session cloning, and date range filters.
 13. 📚 **Subjects (`/subjects`)**: Subject management, color coding, and weekly target goals.

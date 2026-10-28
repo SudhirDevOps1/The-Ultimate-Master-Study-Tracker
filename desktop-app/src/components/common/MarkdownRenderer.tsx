@@ -1,0 +1,423 @@
+import React, { useState } from "react";
+import { MermaidChart } from "./MermaidChart";
+import { Copy, Check, Terminal, ExternalLink } from "lucide-react";
+
+interface MarkdownRendererProps {
+  content: string;
+  className?: string;
+}
+
+export function MarkdownRenderer({ content, className = "" }: MarkdownRendererProps) {
+  if (!content || !content.trim()) {
+    return (
+      <div className="py-8 text-center text-slate-500 italic text-xs">
+        (Empty document preview)
+      </div>
+    );
+  }
+
+  const lines = content.split("\n");
+  const blocks: Array<{
+    type: "h1" | "h2" | "h3" | "h4" | "p" | "ul" | "ol" | "blockquote" | "code" | "mermaid" | "hr" | "table";
+    content: any;
+    lang?: string;
+  }> = [];
+
+  let inCodeBlock = false;
+  let codeBlockBuffer: string[] = [];
+  let codeBlockLang = "";
+  let currentTable: { headers: string[]; rows: string[][] } | null = null;
+  let currentList: { type: "ul" | "ol"; items: { text: string; isTask?: boolean; checked?: boolean }[] } | null = null;
+  let currentQuote: string[] = [];
+
+  const flushList = () => {
+    if (currentList) {
+      blocks.push({ type: currentList.type, content: currentList.items });
+      currentList = null;
+    }
+  };
+
+  const flushQuote = () => {
+    if (currentQuote.length > 0) {
+      blocks.push({ type: "blockquote", content: [...currentQuote] });
+      currentQuote = [];
+    }
+  };
+
+  const flushTable = () => {
+    if (currentTable) {
+      blocks.push({ type: "table", content: currentTable });
+      currentTable = null;
+    }
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i];
+    const line = rawLine.trimEnd();
+    const trimmed = line.trim();
+
+    // 1. Code Block Fence
+    if (trimmed.startsWith("```")) {
+      flushList();
+      flushQuote();
+      flushTable();
+
+      if (inCodeBlock) {
+        const fullCode = codeBlockBuffer.join("\n");
+        if (codeBlockLang.toLowerCase() === "mermaid") {
+          blocks.push({ type: "mermaid", content: fullCode, lang: "mermaid" });
+        } else {
+          blocks.push({ type: "code", content: fullCode, lang: codeBlockLang });
+        }
+        inCodeBlock = false;
+        codeBlockBuffer = [];
+        codeBlockLang = "";
+      } else {
+        inCodeBlock = true;
+        codeBlockLang = trimmed.slice(3).trim();
+      }
+      continue;
+    }
+
+    if (inCodeBlock) {
+      codeBlockBuffer.push(rawLine);
+      continue;
+    }
+
+    // 2. Table row
+    if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
+      flushList();
+      flushQuote();
+
+      const isSeparator = /^[|:\s\-]+$/.test(trimmed);
+      if (isSeparator) {
+        continue;
+      }
+
+      const cells = trimmed
+        .slice(1, -1)
+        .split("|")
+        .map(c => c.trim());
+
+      if (!currentTable) {
+        currentTable = { headers: cells, rows: [] };
+      } else {
+        currentTable.rows.push(cells);
+      }
+      continue;
+    } else {
+      flushTable();
+    }
+
+    // 3. Blockquote
+    if (line.startsWith("> ")) {
+      flushList();
+      currentQuote.push(line.slice(2));
+      continue;
+    } else {
+      flushQuote();
+    }
+
+    // 4. Horizontal Rule
+    if (/^[=\-*_]{3,}$/.test(trimmed)) {
+      flushList();
+      blocks.push({ type: "hr", content: "" });
+      continue;
+    }
+
+    // 5. Headings
+    if (line.startsWith("# ")) {
+      flushList();
+      blocks.push({ type: "h1", content: line.slice(2) });
+      continue;
+    }
+    if (line.startsWith("## ")) {
+      flushList();
+      blocks.push({ type: "h2", content: line.slice(3) });
+      continue;
+    }
+    if (line.startsWith("### ")) {
+      flushList();
+      blocks.push({ type: "h3", content: line.slice(4) });
+      continue;
+    }
+    if (line.startsWith("#### ")) {
+      flushList();
+      blocks.push({ type: "h4", content: line.slice(5) });
+      continue;
+    }
+
+    // 6. Task List or Unordered List
+    if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+      const itemRaw = trimmed.slice(2);
+      let isTask = false;
+      let checked = false;
+      let text = itemRaw;
+
+      if (itemRaw.startsWith("[ ] ")) {
+        isTask = true;
+        checked = false;
+        text = itemRaw.slice(4);
+      } else if (itemRaw.startsWith("[x] ") || itemRaw.startsWith("[X] ")) {
+        isTask = true;
+        checked = true;
+        text = itemRaw.slice(4);
+      }
+
+      if (!currentList || currentList.type !== "ul") {
+        flushList();
+        currentList = { type: "ul", items: [] };
+      }
+      currentList.items.push({ text, isTask, checked });
+      continue;
+    }
+
+    // 7. Ordered List
+    const olMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
+    if (olMatch) {
+      if (!currentList || currentList.type !== "ol") {
+        flushList();
+        currentList = { type: "ol", items: [] };
+      }
+      currentList.items.push({ text: olMatch[2] });
+      continue;
+    }
+
+    flushList();
+
+    // 8. Paragraph or Empty
+    if (trimmed.length > 0) {
+      blocks.push({ type: "p", content: line });
+    }
+  }
+
+  flushList();
+  flushQuote();
+  flushTable();
+
+  // If still in unclosed code block, flush it
+  if (inCodeBlock && codeBlockBuffer.length > 0) {
+    const fullCode = codeBlockBuffer.join("\n");
+    if (codeBlockLang.toLowerCase() === "mermaid") {
+      blocks.push({ type: "mermaid", content: fullCode, lang: "mermaid" });
+    } else {
+      blocks.push({ type: "code", content: fullCode, lang: codeBlockLang });
+    }
+  }
+
+  return (
+    <div className={`space-y-3 leading-relaxed text-slate-300 text-sm ${className}`}>
+      {blocks.map((block, idx) => {
+        switch (block.type) {
+          case "h1":
+            return (
+              <h1
+                key={idx}
+                className="text-2xl font-black text-white mt-5 mb-2 pb-1.5 border-b border-white/10 flex items-center gap-2"
+              >
+                <span className="w-1.5 h-5 rounded-full bg-cyan-400" />
+                <span>{renderInline(block.content)}</span>
+              </h1>
+            );
+          case "h2":
+            return (
+              <h2
+                key={idx}
+                className="text-lg font-bold text-cyan-300 mt-4 mb-2 flex items-center gap-2"
+              >
+                <span className="w-1.5 h-4 rounded-full bg-indigo-500" />
+                <span>{renderInline(block.content)}</span>
+              </h2>
+            );
+          case "h3":
+            return (
+              <h3 key={idx} className="text-base font-semibold text-white mt-3 mb-1">
+                {renderInline(block.content)}
+              </h3>
+            );
+          case "h4":
+            return (
+              <h4 key={idx} className="text-sm font-semibold text-slate-300 mt-2 mb-1">
+                {renderInline(block.content)}
+              </h4>
+            );
+          case "p":
+            return (
+              <p key={idx} className="text-slate-300 leading-relaxed text-[13px]">
+                {renderInline(block.content)}
+              </p>
+            );
+          case "hr":
+            return <hr key={idx} className="my-4 border-white/10" />;
+          case "blockquote":
+            return (
+              <blockquote
+                key={idx}
+                className="my-3 border-l-4 border-cyan-500 bg-slate-950/60 p-3 pl-4 rounded-r-2xl italic text-slate-300/90 space-y-1 shadow-sm"
+              >
+                {(block.content as string[]).map((c, i) => (
+                  <p key={i}>{renderInline(c)}</p>
+                ))}
+              </blockquote>
+            );
+          case "ul":
+            return (
+              <ul key={idx} className="space-y-1.5 my-2">
+                {(block.content as any[]).map((item, i) => (
+                  <li key={i} className="flex items-start gap-2 text-[13px]">
+                    {item.isTask ? (
+                      <input
+                        type="checkbox"
+                        checked={item.checked}
+                        readOnly
+                        className="mt-1 rounded bg-slate-900 border-white/20 text-cyan-500 focus:ring-0 cursor-default"
+                      />
+                    ) : (
+                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 mt-2 shrink-0" />
+                    )}
+                    <span className={item.checked ? "line-through text-slate-500" : ""}>
+                      {renderInline(item.text)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            );
+          case "ol":
+            return (
+              <ol key={idx} className="list-decimal pl-5 space-y-1 my-2 text-[13px]">
+                {(block.content as any[]).map((item, i) => (
+                  <li key={i}>{renderInline(item.text)}</li>
+                ))}
+              </ol>
+            );
+          case "table":
+            return (
+              <div key={idx} className="overflow-x-auto my-3 rounded-2xl border border-white/10 bg-slate-950/60 shadow-lg">
+                <table className="w-full border-collapse text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-white/10 bg-white/[0.04]">
+                      {block.content.headers.map((h: string, i: number) => (
+                        <th key={i} className="p-3 font-bold text-white">
+                          {renderInline(h)}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {block.content.rows.map((row: string[], ri: number) => (
+                      <tr key={ri} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors">
+                        {row.map((cell: string, ci: number) => (
+                          <td key={ci} className="p-3 text-slate-300">
+                            {renderInline(cell)}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+          case "mermaid":
+            return <MermaidChart key={idx} chart={block.content} />;
+          case "code":
+            return <CodeBlock key={idx} code={block.content} lang={block.lang} />;
+          default:
+            return null;
+        }
+      })}
+    </div>
+  );
+}
+
+function CodeBlock({ code, lang }: { code: string; lang?: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="my-3 rounded-2xl border border-white/10 bg-slate-950/90 overflow-hidden shadow-md">
+      <div className="flex items-center justify-between px-3.5 py-1.5 border-b border-white/10 bg-white/[0.02]">
+        <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono">
+          <Terminal className="w-3.5 h-3.5 text-cyan-400" />
+          <span>{lang || "code"}</span>
+        </div>
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white/5 hover:bg-white/10 text-[10px] text-slate-300 font-semibold transition-colors"
+        >
+          {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+          <span>{copied ? "Copied" : "Copy"}</span>
+        </button>
+      </div>
+      <pre className="p-3.5 overflow-x-auto pretty-scrollbar font-mono text-xs text-cyan-200 leading-relaxed">
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
+}
+
+function renderInline(text: string): React.ReactNode {
+  if (!text) return "";
+
+  // Split by bold (**), italic (*), code (`), link [title](url)
+  const regex = /(\*\*.*?\*\*|\*.*?\*|`.*?`|\[.*?\]\(.*?\))/g;
+  const parts = text.split(regex);
+
+  return parts.map((part, idx) => {
+    if (!part) return null;
+
+    // Bold
+    if (part.startsWith("**") && part.endsWith("**") && part.length >= 4) {
+      return (
+        <strong key={idx} className="font-bold text-white">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+
+    // Italic
+    if (part.startsWith("*") && part.endsWith("*") && part.length >= 2) {
+      return (
+        <em key={idx} className="italic text-slate-200">
+          {part.slice(1, -1)}
+        </em>
+      );
+    }
+
+    // Inline Code
+    if (part.startsWith("`") && part.endsWith("`") && part.length >= 2) {
+      return (
+        <code
+          key={idx}
+          className="px-1.5 py-0.5 rounded-md bg-cyan-950/40 text-cyan-300 border border-cyan-500/20 font-mono text-[11px]"
+        >
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+
+    // Markdown Link [title](url)
+    const linkMatch = part.match(/^\[(.*?)\]\((.*?)\)$/);
+    if (linkMatch) {
+      const isExternal = linkMatch[2].startsWith("http");
+      return (
+        <a
+          key={idx}
+          href={linkMatch[2]}
+          target={isExternal ? "_blank" : undefined}
+          rel={isExternal ? "noreferrer" : undefined}
+          className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2 inline-flex items-center gap-0.5 font-medium"
+        >
+          <span>{linkMatch[1]}</span>
+          {isExternal && <ExternalLink className="w-3 h-3 inline" />}
+        </a>
+      );
+    }
+
+    return part;
+  });
+}

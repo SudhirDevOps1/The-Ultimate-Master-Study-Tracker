@@ -196,7 +196,7 @@ function PomodoroSettingsPanel() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h4 className="text-sm font-bold text-emerald-400 flex items-center gap-2">
-              <span>🧘 Super Productivity Ergonomic Rest & 20-20-20 Synthesizer</span>
+              <span>🧘 FlowTrack Ergonomic Rest & 20-20-20 Synthesizer</span>
             </h4>
             <p className="text-xs text-slate-400 mt-0.5">
               Ergonomic eye-care rules, scheduled physical micro-stretches & harmonic audio chimes.
@@ -378,7 +378,7 @@ export function SettingsPage() {
         {[
           { id: "all", label: "All Settings", icon: LayoutGrid },
           { id: "desktop", label: "Desktop Native", icon: Monitor },
-          { id: "coding", label: "Coding & WakaTime", icon: Code2 },
+          { id: "coding", label: "Coding & IDE Integration", icon: Code2 },
           { id: "theme", label: "Themes", icon: Palette },
           { id: "profile", label: "Study Profile", icon: User },
           { id: "pomodoro", label: "Pomodoro & Goals", icon: Timer },
@@ -521,7 +521,7 @@ export function SettingsPage() {
                   <h3 className="text-xl font-bold text-white">Editor & Coding Integration</h3>
                   <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    Port 7777 (WakaTime Engine)
+                    Port 7777 (FlowTrack IDE Pulse Engine)
                   </span>
                 </div>
                 <p className="mt-0.5 text-xs text-slate-400">
@@ -587,7 +587,7 @@ export function SettingsPage() {
                   onClick={() => {
                     const cfg = `[settings]\napi_key = 00000000-0000-4000-8000-000000000000\napi_url = http://127.0.0.1:7777/api/v1\n`;
                     navigator.clipboard.writeText(cfg);
-                    showMessage("📋 WakaTime config snippet copied to clipboard!");
+                    showMessage("📋 FlowTrack IDE config snippet copied to clipboard!");
                   }}
                   successText="Config Copied!"
                 >
@@ -1242,7 +1242,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
             </div>
           </div>
           <p className="text-sm text-slate-400 leading-relaxed">
-            FlowTrack Pro is developed by <strong className="text-white font-semibold">SudhirDevOps1</strong> with a strict privacy-first architecture. It features fully offline operations, ActivityWatch-grade native tracking, and dual-layer hybrid inactivity engines.
+            FlowTrack Pro is developed by <strong className="text-white font-semibold">SudhirDevOps1</strong> with a strict privacy-first architecture. It features fully offline operations, enterprise-grade native tracking, and dual-layer hybrid inactivity engines.
           </p>
         </Panel>
       </div>
