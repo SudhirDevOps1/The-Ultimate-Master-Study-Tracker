@@ -9,6 +9,7 @@ on:
       - 'desktop-app/package.json'
       - 'web-app/package.json'
       - 'desktop-app/electron.js'
+      - '.github/workflows/e2e-gate.yml'
   workflow_dispatch:
 
 concurrency:
@@ -19,7 +20,7 @@ permissions: read-all
 
 jobs:
   pr-security-and-build:
-    name: PR DAST Scan & Bundle Audit
+    name: E2E Integration Test Suite & DAST Scan
     if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -68,12 +69,3 @@ jobs:
           cmd_options: '-a -I'
           allow_issue_writing: false
           fail_action: true
-
-      - name: Upload Scan Artifact
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
-        if: always()
-        with:
-          name: zap-baseline-report
-          path: report_html.html
-          retention-days: 7
-          if-no-files-found: ignore

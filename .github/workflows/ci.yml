@@ -67,6 +67,11 @@ jobs:
         cd desktop-app
         npm run test
 
+    - name: Run E2E Integration Tests
+      run: |
+        cd desktop-app
+        npm run test:e2e
+
     - name: Build Web Application Bundle
       run: |
         cd desktop-app
@@ -96,54 +101,54 @@ jobs:
         cache: 'npm'
         cache-dependency-path: 'desktop-app/package-lock.json'
 
-    - name: Cache Electron Binaries
-      uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
+    - name: Setup Python
+      uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
       with:
-        path: |
-          ~/.cache/electron
-          ~/.cache/electron-builder
-          ~/AppData/Local/electron/Cache
-          ~/AppData/Local/electron-builder/Cache
-          ~/Library/Caches/electron
-          ~/Library/Caches/electron-builder
-        key: ${{ runner.os }}-electron-cache-${{ hashFiles('desktop-app/package-lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-electron-cache-
+        python-version: '3.11'
 
-    - name: Install Desktop Dependencies
+    - name: Install Desktop App Dependencies
       run: |
         cd desktop-app
         npm install --legacy-peer-deps --fetch-retries=5 --fetch-retry-mintimeout=20000
 
-    - name: Build Web Application
+    - name: Build Web Assets (Renderer)
       run: |
         cd desktop-app
         npm run build
 
-    - name: Build Electron App (Windows)
-      if: matrix.os == 'windows-latest'
+    - name: Compile Windows C# Active Window Tracker (win-tracker.exe)
+      if: runner.os == 'Windows'
+      shell: powershell
+      run: |
+        $cscPath = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+        if (Test-Path $cscPath) {
+          & $cscPath /target:winexe /out:desktop-app/win-tracker.exe desktop-app/win-tracker.cs
+        } else {
+          Write-Host "CSC compiler not found; skipping compilation"
+        }
+
+    - name: Package Desktop Executable (Electron Builder)
       run: |
         cd desktop-app
-        npx electron-builder --win --publish never
-
-    - name: Build Electron App (Linux)
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        cd desktop-app
-        npx electron-builder --linux AppImage deb --publish never
-
-    - name: Build Electron App (macOS)
-      if: matrix.os == 'macos-latest'
+        npx electron-builder --publish never
       env:
-        CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-      run: |
-        cd desktop-app
-        npx electron-builder --mac zip dmg --publish never
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        DEBUG: electron-builder
+        CSC_IDENTITY_AUTO_DISCOVERY: false
+        WIN_CSC_LINK: ""
+        WIN_CSC_KEY_PASSWORD: ""
 
-    - name: Upload Build Artifacts
+    - name: Upload Packaged Artifacts
       uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
       with:
-        name: flowtrack-${{ matrix.os }}
-        path: desktop-app/dist-electron/
-        retention-days: 7
+        name: FlowTrackPro-${{ matrix.os }}-Installer
+        path: |
+          desktop-app/dist-electron/*.exe
+          desktop-app/dist-electron/*.AppImage
+          desktop-app/dist-electron/*.deb
+          desktop-app/dist-electron/*.dmg
+          desktop-app/dist-electron/*.zip
+          desktop-app/dist-electron/*.blockmap
+          desktop-app/dist-electron/latest*.yml
         if-no-files-found: warn
+        retention-days: 7
