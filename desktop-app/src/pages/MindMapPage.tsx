@@ -4,13 +4,12 @@ import {
   Maximize2, Minimize2, Palette, Eye, Move, Check, CornerDownRight, 
   Share2, RotateCcw, LayoutTemplate, Sliders, Search, Wand2, Undo, Redo, 
   CheckCircle2, Circle, Clock, FileText, Upload, ChevronRight, ChevronDown, 
-  BookOpen, BrainCircuit, X, Compass, HelpCircle, Image as ImageIcon,
+  ChevronLeft, BookOpen, BrainCircuit, X, Compass, HelpCircle, Image as ImageIcon,
   Link2, Unlink, ArrowRight, ArrowLeft, FolderTree, Play, Layers, Code,
   Cpu, AlertCircle
 } from "lucide-react";
 import { useToast } from "@/components/common/Toast";
 import { Panel } from "@/components/common/Panel";
-import { FabricWhiteboard } from "@/components/common/FabricWhiteboard";
 import { MarkdownRenderer } from "@/components/common/MarkdownRenderer";
 import { saveImageSafely } from "@/utils/dataExport";
 import { callUnifiedAI } from "@/utils/aiClient";
@@ -30,6 +29,111 @@ import {
 } from "@/utils/storageMigration";
 
 export type { MindNode, NodeStatus };
+
+export type MindMapCurveStyle = "curved" | "flowchart" | "straight" | "rounded" | "bracket" | "fishbone";
+
+export interface MindMapDeckItem {
+  id: string;
+  title: string;
+  nodes: MindNode[];
+  relationships: MindMapRelationship[];
+  layoutMode: "balanced" | "right-only" | "tree";
+  curveStyle: MindMapCurveStyle;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const DECK_STORAGE_KEY = "flowtrack_mindmap_decks_v2";
+
+export function calculateEdgePath(
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
+  isLeft: boolean,
+  style: MindMapCurveStyle,
+  isVertical: boolean = false
+): { pathD: string; markerEnd?: string } {
+  if (isVertical) {
+    if (style === "straight") {
+      return { pathD: `M ${startX} ${startY} L ${endX} ${endY}` };
+    }
+    if (style === "flowchart") {
+      const midY = startY + (endY - startY) * 0.5;
+      return {
+        pathD: `M ${startX} ${startY} V ${midY} H ${endX} V ${endY}`,
+        markerEnd: "url(#mindmap-arrow)",
+      };
+    }
+    if (style === "rounded") {
+      const midY = startY + (endY - startY) * 0.5;
+      const r = Math.min(12, Math.abs(midY - startY) * 0.7, Math.abs(endX - startX) * 0.5);
+      if (r < 4 || Math.abs(endX - startX) < 8) {
+        return { pathD: `M ${startX} ${startY} V ${midY} H ${endX} V ${endY}` };
+      }
+      const sX = endX >= startX ? 1 : -1;
+      return {
+        pathD: `M ${startX} ${startY} V ${midY - r} Q ${startX} ${midY} ${startX + sX * r} ${midY} H ${endX - sX * r} Q ${endX} ${midY} ${endX} ${midY + r} V ${endY}`,
+      };
+    }
+    if (style === "bracket") {
+      const spineY = startY + 20;
+      return { pathD: `M ${startX} ${startY} V ${spineY} H ${endX} V ${endY}` };
+    }
+    if (style === "fishbone") {
+      const deltaX = endX - startX;
+      const angleDist = Math.min(Math.abs(deltaX), Math.abs(endY - startY) * 0.4);
+      const sY = endY >= startY ? 1 : -1;
+      const cornerY = startY + sY * angleDist;
+      return { pathD: `M ${startX} ${startY} L ${endX} ${cornerY} V ${endY}` };
+    }
+    // Curved (vertical bezier)
+    const deltaY = Math.abs(endY - startY) * 0.55;
+    return {
+      pathD: `M ${startX} ${startY} C ${startX} ${startY + deltaY}, ${endX} ${endY - deltaY}, ${endX} ${endY}`,
+    };
+  }
+
+  // Horizontal Layout (Balanced / Right-Only)
+  if (style === "straight") {
+    return { pathD: `M ${startX} ${startY} L ${endX} ${endY}` };
+  }
+  if (style === "flowchart") {
+    const midX = isLeft ? startX - (startX - endX) / 2 : startX + (endX - startX) / 2;
+    return {
+      pathD: `M ${startX} ${startY} H ${midX} V ${endY} H ${endX}`,
+      markerEnd: "url(#mindmap-arrow)",
+    };
+  }
+  if (style === "rounded") {
+    const midX = (startX + endX) / 2;
+    const r = Math.min(14, Math.abs(midX - startX) * 0.7, Math.abs(endY - startY) * 0.5);
+    if (r < 4 || Math.abs(endY - startY) < 6) {
+      return { pathD: `M ${startX} ${startY} H ${midX} V ${endY} H ${endX}` };
+    }
+    const sY = endY >= startY ? 1 : -1;
+    const sX = isLeft ? -1 : 1;
+    return {
+      pathD: `M ${startX} ${startY} H ${midX - sX * r} Q ${midX} ${startY} ${midX} ${startY + sY * r} V ${endY - sY * r} Q ${midX} ${endY} ${midX + sX * r} ${endY} H ${endX}`,
+    };
+  }
+  if (style === "bracket") {
+    const spineX = isLeft ? startX - 24 : startX + 24;
+    return { pathD: `M ${startX} ${startY} H ${spineX} V ${endY} H ${endX}` };
+  }
+  if (style === "fishbone") {
+    const dy = endY - startY;
+    const angleDist = Math.min(Math.abs(dy), Math.abs(endX - startX) * 0.45);
+    const sX = isLeft ? -1 : 1;
+    const cornerX = startX + sX * angleDist;
+    return { pathD: `M ${startX} ${startY} L ${cornerX} ${endY} H ${endX}` };
+  }
+  // Default: Organic Curved (horizontal cubic bezier)
+  const deltaX = Math.abs(endX - startX) * 0.55;
+  const cp1X = isLeft ? startX - deltaX : startX + deltaX;
+  const cp2X = isLeft ? endX + deltaX : endX - deltaX;
+  return { pathD: `M ${startX} ${startY} C ${cp1X} ${startY}, ${cp2X} ${endY}, ${endX} ${endY}` };
+}
 
 const COLOR_PRESETS = [
   { name: "Purple", hex: "#a855f7", bg: "rgba(168,85,247,0.25)", border: "#c084fc", text: "#faf5ff" },
@@ -120,7 +224,14 @@ export function MindMapPage() {
   const [nodes, setNodes] = useState<MindNode[]>([]);
   const [relationships, setRelationships] = useState<MindMapRelationship[]>([]);
   const [layoutMode, setLayoutMode] = useState<"balanced" | "right-only" | "tree">("balanced");
+  const [curveStyle, setCurveStyle] = useState<MindMapCurveStyle>("curved");
   const [isLoaded, setIsLoaded] = useState(false);
+
+  // Multi-Map Slide Deck Management
+  const [deck, setDeck] = useState<MindMapDeckItem[]>([]);
+  const [activeDeckIndex, setActiveDeckIndex] = useState<number>(0);
+  const [isRenamingTitle, setIsRenamingTitle] = useState(false);
+  const [tempTitle, setTempTitle] = useState("");
 
   const [history, setHistory] = useState<MindNode[][]>([]);
   const [historyIdx, setHistoryIdx] = useState<number>(-1);
@@ -128,10 +239,8 @@ export function MindMapPage() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
-  const [engineMode, setEngineMode] = useState<"tree" | "whiteboard">("tree");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [curveWidth, setCurveWidth] = useState<number>(2.5);
-  const [curveStyle, setCurveStyle] = useState<"bezier" | "straight" | "rounded">("bezier");
   const [activeColor, setActiveColor] = useState<string>(COLOR_PRESETS[0].hex);
   const [searchQuery, setSearchQuery] = useState("");
   const [showAiModal, setShowAiModal] = useState(false);
@@ -171,18 +280,68 @@ export function MindMapPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { showToast } = useToast();
 
-  // Load from Dexie v2 on Mount
+  // Load Deck & Mind Map from Dexie/localStorage on Mount
   useEffect(() => {
     let isMounted = true;
     (async () => {
       await initStorageMigration();
-      const loaded = await loadMindMap();
-      if (isMounted) {
+      
+      let initialDeck: MindMapDeckItem[] = [];
+      const savedDeckJson = localStorage.getItem(DECK_STORAGE_KEY);
+      if (savedDeckJson) {
+        try {
+          const parsed = JSON.parse(savedDeckJson);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            initialDeck = parsed;
+          }
+        } catch (e) {
+          console.warn("[MindMap] Failed to parse deck from storage", e);
+        }
+      }
+
+      if (initialDeck.length === 0) {
+        const loaded = await loadMindMap();
         if (loaded.nodes && loaded.nodes.length > 0) {
-          setNodes(loaded.nodes);
-          setRelationships(loaded.relationships || []);
-          setLayoutMode(loaded.layoutMode || "balanced");
-          setSelectedNodeId(loaded.nodes[0].id);
+          const legacyTitle = loaded.nodes.find((n) => !n.parentId)?.text || "☕ Java Backend Architecture";
+          initialDeck = [
+            {
+              id: "deck-" + Date.now(),
+              title: legacyTitle,
+              nodes: loaded.nodes,
+              relationships: loaded.relationships || [],
+              layoutMode: loaded.layoutMode || "balanced",
+              curveStyle: "curved",
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }
+          ];
+        } else {
+          initialDeck = [
+            {
+              id: "deck-java-init",
+              title: TEMPLATES.java.name,
+              nodes: TEMPLATES.java.nodes,
+              relationships: [],
+              layoutMode: "balanced",
+              curveStyle: "curved",
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }
+          ];
+        }
+        localStorage.setItem(DECK_STORAGE_KEY, JSON.stringify(initialDeck));
+      }
+
+      if (isMounted) {
+        setDeck(initialDeck);
+        setActiveDeckIndex(0);
+        const first = initialDeck[0];
+        setNodes(first.nodes || []);
+        setRelationships(first.relationships || []);
+        setLayoutMode(first.layoutMode || "balanced");
+        setCurveStyle(first.curveStyle || "curved");
+        if (first.nodes && first.nodes.length > 0) {
+          setSelectedNodeId(first.nodes[0].id);
         }
         setIsLoaded(true);
       }
@@ -192,11 +351,158 @@ export function MindMapPage() {
     };
   }, []);
 
-  // Persist Changes to Dexie v2
+  // Persist Current MindMap Changes into Deck and Dexie
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded || deck.length === 0) return;
+
     saveMindMap(nodes, relationships, layoutMode);
-  }, [nodes, relationships, layoutMode, isLoaded]);
+
+    setDeck((prevDeck) => {
+      if (!prevDeck[activeDeckIndex]) return prevDeck;
+      const current = prevDeck[activeDeckIndex];
+      if (
+        current.nodes === nodes &&
+        current.relationships === relationships &&
+        current.layoutMode === layoutMode &&
+        current.curveStyle === curveStyle
+      ) {
+        return prevDeck;
+      }
+      const updated = [...prevDeck];
+      updated[activeDeckIndex] = {
+        ...current,
+        nodes,
+        relationships,
+        layoutMode,
+        curveStyle,
+        updatedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(DECK_STORAGE_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  }, [nodes, relationships, layoutMode, curveStyle, isLoaded, activeDeckIndex]);
+
+  // Fullscreen Escape Key Listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isFullscreen]);
+
+  // Deck Management Handlers
+  const handleSwitchDeck = useCallback((newIndex: number) => {
+    if (newIndex < 0 || newIndex >= deck.length || newIndex === activeDeckIndex) return;
+
+    // Save current active map state first
+    const current = deck[activeDeckIndex];
+    if (current) {
+      deck[activeDeckIndex] = {
+        ...current,
+        nodes,
+        relationships,
+        layoutMode,
+        curveStyle,
+        updatedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(DECK_STORAGE_KEY, JSON.stringify(deck));
+    }
+
+    const target = deck[newIndex];
+    setActiveDeckIndex(newIndex);
+    setNodes(target.nodes || []);
+    setRelationships(target.relationships || []);
+    setLayoutMode(target.layoutMode || "balanced");
+    setCurveStyle(target.curveStyle || "curved");
+    setSelectedNodeId(target.nodes && target.nodes.length > 0 ? target.nodes[0].id : null);
+    setHistory([]);
+    setHistoryIdx(-1);
+    setIsRenamingTitle(false);
+  }, [deck, activeDeckIndex, nodes, relationships, layoutMode, curveStyle]);
+
+  const handleAddNewMap = useCallback(() => {
+    const newId = "deck-" + Date.now();
+    const newTitle = `Mind Map ${deck.length + 1}`;
+    const newRootNode: MindNode = {
+      id: "root-" + Date.now(),
+      parentId: null,
+      text: "Central Concept",
+      x: 500,
+      y: 320,
+      color: COLOR_PRESETS[deck.length % COLOR_PRESETS.length].hex,
+      status: "todo",
+    };
+    const newMap: MindMapDeckItem = {
+      id: newId,
+      title: newTitle,
+      nodes: [newRootNode],
+      relationships: [],
+      layoutMode: "balanced",
+      curveStyle: "curved",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const updated = [...deck, newMap];
+    setDeck(updated);
+    setActiveDeckIndex(updated.length - 1);
+    setNodes(newMap.nodes);
+    setRelationships([]);
+    setLayoutMode("balanced");
+    setCurveStyle("curved");
+    setSelectedNodeId(newRootNode.id);
+    setHistory([]);
+    setHistoryIdx(-1);
+    localStorage.setItem(DECK_STORAGE_KEY, JSON.stringify(updated));
+    showToast(`Created "${newTitle}"`, "success");
+  }, [deck, showToast]);
+
+  const handleDeleteCurrentMap = useCallback(() => {
+    if (deck.length <= 1) {
+      showToast("At least one mind map is required", "info");
+      return;
+    }
+    const current = deck[activeDeckIndex];
+    const confirmDelete = window.confirm(`Delete mind map "${current.title}"? This cannot be undone.`);
+    if (!confirmDelete) return;
+
+    const nextDeck = deck.filter((_, idx) => idx !== activeDeckIndex);
+    const nextIndex = Math.max(0, activeDeckIndex - 1);
+    const nextMap = nextDeck[nextIndex];
+
+    setDeck(nextDeck);
+    setActiveDeckIndex(nextIndex);
+    setNodes(nextMap.nodes || []);
+    setRelationships(nextMap.relationships || []);
+    setLayoutMode(nextMap.layoutMode || "balanced");
+    setCurveStyle(nextMap.curveStyle || "curved");
+    setSelectedNodeId(nextMap.nodes && nextMap.nodes.length > 0 ? nextMap.nodes[0].id : null);
+    setHistory([]);
+    setHistoryIdx(-1);
+    localStorage.setItem(DECK_STORAGE_KEY, JSON.stringify(nextDeck));
+    showToast(`Deleted "${current.title}"`, "info");
+  }, [deck, activeDeckIndex, showToast]);
+
+  const commitTitleRename = useCallback(() => {
+    if (!tempTitle.trim() || !deck[activeDeckIndex]) {
+      setIsRenamingTitle(false);
+      return;
+    }
+    const updated = [...deck];
+    updated[activeDeckIndex] = {
+      ...updated[activeDeckIndex],
+      title: tempTitle.trim(),
+      updatedAt: new Date().toISOString(),
+    };
+    setDeck(updated);
+    localStorage.setItem(DECK_STORAGE_KEY, JSON.stringify(updated));
+    setIsRenamingTitle(false);
+  }, [deck, activeDeckIndex, tempTitle]);
+
+  const currentMapTitle = deck[activeDeckIndex]?.title || nodes.find((n) => !n.parentId)?.text || "Mind Map";
 
   // Push Undo State (capped at 30 items)
   const pushState = useCallback((newNodes: MindNode[], newRels?: MindMapRelationship[]) => {
@@ -745,18 +1051,28 @@ export function MindMapPage() {
       if (!parent) return;
 
       const pW = parent.parentId === null ? 220 : 180;
-      const startX = node.x < parent.x ? parent.x : parent.x + pW;
-      const startY = parent.y + 24;
-      const endX = node.x < parent.x ? node.x + 180 : node.x;
-      const endY = node.y + 24;
+      const isVertical = layoutMode === "tree";
+      const isLeft = node.x < parent.x;
+      const startX = isVertical ? parent.x + pW / 2 : (isLeft ? parent.x : parent.x + pW);
+      const startY = isVertical ? parent.y + 48 : (parent.y + 24);
+      const endX = isVertical ? node.x + 90 : (isLeft ? node.x + 180 : node.x);
+      const endY = isVertical ? node.y : (node.y + 24);
 
-      ctx.beginPath();
-      ctx.moveTo(startX, startY);
-      const cpX = (startX + endX) / 2;
-      ctx.bezierCurveTo(cpX, startY, cpX, endY, endX, endY);
-      ctx.strokeStyle = node.color || "#8b5cf6";
-      ctx.lineWidth = 2.5;
-      ctx.stroke();
+      const { pathD } = calculateEdgePath(startX, startY, endX, endY, isLeft, curveStyle, isVertical);
+      try {
+        const path2d = new Path2D(pathD);
+        ctx.strokeStyle = node.color || "#8b5cf6";
+        ctx.lineWidth = curveWidth;
+        ctx.stroke(path2d);
+      } catch {
+        // Fallback for environments where Path2D is not available
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(endX, endY);
+        ctx.strokeStyle = node.color || "#8b5cf6";
+        ctx.lineWidth = curveWidth;
+        ctx.stroke();
+      }
     });
 
     // Draw Cross-links
@@ -857,236 +1173,308 @@ Provide 8 to 14 insightful subtopics categorized cleanly with 'side': 'left' or 
   };
 
   return (
-    <div className={`flex flex-col ${
+    <div className={`relative flex flex-col ${
       isFullscreen
-        ? "fixed inset-0 z-50 p-2 md:p-3 bg-slate-950"
+        ? "fixed inset-0 z-50 p-2 bg-slate-950"
         : "h-[calc(100vh-4rem)] p-3 md:p-4"
     } space-y-2.5 bg-slate-950 text-slate-100 overflow-hidden select-none`}>
-      {/* ─── Header Toolbar ─── */}
-      <Panel className="p-2.5 bg-slate-900/95 backdrop-blur border-slate-800 shadow-xl rounded-2xl shrink-0">
-        <div className="flex flex-wrap items-center justify-between gap-2.5">
-          {/* Left: Engine Mode & Outline Drawer Toggle */}
-          <div className="flex items-center gap-2">
-            {/* Dual Engine Switcher */}
-            <div className="flex items-center p-0.5 rounded-xl bg-slate-950 border border-slate-800 text-xs">
-              <button
-                onClick={() => setEngineMode("tree")}
-                className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
-                  engineMode === "tree"
-                    ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
-                    : "text-slate-400 hover:text-white"
-                }`}
-                title="Interactive Mind Map"
-              >
-                <BrainCircuit className="w-3.5 h-3.5 text-purple-300" />
-                <span>Mind Map</span>
-              </button>
-              <button
-                onClick={() => setEngineMode("whiteboard")}
-                className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
-                  engineMode === "whiteboard"
-                    ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
-                    : "text-slate-400 hover:text-white"
-                }`}
-                title="Interactive Whiteboard (Fabric.js)"
-              >
-                <Palette className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Whiteboard</span>
-              </button>
-            </div>
+      {/* ─── Floating Exit Pill in Fullscreen Mode ─── */}
+      {isFullscreen && (
+        <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
+          <button
+            onClick={() => setIsFullscreen(false)}
+            className="px-3.5 py-1.5 rounded-full bg-slate-900/95 hover:bg-slate-800 text-purple-300 hover:text-white border border-purple-500/40 shadow-2xl backdrop-blur-md text-xs font-semibold flex items-center gap-2 transition"
+            title="Exit Fullscreen (Esc)"
+          >
+            <Minimize2 className="w-3.5 h-3.5" />
+            <span>Exit Fullscreen</span>
+            <kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-[10px] text-slate-400 font-mono">Esc</kbd>
+          </button>
+        </div>
+      )}
 
-            {engineMode === "tree" && (
-              <>
+      {/* ─── Sleek Single-Row Header Toolbar ─── */}
+      {!isFullscreen && (
+        <Panel className="p-2 bg-slate-900/95 backdrop-blur border-slate-800 shadow-xl rounded-2xl shrink-0">
+          <div className="flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
+            {/* 1. Left: Slide Deck Navigation & Map Title */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* Deck Pagination Pill */}
+              <div className="flex items-center bg-slate-950 p-0.5 rounded-xl border border-slate-800 text-xs">
                 <button
-                  onClick={() => setShowOutline((prev) => !prev)}
-                  className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition ${
-                    showOutline
-                      ? "bg-purple-600/30 border-purple-500/50 text-purple-200"
-                      : "bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-800"
-                  }`}
-                  title="Toggle Outline Tree (Ctrl+Shift+O)"
+                  onClick={() => handleSwitchDeck(activeDeckIndex - 1)}
+                  disabled={activeDeckIndex <= 0}
+                  className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white disabled:opacity-30 transition"
+                  title="Previous Map / Slide"
                 >
-                  <FolderTree className="w-4 h-4" />
-                  <span className="hidden md:inline">Outline</span>
+                  <ChevronLeft className="w-3.5 h-3.5" />
                 </button>
-
-                {/* Layout Mode Selector */}
-                <div className="flex items-center bg-slate-950 p-0.5 rounded-xl border border-slate-800 text-xs">
-                  <button
-                    onClick={() => handleApplyLayoutMode("balanced")}
-                    className={`px-2 py-1 rounded-lg transition font-medium ${
-                      layoutMode === "balanced" ? "bg-purple-600 text-white shadow" : "text-slate-400 hover:text-white"
-                    }`}
-                    title="Balanced Layout"
-                  >
-                    Balanced
-                  </button>
-                  <button
-                    onClick={() => handleApplyLayoutMode("right-only")}
-                    className={`px-2 py-1 rounded-lg transition font-medium ${
-                      layoutMode === "right-only" ? "bg-purple-600 text-white shadow" : "text-slate-400 hover:text-white"
-                    }`}
-                    title="Right-Only Mind Map"
-                  >
-                    Right
-                  </button>
-                  <button
-                    onClick={() => handleApplyLayoutMode("tree")}
-                    className={`px-2 py-1 rounded-lg transition font-medium ${
-                      layoutMode === "tree" ? "bg-purple-600 text-white shadow" : "text-slate-400 hover:text-white"
-                    }`}
-                    title="Vertical Tree"
-                  >
-                    Tree
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Center: Search & Focus */}
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                placeholder="Search concepts..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-32 md:w-44 pl-8 pr-2 py-1 text-xs bg-slate-950 border border-slate-800 rounded-xl text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:w-52 transition-all"
-              />
-              {searchQuery && (
+                <span className="px-2 font-mono text-[11px] font-bold text-purple-300 select-none whitespace-nowrap">
+                  {deck.length > 0 ? `${activeDeckIndex + 1}/${deck.length}` : "1/1"}
+                </span>
                 <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  onClick={() => handleSwitchDeck(activeDeckIndex + 1)}
+                  disabled={activeDeckIndex >= deck.length - 1}
+                  className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white disabled:opacity-30 transition"
+                  title="Next Map / Slide"
                 >
-                  <X className="w-3 h-3" />
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={handleAddNewMap}
+                  className="p-1 ml-0.5 rounded-lg bg-purple-600/30 hover:bg-purple-600/60 text-purple-300 border border-purple-500/30 transition"
+                  title="Create New Mind Map / Slide"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Inline Editable Map Title */}
+              {isRenamingTitle ? (
+                <input
+                  type="text"
+                  value={tempTitle}
+                  onChange={(e) => setTempTitle(e.target.value)}
+                  onBlur={commitTitleRename}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") commitTitleRename();
+                    if (e.key === "Escape") setIsRenamingTitle(false);
+                  }}
+                  autoFocus
+                  className="px-2 py-0.5 text-xs bg-slate-950 border border-purple-500 rounded-xl text-white font-semibold max-w-[150px] md:max-w-[190px] focus:outline-none"
+                />
+              ) : (
+                <div
+                  onClick={() => {
+                    setTempTitle(currentMapTitle);
+                    setIsRenamingTitle(true);
+                  }}
+                  className="flex items-center gap-1 px-2 py-1 rounded-xl hover:bg-slate-800/80 cursor-pointer text-xs font-semibold text-slate-200 group max-w-[130px] md:max-w-[180px] transition"
+                  title="Click to rename mind map"
+                >
+                  <span className="truncate">{currentMapTitle}</span>
+                  <Edit3 className="w-3 h-3 text-slate-500 group-hover:text-purple-400 shrink-0" />
+                </div>
+              )}
+
+              {/* Delete Current Map Button */}
+              {deck.length > 1 && (
+                <button
+                  onClick={handleDeleteCurrentMap}
+                  className="p-1.5 rounded-xl bg-slate-950 hover:bg-red-500/20 text-slate-500 hover:text-red-400 border border-slate-800 transition shrink-0"
+                  title="Delete this mind map"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
 
-            <button
-              onClick={() => setIsFocusMode((prev) => !prev)}
-              className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1 transition ${
-                isFocusMode
-                  ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
-                  : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
-              }`}
-              title="Focus Branch Mode (Ctrl+Shift+F)"
-            >
-              <Eye className="w-4 h-4" />
-              <span className="hidden lg:inline">Focus</span>
-            </button>
-
-            <button
-              onClick={() => {
-                if (nodes.length > 0) {
-                  setIsPresentMode(true);
-                  setPresentIndex(0);
-                }
-              }}
-              disabled={nodes.length === 0}
-              className="p-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-xs text-slate-300 hover:text-white transition flex items-center gap-1 disabled:opacity-40"
-              title="Presentation Mode"
-            >
-              <Play className="w-4 h-4 text-emerald-400" />
-              <span className="hidden lg:inline">Present</span>
-            </button>
-          </div>
-
-          {/* Right: Actions, Import, Export, Shortcuts */}
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => setShowAiModal(true)}
-              className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-md shadow-purple-600/20 border border-purple-400/30 transition flex items-center gap-1"
-            >
-              <Wand2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">AI Generate</span>
-            </button>
-
-            <button
-              onClick={() => setShowImportModal(true)}
-              className="p-1.5 rounded-xl text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition"
-              title="Import Markdown Outline"
-            >
-              <Upload className="w-3.5 h-3.5" />
-            </button>
-
-            <button
-              onClick={exportMarkdown}
-              className="p-1.5 rounded-xl text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition"
-              title="Export Markdown Outline (.md)"
-            >
-              <FileText className="w-3.5 h-3.5" />
-            </button>
-
-            <button
-              onClick={exportPNG}
-              className="p-1.5 rounded-xl text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition"
-              title="Export High-Res PNG"
-            >
-              <Download className="w-3.5 h-3.5" />
-            </button>
-
-            <button
-              onClick={undo}
-              disabled={historyIdx <= 0}
-              className="p-1.5 rounded-xl text-slate-400 hover:text-white bg-slate-800 border border-slate-700 transition disabled:opacity-30"
-              title="Undo (Ctrl+Z)"
-            >
-              <Undo className="w-3.5 h-3.5" />
-            </button>
-
-            <button
-              onClick={redo}
-              disabled={historyIdx >= history.length - 1}
-              className="p-1.5 rounded-xl text-slate-400 hover:text-white bg-slate-800 border border-slate-700 transition disabled:opacity-30"
-              title="Redo (Ctrl+Shift+Z)"
-            >
-              <Redo className="w-3.5 h-3.5" />
-            </button>
-
-            <button
-              onClick={() => setShowShortcutsModal(true)}
-              className="p-1.5 rounded-xl text-slate-400 hover:text-white bg-slate-800 border border-slate-700 transition"
-              title="Keyboard Shortcuts"
-            >
-              <HelpCircle className="w-3.5 h-3.5" />
-            </button>
-
-            {selectedNode && (
+            {/* 2. Middle-Left: Outline, Layout & 6+ Connector Styles */}
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
-                onClick={() => setShowNotesDrawer((prev) => !prev)}
-                className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1 transition ${
-                  showNotesDrawer
-                    ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-300"
-                    : "bg-slate-800 border-slate-700 text-slate-300 hover:text-white"
+                onClick={() => setShowOutline((prev) => !prev)}
+                className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition ${
+                  showOutline
+                    ? "bg-purple-600/30 border-purple-500/50 text-purple-200"
+                    : "bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-800"
                 }`}
-                title="Toggle Properties & Notes Drawer"
+                title="Toggle Outline Tree (Ctrl+Shift+O)"
               >
-                <Edit3 className="w-3.5 h-3.5 text-cyan-400" />
-                <span className="hidden xl:inline">Properties</span>
+                <FolderTree className="w-3.5 h-3.5 text-purple-400" />
+                <span className="hidden xl:inline">Outline</span>
               </button>
-            )}
 
-            <button
-              onClick={() => setIsFullscreen((prev) => !prev)}
-              className={`p-1.5 rounded-xl border transition ${
-                isFullscreen
-                  ? "bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30"
-                  : "text-slate-400 hover:text-white bg-slate-800 border-slate-700"
-              }`}
-              title={isFullscreen ? "Exit Fullscreen" : "Full Screen Mode"}
-            >
-              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-            </button>
+              {/* Layout Mode Segmented Control */}
+              <div className="flex items-center bg-slate-950 p-0.5 rounded-xl border border-slate-800 text-xs">
+                <button
+                  onClick={() => handleApplyLayoutMode("balanced")}
+                  className={`px-2 py-1 rounded-lg transition font-medium ${
+                    layoutMode === "balanced" ? "bg-purple-600 text-white shadow" : "text-slate-400 hover:text-white"
+                  }`}
+                  title="Balanced Mind Map"
+                >
+                  Balanced
+                </button>
+                <button
+                  onClick={() => handleApplyLayoutMode("right-only")}
+                  className={`px-2 py-1 rounded-lg transition font-medium ${
+                    layoutMode === "right-only" ? "bg-purple-600 text-white shadow" : "text-slate-400 hover:text-white"
+                  }`}
+                  title="Right-Only Flow"
+                >
+                  Right
+                </button>
+                <button
+                  onClick={() => handleApplyLayoutMode("tree")}
+                  className={`px-2 py-1 rounded-lg transition font-medium ${
+                    layoutMode === "tree" ? "bg-purple-600 text-white shadow" : "text-slate-400 hover:text-white"
+                  }`}
+                  title="Vertical Hierarchy Tree"
+                >
+                  Tree
+                </button>
+              </div>
+
+              {/* 6 Visual Connection Styles Selector */}
+              <select
+                value={curveStyle}
+                onChange={(e) => setCurveStyle(e.target.value as MindMapCurveStyle)}
+                className="bg-slate-950 text-slate-200 border border-slate-800 rounded-xl px-2 py-1 text-xs font-semibold focus:outline-none focus:border-purple-500 cursor-pointer"
+                title="Visual Connector & Edge Style (6 Styles)"
+              >
+                <option value="curved">🌊 Curved (Organic)</option>
+                <option value="flowchart">🔀 Flowchart (90° + Arrow)</option>
+                <option value="straight">📏 Linear (Straight)</option>
+                <option value="rounded">➰ Rounded Stepped</option>
+                <option value="bracket">🗂️ Bracket Tree</option>
+                <option value="fishbone">🐟 Fishbone (Angled)</option>
+              </select>
+            </div>
+
+            {/* 3. Middle-Right: Search & Mode Controls */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <div className="relative">
+                <Search className="w-3 h-3 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search concepts..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-24 md:w-36 pl-7 pr-2 py-1 text-xs bg-slate-950 border border-slate-800 rounded-xl text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:w-44 transition-all"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                )}
+              </div>
+
+              <button
+                onClick={() => setIsFocusMode((prev) => !prev)}
+                className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1 transition ${
+                  isFocusMode
+                    ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
+                    : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
+                }`}
+                title="Focus Branch Mode (Ctrl+Shift+F)"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span className="hidden xl:inline">Focus</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  if (nodes.length > 0) {
+                    setIsPresentMode(true);
+                    setPresentIndex(0);
+                  }
+                }}
+                disabled={nodes.length === 0}
+                className="p-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-xs text-slate-300 hover:text-white transition flex items-center gap-1 disabled:opacity-40"
+                title="Presentation Mode (F5)"
+              >
+                <Play className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="hidden xl:inline">Present</span>
+              </button>
+            </div>
+
+            {/* 4. Right: AI Generate, Export/Import, Undo/Redo & Utility */}
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={() => setShowAiModal(true)}
+                className="px-2.5 py-1 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-md shadow-purple-600/20 border border-purple-400/30 transition flex items-center gap-1"
+                title="AI Mind Map Generator"
+              >
+                <Wand2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">AI Generate</span>
+              </button>
+
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="p-1.5 rounded-xl text-slate-300 hover:text-white bg-slate-950 hover:bg-slate-800 border border-slate-800 transition"
+                title="Import Markdown Outline"
+              >
+                <Upload className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                onClick={exportMarkdown}
+                className="p-1.5 rounded-xl text-slate-300 hover:text-white bg-slate-950 hover:bg-slate-800 border border-slate-800 transition"
+                title="Export Markdown (.md)"
+              >
+                <FileText className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                onClick={exportPNG}
+                className="p-1.5 rounded-xl text-slate-300 hover:text-white bg-slate-950 hover:bg-slate-800 border border-slate-800 transition"
+                title="Export PNG Diagram"
+              >
+                <Download className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                onClick={undo}
+                disabled={historyIdx <= 0}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-white bg-slate-950 border border-slate-800 transition disabled:opacity-30"
+                title="Undo (Ctrl+Z)"
+              >
+                <Undo className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                onClick={redo}
+                disabled={historyIdx >= history.length - 1}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-white bg-slate-950 border border-slate-800 transition disabled:opacity-30"
+                title="Redo (Ctrl+Shift+Z)"
+              >
+                <Redo className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                onClick={() => setShowShortcutsModal(true)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-white bg-slate-950 border border-slate-800 transition"
+                title="Keyboard Shortcuts"
+              >
+                <HelpCircle className="w-3.5 h-3.5" />
+              </button>
+
+              {selectedNode && (
+                <button
+                  onClick={() => setShowNotesDrawer((prev) => !prev)}
+                  className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1 transition ${
+                    showNotesDrawer
+                      ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-300"
+                      : "bg-slate-950 border-slate-800 text-slate-300 hover:text-white"
+                  }`}
+                  title="Node Properties & Markdown Drawer"
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-cyan-400" />
+                </button>
+              )}
+
+              <button
+                onClick={() => setIsFullscreen((prev) => !prev)}
+                className={`p-1.5 rounded-xl border transition ${
+                  isFullscreen
+                    ? "bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30"
+                    : "text-slate-400 hover:text-white bg-slate-950 border-slate-800"
+                }`}
+                title={isFullscreen ? "Exit Fullscreen (Esc)" : "Full Screen Mode"}
+              >
+                {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+              </button>
+            </div>
           </div>
-        </div>
-      </Panel>
+        </Panel>
+      )}
 
       {/* ─── Main Workspace Area ─── */}
-      {engineMode === "tree" ? (
-        <div className="relative flex-1 flex overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/40">
+      <div className="relative flex-1 flex overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/40">
         {/* ─── Collapsible Left Outline Drawer ─── */}
         {showOutline && (
           <aside className="w-72 bg-slate-900/95 backdrop-blur border-r border-slate-800 flex flex-col z-30 shrink-0">
@@ -1255,6 +1643,17 @@ Provide 8 to 14 insightful subtopics categorized cleanly with 'side': 'left' or 
                 >
                   <path d="M 0 1 L 8 5 L 0 9 z" fill="#06b6d4" />
                 </marker>
+                <marker
+                  id="mindmap-arrow"
+                  viewBox="0 0 10 10"
+                  refX="8"
+                  refY="5"
+                  markerWidth="6"
+                  markerHeight="6"
+                  orient="auto"
+                >
+                  <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#c084fc" />
+                </marker>
               </defs>
 
               {/* Hierarchy Tree Edges */}
@@ -1268,16 +1667,22 @@ Provide 8 to 14 insightful subtopics categorized cleanly with 'side': 'left' or 
                 const nW = 180;
                 const nH = 48;
 
+                const isVertical = layoutMode === "tree";
                 const isLeft = node.x < parent.x;
-                const startX = isLeft ? parent.x : parent.x + pW;
-                const startY = parent.y + pH / 2;
-                const endX = isLeft ? node.x + nW : node.x;
-                const endY = node.y + nH / 2;
+                const startX = isVertical ? parent.x + pW / 2 : (isLeft ? parent.x : parent.x + pW);
+                const startY = isVertical ? parent.y + pH : (parent.y + pH / 2);
+                const endX = isVertical ? node.x + nW / 2 : (isLeft ? node.x + nW : node.x);
+                const endY = isVertical ? node.y : (node.y + nH / 2);
 
-                const deltaX = Math.abs(endX - startX) * 0.55;
-                const cp1X = isLeft ? startX - deltaX : startX + deltaX;
-                const cp2X = isLeft ? endX + deltaX : endX - deltaX;
-                const pathD = `M ${startX} ${startY} C ${cp1X} ${startY}, ${cp2X} ${endY}, ${endX} ${endY}`;
+                const { pathD, markerEnd } = calculateEdgePath(
+                  startX,
+                  startY,
+                  endX,
+                  endY,
+                  isLeft,
+                  curveStyle,
+                  isVertical
+                );
 
                 return (
                   <path
@@ -1286,8 +1691,9 @@ Provide 8 to 14 insightful subtopics categorized cleanly with 'side': 'left' or 
                     fill="none"
                     stroke={node.color || "#8b5cf6"}
                     strokeWidth={curveWidth}
-                    strokeOpacity={branchIds && !branchIds.has(node.id) ? 0.15 : 0.75}
+                    strokeOpacity={branchIds && !branchIds.has(node.id) ? 0.15 : 0.85}
                     strokeLinecap="round"
+                    markerEnd={markerEnd}
                   />
                 );
               })}
@@ -1666,11 +2072,6 @@ Provide 8 to 14 insightful subtopics categorized cleanly with 'side': 'left' or 
           </aside>
         )}
       </div>
-      ) : (
-        <div className="relative flex-1 flex overflow-hidden rounded-2xl border border-slate-800 bg-slate-950">
-          <FabricWhiteboard storageKey="flowtrack_fabric_whiteboard_desktop_v1" />
-        </div>
-      )}
 
       {/* ─── Presentation Mode Overlay ─── */}
       {isPresentMode && nodes.length > 0 && (
