@@ -900,7 +900,7 @@ export function StudyNotesBoardPage() {
   }, [notepadDocs, docSearch]);
 
   return (
-    <div className={`flex flex-col ${isFullscreen ? "fixed inset-0 z-50 p-2 md:p-3 bg-slate-950" : "space-y-2.5"} select-none`}>
+    <div className={`flex flex-col ${isFullscreen ? "fixed inset-0 z-50 p-2 md:p-3 bg-slate-950" : "h-[calc(100vh-4rem)] p-3 md:p-4 space-y-2.5"} bg-slate-950 text-slate-100 overflow-hidden select-none`}>
       {/* ─── Top Header & Dual Mode Tabs (Hidden in Fullscreen for Maximum Workspace) ─────────────────────────────────── */}
       {!isFullscreen && (
         <Panel className="bg-slate-900/90 border-slate-800 backdrop-blur-md p-2.5 rounded-2xl shrink-0">
@@ -959,7 +959,7 @@ export function StudyNotesBoardPage() {
 
       {/* ─── TAB 1: INFINITE CANVAS STICKY BOARD ───────────────────────────── */}
       {activeTab === "board" ? (
-        <div className="space-y-2 flex-1 flex flex-col min-h-0">
+        <div className="space-y-2 flex-1 flex flex-col min-h-0 overflow-hidden">
           {/* Canvas Controls Toolbar */}
           <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-900/90 border border-slate-800 p-2 rounded-2xl shrink-0">
             {/* Left: View Mode, Snap, Clean Grid, and Templates */}
@@ -1228,9 +1228,7 @@ export function StudyNotesBoardPage() {
               onMouseMove={handleCanvasMouseMove}
               onMouseUp={handleCanvasMouseUp}
               onWheel={handleCanvasWheel}
-              className={`relative ${
-                isFullscreen ? "h-[calc(100vh-6.5rem)]" : "h-[calc(100vh-13.5rem)] min-h-[580px]"
-              } w-full bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden cursor-crosshair`}
+              className="relative flex-1 w-full bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden cursor-crosshair min-h-[500px]"
             >
               {/* Subtle Grid Dot Pattern */}
               <div
@@ -1596,9 +1594,7 @@ export function StudyNotesBoardPage() {
             /* ─── Grid View Mode (Classic) ─── */
             <div
               ref={notesContainerRef}
-              className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 overflow-y-auto ${
-                isFullscreen ? "max-h-[calc(100vh-6.5rem)]" : "max-h-[calc(100vh-13.5rem)] min-h-[580px]"
-              } p-1`}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 overflow-y-auto flex-1 min-h-0 p-1"
             >
               {filteredStickyNotes.map((note) => (
                 <div
@@ -1632,7 +1628,7 @@ export function StudyNotesBoardPage() {
         </div>
       ) : (
         /* ─── TAB 2: REAL NOTEPAD MULTIPLE DOCS ────────────────────────────── */
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 min-h-[600px]">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1 min-h-0 overflow-hidden">
           {/* Docs Sidebar */}
           <Panel className="lg:col-span-1 bg-slate-900/90 border-slate-800 p-3.5 flex flex-col justify-between space-y-3">
             <div className="space-y-3">

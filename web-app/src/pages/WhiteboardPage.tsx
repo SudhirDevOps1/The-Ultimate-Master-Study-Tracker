@@ -69,33 +69,12 @@ export function WhiteboardPage() {
         </Panel>
       )}
 
-      {/* ─── Prominent Exit & Dashboard Pill in Fullscreen Mode ─── */}
-      {isFullscreen && (
-        <div className="fixed top-3 left-3 z-50 flex items-center gap-2">
-          <button
-            onClick={() => setIsFullscreen(false)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white shadow-2xl transition font-bold text-xs border border-purple-400/40"
-            title="Exit Fullscreen (or press Escape)"
-          >
-            <Minimize2 className="w-3.5 h-3.5" />
-            <span>Exit Fullscreen</span>
-            <kbd className="ml-1 px-1.5 py-0.5 rounded bg-black/30 text-[10px] text-purple-200 font-mono">Esc</kbd>
-          </button>
-          <button
-            onClick={() => navigate("/")}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-200 hover:text-white shadow-2xl transition font-semibold text-xs border border-white/20 backdrop-blur-md"
-            title="Return to Master Suite Dashboard"
-          >
-            <Home className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Dashboard</span>
-          </button>
-        </div>
-      )}
-
       {/* ─── Main Whiteboard Engine Canvas ─── */}
-      <div className={`relative flex-1 flex overflow-hidden ${isFullscreen ? "rounded-none border-0" : "rounded-2xl border border-slate-800"} bg-slate-950`}>
+      <div className={`relative flex-1 flex overflow-hidden ${isFullscreen ? "rounded-none border-0 h-full w-full" : "rounded-2xl border border-slate-800"} bg-slate-950`}>
         <FabricWhiteboard
           storageKey="flowtrack_fabric_whiteboard_desktop_v1"
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={() => setIsFullscreen((prev) => !prev)}
           onExitFullscreen={() => setIsFullscreen(false)}
         />
       </div>
