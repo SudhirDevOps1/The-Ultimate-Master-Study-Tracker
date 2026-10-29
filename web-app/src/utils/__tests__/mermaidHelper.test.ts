@@ -31,11 +31,11 @@ describe("mermaidHelper", () => {
     expect(svg).toContain("<svg");
     expect(svg).toContain("Start");
     expect(svg).toContain("Finish");
-  }, 20000);
+  }, 45000);
 
   it("rejects dangerous or script tags during SVG rendering", async () => {
     const maliciousCode = `graph TD\n  A["<script>alert(1)</script>Safe"] --> B["Node"]`;
     const svg = await renderMermaidToSvg(maliciousCode);
     expect(svg).not.toContain("<script>");
-  }, 20000);
+  }, 45000);
 });

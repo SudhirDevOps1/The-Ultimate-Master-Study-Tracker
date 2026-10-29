@@ -13,6 +13,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import * as fabric from "fabric";
 import {
   Undo2, Redo2, ZoomIn, ZoomOut, Maximize2, Minimize2, Menu, Download,
@@ -21,7 +22,7 @@ import {
   Zap, Eraser, Square, Circle, Diamond, Minus, ArrowRight, Type, StickyNote,
   ImagePlus, Lock, Unlock, BringToFront, SendToBack, Copy, Ban, X, Sparkles,
   GitFork, FileText, AlignLeft, AlignCenter, AlignRight, AlignJustify, ArrowUpDown, Check,
-  ChevronLeft, ChevronRight, Plus,
+  ChevronLeft, ChevronRight, Plus, Home, ArrowLeft,
 } from "lucide-react";
 import { useToast } from "@/components/common/Toast";
 import { saveImageSafely } from "@/utils/dataExport";
@@ -92,6 +93,76 @@ export const NOTE_PALETTES = [
   { id: "mint", name: "Mint Fresh", bg: "#a7f3d0", text: "#064e3b", border: "#34d399" },
   { id: "dark", name: "Slate Dark", bg: "#1e293b", text: "#f8fafc", border: "#475569" },
 ];
+
+/**
+ * StickyNoteBox — Custom Fabric Textbox tailored for Excalidraw / Miro style sticky notes.
+ * Enforces a minimum rectangular card height and renders a rounded card with drop shadow
+ * and palette borders so that notes are ALWAYS full-sized cards rather than tiny single-line text stripes.
+ */
+export class StickyNoteBox extends fabric.Textbox {
+  minHeight: number = 180;
+  noteColorId: string = "yellow";
+  noteBorderColor: string = "#facc15";
+
+  override initDimensions() {
+    super.initDimensions();
+    if (this.height < this.minHeight) {
+      this.height = this.minHeight;
+    }
+  }
+
+  override _renderBackground(ctx: CanvasRenderingContext2D) {
+    if (!this.backgroundColor) return;
+    const dim = this._getNonTransformedDimensions();
+    const w = dim.x;
+    const h = Math.max(dim.y, this.minHeight);
+    const r = 14;
+
+    ctx.save();
+    // Soft realistic drop shadow
+    ctx.shadowColor = "rgba(0, 0, 0, 0.22)";
+    ctx.shadowBlur = 16;
+    ctx.shadowOffsetY = 6;
+    ctx.shadowOffsetX = 0;
+
+    // Draw rounded card rectangle
+    ctx.beginPath();
+    if (typeof (ctx as any).roundRect === "function") {
+      (ctx as any).roundRect(-w / 2, -h / 2, w, h, r);
+    } else {
+      ctx.rect(-w / 2, -h / 2, w, h);
+    }
+    ctx.fillStyle = this.backgroundColor;
+    ctx.fill();
+
+    // Clean subtle card border
+    ctx.shadowColor = "transparent";
+    ctx.strokeStyle = this.noteBorderColor;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Cute decorative tape / header accent bar
+    ctx.fillStyle = "rgba(0, 0, 0, 0.08)";
+    ctx.fillRect(-w / 2 + 30, -h / 2, w - 60, 6);
+
+    ctx.restore();
+  }
+
+  override toObject(propertiesToInclude?: any): any {
+    return super.toObject([
+      ...(propertiesToInclude || []),
+      "minHeight",
+      "noteColorId",
+      "noteBorderColor",
+      "customData",
+    ]);
+  }
+}
+
+export const isNoteObj = (o: fabric.Object | null | undefined): boolean => {
+  if (!o) return false;
+  return o instanceof StickyNoteBox || (o as any).customData?.type === "note" || Boolean((o as any).noteColorId);
+};
 
 /**
  * High-definition 2D canvas card renderer for structured Markdown study notes.
@@ -345,7 +416,10 @@ const cursorFor = (t: Tool) =>
 /*  Component                                                                 */
 /* -------------------------------------------------------------------------- */
 
-export interface FabricWhiteboardProps { storageKey?: string; }
+export interface FabricWhiteboardProps {
+  storageKey?: string;
+  onExitFullscreen?: () => void;
+}
 export const DEFAULT_STORAGE_KEY = "excalidraw_board_v1";
 
 interface LaserPt { x: number; y: number; t: number; }
@@ -356,8 +430,12 @@ interface LiveState {
   font: string; size: number; sketchy: boolean; noteColor: string;
 }
 
-export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhiteboardProps) {
+export function FabricWhiteboard({
+  storageKey = DEFAULT_STORAGE_KEY,
+  onExitFullscreen,
+}: FabricWhiteboardProps) {
   const { showToast } = useToast();
+  const navigate = useNavigate();
 
   /* --- DOM refs --------------------------------------------------------- */
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -389,6 +467,7 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
   const [hasSel, setHasSel] = useState(false);
   const [isMultiSel, setIsMultiSel] = useState(false);
   const [selIsText, setSelIsText] = useState(false);
+  const [selIsNote, setSelIsNote] = useState(false);
 
   const [fullscreen, setFullscreen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -749,28 +828,31 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
       if (!L.locked) setTool("select");
     };
 
-    const addNote = (x: number, y: number) => {
+    const addNote = (x: number, y: number, textContent = "📌 Sticky Note\n\nClick to write your concepts or formulas...") => {
       const L = live.current;
       const font = L.sketchy ? FONTS[0].family : L.font;
       const curPalette = NOTE_PALETTES.find(p => p.id === L.noteColor) || NOTE_PALETTES[0];
-      const n = new fabric.Textbox("📌 Sticky Note", {
-        left: x - 110, top: y - 80, width: 220, height: 160,
-        fontFamily: font, fontSize: 18, lineHeight: 1.3,
+      const n = new StickyNoteBox(textContent, {
+        left: x - 120, top: y - 90, width: 240,
+        fontFamily: font, fontSize: 18, lineHeight: 1.35,
         fill: curPalette.text,
         backgroundColor: curPalette.bg,
-        stroke: curPalette.border,
-        strokeWidth: 1.5,
-        padding: 14,
-        selectable: true, evented: true, editable: true,
-        rx: 12, ry: 12,
-        shadow: new fabric.Shadow({ color: "rgba(0,0,0,0.3)", blur: 16, offsetY: 6 }),
+        padding: 16,
+        splitByGrapheme: true,
+        selectable: true, evented: true,
       });
+      n.minHeight = 180;
+      n.noteColorId = curPalette.id;
+      n.noteBorderColor = curPalette.border;
+      (n as any).customData = { type: "note", colorId: curPalette.id };
+
       c.add(n);
       c.setActiveObject(n);
       n.enterEditing();
-      n.selectAll();
       c.requestRenderAll();
+      pushHistory();
       if (!L.locked) setTool("select");
+      showToast(`Created ${curPalette.name} sticky note`, "success");
     };
 
     /* ---- Interaction state ---------------------------------------- */
@@ -1110,8 +1192,14 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
       setHasSel(objs.length > 0);
       setIsMultiSel(objs.length > 1);
       setSelIsText(objs.some(isTextObj));
+      const hasNote = objs.some(isNoteObj);
+      setSelIsNote(hasNote);
       const o = objs[0];
       if (!o) return;
+      if (hasNote) {
+        const nId = (o as any).noteColorId || (o as any).customData?.colorId;
+        if (nId) setNoteColor(nId);
+      }
       if (isTextObj(o)) {
         const t = o as fabric.IText;
         if (typeof t.fill === "string") setStroke(t.fill);
@@ -1126,7 +1214,12 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
     };
     c.on("selection:created", readSel);
     c.on("selection:updated", readSel);
-    c.on("selection:cleared", () => { setHasSel(false); setIsMultiSel(false); setSelIsText(false); });
+    c.on("selection:cleared", () => {
+      setHasSel(false);
+      setIsMultiSel(false);
+      setSelIsText(false);
+      setSelIsNote(false);
+    });
 
     /* ---- Restore or seed history ---------------------------------- */
     (async () => {
@@ -1742,11 +1835,65 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
     const pal = NOTE_PALETTES.find((p) => p.id === v);
     if (!pal) return;
     mutateSelection((o) => {
-      if (isTextObj(o)) {
+      if (isNoteObj(o) || isTextObj(o)) {
         o.set({ backgroundColor: pal.bg, fill: pal.text });
+        if (o instanceof StickyNoteBox) {
+          o.noteBorderColor = pal.border;
+          o.noteColorId = pal.id;
+        }
+        if ((o as any).customData) {
+          (o as any).customData.colorId = pal.id;
+        }
       }
     });
   };
+
+  const setNoteSizePreset = (w: number, h: number) => {
+    const c = fcRef.current;
+    if (!c) return;
+    let changed = false;
+    mutateSelection((o) => {
+      if (o instanceof StickyNoteBox) {
+        o.set({ width: w });
+        o.minHeight = h;
+        o.initDimensions();
+        changed = true;
+      }
+    });
+    if (changed) {
+      showToast(`Note resized to ${w}×${h}px`, "info");
+    }
+  };
+
+  const dropStickyNoteInCenter = useCallback(() => {
+    const c = fcRef.current;
+    if (!c) return;
+    const cp = c.getVpCenter();
+    const L = live.current;
+    const font = L.sketchy ? FONTS[0].family : L.font;
+    const curPalette = NOTE_PALETTES.find((p) => p.id === L.noteColor) || NOTE_PALETTES[0];
+    const n = new StickyNoteBox("📌 Sticky Note\n\nClick to write your concepts or formulas...", {
+      left: cp.x - 120, top: cp.y - 90, width: 240,
+      fontFamily: font, fontSize: 18, lineHeight: 1.35,
+      fill: curPalette.text,
+      backgroundColor: curPalette.bg,
+      padding: 16,
+      splitByGrapheme: true,
+      selectable: true, evented: true,
+    });
+    n.minHeight = 180;
+    n.noteColorId = curPalette.id;
+    n.noteBorderColor = curPalette.border;
+    (n as any).customData = { type: "note", colorId: curPalette.id };
+
+    c.add(n);
+    c.setActiveObject(n);
+    n.enterEditing();
+    c.requestRenderAll();
+    pushHistory();
+    setTool("select");
+    showToast(`Added ${curPalette.name} sticky note`, "success");
+  }, [showToast, pushHistory]);
 
   const getDescriptiveFilename = (extension: string, extra = ""): string => {
     const c = fcRef.current;
@@ -1957,11 +2104,15 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
 
   /* Escape closes fullscreen too */
   useEffect(() => {
-    if (!fullscreen) return;
-    const onEsc = (e: KeyboardEvent) => { if (e.key === "Escape") setFullscreen(false); };
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (fullscreen) setFullscreen(false);
+        if (onExitFullscreen) onExitFullscreen();
+      }
+    };
     window.addEventListener("keydown", onEsc);
     return () => window.removeEventListener("keydown", onEsc);
-  }, [fullscreen]);
+  }, [fullscreen, onExitFullscreen]);
 
   /* ============================================================== UI == */
 
@@ -2019,6 +2170,16 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
                 <div className="absolute left-0 top-full z-50 mt-2 w-64 space-y-3 rounded-2xl border border-white/10 bg-slate-950/95 p-3 shadow-2xl">
+                  <div className="space-y-1 pb-2 border-b border-white/10">
+                    <button
+                      onClick={() => navigate("/")}
+                      className="flex w-full items-center gap-2 rounded-xl bg-purple-600/20 border border-purple-500/30 px-2.5 py-2 text-left text-[12px] font-bold text-purple-300 hover:bg-purple-600/30 hover:text-white transition-all"
+                    >
+                      <Home className="h-4 w-4 text-purple-400" />
+                      <span>Return to Dashboard</span>
+                    </button>
+                  </div>
+
                   <div className="space-y-1">
                     <p className="px-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">Theme</p>
                     <div className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5">
@@ -2184,7 +2345,16 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
               <Keyboard className="h-4 w-4" />
             </button>
             <button
-              onClick={() => setFullscreen(v => !v)}
+              onClick={() => {
+                if (onExitFullscreen && fullscreen) {
+                  onExitFullscreen();
+                  setFullscreen(false);
+                } else if (onExitFullscreen) {
+                  onExitFullscreen();
+                } else {
+                  setFullscreen(v => !v);
+                }
+              }}
               title={fullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}
               className={`${iconBtn} text-slate-300 hover:bg-white/10 hover:text-white`}
             >
@@ -2232,100 +2402,65 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
         {/* ============================================ LEFT: properties (contextual) */}
         {showProps && (
           <div className="pointer-events-none absolute bottom-16 left-3 top-16 z-20 flex items-start">
-            <div className={`${island} scrollbar-none w-[204px] max-h-full space-y-3 overflow-y-auto p-3`}>
-              <PanelSection label={isDraw(tool) ? "Pen Color" : "Stroke Color"}>
-                <div className="grid grid-cols-5 gap-1.5">
-                  {STROKES.map((clr) => (
-                    <button
-                      key={clr}
-                      onClick={() => setStrokeA(clr)}
-                      title={clr}
-                      style={{ background: clr }}
-                      className={`h-6 w-full rounded-md border transition-all ${
-                        stroke === clr ? "border-white ring-2 ring-cyan-400 ring-offset-1 ring-offset-slate-950" : "border-white/20 hover:scale-105"
-                      }`}
-                    />
-                  ))}
-                </div>
-                <label className="mt-1 flex cursor-pointer items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-semibold text-slate-300">
-                  <input
-                    type="color"
-                    value={isHex6(stroke) ? stroke : "#ffffff"}
-                    onChange={(e) => setStrokeA(e.target.value)}
-                    className="h-4 w-4 cursor-pointer rounded border-0 bg-transparent p-0"
-                  />
-                  Custom Color
-                </label>
-              </PanelSection>
-
-              {(hasSel || tool === "rect" || tool === "ellipse" || tool === "diamond") && (
-                <PanelSection label="Fill">
-                  <div className="grid grid-cols-5 gap-1.5">
-                    {FILLS.map((clr) => (
-                      <button
-                        key={clr}
-                        onClick={() => setFillA(clr)}
-                        title={clr === "transparent" ? "No fill" : clr}
-                        style={clr === "transparent" ? undefined : { background: clr }}
-                        className={`flex h-6 w-full items-center justify-center rounded-md border transition-all ${
-                          fill === clr ? "border-white ring-2 ring-cyan-400 ring-offset-1 ring-offset-slate-950" : "border-white/20 hover:scale-105"
-                        } ${clr === "transparent" ? "bg-slate-800" : ""}`}
-                      >
-                        {clr === "transparent" && <Ban className="h-3 w-3 text-slate-500" />}
-                      </button>
-                    ))}
-                  </div>
-                </PanelSection>
-              )}
-
-              <PanelSection label={`${isDraw(tool) ? "Pen Size" : "Width"} · ${strokeWidth}px`}>
-                <div className="flex gap-1.5">
-                  {[2, 4, 8, 14].map((w) => (
-                    <button
-                      key={w}
-                      onClick={() => setWidthA(w)}
-                      className={`flex h-7 flex-1 items-center justify-center rounded-lg border transition-all ${
-                        strokeWidth === w ? "border-cyan-400 bg-cyan-500/20" : "border-white/10 bg-white/5 hover:bg-white/10"
-                      }`}
-                    >
-                      <span className="block w-4 rounded-full bg-slate-200" style={{ height: Math.min(w, 8) }} />
-                    </button>
-                  ))}
-                </div>
-                <input
-                  type="range" min={1} max={40} value={strokeWidth}
-                  onChange={(e) => setWidthA(Number(e.target.value))}
-                  className="mt-1 h-1 w-full cursor-pointer accent-cyan-400"
-                />
-              </PanelSection>
-
-              {!isDraw(tool) && (
-                <PanelSection label="Style">
-                  <div className="flex gap-1.5">
-                    {Object.keys(DASHES).map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => setStyleA(s)}
-                        title={s}
-                        className={`flex h-7 flex-1 items-center justify-center rounded-lg border transition-all ${
-                          strokeStyle === s ? "border-cyan-400 bg-cyan-500/20" : "border-white/10 bg-white/5 hover:bg-white/10"
-                        }`}
-                      >
-                        <svg width="22" height="6" viewBox="0 0 22 6">
-                          <line
-                            x1="1" y1="3" x2="21" y2="3"
-                            stroke="#e2e8f0" strokeWidth="2" strokeLinecap="round"
-                            strokeDasharray={s === "dashed" ? "5 4" : s === "dotted" ? "0.5 4" : undefined}
-                          />
-                        </svg>
-                      </button>
-                    ))}
-                  </div>
-                </PanelSection>
-              )}
-
-              {(selIsText || tool === "text" || tool === "note") && (
+            <div className={`${island} scrollbar-none w-[214px] max-h-full space-y-3 overflow-y-auto p-3`}>
+              {(tool === "note" || selIsNote) ? (
                 <>
+                  <PanelSection label="Sticky Note Colors">
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {NOTE_PALETTES.map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() => setNoteColorA(p.id)}
+                          title={p.name}
+                          style={{ background: p.bg }}
+                          className={`flex h-8 w-full flex-col items-center justify-center rounded-lg border text-[10px] font-bold shadow-sm transition-all ${
+                            noteColor === p.id
+                              ? "border-slate-900 ring-2 ring-cyan-400 ring-offset-1 ring-offset-slate-950 scale-105 shadow-md"
+                              : "border-black/20 hover:scale-105"
+                          }`}
+                        >
+                          <span style={{ color: p.text }} className="text-xs">Aa</span>
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-slate-400 font-medium text-center pt-0.5">
+                      {NOTE_PALETTES.find((p) => p.id === noteColor)?.name}
+                    </p>
+                  </PanelSection>
+
+                  <PanelSection label="Note Card Size">
+                    <div className="grid grid-cols-3 gap-1">
+                      <button
+                        onClick={() => setNoteSizePreset(180, 140)}
+                        className="flex h-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-[10px] font-bold text-slate-300 hover:bg-white/10 hover:text-white"
+                      >
+                        Small
+                      </button>
+                      <button
+                        onClick={() => setNoteSizePreset(240, 180)}
+                        className="flex h-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-[10px] font-bold text-slate-300 hover:bg-white/10 hover:text-white"
+                      >
+                        Medium
+                      </button>
+                      <button
+                        onClick={() => setNoteSizePreset(320, 240)}
+                        className="flex h-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-[10px] font-bold text-slate-300 hover:bg-white/10 hover:text-white"
+                      >
+                        Large
+                      </button>
+                    </div>
+                  </PanelSection>
+
+                  <div className="pt-1">
+                    <button
+                      onClick={dropStickyNoteInCenter}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-amber-400 px-2.5 py-2 text-xs font-bold text-slate-950 shadow-md hover:bg-amber-300 transition-all"
+                    >
+                      <Plus className="h-4 w-4" />
+                      <span>+ Drop Note on Canvas</span>
+                    </button>
+                  </div>
+
                   <PanelSection label="Font">
                     <select
                       value={fontFamily}
@@ -2337,9 +2472,10 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
                       ))}
                     </select>
                   </PanelSection>
-                  <PanelSection label={`Size · ${fontSize}`}>
+
+                  <PanelSection label={`Font Size · ${fontSize}`}>
                     <div className="flex gap-1.5">
-                      {[16, 24, 36, 56].map((s) => (
+                      {[16, 20, 24, 32].map((s) => (
                         <button
                           key={s}
                           onClick={() => setSizeA(s)}
@@ -2347,40 +2483,152 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
                             fontSize === s ? "border-cyan-400 bg-cyan-500/20 text-white" : "border-white/10 bg-white/5 text-slate-400 hover:bg-white/10"
                           }`}
                         >
-                          {s === 16 ? "S" : s === 24 ? "M" : s === 36 ? "L" : "XL"}
+                          {s === 16 ? "S" : s === 20 ? "M" : s === 24 ? "L" : "XL"}
                         </button>
                       ))}
                     </div>
                   </PanelSection>
+
+                  <PanelSection label={`Opacity · ${Math.round(opacity * 100)}%`}>
+                    <input
+                      type="range" min={20} max={100} value={Math.round(opacity * 100)}
+                      onChange={(e) => setOpacityA(Number(e.target.value) / 100)}
+                      className="h-1 w-full cursor-pointer accent-cyan-400"
+                    />
+                  </PanelSection>
                 </>
-              )}
+              ) : (
+                <>
+                  <PanelSection label={isDraw(tool) ? "Pen Color" : "Stroke Color"}>
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {STROKES.map((clr) => (
+                        <button
+                          key={clr}
+                          onClick={() => setStrokeA(clr)}
+                          title={clr}
+                          style={{ background: clr }}
+                          className={`h-6 w-full rounded-md border transition-all ${
+                            stroke === clr ? "border-white ring-2 ring-cyan-400 ring-offset-1 ring-offset-slate-950" : "border-white/20 hover:scale-105"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <label className="mt-1 flex cursor-pointer items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-semibold text-slate-300">
+                      <input
+                        type="color"
+                        value={isHex6(stroke) ? stroke : "#ffffff"}
+                        onChange={(e) => setStrokeA(e.target.value)}
+                        className="h-4 w-4 cursor-pointer rounded border-0 bg-transparent p-0"
+                      />
+                      Custom Color
+                    </label>
+                  </PanelSection>
 
-              <PanelSection label={`Opacity · ${Math.round(opacity * 100)}%`}>
-                <input
-                  type="range" min={10} max={100} value={Math.round(opacity * 100)}
-                  onChange={(e) => setOpacityA(Number(e.target.value) / 100)}
-                  className="h-1 w-full cursor-pointer accent-cyan-400"
-                />
-              </PanelSection>
+                  {(hasSel || tool === "rect" || tool === "ellipse" || tool === "diamond") && (
+                    <PanelSection label="Fill">
+                      <div className="grid grid-cols-5 gap-1.5">
+                        {FILLS.map((clr) => (
+                          <button
+                            key={clr}
+                            onClick={() => setFillA(clr)}
+                            title={clr === "transparent" ? "No fill" : clr}
+                            style={clr === "transparent" ? undefined : { background: clr }}
+                            className={`flex h-6 w-full items-center justify-center rounded-md border transition-all ${
+                              fill === clr ? "border-white ring-2 ring-cyan-400 ring-offset-1 ring-offset-slate-950" : "border-white/20 hover:scale-105"
+                            } ${clr === "transparent" ? "bg-slate-800" : ""}`}
+                          >
+                            {clr === "transparent" && <Ban className="h-3 w-3 text-slate-500" />}
+                          </button>
+                        ))}
+                      </div>
+                    </PanelSection>
+                  )}
 
-              {(tool === "note" || (hasSel && selIsText)) && (
-                <PanelSection label="Note Palette">
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {NOTE_PALETTES.map((p) => (
-                      <button
-                        key={p.id}
-                        onClick={() => setNoteColorA(p.id)}
-                        title={p.name}
-                        style={{ background: p.bg }}
-                        className={`flex h-7 w-full items-center justify-center rounded-md border text-[10px] font-bold transition-all ${
-                          noteColor === p.id ? "border-slate-900 ring-2 ring-cyan-400 ring-offset-1 ring-offset-slate-950 scale-105" : "border-black/20 hover:scale-105"
-                        }`}
-                      >
-                        <span style={{ color: p.text }}>Aa</span>
-                      </button>
-                    ))}
-                  </div>
-                </PanelSection>
+                  <PanelSection label={`${isDraw(tool) ? "Pen Size" : "Width"} · ${strokeWidth}px`}>
+                    <div className="flex gap-1.5">
+                      {[2, 4, 8, 14].map((w) => (
+                        <button
+                          key={w}
+                          onClick={() => setWidthA(w)}
+                          className={`flex h-7 flex-1 items-center justify-center rounded-lg border transition-all ${
+                            strokeWidth === w ? "border-cyan-400 bg-cyan-500/20" : "border-white/10 bg-white/5 hover:bg-white/10"
+                          }`}
+                        >
+                          <span className="block w-4 rounded-full bg-slate-200" style={{ height: Math.min(w, 8) }} />
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="range" min={1} max={40} value={strokeWidth}
+                      onChange={(e) => setWidthA(Number(e.target.value))}
+                      className="mt-1 h-1 w-full cursor-pointer accent-cyan-400"
+                    />
+                  </PanelSection>
+
+                  {!isDraw(tool) && (
+                    <PanelSection label="Style">
+                      <div className="flex gap-1.5">
+                        {Object.keys(DASHES).map((s) => (
+                          <button
+                            key={s}
+                            onClick={() => setStyleA(s)}
+                            title={s}
+                            className={`flex h-7 flex-1 items-center justify-center rounded-lg border transition-all ${
+                              strokeStyle === s ? "border-cyan-400 bg-cyan-500/20" : "border-white/10 bg-white/5 hover:bg-white/10"
+                            }`}
+                          >
+                            <svg width="22" height="6" viewBox="0 0 22 6">
+                              <line
+                                x1="1" y1="3" x2="21" y2="3"
+                                stroke="#e2e8f0" strokeWidth="2" strokeLinecap="round"
+                                strokeDasharray={s === "dashed" ? "5 4" : s === "dotted" ? "0.5 4" : undefined}
+                              />
+                            </svg>
+                          </button>
+                        ))}
+                      </div>
+                    </PanelSection>
+                  )}
+
+                  {(selIsText || tool === "text") && (
+                    <>
+                      <PanelSection label="Font">
+                        <select
+                          value={fontFamily}
+                          onChange={(e) => setFontA(e.target.value)}
+                          className="w-full cursor-pointer rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] font-semibold text-slate-200 focus:outline-none"
+                        >
+                          {FONTS.map((f) => (
+                            <option key={f.name} value={f.family} className="bg-slate-900">{f.name}</option>
+                          ))}
+                        </select>
+                      </PanelSection>
+                      <PanelSection label={`Size · ${fontSize}`}>
+                        <div className="flex gap-1.5">
+                          {[16, 24, 36, 56].map((s) => (
+                            <button
+                              key={s}
+                              onClick={() => setSizeA(s)}
+                              className={`h-7 flex-1 rounded-lg border text-[11px] font-bold transition-all ${
+                                fontSize === s ? "border-cyan-400 bg-cyan-500/20 text-white" : "border-white/10 bg-white/5 text-slate-400 hover:bg-white/10"
+                              }`}
+                            >
+                              {s === 16 ? "S" : s === 24 ? "M" : s === 36 ? "L" : "XL"}
+                            </button>
+                          ))}
+                        </div>
+                      </PanelSection>
+                    </>
+                  )}
+
+                  <PanelSection label={`Opacity · ${Math.round(opacity * 100)}%`}>
+                    <input
+                      type="range" min={10} max={100} value={Math.round(opacity * 100)}
+                      onChange={(e) => setOpacityA(Number(e.target.value) / 100)}
+                      className="h-1 w-full cursor-pointer accent-cyan-400"
+                    />
+                  </PanelSection>
+                </>
               )}
 
               {isMultiSel && (
