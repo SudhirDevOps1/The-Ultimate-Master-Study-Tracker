@@ -357,3 +357,109 @@ export function generateBoardTemplate(
     return { notes, frames: [], connectors: [] };
   }
 }
+
+export interface CanvasBox {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Calculates new coordinates for a list of boxes aligned to a target edge or center.
+ */
+export function calculateAlignment(
+  boxes: CanvasBox[],
+  type: "left" | "center" | "right" | "top" | "middle" | "bottom"
+): CanvasBox[] {
+  if (boxes.length <= 1) return [...boxes];
+  const minLeft = Math.min(...boxes.map((b) => b.left));
+  const maxRight = Math.max(...boxes.map((b) => b.left + b.width));
+  const minTop = Math.min(...boxes.map((b) => b.top));
+  const maxBottom = Math.max(...boxes.map((b) => b.top + b.height));
+  const centerX = minLeft + (maxRight - minLeft) / 2;
+  const centerY = minTop + (maxBottom - minTop) / 2;
+
+  return boxes.map((b) => {
+    switch (type) {
+      case "left":
+        return { ...b, left: minLeft };
+      case "center":
+        return { ...b, left: centerX - b.width / 2 };
+      case "right":
+        return { ...b, left: maxRight - b.width };
+      case "top":
+        return { ...b, top: minTop };
+      case "middle":
+        return { ...b, top: centerY - b.height / 2 };
+      case "bottom":
+        return { ...b, top: maxBottom - b.height };
+    }
+  });
+}
+
+/**
+ * Calculates evenly distributed coordinates for a list of boxes along an axis.
+ */
+export function calculateDistribution(
+  boxes: CanvasBox[],
+  axis: "horizontal" | "vertical"
+): CanvasBox[] {
+  if (boxes.length <= 2) return [...boxes];
+
+  if (axis === "horizontal") {
+    const sorted = [...boxes].sort((a, b) => a.left - b.left);
+    const minLeft = sorted[0].left;
+    const maxRight = sorted[sorted.length - 1].left + sorted[sorted.length - 1].width;
+    const totalBoxWidth = sorted.reduce((sum, b) => sum + b.width, 0);
+    const totalSpace = maxRight - minLeft - totalBoxWidth;
+    const gap = totalSpace / (sorted.length - 1);
+
+    let currentX = minLeft;
+    const newPosMap = new Map<CanvasBox, number>();
+    sorted.forEach((box) => {
+      newPosMap.set(box, currentX);
+      currentX += box.width + gap;
+    });
+
+    return boxes.map((b) => ({ ...b, left: newPosMap.get(b) ?? b.left }));
+  } else {
+    const sorted = [...boxes].sort((a, b) => a.top - b.top);
+    const minTop = sorted[0].top;
+    const maxBottom = sorted[sorted.length - 1].top + sorted[sorted.length - 1].height;
+    const totalBoxHeight = sorted.reduce((sum, b) => sum + b.height, 0);
+    const totalSpace = maxBottom - minTop - totalBoxHeight;
+    const gap = totalSpace / (sorted.length - 1);
+
+    let currentY = minTop;
+    const newPosMap = new Map<CanvasBox, number>();
+    sorted.forEach((box) => {
+      newPosMap.set(box, currentY);
+      currentY += box.height + gap;
+    });
+
+    return boxes.map((b) => ({ ...b, top: newPosMap.get(b) ?? b.top }));
+  }
+}
+
+/**
+ * Pure ray-casting point-in-polygon algorithm.
+ */
+export function isPointInPolygon(
+  p: { x: number; y: number },
+  poly: { x: number; y: number }[]
+): boolean {
+  if (poly.length < 3) return false;
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i].x,
+      yi = poly[i].y;
+    const xj = poly[j].x,
+      yj = poly[j].y;
+    const intersect =
+      yi > p.y !== yj > p.y &&
+      p.x < ((xj - xi) * (p.y - yi)) / (yj - yi + 1e-10) + xi;
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}

@@ -20,9 +20,14 @@ import {
   FileJson, FileCode2, Keyboard, MousePointer2, LassoSelect, Hand, Pencil, Highlighter,
   Zap, Eraser, Square, Circle, Diamond, Minus, ArrowRight, Type, StickyNote,
   ImagePlus, Lock, Unlock, BringToFront, SendToBack, Copy, Ban, X, Sparkles,
+  GitFork, FileText, AlignLeft, AlignCenter, AlignRight, AlignJustify, ArrowUpDown, Check,
+  ChevronLeft, ChevronRight, Plus,
 } from "lucide-react";
 import { useToast } from "@/components/common/Toast";
 import { saveImageSafely } from "@/utils/dataExport";
+import { renderMermaidToSvg, MERMAID_PRESETS } from "@/utils/mermaidHelper";
+import { callUnifiedAI } from "@/utils/aiClient";
+import { calculateAlignment, calculateDistribution, isPointInPolygon } from "@/utils/boardMath";
 
 /* -------------------------------------------------------------------------- */
 /*  Types & constants                                                         */
@@ -77,6 +82,187 @@ const FONTS = [
   { name: "Clean Sans",               family: "Inter, system-ui, sans-serif" },
   { name: "Code Mono",                family: "'JetBrains Mono', 'Courier New', monospace" },
 ];
+
+export const NOTE_PALETTES = [
+  { id: "yellow", name: "Canary Yellow", bg: "#fef08a", text: "#713f12", border: "#facc15" },
+  { id: "peach", name: "Warm Peach", bg: "#fed7aa", text: "#7c2d12", border: "#fb923c" },
+  { id: "pink", name: "Rose Pink", bg: "#fbcfe8", text: "#831843", border: "#f472b6" },
+  { id: "purple", name: "Lavender", bg: "#e9d5ff", text: "#581c87", border: "#c084fc" },
+  { id: "cyan", name: "Sky Cyan", bg: "#bae6fd", text: "#0c4a6e", border: "#38bdf8" },
+  { id: "mint", name: "Mint Fresh", bg: "#a7f3d0", text: "#064e3b", border: "#34d399" },
+  { id: "dark", name: "Slate Dark", bg: "#1e293b", text: "#f8fafc", border: "#475569" },
+];
+
+/**
+ * High-definition 2D canvas card renderer for structured Markdown study notes.
+ */
+export function renderMarkdownCardCanvas(
+  title: string,
+  content: string,
+  accentColor = "#8b5cf6"
+): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return canvas;
+
+  const cardWidth = 420;
+  const padding = 24;
+  const headerHeight = 60;
+  const innerWidth = cardWidth - padding * 2;
+
+  const rawLines = content.split("\n");
+  const parsedLines: { type: "header" | "bullet" | "code" | "text" | "task"; text: string; checked?: boolean }[] = [];
+
+  for (const raw of rawLines) {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      parsedLines.push({ type: "text", text: "" });
+      continue;
+    }
+    if (trimmed.startsWith("#")) {
+      parsedLines.push({ type: "header", text: trimmed.replace(/^#+\s*/, "") });
+    } else if (trimmed.startsWith("- [x]") || trimmed.startsWith("- [X]")) {
+      parsedLines.push({ type: "task", text: trimmed.slice(5).trim(), checked: true });
+    } else if (trimmed.startsWith("- [ ]")) {
+      parsedLines.push({ type: "task", text: trimmed.slice(5).trim(), checked: false });
+    } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+      parsedLines.push({ type: "bullet", text: trimmed.slice(2).trim() });
+    } else if (trimmed.startsWith("```")) {
+      // fence marker skip
+    } else if (trimmed.startsWith("`") && trimmed.endsWith("`")) {
+      parsedLines.push({ type: "code", text: trimmed.slice(1, -1) });
+    } else {
+      parsedLines.push({ type: "text", text: trimmed });
+    }
+  }
+
+  ctx.font = "14px system-ui, -apple-system, sans-serif";
+  let contentHeight = 0;
+  const wrappedLines: { type: string; text: string; checked?: boolean }[] = [];
+
+  for (const line of parsedLines) {
+    if (!line.text) {
+      contentHeight += 12;
+      wrappedLines.push({ type: "space", text: "" });
+      continue;
+    }
+    if (line.type === "header") {
+      contentHeight += 28;
+      wrappedLines.push(line);
+      continue;
+    }
+
+    const words = line.text.split(" ");
+    let currentLine = "";
+    for (const w of words) {
+      const test = currentLine ? `${currentLine} ${w}` : w;
+      if (ctx.measureText(test).width > innerWidth - (line.type === "bullet" || line.type === "task" ? 24 : 0)) {
+        wrappedLines.push({ ...line, text: currentLine });
+        currentLine = w;
+        contentHeight += 22;
+      } else {
+        currentLine = test;
+      }
+    }
+    if (currentLine) {
+      wrappedLines.push({ ...line, text: currentLine });
+      contentHeight += 22;
+    }
+  }
+
+  const totalHeight = Math.max(160, padding + headerHeight + contentHeight + padding);
+  const scale = 2; // Crisp 2x pixel ratio
+
+  canvas.width = cardWidth * scale;
+  canvas.height = totalHeight * scale;
+  ctx.scale(scale, scale);
+
+  // Background
+  ctx.fillStyle = "#0f172a";
+  ctx.strokeStyle = "#334155";
+  ctx.lineWidth = 1.5;
+  if (typeof ctx.roundRect === "function") {
+    ctx.beginPath();
+    ctx.roundRect(0, 0, cardWidth, totalHeight, 16);
+    ctx.fill();
+    ctx.stroke();
+  } else {
+    ctx.fillRect(0, 0, cardWidth, totalHeight);
+    ctx.strokeRect(0, 0, cardWidth, totalHeight);
+  }
+
+  // Accent bar on top
+  ctx.fillStyle = accentColor;
+  if (typeof ctx.roundRect === "function") {
+    ctx.beginPath();
+    ctx.roundRect(0, 0, cardWidth, 6, [16, 16, 0, 0]);
+    ctx.fill();
+  } else {
+    ctx.fillRect(0, 0, cardWidth, 6);
+  }
+
+  // Header Title
+  ctx.fillStyle = "#f8fafc";
+  ctx.font = "bold 16px system-ui, -apple-system, sans-serif";
+  ctx.fillText(title || "Study Note", padding, padding + 22);
+
+  // Header Subtitle / Date
+  ctx.fillStyle = "#64748b";
+  ctx.font = "11px system-ui, -apple-system, sans-serif";
+  ctx.fillText("FlowTrack Academic Note • " + new Date().toLocaleDateString(), padding, padding + 40);
+
+  // Divider line
+  ctx.strokeStyle = "#1e293b";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padding, padding + 48);
+  ctx.lineTo(cardWidth - padding, padding + 48);
+  ctx.stroke();
+
+  // Render lines
+  let y = padding + headerHeight + 10;
+  for (const line of wrappedLines) {
+    if (line.type === "space") {
+      y += 12;
+      continue;
+    }
+    if (line.type === "header") {
+      ctx.fillStyle = accentColor;
+      ctx.font = "bold 14px system-ui, -apple-system, sans-serif";
+      ctx.fillText(line.text, padding, y);
+      y += 24;
+    } else if (line.type === "task") {
+      ctx.fillStyle = line.checked ? "#10b981" : "#64748b";
+      ctx.font = "13px system-ui, -apple-system, sans-serif";
+      ctx.fillText(line.checked ? "☑" : "☐", padding, y);
+      ctx.fillStyle = line.checked ? "#94a3b8" : "#cbd5e1";
+      ctx.fillText(line.text, padding + 20, y);
+      y += 22;
+    } else if (line.type === "bullet") {
+      ctx.fillStyle = accentColor;
+      ctx.font = "bold 14px system-ui, -apple-system, sans-serif";
+      ctx.fillText("•", padding + 2, y);
+      ctx.fillStyle = "#cbd5e1";
+      ctx.font = "13px system-ui, -apple-system, sans-serif";
+      ctx.fillText(line.text, padding + 18, y);
+      y += 22;
+    } else if (line.type === "code") {
+      ctx.fillStyle = "#1e293b";
+      ctx.fillRect(padding - 4, y - 14, innerWidth + 8, 20);
+      ctx.fillStyle = "#38bdf8";
+      ctx.font = "12px monospace";
+      ctx.fillText(line.text, padding, y);
+      y += 22;
+    } else {
+      ctx.fillStyle = "#cbd5e1";
+      ctx.font = "13px system-ui, -apple-system, sans-serif";
+      ctx.fillText(line.text, padding, y);
+      y += 22;
+    }
+  }
+
+  return canvas;
+}
 
 const DASHES: Record<string, number[] | undefined> = {
   solid: undefined, dashed: [12, 9], dotted: [1, 7],
@@ -167,7 +353,7 @@ interface LaserPt { x: number; y: number; t: number; }
 interface LiveState {
   tool: Tool; locked: boolean; showGrid: boolean; snap: boolean; theme: Theme;
   stroke: string; fill: string; width: number; style: string; opacity: number;
-  font: string; size: number; sketchy: boolean;
+  font: string; size: number; sketchy: boolean; noteColor: string;
 }
 
 export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhiteboardProps) {
@@ -195,11 +381,13 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
   const [opacity, setOpacity] = useState(1);
   const [fontFamily, setFontFamily] = useState(FONTS[0].family);
   const [fontSize, setFontSize] = useState(24);
+  const [noteColor, setNoteColor] = useState("yellow");
 
   const [zoom, setZoom] = useState(1);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [hasSel, setHasSel] = useState(false);
+  const [isMultiSel, setIsMultiSel] = useState(false);
   const [selIsText, setSelIsText] = useState(false);
 
   const [fullscreen, setFullscreen] = useState(false);
@@ -208,19 +396,48 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
   const [helpOpen, setHelpOpen] = useState(false);
   const [ready, setReady] = useState(false);
 
+  // Mermaid Modal & AI state
+  const [mermaidModalOpen, setMermaidModalOpen] = useState(false);
+  const [mermaidCode, setMermaidCode] = useState(MERMAID_PRESETS[0]?.code || "flowchart TD\n  A[Start] --> B(Process)\n  B --> C{Decision}\n  C -->|Yes| D[Done]\n  C -->|No| B");
+  const [mermaidPreviewSvg, setMermaidPreviewSvg] = useState("");
+  const [mermaidAiPrompt, setMermaidAiPrompt] = useState("");
+  const [isGeneratingDiagram, setIsGeneratingDiagram] = useState(false);
+  const [mermaidError, setMermaidError] = useState<string | null>(null);
+
+  // Markdown Modal & AI state
+  const [markdownModalOpen, setMarkdownModalOpen] = useState(false);
+  const [markdownTitle, setMarkdownTitle] = useState("Study Summary");
+  const [markdownContent, setMarkdownContent] = useState("### 📌 Key Takeaways\n- Principle 1: Clarity of thought\n- Principle 2: Iterative revision\n\n```python\n# Practical test\ndef review():\n    return 'Mastered!'\n```\n\n- [ ] Review before exam\n- [x] Initial comprehension complete");
+  const [markdownAccent, setMarkdownAccent] = useState("#8b5cf6");
+  const [markdownAiPrompt, setMarkdownAiPrompt] = useState("");
+  const [isGeneratingMarkdown, setIsGeneratingMarkdown] = useState(false);
+
+  // Slide Deck Management
+  const [slides, setSlides] = useState<{ id: string; title: string; json: string }[]>(() => {
+    try {
+      const raw = localStorage.getItem(`${storageKey}_slides_v1`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [{ id: "slide-1", title: "Slide 1", json: "" }];
+  });
+  const [activeSlideIdx, setActiveSlideIdx] = useState(0);
+
   const theme = useMemo(() => THEMES.find(t => t.id === themeId) ?? THEMES[0], [themeId]);
 
   /* --- Single live ref: engine always sees latest values --------------- */
   const live = useRef<LiveState>({
     tool, locked, showGrid, snap, theme,
     stroke, fill, width: strokeWidth, style: strokeStyle, opacity,
-    font: fontFamily, size: fontSize, sketchy,
+    font: fontFamily, size: fontSize, sketchy, noteColor,
   });
   useEffect(() => {
     live.current = {
       tool, locked, showGrid, snap, theme,
       stroke, fill, width: strokeWidth, style: strokeStyle, opacity,
-      font: fontFamily, size: fontSize, sketchy,
+      font: fontFamily, size: fontSize, sketchy, noteColor,
     };
   });
 
@@ -535,14 +752,18 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
     const addNote = (x: number, y: number) => {
       const L = live.current;
       const font = L.sketchy ? FONTS[0].family : L.font;
+      const curPalette = NOTE_PALETTES.find(p => p.id === L.noteColor) || NOTE_PALETTES[0];
       const n = new fabric.Textbox("📌 Sticky Note", {
-        left: x - 100, top: y - 70, width: 200, height: 160,
-        fontFamily: font, fontSize: 20, lineHeight: 1.25,
-        fill: "#422006", backgroundColor: "#fde68a",
-        padding: 12,
+        left: x - 110, top: y - 80, width: 220, height: 160,
+        fontFamily: font, fontSize: 18, lineHeight: 1.3,
+        fill: curPalette.text,
+        backgroundColor: curPalette.bg,
+        stroke: curPalette.border,
+        strokeWidth: 1.5,
+        padding: 14,
         selectable: true, evented: true, editable: true,
         rx: 12, ry: 12,
-        shadow: new fabric.Shadow({ color: "rgba(0,0,0,0.35)", blur: 18, offsetY: 8 }),
+        shadow: new fabric.Shadow({ color: "rgba(0,0,0,0.3)", blur: 16, offsetY: 6 }),
       });
       c.add(n);
       c.setActiveObject(n);
@@ -722,18 +943,16 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
           const allObjects = c.getObjects();
           const matched = allObjects.filter((o) => {
             if (o === lassoPoly || !o.evented) return false;
+            // Test center point in scene coords
             const center = o.getCenterPoint();
-            if (pointInPoly(center, lassoPts)) return true;
-            const br = o.getBoundingRect();
-            const centerBR = { x: br.left + br.width / 2, y: br.top + br.height / 2 };
-            if (pointInPoly(centerBR, lassoPts)) return true;
-            const corners = [
-              { x: br.left, y: br.top },
-              { x: br.left + br.width, y: br.top },
-              { x: br.left, y: br.top + br.height },
-              { x: br.left + br.width, y: br.top + br.height },
-            ];
-            return corners.some((pt) => pointInPoly(pt, lassoPts));
+            if (isPointInPolygon(center, lassoPts)) return true;
+            // Test all 4 scene corners
+            const ac = o.aCoords;
+            if (ac) {
+              const pts = [ac.tl, ac.tr, ac.br, ac.bl];
+              if (pts.some((pt) => pt && isPointInPolygon(pt, lassoPts))) return true;
+            }
+            return false;
           });
 
           if (matched.length > 0) {
@@ -889,6 +1108,7 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
     const readSel = () => {
       const objs = c.getActiveObjects();
       setHasSel(objs.length > 0);
+      setIsMultiSel(objs.length > 1);
       setSelIsText(objs.some(isTextObj));
       const o = objs[0];
       if (!o) return;
@@ -906,7 +1126,7 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
     };
     c.on("selection:created", readSel);
     c.on("selection:updated", readSel);
-    c.on("selection:cleared", () => { setHasSel(false); setSelIsText(false); });
+    c.on("selection:cleared", () => { setHasSel(false); setIsMultiSel(false); setSelIsText(false); });
 
     /* ---- Restore or seed history ---------------------------------- */
     (async () => {
@@ -1169,6 +1389,260 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
     if (c && a) { c.sendObjectToBack(a); c.requestRenderAll(); pushHistory(); }
   }, [pushHistory]);
 
+  /* --- Slide Deck Operations ----------------------------------------- */
+  const persistSlides = useCallback((updatedSlides: { id: string; title: string; json: string }[]) => {
+    setSlides(updatedSlides);
+    try {
+      localStorage.setItem(`${storageKey}_slides_v1`, JSON.stringify(updatedSlides));
+    } catch {}
+  }, [storageKey]);
+
+  const switchSlide = useCallback(async (targetIdx: number) => {
+    const c = fcRef.current;
+    if (!c || targetIdx < 0 || targetIdx >= slides.length || targetIdx === activeSlideIdx) return;
+    const currentJson = JSON.stringify(c.toJSON());
+    const updated = [...slides];
+    updated[activeSlideIdx] = { ...updated[activeSlideIdx], json: currentJson };
+    persistSlides(updated);
+    setActiveSlideIdx(targetIdx);
+    const targetJson = updated[targetIdx].json;
+    if (targetJson) {
+      await loadJSON(targetJson);
+    } else {
+      c.clear();
+      c.requestRenderAll();
+    }
+    showToast(`Switched to ${updated[targetIdx].title}`, "info");
+  }, [slides, activeSlideIdx, persistSlides, loadJSON, showToast]);
+
+  const addNewSlide = useCallback(async () => {
+    const c = fcRef.current;
+    if (!c) return;
+    const currentJson = JSON.stringify(c.toJSON());
+    const updated = [...slides];
+    updated[activeSlideIdx] = { ...updated[activeSlideIdx], json: currentJson };
+    const newSlide = {
+      id: crypto.randomUUID(),
+      title: `Slide ${updated.length + 1}`,
+      json: "",
+    };
+    updated.push(newSlide);
+    persistSlides(updated);
+    setActiveSlideIdx(updated.length - 1);
+    c.clear();
+    c.requestRenderAll();
+    showToast(`Created new slide (${newSlide.title})`, "success");
+  }, [slides, activeSlideIdx, persistSlides, showToast]);
+
+  const deleteCurrentSlide = useCallback(async () => {
+    const c = fcRef.current;
+    if (!c) return;
+    if (slides.length <= 1) {
+      c.clear();
+      c.requestRenderAll();
+      const reset = [{ id: "slide-1", title: "Slide 1", json: "" }];
+      persistSlides(reset);
+      setActiveSlideIdx(0);
+      showToast("Cleared slide canvas", "info");
+      return;
+    }
+    const filtered = slides.filter((_, idx) => idx !== activeSlideIdx);
+    const nextIdx = Math.max(0, activeSlideIdx - 1);
+    persistSlides(filtered);
+    setActiveSlideIdx(nextIdx);
+    const nextJson = filtered[nextIdx]?.json;
+    if (nextJson) {
+      await loadJSON(nextJson);
+    } else {
+      c.clear();
+      c.requestRenderAll();
+    }
+    showToast("Deleted slide", "warning");
+  }, [slides, activeSlideIdx, persistSlides, loadJSON, showToast]);
+
+  /* --- Alignment & Distribution -------------------------------------- */
+  const alignSelection = (type: "left" | "center" | "right" | "top" | "middle" | "bottom") => {
+    const c = fcRef.current;
+    if (!c) return;
+    const active = c.getActiveObject();
+    if (!active) return;
+
+    if (active instanceof fabric.ActiveSelection) {
+      const objs = active.getObjects();
+      if (objs.length < 2) return;
+
+      const boxes = objs.map((o) => ({
+        left: o.left,
+        top: o.top,
+        width: o.getScaledWidth(),
+        height: o.getScaledHeight(),
+      }));
+
+      const aligned = calculateAlignment(boxes, type);
+      objs.forEach((o, i) => {
+        o.set({ left: aligned[i].left, top: aligned[i].top });
+        o.setCoords();
+      });
+      c.requestRenderAll();
+      pushHistory();
+      showToast(`Aligned ${type}`, "info");
+    }
+  };
+
+  const distributeSelection = (axis: "horizontal" | "vertical") => {
+    const c = fcRef.current;
+    if (!c) return;
+    const active = c.getActiveObject();
+    if (!active || !(active instanceof fabric.ActiveSelection)) return;
+
+    const objs = active.getObjects();
+    if (objs.length < 3) {
+      showToast("Select 3 or more objects to distribute", "warning");
+      return;
+    }
+
+    const boxes = objs.map((o) => ({
+      left: o.left,
+      top: o.top,
+      width: o.getScaledWidth(),
+      height: o.getScaledHeight(),
+    }));
+
+    const distributed = calculateDistribution(boxes, axis);
+    objs.forEach((o, i) => {
+      o.set({ left: distributed[i].left, top: distributed[i].top });
+      o.setCoords();
+    });
+    c.requestRenderAll();
+    pushHistory();
+    showToast(`Distributed ${axis}`, "info");
+  };
+
+  /* --- Mermaid Diagram & AI Generation ------------------------------- */
+  useEffect(() => {
+    if (!mermaidModalOpen) return;
+    let cancelled = false;
+    renderMermaidToSvg(mermaidCode)
+      .then((svg) => {
+        if (!cancelled) {
+          setMermaidPreviewSvg(svg);
+          setMermaidError(null);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setMermaidError(err.message || "Invalid syntax");
+        }
+      });
+    return () => { cancelled = true; };
+  }, [mermaidModalOpen, mermaidCode]);
+
+  const insertMermaidDiagram = async () => {
+    const c = fcRef.current;
+    if (!c) return;
+    try {
+      const svg = await renderMermaidToSvg(mermaidCode);
+      const dataUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+      const img = await fabric.FabricImage.fromURL(dataUrl);
+      const maxW = c.getWidth() * 0.7;
+      if ((img.width ?? 0) > maxW) img.scaleToWidth(maxW);
+      const cp = c.getVpCenter();
+      img.set({
+        left: cp.x - img.getScaledWidth() / 2,
+        top: cp.y - img.getScaledHeight() / 2,
+      });
+      (img as any).customData = { type: "mermaid", code: mermaidCode };
+      c.add(img);
+      c.setActiveObject(img);
+      c.requestRenderAll();
+      pushHistory();
+      setMermaidModalOpen(false);
+      showToast("Inserted Mermaid diagram onto canvas", "success");
+    } catch (err: any) {
+      console.error(err);
+      setMermaidError(err.message || "Failed to render Mermaid diagram");
+      showToast("Mermaid syntax error", "warning");
+    }
+  };
+
+  const handleGenerateAiDiagram = async () => {
+    if (!mermaidAiPrompt.trim()) {
+      showToast("Please enter a diagram topic or workflow", "warning");
+      return;
+    }
+    setIsGeneratingDiagram(true);
+    setMermaidError(null);
+    try {
+      const sysPrompt = "You are an expert system architect and diagrammer. Generate ONLY valid, clean Mermaid diagram syntax. Output raw Mermaid code only, with no markdown fences, no backticks, and no introductory or concluding text.";
+      const prompt = `Create a detailed, beautiful Mermaid diagram for: ${mermaidAiPrompt.trim()}`;
+      const res = await callUnifiedAI(prompt, sysPrompt);
+      if (res.text) {
+        let clean = res.text.replace(/```mermaid\n?|```/g, "").trim();
+        if (!clean.startsWith("flowchart") && !clean.startsWith("graph") && !clean.startsWith("sequenceDiagram") && !clean.startsWith("classDiagram") && !clean.startsWith("stateDiagram")) {
+          clean = `flowchart TD\n${clean}`;
+        }
+        setMermaidCode(clean);
+        showToast("Generated Mermaid diagram with AI!", "success");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast("AI diagram generation failed", "warning");
+    } finally {
+      setIsGeneratingDiagram(false);
+    }
+  };
+
+  /* --- Markdown Card & AI Notes -------------------------------------- */
+  const insertMarkdownCard = async () => {
+    const c = fcRef.current;
+    if (!c) return;
+    try {
+      const canvas = renderMarkdownCardCanvas(markdownTitle, markdownContent, markdownAccent);
+      const dataUrl = canvas.toDataURL("image/png");
+      const img = await fabric.FabricImage.fromURL(dataUrl);
+      const maxW = c.getWidth() * 0.55;
+      if ((img.width ?? 0) > maxW) img.scaleToWidth(maxW);
+      const cp = c.getVpCenter();
+      img.set({
+        left: cp.x - img.getScaledWidth() / 2,
+        top: cp.y - img.getScaledHeight() / 2,
+      });
+      (img as any).customData = { type: "markdown", title: markdownTitle, content: markdownContent, accent: markdownAccent };
+      c.add(img);
+      c.setActiveObject(img);
+      c.requestRenderAll();
+      pushHistory();
+      setMarkdownModalOpen(false);
+      showToast("Inserted Markdown study card onto whiteboard", "success");
+    } catch (err: any) {
+      console.error(err);
+      showToast("Failed to create study note card", "error");
+    }
+  };
+
+  const handleGenerateAiMarkdown = async () => {
+    if (!markdownAiPrompt.trim()) {
+      showToast("Please enter a topic for AI study notes", "warning");
+      return;
+    }
+    setIsGeneratingMarkdown(true);
+    try {
+      const sysPrompt = "You are an elite academic tutor. Generate structured, highly readable Markdown notes for this concept. Use headings (#, ##), bullet points (-), code blocks if technical, and a checklist (- [ ]) of must-remember points. Do not include chat commentary.";
+      const prompt = `Produce structured revision study notes on: ${markdownAiPrompt.trim()}`;
+      const res = await callUnifiedAI(prompt, sysPrompt);
+      if (res.text) {
+        setMarkdownTitle(markdownAiPrompt.trim().slice(0, 40));
+        setMarkdownContent(res.text.trim());
+        showToast("Generated study notes with AI!", "success");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast("AI note generation failed", "warning");
+    } finally {
+      setIsGeneratingMarkdown(false);
+    }
+  };
+
   /* --- View ----------------------------------------------------------- */
   const zoomBy = useCallback((f: number) => {
     const c = fcRef.current;
@@ -1262,6 +1736,16 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
   const setSizeA = (v: number) => {
     setFontSize(v);
     mutateSelection((o) => { if (isTextObj(o)) o.set({ fontSize: v }); });
+  };
+  const setNoteColorA = (v: string) => {
+    setNoteColor(v);
+    const pal = NOTE_PALETTES.find((p) => p.id === v);
+    if (!pal) return;
+    mutateSelection((o) => {
+      if (isTextObj(o)) {
+        o.set({ backgroundColor: pal.bg, fill: pal.text });
+      }
+    });
   };
 
   const getDescriptiveFilename = (extension: string, extra = ""): string => {
@@ -1640,6 +2124,20 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
               <Sparkles className="h-[17px] w-[17px]" />
             </button>
             <button
+              onClick={() => setMermaidModalOpen(true)}
+              title="Mermaid Diagrams & AI Generator"
+              className={`${iconBtn} text-slate-400 hover:bg-white/10 hover:text-cyan-300`}
+            >
+              <GitFork className="h-[17px] w-[17px]" />
+            </button>
+            <button
+              onClick={() => setMarkdownModalOpen(true)}
+              title="Markdown Study Notes & AI Generator"
+              className={`${iconBtn} text-slate-400 hover:bg-white/10 hover:text-purple-300`}
+            >
+              <FileText className="h-[17px] w-[17px]" />
+            </button>
+            <button
               onClick={() => imgFileRef.current?.click()}
               title="Insert image"
               className={`${iconBtn} text-slate-400 hover:bg-white/10 hover:text-emerald-300`}
@@ -1865,6 +2363,59 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
                 />
               </PanelSection>
 
+              {(tool === "note" || (hasSel && selIsText)) && (
+                <PanelSection label="Note Palette">
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {NOTE_PALETTES.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => setNoteColorA(p.id)}
+                        title={p.name}
+                        style={{ background: p.bg }}
+                        className={`flex h-7 w-full items-center justify-center rounded-md border text-[10px] font-bold transition-all ${
+                          noteColor === p.id ? "border-slate-900 ring-2 ring-cyan-400 ring-offset-1 ring-offset-slate-950 scale-105" : "border-black/20 hover:scale-105"
+                        }`}
+                      >
+                        <span style={{ color: p.text }}>Aa</span>
+                      </button>
+                    ))}
+                  </div>
+                </PanelSection>
+              )}
+
+              {isMultiSel && (
+                <PanelSection label="Align & Distribute">
+                  <div className="grid grid-cols-3 gap-1">
+                    <IconAction onClick={() => alignSelection("left")} title="Align Left">
+                      <AlignLeft className="h-3.5 w-3.5" />
+                    </IconAction>
+                    <IconAction onClick={() => alignSelection("center")} title="Align Center">
+                      <AlignCenter className="h-3.5 w-3.5" />
+                    </IconAction>
+                    <IconAction onClick={() => alignSelection("right")} title="Align Right">
+                      <AlignRight className="h-3.5 w-3.5" />
+                    </IconAction>
+                    <IconAction onClick={() => alignSelection("top")} title="Align Top">
+                      <span className="text-[10px] font-bold">Top</span>
+                    </IconAction>
+                    <IconAction onClick={() => alignSelection("middle")} title="Align Middle">
+                      <span className="text-[10px] font-bold">Mid</span>
+                    </IconAction>
+                    <IconAction onClick={() => alignSelection("bottom")} title="Align Bottom">
+                      <span className="text-[10px] font-bold">Bot</span>
+                    </IconAction>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1 pt-1">
+                    <IconAction onClick={() => distributeSelection("horizontal")} title="Distribute Horizontally">
+                      <span className="text-[10px] font-bold">↔ Dist H</span>
+                    </IconAction>
+                    <IconAction onClick={() => distributeSelection("vertical")} title="Distribute Vertically">
+                      <span className="text-[10px] font-bold">↕ Dist V</span>
+                    </IconAction>
+                  </div>
+                </PanelSection>
+              )}
+
               {hasSel && (
                 <PanelSection label="Selection">
                   <div className="grid grid-cols-4 gap-1.5">
@@ -1878,6 +2429,51 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
             </div>
           </div>
         )}
+
+        {/* ============================================ BOTTOM-CENTER: Slide Deck Controller */}
+        <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center">
+          <div className={`${island} flex items-center gap-1.5 px-3 py-1.5 shadow-xl`}>
+            <button
+              onClick={() => switchSlide(Math.max(0, activeSlideIdx - 1))}
+              disabled={activeSlideIdx === 0}
+              title="Previous Slide"
+              className={`${iconBtn} h-7 w-7 ${activeSlideIdx === 0 ? "opacity-30 cursor-not-allowed" : "text-slate-300 hover:bg-white/10 hover:text-white"}`}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <div className="flex items-center gap-1 px-1 text-[12px] font-semibold text-slate-200">
+              <span className="text-cyan-400 font-bold">Slide {activeSlideIdx + 1}</span>
+              <span className="text-slate-500">/</span>
+              <span>{slides.length}</span>
+            </div>
+            <button
+              onClick={() => switchSlide(Math.min(slides.length - 1, activeSlideIdx + 1))}
+              disabled={activeSlideIdx >= slides.length - 1}
+              title="Next Slide"
+              className={`${iconBtn} h-7 w-7 ${activeSlideIdx >= slides.length - 1 ? "opacity-30 cursor-not-allowed" : "text-slate-300 hover:bg-white/10 hover:text-white"}`}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <div className="mx-1 h-4 w-px bg-white/15" />
+            <button
+              onClick={addNewSlide}
+              title="Add New Slide / Page"
+              className="flex items-center gap-1 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2 py-1 text-[11px] font-bold text-cyan-300 hover:bg-cyan-500/20 transition-all"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>New Slide</span>
+            </button>
+            {slides.length > 1 && (
+              <button
+                onClick={deleteCurrentSlide}
+                title="Delete Current Slide"
+                className="flex items-center rounded-lg border border-rose-500/20 bg-rose-500/10 p-1 text-rose-300 hover:bg-rose-500/20 transition-all"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
 
         {/* ============================================ BOTTOM-LEFT: zoom = */}
         <div className={`${island} absolute bottom-3 left-3 z-20 flex items-center gap-0.5 p-1`}>
@@ -1900,6 +2496,285 @@ export function FabricWhiteboard({ storageKey = DEFAULT_STORAGE_KEY }: FabricWhi
         <div className="pointer-events-none absolute bottom-3 right-3 z-20 hidden rounded-xl border border-white/10 bg-slate-950/70 px-3 py-1.5 text-[11px] font-medium text-slate-400 backdrop-blur-xl md:block">
           {hint}
         </div>
+
+        {/* ============================================ Mermaid Diagram Studio Modal */}
+        {mermaidModalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-md"
+            onClick={() => setMermaidModalOpen(false)}
+          >
+            <div
+              className="flex flex-col w-full max-w-4xl max-h-[90vh] rounded-2xl border border-white/10 bg-slate-900 shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 bg-slate-950/40">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                    <GitFork className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">Mermaid Diagram Studio</h3>
+                    <p className="text-[11px] text-slate-400">Insert code-rendered architectures, flowcharts & sequence diagrams</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setMermaidModalOpen(false)}
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                {/* AI Diagram Prompt */}
+                <div className="rounded-xl border border-cyan-500/20 bg-cyan-950/20 p-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="flex items-center gap-1.5 text-[11px] font-bold text-cyan-300">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      AI Diagram Generator
+                    </span>
+                    <span className="text-[10px] text-slate-400">Describe flow, system, or sequence</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={mermaidAiPrompt}
+                      onChange={(e) => setMermaidAiPrompt(e.target.value)}
+                      placeholder="e.g. Microservices event bus architecture with Kafka and Redis..."
+                      onKeyDown={(e) => e.key === "Enter" && handleGenerateAiDiagram()}
+                      className="flex-1 rounded-lg border border-white/10 bg-slate-950/60 px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
+                    />
+                    <button
+                      onClick={handleGenerateAiDiagram}
+                      disabled={isGeneratingDiagram}
+                      className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-md hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50"
+                    >
+                      {isGeneratingDiagram ? (
+                        <>
+                          <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                          <span>Generating...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-3.5 w-3.5" />
+                          <span>Generate</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Preset Chips */}
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Templates & Presets</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {MERMAID_PRESETS.map((p) => (
+                      <button
+                        key={p.name}
+                        onClick={() => setMermaidCode(p.code)}
+                        className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-medium text-slate-300 hover:bg-white/10 hover:text-white transition-all"
+                      >
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Editor & Preview Split */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                      Mermaid Syntax
+                    </label>
+                    <textarea
+                      value={mermaidCode}
+                      onChange={(e) => setMermaidCode(e.target.value)}
+                      rows={10}
+                      className="w-full font-mono text-xs rounded-xl border border-white/10 bg-slate-950/80 p-3 text-slate-200 focus:border-cyan-500 focus:outline-none resize-none"
+                      spellCheck={false}
+                    />
+                    {mermaidError && (
+                      <p className="mt-1 text-[11px] text-rose-400">{mermaidError}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                      Live Preview
+                    </label>
+                    <div className="flex items-center justify-center min-h-[220px] max-h-[260px] overflow-auto rounded-xl border border-white/10 bg-slate-950/40 p-4">
+                      {mermaidPreviewSvg ? (
+                        <div
+                          className="max-w-full"
+                          dangerouslySetInnerHTML={{ __html: mermaidPreviewSvg }}
+                        />
+                      ) : (
+                        <div className="text-center text-xs text-slate-500">
+                          {mermaidError ? "Syntax error in diagram" : "Loading preview..."}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-end gap-2 border-t border-white/10 px-5 py-3 bg-slate-950/40">
+                <button
+                  onClick={() => setMermaidModalOpen(false)}
+                  className="rounded-lg border border-white/10 px-3.5 py-1.5 text-xs font-semibold text-slate-300 hover:bg-white/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={insertMermaidDiagram}
+                  className="flex items-center gap-1.5 rounded-lg bg-cyan-500 px-4 py-1.5 text-xs font-bold text-slate-950 shadow-md hover:bg-cyan-400"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  Insert onto Whiteboard
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================ Markdown Study Card Modal */}
+        {markdownModalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-md"
+            onClick={() => setMarkdownModalOpen(false)}
+          >
+            <div
+              className="flex flex-col w-full max-w-3xl max-h-[90vh] rounded-2xl border border-white/10 bg-slate-900 shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 bg-slate-950/40">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                    <FileText className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">Markdown Study Card</h3>
+                    <p className="text-[11px] text-slate-400">Generate or draft structured revision notes to pin onto canvas</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setMarkdownModalOpen(false)}
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                {/* AI Study Notes prompt */}
+                <div className="rounded-xl border border-purple-500/20 bg-purple-950/20 p-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="flex items-center gap-1.5 text-[11px] font-bold text-purple-300">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      AI Study Note Generator
+                    </span>
+                    <span className="text-[10px] text-slate-400">Enter any exam concept or topic</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={markdownAiPrompt}
+                      onChange={(e) => setMarkdownAiPrompt(e.target.value)}
+                      placeholder="e.g. Java Concurrency & Thread Synchronization fundamentals..."
+                      onKeyDown={(e) => e.key === "Enter" && handleGenerateAiMarkdown()}
+                      className="flex-1 rounded-lg border border-white/10 bg-slate-950/60 px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none"
+                    />
+                    <button
+                      onClick={handleGenerateAiMarkdown}
+                      disabled={isGeneratingMarkdown}
+                      className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-500 to-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-md hover:from-purple-400 hover:to-indigo-500 disabled:opacity-50"
+                    >
+                      {isGeneratingMarkdown ? (
+                        <>
+                          <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                          <span>Drafting...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-3.5 w-3.5" />
+                          <span>Generate Notes</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Card Title</label>
+                    <input
+                      type="text"
+                      value={markdownTitle}
+                      onChange={(e) => setMarkdownTitle(e.target.value)}
+                      className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-1.5 text-xs text-white focus:border-purple-500 focus:outline-none mb-3"
+                    />
+
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Accent Color</label>
+                    <div className="flex gap-2 mb-3">
+                      {["#8b5cf6", "#3b82f6", "#10b981", "#f59e0b", "#ec4899", "#06b6d4"].map((c) => (
+                        <button
+                          key={c}
+                          onClick={() => setMarkdownAccent(c)}
+                          style={{ backgroundColor: c }}
+                          className={`h-6 w-6 rounded-full border transition-all ${
+                            markdownAccent === c ? "ring-2 ring-white scale-110" : "border-transparent opacity-80 hover:opacity-100"
+                          }`}
+                        />
+                      ))}
+                    </div>
+
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Markdown Content</label>
+                    <textarea
+                      value={markdownContent}
+                      onChange={(e) => setMarkdownContent(e.target.value)}
+                      rows={8}
+                      className="w-full font-mono text-xs rounded-xl border border-white/10 bg-slate-950/80 p-3 text-slate-200 focus:border-purple-500 focus:outline-none resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Visual Preview</label>
+                    <div className="rounded-xl border border-white/10 bg-slate-950/80 p-4 h-[280px] overflow-y-auto space-y-2">
+                      <div className="flex items-center gap-2 pb-2 border-b border-white/10">
+                        <div className="h-3 w-3 rounded-full" style={{ backgroundColor: markdownAccent }} />
+                        <h4 className="text-xs font-bold text-white">{markdownTitle || "Untitled Card"}</h4>
+                      </div>
+                      <div className="text-[11px] text-slate-300 whitespace-pre-wrap font-sans leading-relaxed">
+                        {markdownContent}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-end gap-2 border-t border-white/10 px-5 py-3 bg-slate-950/40">
+                <button
+                  onClick={() => setMarkdownModalOpen(false)}
+                  className="rounded-lg border border-white/10 px-3.5 py-1.5 text-xs font-semibold text-slate-300 hover:bg-white/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={insertMarkdownCard}
+                  className="flex items-center gap-1.5 rounded-lg bg-purple-500 px-4 py-1.5 text-xs font-bold text-white shadow-md hover:bg-purple-400"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  Insert onto Whiteboard
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ============================================ Shortcuts overlay */}
         {helpOpen && (

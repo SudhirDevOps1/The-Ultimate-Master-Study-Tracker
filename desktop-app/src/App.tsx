@@ -30,6 +30,7 @@ const ExamCountdownPage = lazy(() => import("@/pages/ExamCountdownPage").then(m 
 const SchedulerPage = lazy(() => import("@/pages/SchedulerPage").then(m => ({ default: m.SchedulerPage })));
 const FlashcardsPage = lazy(() => import("@/pages/FlashcardsPage").then(m => ({ default: m.FlashcardsPage })));
 const MindMapPage = lazy(() => import("@/pages/MindMapPage").then(m => ({ default: m.MindMapPage })));
+const WhiteboardPage = lazy(() => import("@/pages/WhiteboardPage").then(m => ({ default: m.WhiteboardPage })));
 const WebPortalsPage = lazy(() => import("@/pages/WebPortalsPage").then(m => ({ default: m.WebPortalsPage })));
 const PipStandalonePage = lazy(() => import("@/pages/PipStandalonePage").then(m => ({ default: m.PipStandalonePage })));
 
@@ -269,6 +270,20 @@ function AnimatedRoutes() {
                 className="w-full"
               >
                 <MindMapPage />
+              </motion.div>
+            }
+          />
+          <Route
+            path="/whiteboard"
+            element={
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
+                className="w-full"
+              >
+                <WhiteboardPage />
               </motion.div>
             }
           />

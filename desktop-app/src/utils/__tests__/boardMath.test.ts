@@ -6,6 +6,9 @@ import {
   cleanupBoardConnectors,
   getNotesInReadingOrder,
   generateBoardTemplate,
+  calculateAlignment,
+  calculateDistribution,
+  isPointInPolygon,
 } from "../boardMath";
 import type { StickyNote, BoardFrame, BoardConnector } from "../../types/notes";
 
@@ -128,5 +131,53 @@ describe("Study Notes Board Algorithms & Geometric Math (Pure Helpers)", () => {
 
     const exam = generateBoardTemplate("examRevision", "Database Internals");
     expect(exam.notes.length).toBe(4);
+  });
+
+  it("calculates accurate alignment for Left, Center, Right, Top, Middle, Bottom", () => {
+    const boxes = [
+      { left: 100, top: 50, width: 60, height: 40 },
+      { left: 300, top: 120, width: 80, height: 60 },
+      { left: 200, top: 200, width: 100, height: 80 },
+    ];
+
+    const leftAligned = calculateAlignment(boxes, "left");
+    expect(leftAligned.every((b) => b.left === 100)).toBe(true);
+
+    const rightAligned = calculateAlignment(boxes, "right");
+    // maxRight = 380
+    expect(rightAligned[0].left).toBe(380 - 60);
+    expect(rightAligned[1].left).toBe(380 - 80);
+    expect(rightAligned[2].left).toBe(380 - 100);
+
+    const topAligned = calculateAlignment(boxes, "top");
+    expect(topAligned.every((b) => b.top === 50)).toBe(true);
+  });
+
+  it("calculates uniform distribution across horizontal and vertical axes", () => {
+    const boxes = [
+      { left: 0, top: 0, width: 50, height: 30 },
+      { left: 400, top: 400, width: 50, height: 30 },
+      { left: 50, top: 50, width: 50, height: 30 },
+    ];
+
+    const distributedH = calculateDistribution(boxes, "horizontal");
+    const sortedH = [...distributedH].sort((a, b) => a.left - b.left);
+    const gap1 = sortedH[1].left - (sortedH[0].left + sortedH[0].width);
+    const gap2 = sortedH[2].left - (sortedH[1].left + sortedH[1].width);
+    expect(Math.abs(gap1 - gap2)).toBeLessThan(0.001);
+  });
+
+  it("accurately tests points inside and outside arbitrary polygons for lasso", () => {
+    const triangle = [
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+      { x: 50, y: 100 },
+    ];
+
+    expect(isPointInPolygon({ x: 50, y: 20 }, triangle)).toBe(true);
+    expect(isPointInPolygon({ x: 50, y: 50 }, triangle)).toBe(true);
+    expect(isPointInPolygon({ x: -10, y: 20 }, triangle)).toBe(false);
+    expect(isPointInPolygon({ x: 150, y: 20 }, triangle)).toBe(false);
+    expect(isPointInPolygon({ x: 50, y: 120 }, triangle)).toBe(false);
   });
 });
