@@ -42,6 +42,17 @@ const COLOR_PRESETS = [
   { name: "Rose", hex: "#f43f5e", bg: "rgba(244,63,94,0.25)", border: "#fb7185", text: "#fff1f2" }
 ];
 
+const ICON_PRESETS = [
+  { name: "Book", icon: BookOpen },
+  { name: "Code", icon: Code },
+  { name: "Hardware", icon: Cpu },
+  { name: "Docs", icon: FileText },
+  { name: "Target", icon: CheckCircle2 },
+  { name: "Warning", icon: AlertCircle },
+  { name: "Sparkle", icon: Sparkles },
+  { name: "Layers", icon: Layers },
+];
+
 // Pre-built Mind Map Templates
 const TEMPLATES: Record<string, { name: string; nodes: MindNode[] }> = {
   java: {
@@ -416,6 +427,12 @@ export function MindMapPage() {
     showToast("Image removed", "info");
   };
 
+  const setNodeIcon = (iconName: string) => {
+    if (!selectedNodeId) return;
+    const next = nodes.map((n) => (n.id === selectedNodeId ? { ...n, icon: iconName } : n));
+    pushState(next);
+  };
+
   // Cross-Link Relationships
   const startCrossLinkConnection = (nodeId: string) => {
     setConnectingSourceId(nodeId);
@@ -440,6 +457,11 @@ export function MindMapPage() {
     setRelationships((prev) => [...prev, newRel]);
     setConnectingSourceId(null);
     showToast("Cross-link created", "success");
+  };
+
+  const deleteRelationship = (relId: string) => {
+    setRelationships((prev) => prev.filter((r) => r.id !== relId));
+    showToast("Cross-link removed", "info");
   };
 
   // Status cycling
@@ -1025,7 +1047,7 @@ Provide 8 to 14 insightful subtopics categorized cleanly with 'side': 'left' or 
               {nodes.map((node) => {
                 const isSelected = node.id === selectedNodeId;
                 const isRoot = node.parentId === null;
-                const depth = isRoot ? 0 : 1;
+                const depth = isRoot ? 0 : 1; // lightweight depth
                 return (
                   <div
                     key={`outline-${node.id}`}

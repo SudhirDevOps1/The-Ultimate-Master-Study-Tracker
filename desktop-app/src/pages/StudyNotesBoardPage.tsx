@@ -4,7 +4,7 @@ import {
   Search, Pin, FileText, Check, Folder, FilePlus, Clock, RotateCcw, 
   ZoomIn, ZoomOut, Grid, Lock, Unlock, Layers, Link2, 
   LayoutTemplate, Download, X, Compass, ChevronRight,
-  Move, CheckSquare
+  Move, CheckSquare, HelpCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import html2canvas from "html2canvas";
@@ -114,6 +114,7 @@ export function StudyNotesBoardPage() {
   const [viewMode, setViewMode] = useState<"edit" | "preview" | "split">("split");
   const [docSearch, setDocSearch] = useState("");
   const [copiedNotepad, setCopiedNotepad] = useState(false);
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   const { showToast } = useToast();
 
   const boardContainerRef = useRef<HTMLDivElement | null>(null);
@@ -798,6 +799,15 @@ export function StudyNotesBoardPage() {
               >
                 <Download className="w-3.5 h-3.5" />
               </button>
+
+              <button
+                onClick={() => setShowShortcutsModal(true)}
+                className="p-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white"
+                title="Keyboard Shortcuts"
+                aria-label="Keyboard Shortcuts"
+              >
+                <HelpCircle className="w-3.5 h-3.5 text-purple-400" />
+              </button>
             </div>
           </div>
 
@@ -1256,6 +1266,58 @@ export function StudyNotesBoardPage() {
                 <h4 className="text-xs font-bold text-white">Exam 4-Quadrant</h4>
                 <p className="text-[11px] text-slate-400">High-yield facts, traps/pitfalls, derivations, and quick checklist.</p>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Sticky Board Shortcuts Modal ─── */}
+      {showShortcutsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-purple-400" />
+                <h3 className="font-bold text-base text-white">Sticky Board Shortcuts</h3>
+              </div>
+              <button
+                onClick={() => setShowShortcutsModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                aria-label="Close shortcuts modal"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between py-1 border-b border-slate-800/60">
+                <span className="text-slate-400">Pan Canvas</span>
+                <kbd className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-purple-300 font-mono">Middle Click / Space + Drag</kbd>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-800/60">
+                <span className="text-slate-400">Zoom In / Out</span>
+                <kbd className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-purple-300 font-mono">Ctrl + Wheel / +/-</kbd>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-800/60">
+                <span className="text-slate-400">Reset Zoom (100%)</span>
+                <kbd className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-purple-300 font-mono">Ctrl + 0</kbd>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-800/60">
+                <span className="text-slate-400">Multi-select Marquee</span>
+                <kbd className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-purple-300 font-mono">Click & Drag Empty Canvas</kbd>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-800/60">
+                <span className="text-slate-400">Add to Selection</span>
+                <kbd className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-purple-300 font-mono">Shift + Click</kbd>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-800/60">
+                <span className="text-slate-400">Duplicate Selected</span>
+                <kbd className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-purple-300 font-mono">Ctrl + D</kbd>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-800/60">
+                <span className="text-slate-400">Delete Selected</span>
+                <kbd className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-purple-300 font-mono">Delete / Backspace</kbd>
+              </div>
             </div>
           </div>
         </div>
