@@ -26,7 +26,8 @@ import {
   Sparkles,
   HelpCircle,
   ScanText,
-  CalendarClock
+  CalendarClock,
+  PenTool
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -42,6 +43,7 @@ const links = [
   { to: "/notes-board", label: "Notes Board", Icon: FileText, category: "Tools" },
   { to: "/study-workspace", label: "PDF / OCR Reader", Icon: ScanText, category: "Tools" },
   { to: "/mind-map", label: "Mind Maps", Icon: Palette, category: "Tools" },
+  { to: "/whiteboard", label: "Whiteboard", Icon: PenTool, category: "Tools" },
   { to: "/flashcards", label: "SRS Flashcards", Icon: Brain, category: "Tools" },
   { to: "/ai", label: "AI Assistant", Icon: Sparkles, category: "Tools" },
 
@@ -67,7 +69,7 @@ export function AppShell() {
   const currentLink = links.find((link) => link.to === location.pathname);
   const current = currentLink ? currentLink.label : "Dashboard";
 
-  const isCompactHeader = location.pathname === "/web-portals" || location.pathname === "/notes-board" || location.pathname === "/mind-map";
+  const isCompactHeader = location.pathname === "/web-portals" || location.pathname === "/notes-board" || location.pathname === "/mind-map" || location.pathname === "/whiteboard";
 
   const getGradientClass = () => {
     switch (theme) {

@@ -1,16 +1,97 @@
-import React, { useState } from "react";
+import React, { useState, Component, type ReactNode } from "react";
+import DOMPurify from "dompurify";
 import { MermaidChart } from "./MermaidChart";
-import { Copy, Check, Terminal, ExternalLink } from "lucide-react";
+import { Copy, Check, Terminal, ExternalLink, AlertTriangle } from "lucide-react";
+import { latexToMathML } from "@/utils/latexToMathML";
 
 interface MarkdownRendererProps {
   content: string;
   className?: string;
 }
 
+// Security: Protocol whitelist for safe links
+const SAFE_PROTOCOLS = ["http:", "https:", "mailto:"];
+
+function isSafeUrl(url: string): boolean {
+  try {
+    const trimmed = url.trim();
+    if (trimmed.startsWith("/") || trimmed.startsWith("./") || trimmed.startsWith("#")) {
+      return true;
+    }
+    const parsed = new URL(trimmed);
+    return SAFE_PROTOCOLS.includes(parsed.protocol);
+  } catch {
+    return false;
+  }
+}
+
+function isSafeImageUrl(url: string): boolean {
+  const trimmed = url.trim();
+  if (trimmed.startsWith("data:image/") || trimmed.startsWith("blob:") || trimmed.startsWith("/") || trimmed.startsWith("./")) {
+    return true;
+  }
+  return isSafeUrl(trimmed);
+}
+
+// Sanitization config allowing native MathML tags and SVG
+const SANITIZE_CONFIG = {
+  ADD_TAGS: [
+    "math", "mrow", "mfrac", "msup", "msub", "msubsup",
+    "msqrt", "mroot", "mi", "mn", "mo", "mtext", "mspace", "span"
+  ],
+  ADD_ATTR: ["xmlns", "display", "fence", "width", "mathvariant", "class"],
+};
+
+function sanitizeHtml(html: string): string {
+  if (typeof window === "undefined") return html;
+  return DOMPurify.sanitize(html, SANITIZE_CONFIG);
+}
+
+// Error boundary to prevent any markdown parsing error from breaking the application
+class MarkdownErrorBoundary extends Component<
+  { children: ReactNode; fallbackContent?: string },
+  { hasError: boolean }
+> {
+  constructor(props: { children: ReactNode; fallbackContent?: string }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    console.warn("[MarkdownRenderer] Error rendering markdown:", error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-200 text-xs flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
+          <pre className="whitespace-pre-wrap font-mono text-[11px] overflow-x-auto">
+            {this.props.fallbackContent || "Failed to render formatted content."}
+          </pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export function MarkdownRenderer({ content, className = "" }: MarkdownRendererProps) {
+  return (
+    <MarkdownErrorBoundary fallbackContent={content}>
+      <MarkdownRendererInner content={content} className={className} />
+    </MarkdownErrorBoundary>
+  );
+}
+
+function MarkdownRendererInner({ content, className = "" }: MarkdownRendererProps) {
   if (!content || !content.trim()) {
     return (
-      <div className="py-8 text-center text-slate-500 italic text-xs">
+      <div className="py-6 text-center text-slate-500 italic text-xs">
         (Empty document preview)
       </div>
     );
@@ -18,7 +99,7 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
 
   const lines = content.split("\n");
   const blocks: Array<{
-    type: "h1" | "h2" | "h3" | "h4" | "p" | "ul" | "ol" | "blockquote" | "code" | "mermaid" | "hr" | "table";
+    type: "h1" | "h2" | "h3" | "h4" | "p" | "ul" | "ol" | "blockquote" | "code" | "mermaid" | "hr" | "table" | "math";
     content: any;
     lang?: string;
   }> = [];
@@ -26,6 +107,8 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
   let inCodeBlock = false;
   let codeBlockBuffer: string[] = [];
   let codeBlockLang = "";
+  let inMathBlock = false;
+  let mathBlockBuffer: string[] = [];
   let currentTable: { headers: string[]; rows: string[][] } | null = null;
   let currentList: { type: "ul" | "ol"; items: { text: string; isTask?: boolean; checked?: boolean }[] } | null = null;
   let currentQuote: string[] = [];
@@ -56,7 +139,48 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
     const line = rawLine.trimEnd();
     const trimmed = line.trim();
 
-    // 1. Code Block Fence
+    // 1. Math Block ($$...$$)
+    if (trimmed.startsWith("$$")) {
+      flushList();
+      flushQuote();
+      flushTable();
+
+      if (inMathBlock) {
+        // Closing multiline math block
+        const formula = mathBlockBuffer.join("\n");
+        blocks.push({ type: "math", content: formula });
+        inMathBlock = false;
+        mathBlockBuffer = [];
+        continue;
+      } else if (trimmed.endsWith("$$") && trimmed.length > 2) {
+        // Single-line block math: $$ formula $$
+        const formula = trimmed.slice(2, -2).trim();
+        blocks.push({ type: "math", content: formula });
+        continue;
+      } else {
+        // Opening multiline math block
+        inMathBlock = true;
+        const remainder = trimmed.slice(2).trim();
+        if (remainder) mathBlockBuffer.push(remainder);
+        continue;
+      }
+    }
+
+    if (inMathBlock) {
+      if (trimmed.endsWith("$$")) {
+        const remainder = trimmed.slice(0, -2).trim();
+        if (remainder) mathBlockBuffer.push(remainder);
+        const formula = mathBlockBuffer.join("\n");
+        blocks.push({ type: "math", content: formula });
+        inMathBlock = false;
+        mathBlockBuffer = [];
+      } else {
+        mathBlockBuffer.push(rawLine);
+      }
+      continue;
+    }
+
+    // 2. Code Block Fence (```)
     if (trimmed.startsWith("```")) {
       flushList();
       flushQuote();
@@ -84,7 +208,7 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
       continue;
     }
 
-    // 2. Table row
+    // 3. Table row
     if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
       flushList();
       flushQuote();
@@ -97,7 +221,7 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
       const cells = trimmed
         .slice(1, -1)
         .split("|")
-        .map(c => c.trim());
+        .map((c) => c.trim());
 
       if (!currentTable) {
         currentTable = { headers: cells, rows: [] };
@@ -109,23 +233,23 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
       flushTable();
     }
 
-    // 3. Blockquote
-    if (line.startsWith("> ")) {
+    // 4. Blockquote
+    if (line.startsWith("> ") || line === ">") {
       flushList();
-      currentQuote.push(line.slice(2));
+      currentQuote.push(line.startsWith("> ") ? line.slice(2) : "");
       continue;
     } else {
       flushQuote();
     }
 
-    // 4. Horizontal Rule
+    // 5. Horizontal Rule
     if (/^[=\-*_]{3,}$/.test(trimmed)) {
       flushList();
       blocks.push({ type: "hr", content: "" });
       continue;
     }
 
-    // 5. Headings
+    // 6. Headings
     if (line.startsWith("# ")) {
       flushList();
       blocks.push({ type: "h1", content: line.slice(2) });
@@ -147,7 +271,7 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
       continue;
     }
 
-    // 6. Task List or Unordered List
+    // 7. Task List or Unordered List
     if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
       const itemRaw = trimmed.slice(2);
       let isTask = false;
@@ -172,7 +296,7 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
       continue;
     }
 
-    // 7. Ordered List
+    // 8. Ordered List
     const olMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
     if (olMatch) {
       if (!currentList || currentList.type !== "ol") {
@@ -185,7 +309,7 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
 
     flushList();
 
-    // 8. Paragraph or Empty
+    // 9. Paragraph or Empty
     if (trimmed.length > 0) {
       blocks.push({ type: "p", content: line });
     }
@@ -195,7 +319,10 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
   flushQuote();
   flushTable();
 
-  // If still in unclosed code block, flush it
+  // If still in unclosed blocks, flush them gracefully
+  if (inMathBlock && mathBlockBuffer.length > 0) {
+    blocks.push({ type: "math", content: mathBlockBuffer.join("\n") });
+  }
   if (inCodeBlock && codeBlockBuffer.length > 0) {
     const fullCode = codeBlockBuffer.join("\n");
     if (codeBlockLang.toLowerCase() === "mermaid") {
@@ -243,56 +370,77 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
             );
           case "p":
             return (
-              <p key={idx} className="text-slate-300 leading-relaxed text-[13px]">
+              <p key={idx} className="my-1.5 text-slate-300 leading-relaxed">
                 {renderInline(block.content)}
               </p>
             );
+          case "math":
+            return (
+              <div
+                key={idx}
+                className="my-3 p-3 overflow-x-auto text-center bg-slate-950/70 border border-slate-800/80 rounded-2xl shadow-inner font-serif text-slate-100"
+                dangerouslySetInnerHTML={{
+                  __html: sanitizeHtml(latexToMathML(block.content, true)),
+                }}
+              />
+            );
           case "hr":
-            return <hr key={idx} className="my-4 border-white/10" />;
+            return <hr key={idx} className="my-4 border-slate-800" />;
           case "blockquote":
             return (
               <blockquote
                 key={idx}
-                className="my-3 border-l-4 border-cyan-500 bg-slate-950/60 p-3 pl-4 rounded-r-2xl italic text-slate-300/90 space-y-1 shadow-sm"
+                className="my-3 border-l-4 border-purple-500/70 bg-purple-500/5 px-4 py-2 rounded-r-xl italic text-slate-300 space-y-1"
               >
-                {(block.content as string[]).map((c, i) => (
-                  <p key={i}>{renderInline(c)}</p>
+                {block.content.map((q: string, qi: number) => (
+                  <p key={qi}>{renderInline(q)}</p>
                 ))}
               </blockquote>
             );
           case "ul":
             return (
-              <ul key={idx} className="space-y-1.5 my-2">
-                {(block.content as any[]).map((item, i) => (
-                  <li key={i} className="flex items-start gap-2 text-[13px]">
-                    {item.isTask ? (
-                      <input
-                        type="checkbox"
-                        checked={item.checked}
-                        readOnly
-                        className="mt-1 rounded bg-slate-900 border-white/20 text-cyan-500 focus:ring-0 cursor-default"
-                      />
-                    ) : (
-                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 mt-2 shrink-0" />
-                    )}
-                    <span className={item.checked ? "line-through text-slate-500" : ""}>
-                      {renderInline(item.text)}
-                    </span>
-                  </li>
-                ))}
+              <ul key={idx} className="space-y-1.5 my-2 pl-4 list-none">
+                {block.content.map((item: any, ii: number) => {
+                  if (item.isTask) {
+                    return (
+                      <li key={ii} className="flex items-center gap-2 text-slate-300">
+                        <input
+                          type="checkbox"
+                          checked={item.checked}
+                          readOnly
+                          className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-900 text-purple-600 focus:ring-0 cursor-default"
+                        />
+                        <span className={item.checked ? "line-through text-slate-500" : ""}>
+                          {renderInline(item.text)}
+                        </span>
+                      </li>
+                    );
+                  }
+                  return (
+                    <li key={ii} className="flex items-start gap-2 text-slate-300">
+                      <span className="text-purple-400 mt-1.5 text-[8px]">•</span>
+                      <span>{renderInline(item.text)}</span>
+                    </li>
+                  );
+                })}
               </ul>
             );
           case "ol":
             return (
-              <ol key={idx} className="list-decimal pl-5 space-y-1 my-2 text-[13px]">
-                {(block.content as any[]).map((item, i) => (
-                  <li key={i}>{renderInline(item.text)}</li>
+              <ol key={idx} className="space-y-1.5 my-2 pl-6 list-decimal text-slate-300">
+                {block.content.map((item: any, ii: number) => (
+                  <li key={ii} className="pl-1">
+                    {renderInline(item.text)}
+                  </li>
                 ))}
               </ol>
             );
           case "table":
             return (
-              <div key={idx} className="overflow-x-auto my-3 rounded-2xl border border-white/10 bg-slate-950/60 shadow-lg">
+              <div
+                key={idx}
+                className="overflow-x-auto my-3 rounded-2xl border border-white/10 bg-slate-950/60 shadow-lg"
+              >
                 <table className="w-full border-collapse text-left text-xs">
                   <thead>
                     <tr className="border-b border-white/10 bg-white/[0.04]">
@@ -305,7 +453,10 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
                   </thead>
                   <tbody>
                     {block.content.rows.map((row: string[], ri: number) => (
-                      <tr key={ri} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors">
+                      <tr
+                        key={ri}
+                        className="border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors"
+                      >
                         {row.map((cell: string, ci: number) => (
                           <td key={ci} className="p-3 text-slate-300">
                             {renderInline(cell)}
@@ -333,9 +484,13 @@ function CodeBlock({ code, lang }: { code: string; lang?: string }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // ignore
+    }
   };
 
   return (
@@ -360,35 +515,88 @@ function CodeBlock({ code, lang }: { code: string; lang?: string }) {
   );
 }
 
+/**
+ * Rich inline formatter supporting:
+ * - Bold: **text** or __text__
+ * - Italic: *text* or _text_
+ * - Strikethrough: ~~text~~
+ * - Inline Code: `code`
+ * - Inline Math: $formula$
+ * - Markdown Images: ![alt](url)
+ * - Safe Markdown Links: [label](url)
+ */
 function renderInline(text: string): React.ReactNode {
   if (!text) return "";
 
-  // Split by bold (**), italic (*), code (`), link [title](url)
-  const regex = /(\*\*.*?\*\*|\*.*?\*|`.*?`|\[.*?\]\(.*?\))/g;
-  const parts = text.split(regex);
+  // Tokenize regex capturing:
+  // 1. Images: !\[.*?\]\(.*?\)
+  // 2. Links: \[.*?\]\(.*?\)
+  // 3. Math: \$[^\$]+?\$
+  // 4. Code: `.*?`
+  // 5. Strikethrough: ~~.*?~~
+  // 6. Bold: \*\*.*?\*\* or __.*?__
+  // 7. Italic: \*.*?\* or _.*?_
+  const tokenRegex = /(!\[.*?\]\(.*?\)|\[.*?\]\(.*?\)|\$[^\$]+?\$|`[^`]+?`|~~.*?~~|\*\*.*?\*\*|__.*?__|\*[^*]+?\*|_[^_]+?_)/g;
+  const parts = text.split(tokenRegex);
 
   return parts.map((part, idx) => {
     if (!part) return null;
 
-    // Bold
-    if (part.startsWith("**") && part.endsWith("**") && part.length >= 4) {
+    // Image: ![alt](url)
+    const imgMatch = part.match(/^!\[(.*?)\]\((.*?)\)$/);
+    if (imgMatch) {
+      const alt = imgMatch[1];
+      const src = imgMatch[2];
+      if (isSafeImageUrl(src)) {
+        return (
+          <img
+            key={idx}
+            src={src}
+            alt={alt}
+            className="inline-block max-h-48 rounded-xl border border-white/10 my-1 object-contain"
+          />
+        );
+      }
+      return <span key={idx} className="text-slate-500 italic">[unsafe image omitted]</span>;
+    }
+
+    // Link: [title](url)
+    const linkMatch = part.match(/^\[(.*?)\]\((.*?)\)$/);
+    if (linkMatch) {
+      const label = linkMatch[1];
+      const href = linkMatch[2];
+      if (isSafeUrl(href)) {
+        const isExternal = href.startsWith("http");
+        return (
+          <a
+            key={idx}
+            href={href}
+            target={isExternal ? "_blank" : undefined}
+            rel={isExternal ? "noopener noreferrer" : undefined}
+            className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2 inline-flex items-center gap-0.5 font-medium"
+          >
+            <span>{label}</span>
+            {isExternal && <ExternalLink className="w-3 h-3 inline" />}
+          </a>
+        );
+      }
+      return <span key={idx} className="text-slate-400">{label}</span>;
+    }
+
+    // Inline Math: $formula$
+    if (part.startsWith("$") && part.endsWith("$") && part.length >= 2) {
+      const formula = part.slice(1, -1);
+      const mathml = latexToMathML(formula, false);
       return (
-        <strong key={idx} className="font-bold text-white">
-          {part.slice(2, -2)}
-        </strong>
+        <span
+          key={idx}
+          className="inline-block align-baseline font-serif px-0.5 text-slate-100"
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(mathml) }}
+        />
       );
     }
 
-    // Italic
-    if (part.startsWith("*") && part.endsWith("*") && part.length >= 2) {
-      return (
-        <em key={idx} className="italic text-slate-200">
-          {part.slice(1, -1)}
-        </em>
-      );
-    }
-
-    // Inline Code
+    // Inline Code: `code`
     if (part.startsWith("`") && part.endsWith("`") && part.length >= 2) {
       return (
         <code
@@ -400,21 +608,36 @@ function renderInline(text: string): React.ReactNode {
       );
     }
 
-    // Markdown Link [title](url)
-    const linkMatch = part.match(/^\[(.*?)\]\((.*?)\)$/);
-    if (linkMatch) {
-      const isExternal = linkMatch[2].startsWith("http");
+    // Strikethrough: ~~text~~
+    if (part.startsWith("~~") && part.endsWith("~~") && part.length >= 4) {
       return (
-        <a
-          key={idx}
-          href={linkMatch[2]}
-          target={isExternal ? "_blank" : undefined}
-          rel={isExternal ? "noreferrer" : undefined}
-          className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2 inline-flex items-center gap-0.5 font-medium"
-        >
-          <span>{linkMatch[1]}</span>
-          {isExternal && <ExternalLink className="w-3 h-3 inline" />}
-        </a>
+        <del key={idx} className="line-through text-slate-500">
+          {part.slice(2, -2)}
+        </del>
+      );
+    }
+
+    // Bold: **text** or __text__
+    if (
+      (part.startsWith("**") && part.endsWith("**") && part.length >= 4) ||
+      (part.startsWith("__") && part.endsWith("__") && part.length >= 4)
+    ) {
+      return (
+        <strong key={idx} className="font-bold text-white">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+
+    // Italic: *text* or _text_
+    if (
+      (part.startsWith("*") && part.endsWith("*") && part.length >= 2) ||
+      (part.startsWith("_") && part.endsWith("_") && part.length >= 2)
+    ) {
+      return (
+        <em key={idx} className="italic text-slate-200">
+          {part.slice(1, -1)}
+        </em>
       );
     }
 

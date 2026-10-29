@@ -25,6 +25,7 @@ import { ExamCountdownPage } from "@/pages/ExamCountdownPage";
 import { SchedulerPage } from "@/pages/SchedulerPage";
 import { FlashcardsPage } from "@/pages/FlashcardsPage";
 import { MindMapPage } from "@/pages/MindMapPage";
+import { WhiteboardPage } from "@/pages/WhiteboardPage";
 import { WebPortalsPage } from "@/pages/WebPortalsPage";
 import { useTimer } from "@/hooks/useTimer";
 import { useScheduleReminder } from "@/hooks/useScheduleReminder";
@@ -213,6 +214,20 @@ function AnimatedRoutes() {
                 className="w-full"
               >
                 <MindMapPage />
+              </motion.div>
+            }
+          />
+          <Route
+            path="/whiteboard"
+            element={
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
+                className="w-full"
+              >
+                <WhiteboardPage />
               </motion.div>
             }
           />

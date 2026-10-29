@@ -1,4 +1,22 @@
 // Shared Notes & Sticky Notes Design Tokens & Types
+export interface BoardFrame {
+  id: string;
+  title: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  color?: string;
+}
+
+export interface BoardConnector {
+  id: string;
+  from: string;
+  to: string;
+  label?: string;
+  color?: string;
+}
+
 export interface StickyNote {
   id: string;
   title?: string;
@@ -13,6 +31,14 @@ export interface StickyNote {
   image?: string;     // Base64 / URL image attachment
   isBold?: boolean;
   isHighlighted?: boolean;
+  // Free canvas layout extensions (optional, backwards-compatible)
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+  z?: number;
+  locked?: boolean;
+  frameId?: string;
 }
 
 export interface NotepadDoc {

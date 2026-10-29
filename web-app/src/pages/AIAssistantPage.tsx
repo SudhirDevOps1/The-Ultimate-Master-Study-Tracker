@@ -1,5 +1,9 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { Brain, Send, Settings2, ShieldCheck, Cpu, Bot, User, Zap } from "lucide-react";
+import {
+  Brain, Send, Settings2, ShieldCheck, Cpu, Bot, User, Zap,
+  Plus, MessageSquare, Trash2, X, RefreshCw, PanelLeftClose,
+  PanelLeftOpen, ChevronDown, Check, Copy, Sparkles, SlidersHorizontal, BookOpen
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Panel } from "@/components/common/Panel";
 import { useAppStore, type AppState } from "@/store/useAppStore";
@@ -7,13 +11,80 @@ import type { AiConfig } from "@/types/models";
 import { useStreak } from "@/hooks/useStreak";
 import { toDurationLabel } from "@/utils/time";
 import { db } from "@/lib/db";
-
 import { MarkdownRenderer } from "@/components/common/MarkdownRenderer";
+import { fetchLiveModels, FALLBACK_MODELS, type FetchedModel } from "@/utils/aiModelFetcher";
 
 // --- Universal Markdown & Mermaid Renderer -----------------------------
 function Markdown({ text }: { text: string }) {
   return <MarkdownRenderer content={text} />;
 }
+
+// ─── Subject Personas ──────────────────────────────────────────────────
+export interface SubjectPersona {
+  id: string;
+  name: string;
+  icon: string;
+  badge: string;
+  systemPrompt: string;
+}
+
+export const SUBJECT_PERSONAS: SubjectPersona[] = [
+  {
+    id: "general",
+    name: "General Study Coach",
+    icon: "🎓",
+    badge: "Academic",
+    systemPrompt: "You are FlowTrack Pro's academic AI study assistant. Provide concise, clear, and highly educational answers with memory anchors.",
+  },
+  {
+    id: "java",
+    name: "Java & Full-Stack Architect",
+    icon: "☕",
+    badge: "Engineering",
+    systemPrompt: "You are an elite Senior Java and Full-Stack Architect. Provide in-depth explanations with clean code examples, OOP design principles, JVM mechanics, Spring Boot best practices, and architecture diagrams.",
+  },
+  {
+    id: "dsa",
+    name: "DSA & Algorithms Master",
+    icon: "📊",
+    badge: "Algorithms",
+    systemPrompt: "You are an expert Data Structures & Algorithms instructor. Break down solutions with step-by-step logic, dry-run walkthroughs, edge cases, space/time complexity analysis (Big-O), and ASCII/Mermaid diagrams.",
+  },
+  {
+    id: "physics_math",
+    name: "Math & Physics Professor",
+    icon: "⚛️",
+    badge: "Derivations",
+    systemPrompt: "You are a university Mathematics & Physics Professor. Derive formulas step-by-step with proofs, define variables clearly, state physical intuition, and provide worked numerical examples.",
+  },
+  {
+    id: "exam_cram",
+    name: "Exam Revision Coach",
+    icon: "🎯",
+    badge: "High-Yield",
+    systemPrompt: "You are an intensive Exam Preparation Coach. Focus on high-yield exam facts, formulas to memorize, common student traps and misconceptions, and quick mnemonics.",
+  },
+  {
+    id: "custom",
+    name: "Custom Persona",
+    icon: "✏️",
+    badge: "Custom",
+    systemPrompt: "",
+  },
+];
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  personaId: string;
+  customSystemPrompt?: string;
+  createdAt: number;
+  updatedAt: number;
+  messages: { role: "user" | "assistant"; content: string }[];
+}
+
+const SESSIONS_STORAGE_KEY = "flowtrack_ai_chat_sessions_v2";
+
 // ─── Provider Configs ──────────────────────────────────────────────────
 const PROVIDERS = [
   { id: "local_rules", name: "Local AI Rules (Free & Private)", needsKey: false, defaultModel: "local-rules" },
@@ -21,31 +92,12 @@ const PROVIDERS = [
   { id: "groq", name: "Groq Cloud ⚡ (Ultra-Fast)", needsKey: true, defaultModel: "llama-3.3-70b-versatile" },
   { id: "cerebras", name: "Cerebras API (Ultra-Fast)", needsKey: true, defaultModel: "llama3.1-8b" },
   { id: "openai", name: "OpenAI ChatGPT", needsKey: true, defaultModel: "gpt-4o-mini" },
-  { id: "mistral", name: "Mistral AI", needsKey: true, defaultModel: "mistral-tiny" },
+  { id: "mistral", name: "Mistral AI", needsKey: true, defaultModel: "mistral-small-latest" },
   { id: "grok", name: "xAI Grok", needsKey: true, defaultModel: "grok-beta" },
-  { id: "ollama", name: "Ollama (Local Offline)", needsKey: false, defaultModel: "llama3" },
+  { id: "ollama", name: "Ollama (Local Offline)", needsKey: false, defaultModel: "llama3:latest" },
   { id: "custom", name: "Custom Provider", needsKey: true, defaultModel: "" }
 ] as const;
 
-// ─── Groq-specific model list ──────────────────────────────────────────
-const GROQ_MODELS = [
-  { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B Versatile", tag: "Recommended", speed: "Fast" },
-  { id: "llama-3.1-8b-instant", name: "Llama 3.1 8B Instant", tag: "Fastest", speed: "Ultra-Fast" },
-  { id: "llama3-70b-8192", name: "Llama 3 70B", tag: "Legacy", speed: "Fast" },
-  { id: "llama3-8b-8192", name: "Llama 3 8B", tag: "Legacy", speed: "Ultra-Fast" },
-  { id: "mixtral-8x7b-32768", name: "Mixtral 8x7B (32K ctx)", tag: "Long Context", speed: "Fast" },
-  { id: "gemma2-9b-it", name: "Gemma 2 9B IT", tag: "Lightweight", speed: "Ultra-Fast" },
-  { id: "deepseek-r1-distill-llama-70b", name: "DeepSeek R1 Distill 70B", tag: "Reasoning", speed: "Fast" },
-  { id: "qwen-qwq-32b", name: "Qwen QWQ 32B", tag: "Reasoning", speed: "Fast" }
-] as const;
-
-const HARDWARE_PROFILES = [
-  { id: "cpu", name: "CPU Only / Low RAM (phi3 / qwen2.5:1.5b)", suggestion: "phi3:latest" },
-  { id: "mid", name: "8GB RAM + Mid GPU (llama3:8b / gemma2:9b)", suggestion: "llama3:latest" },
-  { id: "high", name: "16GB+ RAM + Apple M-Chip/RTX GPU (qwen2.5:14b)", suggestion: "qwen2.5:14b" }
-];
-
-// ─── Helper: build endpoint + headers per provider ─────────────────────
 function getProviderEndpoint(provider: AiConfig["provider"], _model: string, ollamaUrl: string, customEndpoint?: string) {
   switch (provider) {
     case "openai":  return "https://api.openai.com/v1/chat/completions";
@@ -68,8 +120,8 @@ function getProviderHeaders(provider: AiConfig["provider"], apiKey: string): Rec
 
 // ═══════════════════════════════════════════════════════════════════════
 export function AIAssistantPage() {
-  const sessions       = useAppStore((s: AppState) => s.sessions);
-  const subjects       = useAppStore((s: AppState) => s.subjects);
+  const sessions = useAppStore((s: AppState) => s.sessions);
+  const subjects = useAppStore((s: AppState) => s.subjects);
   const dailyGoalHours = useAppStore((s: AppState) => s.dailyGoalHours);
   const weeklyTargetHours = useAppStore((s: AppState) => s.weeklyTargetHours);
   const profile        = useAppStore((s: AppState) => s.profile);
@@ -77,71 +129,121 @@ export function AIAssistantPage() {
   const setAiConfig    = useAppStore((s: AppState) => s.setAiConfig);
   const streakData     = useStreak();
 
+  const getIpc = () => {
+    if (typeof window !== "undefined" && (window as any).electron?.ipcRenderer) {
+      return (window as any).electron.ipcRenderer;
+    }
+    return null;
+  };
+
   const [provider, setProvider]     = useState<AiConfig["provider"]>(aiConfig?.provider ?? "local_rules");
-  const [windowWidth, setWindowWidth] = useState(typeof window !== "undefined" ? window.innerWidth : 1280);
   const [apiKey, setApiKey]         = useState(aiConfig?.apiKey ?? "");
   const [model, setModel]           = useState(aiConfig?.model ?? "local-rules");
   const [ollamaUrl, setOllamaUrl]   = useState(aiConfig?.ollamaUrl ?? "http://localhost:11434");
   const [customProviderName, setCustomProviderName] = useState(aiConfig?.customProvider?.name ?? "");
   const [customProviderEndpoint, setCustomProviderEndpoint] = useState(aiConfig?.customProvider?.endpoint ?? "");
-  const [groqStreaming, setGroqStreaming] = useState(true); // streaming ON by default for Groq
+  const [groqStreaming, setGroqStreaming] = useState(true);
 
   // Keep separate API keys for each provider
   const [apiKeys, setApiKeys] = useState<Record<string, string>>(() => {
     const initialKeys: Record<string, string> = {
-      gemini: "",
-      cerebras: "",
-      openai: "",
-      mistral: "",
-      grok: "",
-      groq: "",
-      ollama: "",
-      local_rules: "",
+      gemini: "", cerebras: "", openai: "", mistral: "", grok: "", groq: "", ollama: "", local_rules: "",
     };
-    if (aiConfig?.apiKeys) {
-      Object.assign(initialKeys, aiConfig.apiKeys);
-    }
-    if (aiConfig?.provider && aiConfig?.apiKey) {
-      initialKeys[aiConfig.provider] = aiConfig.apiKey;
-    }
+    if (aiConfig?.apiKeys) Object.assign(initialKeys, aiConfig.apiKeys);
+    if (aiConfig?.provider && aiConfig?.apiKey) initialKeys[aiConfig.provider] = aiConfig.apiKey;
     return initialKeys;
   });
 
-  const [showConfig, setShowConfig]         = useState(false);
-  const [hardwareSuggestion, setHardwareSuggestion] = useState("");
-  const [detectedModels, setDetectedModels] = useState<string[]>([]);
-  const [detecting, setDetecting]           = useState(false);
-  const [statusMessage, setStatusMessage]   = useState("");
+  // UI state
+  const [showConfig, setShowConfig] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionResult, setConnectionResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [statusMessage, setStatusMessage] = useState("");
   const [tokenUsage, setTokenUsage] = useState({ prompt: 0, completion: 0, total: 0 });
 
-  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
-    {
-      role: "assistant",
-      content: `Hello ${profile?.name || "there"}! I am your FlowTrack AI Study Assistant. I have read your study logs, goals, and profiles. Ask me anything about your study patterns, or select one of the suggested prompts below! 📚✨`
-    }
-  ]);
-  const [input, setInput]     = useState("");
+  // Live Model Fetcher State
+  const [availableModels, setAvailableModels] = useState<FetchedModel[]>(FALLBACK_MODELS[provider] || []);
+  const [fetchingModels, setFetchingModels] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  // Subject Persona & Custom Prompt
+  const [currentPersonaId, setCurrentPersonaId] = useState("general");
+  const [customPersonaPrompt, setCustomPersonaPrompt] = useState("");
+
+  // Chat History Sessions State
+  const defaultWelcomeMessage = `Hello ${profile?.name || "there"}! I am your FlowTrack AI Study Assistant. I have read your study logs, goals, and profiles. Ask me anything about your study patterns, or select one of the suggested prompts below! 📚✨`;
+
+  const [sessionsList, setSessionsList] = useState<ChatSession[]>(() => {
+    try {
+      const raw = localStorage.getItem(SESSIONS_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [
+      {
+        id: crypto.randomUUID(),
+        title: "New Study Session",
+        personaId: "general",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        messages: [{ role: "assistant", content: defaultWelcomeMessage }],
+      },
+    ];
+  });
+
+  const [activeSessionId, setActiveSessionId] = useState<string>(() => sessionsList[0]?.id || "");
+
+  const activeSession = useMemo(() => {
+    return sessionsList.find((s) => s.id === activeSessionId) || sessionsList[0];
+  }, [sessionsList, activeSessionId]);
+
+  const messages = activeSession?.messages || [];
+
+  const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [streamingText, setStreamingText] = useState(""); // for Groq streaming
+  const [streamingText, setStreamingText] = useState("");
 
   const chatEndRef = useRef<HTMLDivElement | null>(null);
-  const abortRef   = useRef<AbortController | null>(null); // to cancel streaming
+  const abortRef   = useRef<AbortController | null>(null);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const handleResize = () => setWindowWidth(window.innerWidth);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+  // Persist sessions helper
+  const persistSessions = useCallback((updated: ChatSession[]) => {
+    setSessionsList(updated);
+    try {
+      localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(updated));
+    } catch {}
   }, []);
 
+  // Fetch live models from provider
+  const refreshLiveModels = useCallback(async (targetProv = provider, targetKey = apiKey) => {
+    setFetchingModels(true);
+    setFetchError(null);
+    try {
+      const res = await fetchLiveModels(targetProv, targetKey, ollamaUrl);
+      setAvailableModels(res.models);
+      if (!res.success && res.error) {
+        setFetchError(res.error);
+      }
+    } catch (err: any) {
+      setFetchError(err.message || "Failed to fetch live models");
+    } finally {
+      setFetchingModels(false);
+    }
+  }, [provider, apiKey, ollamaUrl]);
+
+  // Initial models refresh
+  useEffect(() => {
+    refreshLiveModels(provider, apiKey);
+  }, [provider]);
+
+  // Sync token usage
   useEffect(() => {
     db.settings.get("ai_token_usage").then(val => {
       if (val) {
-        try {
-          setTokenUsage(JSON.parse(val.value));
-        } catch {}
+        try { setTokenUsage(JSON.parse(val.value)); } catch {}
       }
     });
   }, []);
@@ -158,158 +260,70 @@ export function AIAssistantPage() {
     });
   }, []);
 
+  // Sync active persona when session changes
+  useEffect(() => {
+    if (activeSession) {
+      setCurrentPersonaId(activeSession.personaId || "general");
+      if (activeSession.customSystemPrompt) {
+        setCustomPersonaPrompt(activeSession.customSystemPrompt);
+      }
+    }
+  }, [activeSessionId]);
+
+  // Scroll to bottom on new message
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading, streamingText]);
+  }, [messages, streamingText]);
 
-  // Synchronize component states when aiConfig changes
-  useEffect(() => {
-    if (aiConfig) {
-      setProvider(aiConfig.provider || "local_rules");
-      setApiKey(aiConfig.apiKey || "");
-      setModel(aiConfig.model || "");
-      setOllamaUrl(aiConfig.ollamaUrl || "http://localhost:11434");
-      setCustomProviderName(aiConfig.customProvider?.name || "");
-      setCustomProviderEndpoint(aiConfig.customProvider?.endpoint || "");
-      
-      const newKeys = {
-        gemini: "",
-        cerebras: "",
-        openai: "",
-        mistral: "",
-        grok: "",
-        groq: "",
-        ollama: "",
-        local_rules: "",
-        custom: "",
-        ...aiConfig.apiKeys
-      };
-      if (aiConfig.provider && aiConfig.apiKey) {
-        newKeys[aiConfig.provider] = aiConfig.apiKey;
-      }
-      setApiKeys(newKeys);
-    }
-  }, [aiConfig]);
-
-  // Auto-save changes with debounce
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const updatedKeys = { ...apiKeys, [provider]: apiKey };
-      const config: AiConfig = {
-        provider,
-        apiKey,
-        model,
-        ollamaUrl,
-        apiKeys: updatedKeys
-      };
-      if (provider === "custom") {
-        config.customProvider = {
-          name: customProviderName,
-          endpoint: customProviderEndpoint,
-          apiKey: apiKey
-        };
-      }
-      void setAiConfig(config);
-    }, 800);
-    return () => clearTimeout(timer);
-  }, [provider, apiKey, model, ollamaUrl, customProviderName, customProviderEndpoint]);
-
-  // ─── Test Connection ───────────────────────────────────────────────
-  const handleTestConnection = async () => {
-    setTestingConnection(true);
-    setConnectionResult(null);
-    try {
-      if (provider === "local_rules") {
-        setConnectionResult({ 
-          success: true, 
-          message: "🟢 Local Offline Rules Engine is active & ready on your device!" 
-        });
-        setTestingConnection(false);
-        return;
-      }
-      if (provider === "gemini") {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "ping" }] }] })
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => null);
-          throw new Error(err?.error?.message || `HTTP ${res.status}`);
-        }
-        setConnectionResult({ success: true, message: "Successfully connected to Gemini API!" });
-      } else {
-        const endpoint = getProviderEndpoint(provider, model, ollamaUrl, customProviderEndpoint);
-        const headers = getProviderHeaders(provider, apiKey);
-        const defaultModel = provider === "ollama" ? "llama3" : provider === "groq" ? "llama-3.3-70b-versatile" : provider === "custom" ? model : "gpt-4o-mini";
-        const res = await fetch(endpoint, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            model: model || defaultModel,
-            messages: [{ role: "user", content: "ping" }],
-            max_tokens: 5
-          })
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => null);
-          throw new Error(err?.error?.message || `HTTP ${res.status}`);
-        }
-        setConnectionResult({ success: true, message: `Successfully connected to ${provider === "custom" ? customProviderName : PROVIDERS.find(p => p.id === provider)?.name}!` });
-      }
-    } catch (e: any) {
-      setConnectionResult({ success: false, message: e.message || "Connection failed. Please check key/url/model." });
-    }
-    setTestingConnection(false);
-  };
-
-  // ─── Save Settings ─────────────────────────────────────────────────
-  const saveSettings = async () => {
-    const updatedKeys = { ...apiKeys, [provider]: apiKey };
-    setApiKeys(updatedKeys);
-    const config: AiConfig = { 
-      provider, 
-      apiKey, 
-      model, 
-      ollamaUrl, 
-      apiKeys: updatedKeys 
+  // ─── Multi-Chat Actions ─────────────────────────────────────────────
+  const createNewChat = () => {
+    const newSession: ChatSession = {
+      id: crypto.randomUUID(),
+      title: "New Study Session",
+      personaId: currentPersonaId,
+      customSystemPrompt: customPersonaPrompt,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      messages: [
+        {
+          role: "assistant",
+          content: `Hello ${profile?.name || "there"}! Starting a fresh study session. What concept or problem shall we solve? 🚀`,
+        },
+      ],
     };
-    if (provider === "custom") {
-      config.customProvider = {
-        name: customProviderName,
-        endpoint: customProviderEndpoint,
-        apiKey: apiKey
-      };
-    }
-    await setAiConfig(config);
-    setStatusMessage("✅ AI Settings saved locally!");
-    setTimeout(() => setStatusMessage(""), 2500);
+    const updated = [newSession, ...sessionsList];
+    persistSessions(updated);
+    setActiveSessionId(newSession.id);
   };
 
-  // ─── Ollama Detect ─────────────────────────────────────────────────
-  const handleOllamaDetect = async () => {
-    setDetecting(true);
-    try {
-      const res = await fetch(`${ollamaUrl}/api/tags`);
-      const data = await res.json();
-      if (data.models) {
-        const names = data.models.map((m: any) => m.name);
-        setDetectedModels(names);
-        if (names.length > 0) setModel(names[0]);
-        setStatusMessage(`✅ Detected ${names.length} local models!`);
-      }
-    } catch {
-      setStatusMessage("❌ Ollama connection failed. Ensure Ollama is running & CORS is enabled.");
+  const deleteChat = (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (sessionsList.length <= 1) {
+      const reset: ChatSession[] = [
+        {
+          id: crypto.randomUUID(),
+          title: "New Study Session",
+          personaId: "general",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          messages: [{ role: "assistant", content: defaultWelcomeMessage }],
+        },
+      ];
+      persistSessions(reset);
+      setActiveSessionId(reset[0].id);
+      return;
     }
-    setDetecting(false);
-    setTimeout(() => setStatusMessage(""), 4000);
+    const filtered = sessionsList.filter((s) => s.id !== sessionId);
+    persistSessions(filtered);
+    if (activeSessionId === sessionId) {
+      setActiveSessionId(filtered[0].id);
+    }
   };
 
-  // ─── Study Context for LLM ─────────────────────────────────────────
+  // ─── Study Context & Persona System Prompt ──────────────────────────
   const studyContext = useMemo(() => {
     const totalHours = sessions.reduce((sum, s) => sum + s.actualSeconds, 0) / 3600;
     const completed = sessions.filter(s => s.status === "completed");
-
     const subjectMap: Record<string, number> = {};
     sessions.forEach(s => {
       const sub = subjects.find(sub => sub.id === s.subjectId);
@@ -342,96 +356,69 @@ export function AIAssistantPage() {
     };
   }, [sessions, subjects, dailyGoalHours, weeklyTargetHours, profile, streakData]);
 
+  const activePersona = useMemo(() => {
+    return SUBJECT_PERSONAS.find(p => p.id === currentPersonaId) || SUBJECT_PERSONAS[0];
+  }, [currentPersonaId]);
+
   const buildSystemPrompt = useCallback(() => {
-    return `You are FlowTrack AI, an intelligent, empathetic, and comprehensive study companion, coding tutor, and academic mentor.
-Your primary mission is to help the user learn, master subjects, understand programming languages, solve academic doubts, and maintain productive study routines.
+    const personaInstruction = currentPersonaId === "custom" && customPersonaPrompt.trim()
+      ? customPersonaPrompt.trim()
+      : activePersona.systemPrompt;
+
+    return `You are FlowTrack AI, an intelligent, empathetic, and comprehensive academic study mentor and coding architect.
+ACTIVE SUBJECT PERSONA:
+${personaInstruction}
 
 CORE TUTORING CAPABILITIES:
 1. Academic, Technical & Programming Tutor:
-   - Always answer educational, technical, and programming questions (e.g., Java, Python, C++, DSA, Web development, databases, mathematics, science, engineering) thoroughly and helpfully.
-   - Explain concepts clearly with well-commented code blocks, key principles, and real-world analogies.
-   - Respond fluently in the language the user speaks (Hindi, Hinglish, or English).
-2. Personalized Study Strategist:
-   - You have access to the user's real study tracker stats (shown below).
-   - Offer customized schedule advice, pomodoro timeboxing, and revision tips when relevant, but NEVER refuse or dismiss questions as irrelevant.
-3. Formatting Standards:
+   - Always answer educational and technical questions thoroughly, step-by-step.
    - Use clean GitHub-Flavored Markdown (headers, bullet points, code blocks).
-   - Use Mermaid diagrams (e.g. \`\`\`mermaid\nflowchart TD\n...\`\`\`) whenever explaining concepts, architectures, workflows, algorithms, or study maps. Always wrap Mermaid code in valid fenced code blocks so FlowTrack renders it as an interactive diagram.
+   - Use Mermaid diagrams (\`\`\`mermaid\nflowchart TD\n...\`\`\`) whenever explaining architectures, state transitions, algorithms, or study roadmaps.
+2. Personalized Study Strategist:
+   - User Profile: ${studyContext.userName} (${studyContext.userProfession}, Goal: ${studyContext.userGoal})
+   - Tracked Hours: ${studyContext.totalHours}h | Daily Streak: ${studyContext.dailyStreak} days
+   - Subjects Studied: ${studyContext.subjectsStudied || "None logged yet"}
 
-User Profile:
-- Name: ${studyContext.userName}
-- Age: ${studyContext.userAge}
-- Profession/Exam: ${studyContext.userProfession}
-- Primary Goal: ${studyContext.userGoal}
-
-Study Tracker Stats:
-- Daily Goal: ${studyContext.dailyGoalHours} hours
-- Weekly Target: ${studyContext.weeklyTargetHours} hours
-- Current Daily Streak: ${studyContext.dailyStreak} days
-- Longest Streak: ${studyContext.longestStreak} days
-- Total Hours Studied: ${studyContext.totalHours}h
-- Subjects Studied: ${studyContext.subjectsStudied || "None logged yet"}
-
-Recent Activity Logs:
+Recent Activity:
 ${studyContext.recentActivity}`;
-  }, [studyContext]);
+  }, [activePersona, currentPersonaId, customPersonaPrompt, studyContext]);
 
-  // ─── Local Rule-Based Engine ────────────────────────────────────────
+  // ─── Local Rule Fallback Engine ─────────────────────────────────────
   const getLocalRuleResponse = (query: string): string => {
     const q = query.toLowerCase();
     const name = studyContext.userName;
-    const subjectsList = subjects.map(s => s.name).join(", ");
 
     if (q.includes("diagram") || q.includes("mermaid") || q.includes("flowchart") || q.includes("architecture")) {
-      return `### 📊 Visual Study Architecture Map\n\nYahan aapke core study concepts ka interactive **Mermaid Diagram** hai:\n\n\`\`\`mermaid\nflowchart TD\n    A["☕ Core Programming & Concepts"] --> B["🧱 Data Structures & Algorithms"]\n    A --> C["🌐 Backend Engineering & APIs"]\n    B --> D["⚡ Search & Sort: O(log n)"]\n    B --> E["🌲 Trees, Heaps & DP"]\n    C --> F["🗄️ Database Architecture (ACID / WAL)"]\n    C --> G["🚀 REST Endpoints & Security"]\n    D --> H["🧠 Long-Term Memory (SM-2 SRS)"]\n    F --> H\n\`\`\`\n\n#### 💡 Key Takeaways:\n1. **Theoretical Foundations**: Master fundamental syntax and data structures first.\n2. **Applied Engineering**: Connect DSA directly with databases and REST APIs.\n3. **Spaced Repetition**: Keep intervals fresh in **SRS Flashcards** to beat the Ebbinghaus forgetting curve!`;
+      return `### 📊 Visual Study Architecture Map\n\n\`\`\`mermaid\nflowchart TD\n    A["☕ Core Programming & Concepts"] --> B["🧱 Data Structures & Algorithms"]\n    A --> C["🌐 Backend Engineering & APIs"]\n    B --> D["⚡ Search & Sort: O(log n)"]\n    B --> E["🌲 Trees, Heaps & DP"]\n    C --> F["🗄️ Database Architecture (ACID / WAL)"]\n    C --> G["🚀 REST Endpoints & Security"]\n    D --> H["🧠 Long-Term Memory (SM-2 SRS)"]\n    F --> H\n\`\`\`\n\n#### 💡 Key Takeaways:\n1. **Theoretical Foundations**: Master fundamental syntax and data structures first.\n2. **Applied Engineering**: Connect DSA directly with databases and REST APIs.\n3. **Spaced Repetition**: Keep intervals fresh in **SRS Flashcards**!`;
     }
 
     if (q.includes("java")) {
-      return `### ☕ Java Programming Language\n\n**Java** ek powerful, high-level, class-based aur object-oriented programming language hai jise 1995 mein Sun Microsystems ne develop kiya tha (ab Oracle ke paas hai).\n\n#### 🌟 Key Features of Java:\n1. **Platform Independent (WORA)**: *"Write Once, Run Anywhere"* — Java code compile hokar **Bytecode** (.class) banta hai jo kisi bhi OS par **JVM (Java Virtual Machine)** ke through run hota hai.\n2. **Object-Oriented**: Java OOPs principles (Encapsulation, Inheritance, Polymorphism, Abstraction) par depend karta hai.\n3. **Memory Management**: Automatic Garbage Collection ke sath secure memory handling provide karta hai.\n4. **Multithreaded**: Concurrency aur background processing support karta hai.\n\n\`\`\`java\npublic class HelloWorld {\n    public static void main(String[] args) {\n        System.out.println("Hello, FlowTrack Student!");\n    }\n}\n\`\`\`\n\n#### 💡 Where is Java Used?\n- Android App Development\n- Enterprise Backend APIs (Spring Boot, Microservices)\n- High-performance financial & banking applications\n- Big Data (Apache Hadoop, Apache Spark)\n\n*Aap apne Study Tracker mein **Java** subject add karke sessions track karna shuru kar sakte hain!*`;
+      return `### ☕ Java Fundamentals & JVM Architecture\n\n**Java** is a high-level, class-based, object-oriented language based on the **WORA** (*Write Once, Run Anywhere*) principle.\n\n#### 🌟 Core Pillars:\n1. **JVM, JRE & JDK**: JDK compiles source code to Bytecode (\`.class\`); JVM executes bytecode on native hardware via JIT compilation.\n2. **OOP Foundations**: Encapsulation, Inheritance, Polymorphism, Abstraction.\n3. **Concurrency**: Multithreading, Virtual Threads (Project Loom), Synchronized blocks, ExecutorService.\n\n\`\`\`java\npublic class StudySession {\n    public static void main(String[] args) {\n        System.out.println("Keep mastering Java with FlowTrack!");\n    }\n}\n\`\`\``;
     }
 
-    if (q.includes("python")) {
-      return `### 🐍 Python Programming Language\n\n**Python** ek versatile, high-level, aur beginner-friendly programming language hai jise Guido van Rossum ne design kiya tha.\n\n#### 🌟 Key Highlights:\n- **Clean & Readable Syntax**: Code English ki tarah aasaani se padha ja sakta hai.\n- **Dominant in AI & Data Science**: NumPy, Pandas, Scikit-learn, PyTorch, TensorFlow.\n- **Web Backend**: Django, FastAPI, Flask.\n\n\`\`\`python\ndef greet_student(name):\n    return f"Keep learning and growing, {name}!"\n\nprint(greet_student("${name}"))\n\`\`\``;
+    if (q.includes("dsa") || q.includes("algorithm")) {
+      return `### 📊 Data Structures & Algorithms (DSA) Roadmap\n\n1. **Linear Structures**: Arrays, Two-Pointer technique, HashMaps, Stacks, Queues.\n2. **Non-linear Structures**: Binary Search Trees, Heaps/Priority Queues, BFS/DFS Graphs.\n3. **Dynamic Programming**: Memoization (Top-down) vs Tabulation (Bottom-up).\n4. **Complexity Analysis**: Aim for $O(1)$ and $O(\\log n)$ access patterns where possible.`;
     }
 
-    if (q.includes("dsa") || q.includes("data structure") || q.includes("algorithm")) {
-      return `### 🌳 Data Structures & Algorithms (DSA)\n\n**Data Structures** data ko memory mein systematically store karne ke models hain (Arrays, Linked Lists, Stacks, Queues, Trees, Graphs).\n**Algorithms** problems ko systematically solve karne ke step-by-step procedures hain.\n\n#### 🚀 Recommended Focus Order:\n1. **Complexity Analysis**: Big-O notation ($O(1)$, $O(n)$, $O(\\log n)$).\n2. **Linear Structures**: Arrays, Two-Pointer technique, HashMaps, Sliding Window.\n3. **Non-linear Structures**: Binary Search Trees, Heaps, BFS/DFS Graphs.\n4. **Dynamic Programming**: Memoization, Tabulation.\n\n*Tip: Daily 1-2 coding problems practice karein aur Flashcards mein revision notes banayein!*`;
-    }
-
-    if (q.includes("why") && q.includes("less") || q.includes("kam padha") || q.includes("inconsistent")) {
-      return `### 📊 Study Consistency Analysis for **${name}**\n\nLooking at your recent study sessions, you studied a total of **${studyContext.totalHours} hours** across your subjects.\n\nHere are some reasons why study output might be dropping:\n1. **Lack of scheduling**: You have planned sessions but the gap between them might be too large. Try setting a standard study routine.\n2. **Neglected subjects**: You studied **${studyContext.subjectsStudied || "no subjects yet"}**. If you focus on only one topic, you get burned out. Try shuffling subjects!\n\n**💡 Actionable Tip**: Start a small 15-minute study block today in **Strict Focus mode** to restart your momentum.`;
-    }
-
-    if (q.includes("time") || q.includes("hour") || q.includes("kb padhu") || q.includes("peak") || q.includes("when")) {
-      return `### ⚡ Optimal Focus Window Analysis\n\nHi **${name}**, let's look at your study timings:\n- **Your daily goal**: ${studyContext.dailyGoalHours} hours.\n- **Your current streak**: ${studyContext.dailyStreak} days.\n\nBased on focus tracking, studying early in the morning (before 9 AM) or splitting study into two halves (e.g. 10 AM - 12 PM and 4 PM - 6 PM) produces the highest focus duration.\n\n**💡 Actionable Tip**: Use the **Pomodoro mode** in FlowTrack during your focus session. Set it to 25 mins focus and 5 mins break to maintain brain energy!`;
-    }
-
-    if (q.includes("plan") || q.includes("routine") || q.includes("subjects") || q.includes("suggest")) {
-      return `### 📅 Personalized Study Routine for **${name}**\n\nYour primary goal is: *"${studyContext.userGoal}"* as a **${studyContext.userProfession}**.\n\nHere is a suggested plan based on your subjects (**${subjectsList || "No subjects added yet"}**):\n1. **Morning Block (45 mins)**: Focus on revision and high-difficulty topics first.\n2. **Midday Block (60 mins)**: Hands-on practice, coding, math, or notes writing.\n3. **Evening Block (30 mins)**: Light revision, planning tomorrow's sessions.\n\nMake sure to carry forward sessions automatically so you have a planned template ready every day!`;
-    }
-
-    return `### 🤖 FlowTrack AI Assistant\n\nHello **${name}**! I am here to help you study, understand concepts, and achieve your targets.\n\n**Your Current Study Status**:\n- **All Time Hours**: ${studyContext.totalHours} hours\n- **Completed Sessions**: ${studyContext.completedCount} focus blocks\n- **Current Streak**: ${studyContext.dailyStreak} days\n- **Tracked Subjects**: ${studyContext.subjectsStudied || "None logged yet"}\n\nFeel free to ask me any programming questions (Java, Python, DSA, C++, etc.), conceptual doubts, or ask for personalized study advice!`;
+    return `### 🤖 FlowTrack AI Assistant (${activePersona.name})\n\nHello **${name}**! I am focused on your study goals:\n- **Hours Logged**: ${studyContext.totalHours}h across **${studyContext.completedCount}** focus blocks.\n- **Current Streak**: ${studyContext.dailyStreak} days.\n\nFeel free to ask any conceptual doubts, coding problems, derivations, or schedule optimizations!`;
   };
 
   // ─── Groq Streaming Fetch ──────────────────────────────────────────
   const fetchGroqStreaming = async (userMessage: string) => {
     const endpoint = "https://api.groq.com/openai/v1/chat/completions";
-    const headers: Record<string, string> = {
+    const headers = {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`
+      "Authorization": `Bearer ${apiKey}`,
     };
 
     const allMessages = [
-      ...messages.filter(m => m.role === "user" || m.role === "assistant").slice(-10), // last 10 for context
+      ...messages.filter(m => m.role === "user" || m.role === "assistant").slice(-10),
       { role: "user" as const, content: userMessage }
     ];
 
     const body = JSON.stringify({
       model: model || "llama-3.3-70b-versatile",
-      messages: [
-        { role: "system", content: buildSystemPrompt() },
-        ...allMessages
-      ],
+      messages: [{ role: "system", content: buildSystemPrompt() }, ...allMessages],
       temperature: 0.5,
       stream: true,
       max_tokens: 2048
@@ -439,132 +426,78 @@ ${studyContext.recentActivity}`;
 
     abortRef.current = new AbortController();
 
-    try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers,
-        body,
-        signal: abortRef.current.signal
-      });
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body,
+      signal: abortRef.current.signal
+    });
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => null);
-        const errMsg = errData?.error?.message || `HTTP ${res.status}`;
-        throw new Error(errMsg);
-      }
-
-      const reader = res.body?.getReader();
-      if (!reader) throw new Error("No readable stream");
-
-      const decoder = new TextDecoder();
-      let fullText = "";
-      setStreamingText("");
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        // Parse SSE lines
-        const lines = chunk.split("\n");
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith("data: ")) continue;
-          const data = trimmed.slice(6);
-          if (data === "[DONE]") break;
-
-          try {
-            const parsed = JSON.parse(data);
-            const delta = parsed.choices?.[0]?.delta?.content;
-            if (delta) {
-              fullText += delta;
-              setStreamingText(fullText);
-            }
-          } catch {
-            // skip malformed JSON chunks
-          }
-        }
-      }
-
-      const estPrompt = Math.round((buildSystemPrompt().length + userMessage.length) / 4);
-      const estCompletion = Math.round(fullText.length / 4);
-      void recordTokenUsage(estPrompt, estCompletion, estPrompt + estCompletion);
-
-      return fullText;
-    } catch (e: any) {
-      if (e.name === "AbortError") {
-        return "⏹️ *Response generation stopped by user.*";
-      }
-      throw e;
-    } finally {
-      abortRef.current = null;
+    if (!res.ok) {
+      const errData = await res.json().catch(() => null);
+      throw new Error(errData?.error?.message || `HTTP ${res.status}`);
     }
+
+    const reader = res.body?.getReader();
+    if (!reader) throw new Error("No readable stream");
+
+    const decoder = new TextDecoder();
+    let fullText = "";
+    setStreamingText("");
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split("\n");
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith("data: ")) continue;
+        const data = trimmed.slice(6);
+        if (data === "[DONE]") break;
+        try {
+          const parsed = JSON.parse(data);
+          const delta = parsed.choices?.[0]?.delta?.content || "";
+          fullText += delta;
+          setStreamingText(fullText);
+        } catch {}
+      }
+    }
+
+    const estPrompt = Math.round((buildSystemPrompt().length + userMessage.length) / 4);
+    const estCompletion = Math.round(fullText.length / 4);
+    void recordTokenUsage(estPrompt, estCompletion, estPrompt + estCompletion);
+    return fullText;
   };
 
-  // ─── Non-Streaming API Fetch (OpenAI-compatible) ────────────────────
+  // ─── Non-Streaming Fetch ───────────────────────────────────────────
   const fetchNonStreaming = async (userMessage: string): Promise<string> => {
     const endpoint = getProviderEndpoint(provider, model, ollamaUrl, customProviderEndpoint);
-    const headers  = getProviderHeaders(provider, apiKey);
-    const defaultModel = provider === "ollama" ? "llama3" : provider === "groq" ? "llama-3.3-70b-versatile" : provider === "custom" ? model : "gpt-4o-mini";
+    const headers = getProviderHeaders(provider, apiKey);
+    const allMessages = [
+      ...messages.filter(m => m.role === "user" || m.role === "assistant").slice(-10),
+      { role: "user", content: userMessage }
+    ];
 
-    // Use local backend as AI proxy if running — useful for Ollama/custom providers
-    // that may have CORS issues when called directly from browser.
-    const backendUrl = useAppStore.getState().backendUrl;
-    const isBackendConnected = useAppStore.getState().isBackendConnected;
-    const useProxy = isBackendConnected && backendUrl && (provider === "ollama" || provider === "custom");
+    const body = {
+      model: model || "gpt-4o-mini",
+      messages: [{ role: "system", content: buildSystemPrompt() }, ...allMessages],
+      temperature: 0.5,
+      max_tokens: 2048
+    };
 
-    let res;
-    if (useProxy) {
-      res = await fetch(`${backendUrl}/api/ai/proxy`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          url: endpoint,
-          headers: headers,
-          body: {
-            model: model || defaultModel,
-            messages: [
-              { role: "system", content: buildSystemPrompt() },
-              { role: "user", content: userMessage }
-            ],
-            temperature: 0.5
-          }
-        })
-      });
-    } else {
-      res = await fetch(endpoint, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          model: model || defaultModel,
-          messages: [
-            { role: "system", content: buildSystemPrompt() },
-            { role: "user", content: userMessage }
-          ],
-          temperature: 0.5
-        })
-      });
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => null);
+      throw new Error(errData?.error?.message || `HTTP ${res.status}`);
     }
 
     const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data?.error?.message || `HTTP ${res.status}`);
-    }
-
-    // Gemini has different response structure
-    if (provider === "gemini") {
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      if (data.usageMetadata) {
-        void recordTokenUsage(data.usageMetadata.promptTokenCount || 0, data.usageMetadata.candidatesTokenCount || 0, data.usageMetadata.totalTokenCount || 0);
-      } else {
-        const estPrompt = Math.round((buildSystemPrompt().length + userMessage.length) / 4);
-        const estCompletion = Math.round(text.length / 4);
-        void recordTokenUsage(estPrompt, estCompletion, estPrompt + estCompletion);
-      }
-      return text || "Unable to fetch response from Gemini.";
-    }
-
     const reply = data.choices?.[0]?.message?.content || "";
     if (data.usage) {
       void recordTokenUsage(data.usage.prompt_tokens || 0, data.usage.completion_tokens || 0, data.usage.total_tokens || 0);
@@ -573,28 +506,35 @@ ${studyContext.recentActivity}`;
       const estCompletion = Math.round(reply.length / 4);
       void recordTokenUsage(estPrompt, estCompletion, estPrompt + estCompletion);
     }
-
-    return reply || "No response from model. Verify config.";
+    return reply || "No response from model.";
   };
 
   // ─── Gemini Fetch ──────────────────────────────────────────────────
   const fetchGemini = async (userMessage: string): Promise<string> => {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model || "gemini-1.5-flash"}:generateContent?key=${apiKey}`,
-      {
+    const ipc = getIpc();
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model || "gemini-1.5-flash"}:generateContent?key=${apiKey}`;
+    const reqBody = {
+      contents: [{ role: "user", parts: [{ text: `${buildSystemPrompt()}\n\nUser Question: ${userMessage}` }] }]
+    };
+
+    let data;
+    if (ipc) {
+      const proxyRes = await ipc.invoke("secure-proxy-fetch", { url, body: reqBody });
+      if (!proxyRes.ok) throw new Error(proxyRes.error || `HTTP ${proxyRes.status}`);
+      data = proxyRes.data;
+    } else {
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            { role: "user", parts: [{ text: `${buildSystemPrompt()}\n\nUser Question: ${userMessage}` }] }
-          ]
-        })
+        body: JSON.stringify(reqBody)
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.error?.message || `HTTP ${res.status}`);
       }
-    );
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data?.error?.message || `HTTP ${res.status}`);
+      data = await res.json();
     }
+
     const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     if (data.usageMetadata) {
       void recordTokenUsage(data.usageMetadata.promptTokenCount || 0, data.usageMetadata.candidatesTokenCount || 0, data.usageMetadata.totalTokenCount || 0);
@@ -606,187 +546,338 @@ ${studyContext.recentActivity}`;
     return reply || "Unable to fetch response from Gemini.";
   };
 
-  // ─── Handle Send ────────────────────────────────────────────────────
+  // ─── Handle Send Message ───────────────────────────────────────────
   const handleSend = async (e?: React.FormEvent, directMessage?: string) => {
     if (e) e.preventDefault();
     const messageToSend = directMessage || input.trim();
     if (!messageToSend || loading) return;
 
-    setMessages(prev => [...prev, { role: "user", content: messageToSend }]);
+    const userMsg = { role: "user" as const, content: messageToSend };
+    const currentMsgs = [...messages, userMsg];
+
+    // Update active session messages
+    const updatedSessions = sessionsList.map(s => {
+      if (s.id === activeSession.id) {
+        const newTitle = s.title === "New Study Session"
+          ? (messageToSend.length > 28 ? messageToSend.slice(0, 28) + "..." : messageToSend)
+          : s.title;
+        return {
+          ...s,
+          title: newTitle,
+          updatedAt: Date.now(),
+          messages: currentMsgs,
+        };
+      }
+      return s;
+    });
+
+    persistSessions(updatedSessions);
     setInput("");
     setLoading(true);
     setStreamingText("");
 
     try {
-      // ── Local Rules ──
+      let reply = "";
       if (provider === "local_rules") {
-        setTimeout(() => {
-          const reply = getLocalRuleResponse(messageToSend);
-          setMessages(prev => [...prev, { role: "assistant", content: reply }]);
-          setLoading(false);
-        }, 1200);
+        await new Promise(r => setTimeout(r, 800));
+        reply = getLocalRuleResponse(messageToSend);
+      } else if (provider === "groq" && groqStreaming) {
+        reply = await fetchGroqStreaming(messageToSend) || "";
+      } else if (provider === "gemini") {
+        reply = await fetchGemini(messageToSend);
+      } else {
+        reply = await fetchNonStreaming(messageToSend);
+      }
+
+      const finalMsgs = [...currentMsgs, { role: "assistant" as const, content: reply }];
+      const finalSessions = sessionsList.map(s => {
+        if (s.id === activeSession.id) {
+          return { ...s, updatedAt: Date.now(), messages: finalMsgs };
+        }
+        return s;
+      });
+      persistSessions(finalSessions);
+    } catch (err: any) {
+      const errorMsg = err?.message || "Unknown error";
+      const errReply = `❌ **API Error**: ${errorMsg}\n\nPlease verify your API Key and internet connection. Switch to **Local AI Rules** for 100% offline support!`;
+      const finalMsgs = [...currentMsgs, { role: "assistant" as const, content: errReply }];
+      const finalSessions = sessionsList.map(s => {
+        if (s.id === activeSession.id) {
+          return { ...s, updatedAt: Date.now(), messages: finalMsgs };
+        }
+        return s;
+      });
+      persistSessions(finalSessions);
+    } finally {
+      setLoading(false);
+      setStreamingText("");
+    }
+  };
+
+  // ─── Test Connection ───────────────────────────────────────────────
+  const handleTestConnection = async () => {
+    setTestingConnection(true);
+    setConnectionResult(null);
+    try {
+      if (provider === "local_rules") {
+        setConnectionResult({ success: true, message: "✅ Local Offline Rules Engine is active & ready!" });
+        setTestingConnection(false);
         return;
       }
 
-      let reply = "";
-
-      // ── Groq with Streaming ──
-      if (provider === "groq" && groqStreaming) {
-        reply = await fetchGroqStreaming(messageToSend) || "";
+      if (provider === "gemini") {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "ping" }] }] })
+        });
+        if (!res.ok) throw new Error(`Gemini API error ${res.status}`);
+        setConnectionResult({ success: true, message: "✅ Gemini API connection successful!" });
+      } else {
+        const endpoint = getProviderEndpoint(provider, model, ollamaUrl, customProviderEndpoint);
+        const headers = getProviderHeaders(provider, apiKey);
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            model: model || "llama-3.3-70b-versatile",
+            messages: [{ role: "user", content: "ping" }],
+            max_tokens: 5
+          })
+        });
+        if (!res.ok) throw new Error(`Provider returned HTTP ${res.status}`);
+        setConnectionResult({ success: true, message: `✅ Successfully connected to ${provider} (${model})!` });
       }
-      // ── Groq Non-Streaming ──
-      else if (provider === "groq" && !groqStreaming) {
-        reply = await fetchNonStreaming(messageToSend);
-      }
-      // ── Gemini ──
-      else if (provider === "gemini") {
-        reply = await fetchGemini(messageToSend);
-      }
-      // ── OpenAI-compatible (cerebras, openai, mistral, grok, ollama, custom) ──
-      else {
-        reply = await fetchNonStreaming(messageToSend);
-      }
-
-      setMessages(prev => [...prev, { role: "assistant", content: reply }]);
-    } catch (e: any) {
-      console.error(e);
-      const errorMsg = e?.message || "Unknown error";
-      setMessages(prev => [
-        ...prev,
-        {
-          role: "assistant",
-          content: `❌ **API Error**: ${errorMsg}\n\nPlease verify your API Key, model name, and internet connection. Switch to **Local AI Rules** for offline help!`
-        }
-      ]);
-    }
-
-    setLoading(false);
-    setStreamingText("");
-  };
-
-  // ─── Stop Streaming ────────────────────────────────────────────────
-  const handleStopStreaming = () => {
-    if (abortRef.current) {
-      abortRef.current.abort();
+    } catch (err: any) {
+      setConnectionResult({ success: false, message: `❌ Connection failed: ${err.message}` });
+    } finally {
+      setTestingConnection(false);
     }
   };
 
-  const handleSuggestionClick = (promptText: string) => {
-    setInput(promptText);
-    void handleSend(undefined, promptText);
+  const saveSettings = () => {
+    setAiConfig({
+      provider,
+      apiKey,
+      model,
+      ollamaUrl,
+      apiKeys: { ...apiKeys, [provider]: apiKey },
+      customProvider: { name: customProviderName, endpoint: customProviderEndpoint, apiKey: "" }
+    });
+    setStatusMessage("✅ AI Settings saved successfully!");
+    setTimeout(() => setStatusMessage(""), 2500);
   };
 
-  // ─── Speed indicator color for Groq models ─────────────────────────
-  const getSpeedColor = (speed: string) => {
-    if (speed === "Ultra-Fast") return "text-emerald-400 bg-emerald-400/10 border-emerald-400/20";
-    return "text-amber-400 bg-amber-400/10 border-amber-400/20";
-  };
-
-  const getTagColor = (tag: string) => {
-    if (tag === "Recommended") return "text-cyan-400 bg-cyan-400/10 border-cyan-400/20";
-    if (tag === "Fastest") return "text-emerald-400 bg-emerald-400/10 border-emerald-400/20";
-    if (tag === "Long Context") return "text-purple-400 bg-purple-400/10 border-purple-400/20";
-    if (tag === "Reasoning") return "text-amber-400 bg-amber-400/10 border-amber-400/20";
-    if (tag === "Lightweight") return "text-pink-400 bg-pink-400/10 border-pink-400/20";
-    return "text-slate-400 bg-slate-400/10 border-slate-400/20";
-  };
-
-  // ═══════════════════════════════════════════════════════════════════
   return (
-    <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
-      {/* ─── Left Column: Chat ──────────────────────────────────────── */}
-      <Panel className="flex flex-col h-[75vh] min-h-[500px]">
-        {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-3">
-          <div className="flex items-center gap-2">
-            <div className={`p-2 rounded-xl shadow-lg text-slate-950 ${
-              provider === "groq"
-                ? "bg-gradient-to-br from-orange-400 to-orange-600"
-                : "bg-gradient-to-br from-cyan-400 to-blue-500"
-            }`}>
-              {provider === "groq" ? <Zap className="w-5 h-5" /> : <Brain className="w-5 h-5" />}
+    <div className="flex h-[calc(100vh-4rem)] overflow-hidden p-2.5 md:p-3 bg-slate-950 text-slate-100 select-none gap-2.5">
+      {/* ─── LEFT: Collapsible Chat History Sidebar (ChatGPT Style) ─── */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 260, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="h-full flex flex-col rounded-2xl border border-slate-800 bg-slate-900/90 backdrop-blur-xl p-3 shrink-0 overflow-hidden shadow-2xl"
+          >
+            {/* New Chat Button */}
+            <button
+              onClick={createNewChat}
+              className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-purple-600/25 transition active:scale-98 shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              <span>New Study Chat</span>
+            </button>
+
+            {/* Chat Sessions List */}
+            <div className="flex-1 overflow-y-auto space-y-1.5 pt-3 scrollbar-none">
+              <span className="text-[10px] font-bold uppercase text-slate-500 px-2 tracking-wider">
+                Recent Chats ({sessionsList.length})
+              </span>
+              {sessionsList.map((s) => {
+                const isActive = s.id === activeSession.id;
+                const persona = SUBJECT_PERSONAS.find(p => p.id === s.personaId) || SUBJECT_PERSONAS[0];
+                return (
+                  <div
+                    key={s.id}
+                    onClick={() => setActiveSessionId(s.id)}
+                    className={`group relative flex items-center justify-between p-2 rounded-xl cursor-pointer border transition text-left ${
+                      isActive
+                        ? "bg-purple-600/20 border-purple-500/40 text-white shadow-md shadow-purple-600/10"
+                        : "bg-slate-950/40 border-slate-800/80 hover:bg-slate-800/60 text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0 pr-6">
+                      <span className="text-sm shrink-0">{persona.icon}</span>
+                      <div className="truncate">
+                        <p className="text-xs font-semibold truncate leading-tight">{s.title}</p>
+                        <p className="text-[10px] text-slate-500 truncate">
+                          {new Date(s.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} • {s.messages.length} msgs
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => deleteChat(s.id, e)}
+                      title="Delete chat"
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 transition shrink-0"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
-            <div>
-              <h3 className="text-lg font-black text-white">AI Study Assistant</h3>
-              <p className="text-xs text-slate-400 font-medium italic">
-                {provider === "local_rules"
-                  ? "Local Rules Engine • 100% Private Offline"
-                  : provider === "groq"
-                    ? `Groq Cloud ⚡ • ${groqStreaming ? "Streaming ON" : "Streaming OFF"} • ${model}`
-                    : `Powered by ${PROVIDERS.find(p => p.id === provider)?.name}`}
-              </p>
+
+            {/* Token Compact Counter at bottom of sidebar */}
+            <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between px-1 shrink-0">
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                <Zap className="w-3.5 h-3.5 text-amber-400" />
+                <span>{tokenUsage.total.toLocaleString()} tokens</span>
+              </div>
+              <span className="text-[10px] text-emerald-400 font-mono font-bold">
+                ${((tokenUsage.prompt * 0.00015 + tokenUsage.completion * 0.0006) / 1000).toFixed(4)}
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── MAIN CHAT AREA (Full width, responsive) ─── */}
+      <div className="flex-1 h-full flex flex-col rounded-2xl border border-slate-800 bg-slate-900/40 backdrop-blur-xl overflow-hidden shadow-2xl">
+        {/* Chat Top Header */}
+        <div className="flex flex-wrap items-center justify-between gap-2.5 px-4 py-2.5 border-b border-slate-800 bg-slate-950/80 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => setIsSidebarOpen(v => !v)}
+              className="p-1.5 rounded-xl border border-slate-800 bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              title={isSidebarOpen ? "Hide Chat History" : "Show Chat History"}
+            >
+              {isSidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
+            </button>
+
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
+                <Brain className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="text-xs md:text-sm font-bold text-white flex items-center gap-2">
+                  {activeSession?.title || "Study Session"}
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-medium">
+                    {activePersona.name}
+                  </span>
+                </h2>
+              </div>
             </div>
           </div>
 
-          <button
-            onClick={() => setShowConfig(!showConfig)}
-            className="flex items-center gap-1.5 rounded-xl border border-white/15 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-white/5"
-          >
-            <Settings2 className="w-3.5 h-3.5" />
-            <span>AI Setup</span>
-          </button>
+          {/* Right Controls: Subject Persona Switcher & AI Setup */}
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <select
+                value={currentPersonaId}
+                onChange={(e) => {
+                  const newP = e.target.value;
+                  setCurrentPersonaId(newP);
+                  const updated = sessionsList.map(s => s.id === activeSession.id ? { ...s, personaId: newP } : s);
+                  persistSessions(updated);
+                }}
+                className="appearance-none bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl pl-2.5 pr-7 py-1 text-xs font-semibold text-slate-200 focus:outline-none focus:border-cyan-500 cursor-pointer"
+              >
+                {SUBJECT_PERSONAS.map(p => (
+                  <option key={p.id} value={p.id} className="bg-slate-900 text-white">
+                    {p.icon} {p.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+
+            <button
+              onClick={() => setShowConfig(true)}
+              className="px-3 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition shadow-sm"
+              title="Open AI Setup & Model Config"
+            >
+              <Settings2 className="w-3.5 h-3.5 text-cyan-400" />
+              <span>AI Setup</span>
+            </button>
+          </div>
         </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto pr-2 space-y-4 pretty-scrollbar">
+        {/* Custom Persona Prompt Box if selected */}
+        {currentPersonaId === "custom" && (
+          <div className="px-4 py-2 border-b border-slate-800 bg-purple-950/20 flex items-center gap-2 shrink-0">
+            <span className="text-xs font-semibold text-purple-300 shrink-0">Custom Prompt:</span>
+            <input
+              type="text"
+              value={customPersonaPrompt}
+              onChange={(e) => {
+                setCustomPersonaPrompt(e.target.value);
+                const updated = sessionsList.map(s => s.id === activeSession.id ? { ...s, customSystemPrompt: e.target.value } : s);
+                persistSessions(updated);
+              }}
+              placeholder="e.g. You are an expert tutor in Organic Chemistry and Reaction Mechanisms..."
+              className="flex-1 bg-slate-900/90 border border-purple-500/30 rounded-lg px-2.5 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-400"
+            />
+          </div>
+        )}
+
+        {/* Messages Stream Container */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 max-w-5xl w-full mx-auto">
           {messages.map((msg, i) => (
             <div
               key={i}
-              className={`flex items-start gap-3 max-w-[85%] ${
-                msg.role === "user" ? "ml-auto flex-row-reverse" : "mr-auto"
+              className={`flex items-start gap-3 ${
+                msg.role === "user" ? "max-w-[85%] ml-auto flex-row-reverse" : "max-w-[90%] md:max-w-[88%] mr-auto"
               }`}
             >
-              <div className={`p-2 rounded-xl text-xs ${
-                msg.role === "user"
-                  ? "bg-cyan-500 text-slate-950 font-bold"
-                  : provider === "groq"
-                    ? "bg-orange-500/20 text-orange-400"
-                    : "bg-white/10 text-cyan-300"
-              }`}>
-                {msg.role === "user" ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
+              <div
+                className={`p-2 rounded-xl shrink-0 ${
+                  msg.role === "user"
+                    ? "bg-cyan-500 text-slate-950 font-bold"
+                    : "bg-purple-500/20 text-purple-400 border border-purple-500/30"
+                }`}
+              >
+                {msg.role === "user" ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
               </div>
-              <div className={`rounded-2xl p-4 border ${
-                msg.role === "user"
-                  ? "bg-cyan-500/10 border-cyan-500/30 text-white rounded-tr-none"
-                  : provider === "groq"
-                    ? "bg-orange-950/20 border-orange-500/15 text-slate-200 rounded-tl-none"
-                    : "bg-slate-900/50 border-white/5 text-slate-200 rounded-tl-none"
-              }`}>
-                {msg.role === "assistant" ? <Markdown text={msg.content} /> : <p className="text-sm font-medium">{msg.content}</p>}
+              <div
+                className={`rounded-2xl p-4 border text-sm leading-relaxed overflow-hidden shadow-lg ${
+                  msg.role === "user"
+                    ? "bg-cyan-500/10 border-cyan-500/30 text-white rounded-tr-none"
+                    : "bg-slate-900/90 border-slate-800 text-slate-200 rounded-tl-none w-full"
+                }`}
+              >
+                {msg.role === "assistant" ? (
+                  <Markdown text={msg.content} />
+                ) : (
+                  <p className="font-medium whitespace-pre-wrap">{msg.content}</p>
+                )}
               </div>
             </div>
           ))}
 
-          {/* Streaming text display */}
+          {/* Streaming Text */}
           {loading && streamingText && (
-            <div className="flex items-start gap-3 max-w-[85%] mr-auto">
-              <div className="p-2 rounded-xl bg-orange-500/20 text-orange-400">
-                <Bot className="w-3.5 h-3.5" />
+            <div className="flex items-start gap-3 max-w-[88%] mr-auto">
+              <div className="p-2 rounded-xl bg-orange-500/20 text-orange-400 shrink-0">
+                <Bot className="w-4 h-4" />
               </div>
-              <div className="rounded-2xl p-4 bg-orange-950/20 border border-orange-500/15 text-slate-200 rounded-tl-none">
+              <div className="rounded-2xl p-4 bg-slate-900/90 border border-orange-500/30 text-slate-200 rounded-tl-none w-full">
                 <Markdown text={streamingText} />
-                <span className="inline-block w-1.5 h-4 bg-orange-400 animate-pulse ml-0.5 align-middle" />
+                <span className="inline-block w-2 h-4 bg-cyan-400 animate-pulse ml-1 align-middle" />
               </div>
             </div>
           )}
 
-          {/* Loading indicator (non-streaming) */}
+          {/* Loading Indicator */}
           {loading && !streamingText && (
             <div className="flex items-start gap-3 max-w-[80%]">
-              <div className={`p-2 rounded-xl ${
-                provider === "groq" ? "bg-orange-500/20 text-orange-400" : "bg-white/10 text-cyan-300"
-              }`}>
-                <Bot className="w-3.5 h-3.5 animate-pulse" />
+              <div className="p-2 rounded-xl bg-purple-500/20 text-purple-400">
+                <Bot className="w-4 h-4 animate-pulse" />
               </div>
-              <div className={`rounded-2xl p-4 border text-sm flex items-center gap-3 ${
-                provider === "groq"
-                  ? "bg-orange-950/20 border-orange-500/15 text-orange-300"
-                  : "bg-slate-900/50 border-white/5 text-slate-400"
-              }`}>
-                <span className={`h-2 w-2 rounded-full animate-ping ${
-                  provider === "groq" ? "bg-orange-400" : "bg-cyan-400"
-                }`} />
-                <span>{provider === "groq" ? "Groq is generating at lightning speed..." : "AI is analyzing focus logs..."}</span>
+              <div className="rounded-2xl p-3.5 border border-slate-800 bg-slate-900/80 text-xs text-slate-400 flex items-center gap-2.5">
+                <span className="h-2 w-2 rounded-full bg-cyan-400 animate-ping" />
+                <span>AI ({provider}) is formulating analysis & code...</span>
               </div>
             </div>
           )}
@@ -794,189 +885,227 @@ ${studyContext.recentActivity}`;
           <div ref={chatEndRef} />
         </div>
 
-        {/* Suggested Prompts */}
-        {messages.length === 1 && (
-          <div className="py-3 space-y-2">
-            <p className="text-xs font-semibold text-slate-400">💡 Suggested Prompts:</p>
-            <div className="flex flex-wrap gap-2">
+        {/* Suggested Quick Prompts when starting a chat */}
+        {messages.length <= 1 && (
+          <div className="px-4 py-2 border-t border-slate-800/80 bg-slate-950/40 shrink-0">
+            <p className="text-[11px] font-semibold text-slate-400 mb-1.5 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Suggested Starters:
+            </p>
+            <div className="flex flex-wrap gap-1.5">
               {[
-                { label: "📊 Architecture Flowchart (Mermaid)", text: "Draw a comprehensive study architecture diagram for my subjects using a Mermaid flowchart, explaining the core concepts and connections." },
-                { label: "☕ Java OOPs with Diagram", text: "Explain Java OOP concepts with clean code examples and an interactive Mermaid class/inheritance diagram." },
-                { label: "⚡ Peak Study Optimization", text: "When is my peak study time? Analyze my sessions and recommend when to study." },
-                { label: "📅 3-Day Revision Plan", text: "Generate a custom 3-day revision routine for my subjects." }
-              ].map((p, idx) => (
+                "Architecture Flowchart (Mermaid)",
+                "Java OOPs with Diagram",
+                "Binary Search Tree rotations & code",
+                "Derive Newton's laws with proofs",
+                "Peak Study & Pomodoro Plan",
+              ].map((p) => (
                 <button
-                  key={idx}
-                  onClick={() => handleSuggestionClick(p.text)}
-                  className="rounded-xl border border-white/5 bg-white/5 px-3 py-2 text-xs font-medium text-slate-300 hover:bg-white/10 text-left transition-colors"
+                  key={p}
+                  onClick={() => {
+                    setInput(p);
+                    void handleSend(undefined, p);
+                  }}
+                  className="px-2.5 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-purple-500 text-[11px] text-slate-300 hover:text-white transition"
                 >
-                  {p.label}
+                  {p}
                 </button>
               ))}
             </div>
           </div>
         )}
 
-        {/* Input Bar */}
-        <div className="pt-3 border-t border-white/10 mt-2 flex gap-2">
-          <input
-            type="text"
-            placeholder="Ask AI study coach a question..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            className="flex-1 rounded-2xl border border-white/15 bg-slate-950/70 px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-cyan-400 focus:outline-none"
-          />
-          {loading && provider === "groq" && groqStreaming ? (
+        {/* Chat Input Bar */}
+        <form onSubmit={handleSend} className="p-3 border-t border-slate-800 bg-slate-950 shrink-0">
+          <div className="flex items-center gap-2 max-w-5xl mx-auto bg-slate-900 border border-slate-800 rounded-2xl px-3 py-1.5 focus-within:border-cyan-500 transition">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={`Ask ${activePersona.name} anything about code, math, or study routine...`}
+              disabled={loading}
+              className="flex-1 bg-transparent text-xs md:text-sm text-white placeholder-slate-500 focus:outline-none"
+            />
+            {loading && (
+              <button
+                type="button"
+                onClick={() => abortRef.current?.abort()}
+                className="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 text-xs font-semibold hover:bg-rose-500/30 transition"
+              >
+                Stop
+              </button>
+            )}
             <button
-              onClick={handleStopStreaming}
-              className="rounded-2xl bg-gradient-to-r from-red-500 to-red-600 p-3 px-5 text-white hover:scale-105 active:scale-95 transition-all text-xs font-bold"
-            >
-              ■ Stop
-            </button>
-          ) : (
-            <button
-              onClick={handleSend}
+              type="submit"
               disabled={!input.trim() || loading}
-              className="rounded-2xl bg-gradient-to-r from-cyan-400 to-blue-500 p-3 px-5 text-slate-950 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 transition-all"
+              className="p-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold transition disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Send className="w-4 h-4" />
             </button>
-          )}
-        </div>
-      </Panel>
+          </div>
+        </form>
+      </div>
 
-      {/* ─── Right Column: Config ───────────────────────────────────── */}
+      {/* ─── SLIDE-OVER DRAWER: AI Setup & Model Config (Toggled with X) ─── */}
       <AnimatePresence>
-        {(showConfig || windowWidth >= 1280) && (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            className="space-y-5"
-          >
-            {/* Persisted Token Usage Tracker */}
-            <Panel className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-amber-400" />
-                  <h3 className="text-base font-bold text-white">API Token Tracker</h3>
+        {showConfig && (
+          <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ x: "100%", opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: "100%", opacity: 0 }}
+              transition={{ type: "spring", damping: 26, stiffness: 260 }}
+              className="w-full max-w-md h-full bg-slate-900 border-l border-slate-800 shadow-2xl flex flex-col overflow-hidden"
+            >
+              {/* Drawer Header */}
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800 bg-slate-950">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+                    <Settings2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">AI Setup & Models</h3>
+                    <p className="text-[11px] text-slate-400">Configure LLMs, API keys & live models</p>
+                  </div>
                 </div>
                 <button
-                  onClick={() => {
-                    const zero = { prompt: 0, completion: 0, total: 0 };
-                    setTokenUsage(zero);
-                    void db.settings.put({ key: "ai_token_usage", value: JSON.stringify(zero) });
-                  }}
-                  className="text-[10px] text-slate-400 hover:text-white underline"
+                  onClick={() => setShowConfig(false)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                  title="Close AI Setup"
                 >
-                  Reset
+                  <X className="w-5 h-5" />
                 </button>
               </div>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-xl bg-white/[0.02] border border-white/5 p-2">
-                  <p className="text-sm font-bold text-indigo-300">{tokenUsage.prompt.toLocaleString()}</p>
-                  <p className="text-[9px] uppercase font-bold text-slate-500">Prompt (In)</p>
-                </div>
-                <div className="rounded-xl bg-white/[0.02] border border-white/5 p-2">
-                  <p className="text-sm font-bold text-cyan-300">{tokenUsage.completion.toLocaleString()}</p>
-                  <p className="text-[9px] uppercase font-bold text-slate-500">Response (Out)</p>
-                </div>
-                <div className="rounded-xl bg-white/[0.02] border border-white/5 p-2">
-                  <p className="text-sm font-bold text-amber-400">{tokenUsage.total.toLocaleString()}</p>
-                  <p className="text-[9px] uppercase font-bold text-slate-500">Total Tokens</p>
-                </div>
-              </div>
-              <div className="flex justify-between items-center text-[10px] text-slate-400 px-1">
-                <span>Estimated Cost (Average):</span>
-                <span className="font-mono text-emerald-400 font-bold">${((tokenUsage.prompt * 0.00015 + tokenUsage.completion * 0.0006) / 1000).toFixed(6)}</span>
-              </div>
-            </Panel>
 
-            {/* AI Setup Config Panel */}
-            <Panel className="space-y-4">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
-                  <Settings2 className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-white">AI Setup Configuration</h3>
-                  <p className="text-[11px] text-slate-400">
-                    Choose 100% private offline rules, free cloud AI (Groq), or local Ollama LLMs.
-                  </p>
-                </div>
-              </div>
-
-              {provider === "local_rules" && (
-                <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/20 p-3 space-y-1.5">
-                  <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <span>Local Offline Rules Engine Active</span>
-                  </div>
-                  <p className="text-[11px] text-slate-300 leading-relaxed">
-                    Zero setup, zero API keys, and 100% private. Operates directly on your machine using your study history and revision algorithms.
-                  </p>
-                </div>
-              )}
-
-              {/* Provider Select */}
-              <div className="space-y-2">
-                <label className="block text-xs text-slate-400 font-semibold uppercase">Provider</label>
-                <select
-                  value={provider}
-                  onChange={(e) => {
-                    const prov = e.target.value as AiConfig["provider"];
-                    setProvider(prov);
-                    const matched = PROVIDERS.find(p => p.id === prov);
-                    if (matched) setModel(matched.defaultModel || "");
-                    setApiKey(apiKeys[prov] || "");
-                    setConnectionResult(null);
-                  }}
-                  className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-400"
-                >
-                  {PROVIDERS.map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* API Key */}
-              {PROVIDERS.find(p => p.id === provider)?.needsKey && (
-                <div className="space-y-2">
-                  <label className="block text-xs text-slate-400 font-semibold uppercase">API Key</label>
-                  <input
-                    type="password"
-                    placeholder={
-                      provider === "groq"
-                        ? "Paste your Groq API key from console.groq.com..."
-                        : "Paste your API key here..."
-                    }
-                    value={apiKey}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setApiKey(val);
-                      setApiKeys(prev => ({ ...prev, [provider]: val }));
-                    }}
-                    className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-400"
-                  />
-                  <p className="text-[10px] text-slate-500 italic">
-                    {provider === "groq"
-                      ? "Get free API key at console.groq.com — generous free tier available!"
-                      : "API Key is saved securely in local IndexedDB only."}
-                  </p>
-                </div>
-              )}
-
-              {/* ─── Groq-Specific Config ─────────────────────────────── */}
-              {provider === "groq" && (
-                <div className="space-y-3 border border-orange-500/15 rounded-xl p-3 bg-orange-950/10">
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-orange-400" />
-                    <span className="text-sm font-bold text-orange-300">Groq Cloud Settings</span>
-                  </div>
-
-                  {/* Streaming Toggle */}
+              {/* Drawer Scrollable Body */}
+              <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                {/* Token Tracker Card */}
+                <Panel className="p-3 bg-slate-950 border-slate-800 space-y-2 rounded-xl">
                   <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Zap className="w-4 h-4 text-amber-400" />
+                      <h4 className="text-xs font-bold text-white">Token Usage Stats</h4>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const zero = { prompt: 0, completion: 0, total: 0 };
+                        setTokenUsage(zero);
+                        void db.settings.put({ key: "ai_token_usage", value: JSON.stringify(zero) });
+                      }}
+                      className="text-[10px] text-slate-400 hover:text-white underline"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-lg bg-white/5 p-1.5">
+                      <p className="text-xs font-bold text-indigo-300">{tokenUsage.prompt.toLocaleString()}</p>
+                      <p className="text-[9px] uppercase font-bold text-slate-500">Prompt (In)</p>
+                    </div>
+                    <div className="rounded-lg bg-white/5 p-1.5">
+                      <p className="text-xs font-bold text-cyan-300">{tokenUsage.completion.toLocaleString()}</p>
+                      <p className="text-[9px] uppercase font-bold text-slate-500">Response (Out)</p>
+                    </div>
+                    <div className="rounded-lg bg-white/5 p-1.5">
+                      <p className="text-xs font-bold text-amber-400">{tokenUsage.total.toLocaleString()}</p>
+                      <p className="text-[9px] uppercase font-bold text-slate-500">Total</p>
+                    </div>
+                  </div>
+                </Panel>
+
+                {/* Provider Selection */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300">AI Provider</label>
+                  <select
+                    value={provider}
+                    onChange={(e) => {
+                      const prov = e.target.value as AiConfig["provider"];
+                      setProvider(prov);
+                      const matched = PROVIDERS.find(p => p.id === prov);
+                      if (matched) setModel(matched.defaultModel || "");
+                      setApiKey(apiKeys[prov] || "");
+                      setConnectionResult(null);
+                      refreshLiveModels(prov, apiKeys[prov] || "");
+                    }}
+                    className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400"
+                  >
+                    {PROVIDERS.map((p) => (
+                      <option key={p.id} value={p.id} className="bg-slate-900 text-white">
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* API Key (if needed) */}
+                {provider !== "local_rules" && provider !== "ollama" && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-300">API Key</label>
+                      <span className="text-[10px] text-slate-500">Encrypted in local IndexedDB</span>
+                    </div>
+                    <input
+                      type="password"
+                      value={apiKey}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setApiKey(val);
+                        setApiKeys(prev => ({ ...prev, [provider]: val }));
+                      }}
+                      placeholder={`Paste your ${provider} API Key here...`}
+                      className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400"
+                    />
+                  </div>
+                )}
+
+                {/* Ollama URL */}
+                {provider === "ollama" && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300">Ollama Host URL</label>
+                    <input
+                      type="text"
+                      value={ollamaUrl}
+                      onChange={(e) => setOllamaUrl(e.target.value)}
+                      placeholder="http://localhost:11434"
+                      className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400"
+                    />
+                  </div>
+                )}
+
+                {/* Live Model Selector with Real-Time Fetch Button */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-300">Model Selection</label>
+                    <button
+                      onClick={() => refreshLiveModels(provider, apiKey)}
+                      disabled={fetchingModels || provider === "local_rules"}
+                      className="text-[10px] text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1 disabled:opacity-40 transition"
+                      title="Query provider API to get live models for your account"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${fetchingModels ? "animate-spin" : ""}`} />
+                      {fetchingModels ? "Fetching Live..." : "Fetch Live Models"}
+                    </button>
+                  </div>
+
+                  {fetchError && (
+                    <p className="text-[10px] text-amber-400/90 font-medium">⚠️ {fetchError}</p>
+                  )}
+
+                  <select
+                    value={model}
+                    onChange={(e) => setModel(e.target.value)}
+                    className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400"
+                  >
+                    {availableModels.map((m) => (
+                      <option key={m.id} value={m.id} className="bg-slate-900 text-white">
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Groq Streaming Toggle */}
+                {provider === "groq" && (
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950 border border-slate-800">
                     <div>
                       <p className="text-xs font-semibold text-slate-300">Streaming Mode</p>
                       <p className="text-[10px] text-slate-500">See tokens appear in real-time</p>
@@ -988,251 +1117,71 @@ ${studyContext.recentActivity}`;
                       }`}
                     >
                       <span
-                        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow ${
+                        className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${
                           groqStreaming ? "translate-x-5" : "translate-x-0"
                         }`}
                       />
                     </button>
                   </div>
+                )}
 
-                  {/* Model Selector */}
-                  <div className="space-y-2">
-                    <label className="block text-xs text-slate-400 font-semibold uppercase">Groq Model</label>
-                    <select
-                      value={model}
-                      onChange={(e) => setModel(e.target.value)}
-                      className="w-full rounded-xl border border-orange-500/20 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-400"
-                    >
-                      {GROQ_MODELS.map(m => (
-                        <option key={m.id} value={m.id}>
-                          {m.name} — {m.tag}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Model Cards */}
-                  <div className="space-y-1.5 max-h-52 overflow-y-auto pretty-scrollbar">
-                    {GROQ_MODELS.map(m => (
-                      <button
-                        key={m.id}
-                        onClick={() => setModel(m.id)}
-                        className={`w-full text-left rounded-lg border p-2 transition-all ${
-                          model === m.id
-                            ? "border-orange-400/50 bg-orange-400/10"
-                            : "border-white/5 bg-white/[0.02] hover:bg-white/5"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-white">{m.name}</span>
-                          <div className="flex gap-1">
-                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full border ${getTagColor(m.tag)}`}>
-                              {m.tag}
-                            </span>
-                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full border ${getSpeedColor(m.speed)}`}>
-                              {m.speed}
-                            </span>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Free Tier Info */}
-                  <div className="rounded-lg bg-orange-500/5 border border-orange-500/10 p-2">
-                    <p className="text-[10px] text-orange-300/80 leading-relaxed">
-                      💡 <strong>Groq free tier:</strong> ~30 requests/min, ~14,400 requests/day. 
-                      Llama 3.3 70B is the best all-rounder. Use 8B Instant for fastest responses.
-                      DeepSeek R1 Distill for complex reasoning tasks.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Ollama Config */}
-              {provider === "ollama" && (
-                <div className="space-y-2 border border-white/5 rounded-xl p-3 bg-white/5">
-                  <label className="block text-xs text-slate-400 font-semibold uppercase">Ollama Local URL</label>
-                  <input
-                    type="text"
-                    value={ollamaUrl}
-                    onChange={(e) => setOllamaUrl(e.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-1.5 text-xs text-white"
-                  />
-                  <div className="flex gap-2 mt-2">
-                    <button
-                      onClick={handleOllamaDetect}
-                      disabled={detecting}
-                      className="rounded-lg bg-cyan-500/10 border border-cyan-400/30 px-3 py-1 text-xs text-cyan-300 font-bold hover:bg-cyan-500/20"
-                    >
-                      {detecting ? "Checking..." : "🔄 Auto-Detect Models"}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Model Name (non-Groq, non-local, non-Ollama-detected) */}
-              {provider !== "groq" && provider !== "local_rules" && !(provider === "ollama" && detectedModels.length > 0) && (
-                <div className="space-y-2">
-                  <label className="block text-xs text-slate-400 font-semibold uppercase">Model Name</label>
-                  <input
-                    type="text"
-                    placeholder="Enter model identifier (e.g. gpt-4o-mini, gemini-1.5-flash)..."
-                    value={model}
-                    onChange={(e) => setModel(e.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-400"
-                  />
-                </div>
-              )}
-
-              {/* Ollama detected models */}
-              {provider === "ollama" && detectedModels.length > 0 && (
-                <div className="space-y-2">
-                  <label className="block text-xs text-slate-400 font-semibold uppercase">Detected Model</label>
-                  <select
-                    value={model}
-                    onChange={(e) => setModel(e.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white"
-                  >
-                    {detectedModels.map(name => (
-                      <option key={name} value={name}>{name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Custom Provider Config */}
-              {provider === "custom" && (
-                <div className="space-y-3 border border-purple-500/15 rounded-xl p-3 bg-purple-950/10">
-                  <div className="flex items-center gap-2">
-                    <Cpu className="w-4 h-4 text-purple-400" />
-                    <span className="text-sm font-bold text-purple-300">Custom Provider Settings</span>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="block text-xs text-slate-400 font-semibold uppercase">Provider Name</label>
-                    <input
-                      type="text"
-                      placeholder="e.g., My Custom API, Claude Instance..."
-                      value={customProviderName}
-                      onChange={(e) => setCustomProviderName(e.target.value)}
-                      className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-400"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="block text-xs text-slate-400 font-semibold uppercase">API Endpoint URL</label>
-                    <input
-                      type="text"
-                      placeholder="https://api.example.com/v1/chat/completions"
-                      value={customProviderEndpoint}
-                      onChange={(e) => setCustomProviderEndpoint(e.target.value)}
-                      className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-400"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="block text-xs text-slate-400 font-semibold uppercase">Model Name</label>
-                    <input
-                      type="text"
-                      placeholder="e.g., gpt-4, claude-3-sonnet, llama2..."
-                      value={model}
-                      onChange={(e) => setModel(e.target.value)}
-                      className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-400"
-                    />
-                  </div>
-
-                  <div className="rounded-lg bg-purple-500/5 border border-purple-500/10 p-2">
-                    <p className="text-[10px] text-purple-300/80 leading-relaxed">
-                      💡 Custom provider must support OpenAI-compatible API format. Ensure endpoint accepts POST requests with `model`, `messages`, and `temperature` fields.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {connectionResult && (
-                <div className={`rounded-xl p-3 text-xs font-semibold ${
-                  connectionResult.success 
-                    ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-300"
-                    : "bg-red-500/10 border border-red-500/20 text-red-300"
-                }`}>
-                  {connectionResult.success ? "🟢" : "🔴"} {connectionResult.message}
-                </div>
-              )}
-
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                <button
-                  onClick={handleTestConnection}
-                  disabled={testingConnection}
-                  className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-white/10 active:scale-95 disabled:opacity-50 transition-all"
-                >
-                  {testingConnection ? "Testing..." : "⚡ Test Connection"}
-                </button>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-emerald-400 font-medium">{statusMessage}</span>
+                {/* Connection Test & Status */}
+                <div className="space-y-2 pt-2">
                   <button
-                    onClick={saveSettings}
-                    className="rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 px-5 py-2 text-xs font-bold text-white shadow-lg hover:scale-105 active:scale-95 transition-transform"
+                    onClick={handleTestConnection}
+                    disabled={testingConnection}
+                    className="w-full py-2 rounded-xl border border-slate-700 bg-slate-950 hover:bg-slate-800 text-xs font-bold text-slate-300 hover:text-white transition disabled:opacity-50"
                   >
-                    Save Settings
+                    {testingConnection ? "Testing Connection..." : "⚡ Test API Connection"}
+                  </button>
+
+                  {connectionResult && (
+                    <div
+                      className={`p-2.5 rounded-xl border text-xs font-semibold ${
+                        connectionResult.success
+                          ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                          : "bg-rose-500/10 border-rose-500/30 text-rose-300"
+                      }`}
+                    >
+                      {connectionResult.message}
+                    </div>
+                  )}
+                </div>
+
+                {/* Hardware Profiles Info */}
+                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80 space-y-1.5">
+                  <p className="text-[11px] font-bold text-slate-400">Local Offline LLM Suggestions:</p>
+                  <p className="text-[10px] text-slate-500 leading-relaxed">
+                    Low RAM / Laptop: <code className="text-cyan-300">phi3:latest</code><br />
+                    8GB RAM + Mid GPU: <code className="text-cyan-300">llama3:8b</code><br />
+                    16GB+ RAM: <code className="text-cyan-300">qwen2.5:14b</code>
+                  </p>
+                </div>
+              </div>
+
+              {/* Drawer Footer */}
+              <div className="p-4 border-t border-slate-800 bg-slate-950 flex items-center justify-between">
+                <span className="text-xs text-emerald-400 font-medium">{statusMessage}</span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowConfig(false)}
+                    className="px-3.5 py-1.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 hover:text-white transition"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => {
+                      saveSettings();
+                      setShowConfig(false);
+                    }}
+                    className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-400 hover:to-cyan-400 text-xs font-bold text-white shadow-lg transition"
+                  >
+                    Save & Apply
                   </button>
                 </div>
               </div>
-            </Panel>
-
-            {/* Hardware Model Suggestions */}
-            <Panel className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Cpu className="w-5 h-5 text-cyan-400" />
-                <h3 className="text-base font-bold text-white">Ollama Local Model Suggestions</h3>
-              </div>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Suggesting local models to pull based on your computer hardware profile:
-              </p>
-
-              <div className="space-y-2">
-                <label className="block text-xs text-slate-500 font-semibold">Select Hardware Profile</label>
-                <select
-                  value={hardwareSuggestion}
-                  onChange={(e) => {
-                    const prof = HARDWARE_PROFILES.find(p => p.id === e.target.value);
-                    if (prof) {
-                      setHardwareSuggestion(e.target.value);
-                      if (provider === "ollama") setModel(prof.suggestion);
-                    }
-                  }}
-                  className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-1.5 text-xs text-white"
-                >
-                  <option value="">Choose Profile</option>
-                  {HARDWARE_PROFILES.map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="rounded-xl bg-white/5 border border-white/10 p-3 space-y-2">
-                <span className="text-xs font-bold text-cyan-400 flex items-center gap-1">
-                  💡 How to download & run Ollama:
-                </span>
-                <ol className="list-decimal list-inside text-[11px] text-slate-400 space-y-1">
-                  <li>Download Ollama from <a href="https://ollama.com" target="_blank" rel="noreferrer" className="text-cyan-400 underline">ollama.com</a></li>
-                  <li>Run command: `ollama run llama3` (or phi3)</li>
-                  <li>Enable local browser access by setting the environment variable `OLLAMA_ORIGINS=*` before starting Ollama.</li>
-                </ol>
-              </div>
-            </Panel>
-
-            {/* Privacy Shield */}
-            <Panel className="border border-emerald-500/10 bg-emerald-950/5 p-4 space-y-2">
-              <div className="flex items-center gap-2 text-emerald-400">
-                <ShieldCheck className="w-5 h-5" />
-                <h3 className="text-sm font-bold">Privacy Guaranteed</h3>
-              </div>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                All AI credentials and keys are strictly saved locally inside your browser's IndexedDB. Study logs are never transmitted anywhere except to your configured API endpoints. Select **Local AI Rules** or **Ollama** for 100% private offline operations.
-              </p>
-            </Panel>
-          </motion.div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>
