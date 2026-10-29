@@ -318,3 +318,49 @@ export interface OcrEntry {
   extractedText: string;
   confidence?: number;
 }
+
+// ========== Mind Map & Sticky Board Models ==========
+export type NodeStatus = "todo" | "in-progress" | "done";
+
+export interface MindMapRelationship {
+  id: string;
+  from: string;
+  to: string;
+  label?: string;
+  color?: string;
+}
+
+export interface MindNode {
+  id: string;
+  parentId: string | null;
+  text: string;
+  x: number;
+  y: number;
+  color: string;
+  side?: "left" | "right";
+  collapsed?: boolean;
+  status?: NodeStatus;
+  notes?: string;
+  imageUrl?: string;
+  icon?: string;
+}
+
+export interface MindMapDoc {
+  id: string;
+  title: string;
+  nodes: MindNode[];
+  relationships?: MindMapRelationship[];
+  layoutMode?: "balanced" | "right-only" | "tree";
+  updatedAt: string;
+  createdAt: string;
+}
+
+export interface StickyBoardDoc {
+  id: string;
+  title: string;
+  notes: any[];
+  frames?: any[];
+  connectors?: any[];
+  updatedAt: string;
+  createdAt: string;
+}
