@@ -4,13 +4,14 @@ import {
   Search, Pin, FileText, Check, Folder, FilePlus, Clock, RotateCcw, 
   ZoomIn, ZoomOut, Grid, Lock, Unlock, Layers, Link2, 
   LayoutTemplate, Download, X, Compass, ChevronRight,
-  Move, CheckSquare, HelpCircle
+  Move, CheckSquare, HelpCircle, Maximize2, Minimize2, LayoutGrid
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import html2canvas from "html2canvas";
 import { useToast } from "@/components/common/Toast";
 import { Panel } from "@/components/common/Panel";
 import { MarkdownRenderer } from "@/components/common/MarkdownRenderer";
+import { saveImageSafely } from "@/utils/dataExport";
 import type { StickyNote, BoardFrame, BoardConnector, NotepadDoc } from "@/types/notes";
 import {
   NOTE_BACKGROUNDS,
@@ -115,12 +116,33 @@ export function StudyNotesBoardPage() {
   const [docSearch, setDocSearch] = useState("");
   const [copiedNotepad, setCopiedNotepad] = useState(false);
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const { showToast } = useToast();
 
   const boardContainerRef = useRef<HTMLDivElement | null>(null);
   const notesContainerRef = useRef<HTMLDivElement | null>(null);
   const docPreviewContainerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Auto-arrange all notes into a clean, non-overlapping grid
+  const autoArrangeNotes = useCallback(() => {
+    setStickyNotes((prev) => {
+      if (prev.length === 0) return prev;
+      const cols = Math.max(2, Math.min(4, Math.floor((boardContainerRef.current?.clientWidth || 1100) / 320)));
+      return prev.map((note, idx) => {
+        const col = idx % cols;
+        const row = Math.floor(idx / cols);
+        return {
+          ...note,
+          x: 80 + col * 310,
+          y: 80 + row * 250,
+          w: note.w || 260,
+          h: note.h || 200,
+        };
+      });
+    });
+    showToast("Arranged notes into a clean grid!", "success");
+  }, [showToast]);
 
   // Load Sticky Board from Dexie on Mount
   useEffect(() => {
@@ -129,20 +151,33 @@ export function StudyNotesBoardPage() {
       await initStorageMigration();
       const loaded = await loadStickyBoard();
       if (isMounted) {
-        // Position old notes without coordinates onto a neat grid
+        // Detect if any notes overlap (< 35px delta between distinct notes)
+        const hasOverlaps = loaded.notes.some((n1, i) =>
+          loaded.notes.some(
+            (n2, j) =>
+              i !== j &&
+              Math.abs((n1.x ?? 100) - (n2.x ?? 100)) < 35 &&
+              Math.abs((n1.y ?? 100) - (n2.y ?? 100)) < 35
+          )
+        );
+
         const initializedNotes = loaded.notes.map((note, idx) => {
-          if (note.x === undefined || note.y === undefined) {
+          if (note.x === undefined || note.y === undefined || hasOverlaps) {
             const col = idx % 3;
             const row = Math.floor(idx / 3);
             return {
               ...note,
-              x: 100 + col * 280,
-              y: 100 + row * 240,
-              w: 260,
-              h: 200,
+              x: 80 + col * 310,
+              y: 80 + row * 250,
+              w: note.w || 260,
+              h: note.h || 200,
             };
           }
-          return note;
+          return {
+            ...note,
+            w: note.w || 260,
+            h: note.h || 200,
+          };
         });
 
         setStickyNotes(initializedNotes);
@@ -209,6 +244,19 @@ export function StudyNotesBoardPage() {
       posX = snapToGrid(posX, snapStep);
       posY = snapToGrid(posY, snapStep);
     }
+
+    // Offset if another note is directly at this coordinate
+    let offset = 0;
+    while (
+      stickyNotes.some(
+        (n) => Math.abs((n.x || 0) - (posX + offset)) < 40 && Math.abs((n.y || 0) - (posY + offset)) < 40
+      ) &&
+      offset < 400
+    ) {
+      offset += 35;
+    }
+    posX += offset;
+    posY += offset;
 
     const newNote: StickyNote = {
       id: crypto.randomUUID(),
@@ -504,21 +552,111 @@ export function StudyNotesBoardPage() {
 
   // ─── Export Features (PNG, SVG, Reading-Order Markdown) ────────────────────
   const exportBoardAsPNG = async () => {
-    if (!notesContainerRef.current && !boardContainerRef.current) return;
+    if (stickyNotes.length === 0) {
+      showToast("Board has no notes to export", "warning");
+      return;
+    }
+
     try {
       showToast("Generating high-resolution board PNG...", "info");
+      const safeFileName = `FlowTrack_Board_${new Date().toISOString().split("T")[0]}.png`;
+
+      // Method 1: Attempt html2canvas capture on target container
       const target = boardContainerRef.current || notesContainerRef.current;
-      if (!target) return;
-      const canvas = await html2canvas(target, {
-        scale: 2,
-        backgroundColor: "#020617",
-        useCORS: true,
+      if (target) {
+        try {
+          const canvas = await html2canvas(target, {
+            scale: 2,
+            backgroundColor: "#020617",
+            useCORS: true,
+            logging: false,
+          });
+          const dataUrl = canvas.toDataURL("image/png");
+          if (dataUrl && dataUrl.length > 500) {
+            const res = await saveImageSafely(dataUrl, safeFileName);
+            if (res.success) {
+              showToast(`Board exported as High-Res PNG! ${res.filename || ""}`, "success");
+              return;
+            }
+          }
+        } catch (hErr) {
+          console.warn("html2canvas error, using 2D canvas fallback:", hErr);
+        }
+      }
+
+      // Method 2: High-Definition 2D Canvas Direct Renderer (Guaranteed Fallback)
+      const cols = Math.min(3, Math.max(1, stickyNotes.length));
+      const cardWidth = 320;
+      const cardHeight = 220;
+      const gap = 24;
+      const padding = 36;
+      const rows = Math.ceil(stickyNotes.length / cols);
+      const totalWidth = padding * 2 + cols * cardWidth + (cols - 1) * gap;
+      const totalHeight = padding * 2 + 70 + rows * cardHeight + (rows - 1) * gap;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = totalWidth * 2;
+      canvas.height = totalHeight * 2;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Could not create canvas 2d context");
+      ctx.scale(2, 2);
+
+      // Studio Background
+      ctx.fillStyle = "#020617";
+      ctx.fillRect(0, 0, totalWidth, totalHeight);
+
+      // Header Banner
+      ctx.fillStyle = "#A855F7";
+      ctx.font = "bold 15px sans-serif";
+      ctx.fillText("FLOWTRACK PRO • STUDY NOTES BOARD", padding, padding + 15);
+      ctx.fillStyle = "#64748B";
+      ctx.font = "11px sans-serif";
+      ctx.fillText(`Exported on ${new Date().toLocaleDateString()} • ${stickyNotes.length} Synchronized Study Notes`, padding, padding + 35);
+
+      // Draw each note card
+      stickyNotes.forEach((note, idx) => {
+        const col = idx % cols;
+        const row = Math.floor(idx / cols);
+        const x = padding + col * (cardWidth + gap);
+        const y = padding + 60 + row * (cardHeight + gap);
+
+        ctx.fillStyle = "#0F172A";
+        ctx.strokeStyle = "#334155";
+        ctx.lineWidth = 1.5;
+        if (typeof ctx.roundRect === "function") {
+          ctx.beginPath();
+          ctx.roundRect(x, y, cardWidth, cardHeight, 16);
+          ctx.fill();
+          ctx.stroke();
+        } else {
+          ctx.fillRect(x, y, cardWidth, cardHeight);
+          ctx.strokeRect(x, y, cardWidth, cardHeight);
+        }
+
+        // Title
+        ctx.fillStyle = "#F8FAFC";
+        ctx.font = "bold 13px sans-serif";
+        ctx.fillText(note.title || note.subject || "Study Note", x + 16, y + 26);
+
+        // Content
+        ctx.fillStyle = "#94A3B8";
+        ctx.font = "11px sans-serif";
+        const lines = note.text.split("\n").slice(0, 7);
+        lines.forEach((line, lineIdx) => {
+          ctx.fillText(line.slice(0, 44), x + 16, y + 52 + lineIdx * 18);
+        });
+
+        // Subject & Date Footer
+        ctx.fillStyle = "#A855F7";
+        ctx.font = "10px sans-serif";
+        ctx.fillText(`📌 ${note.subject || "General"} • ${note.date || ""}`, x + 16, y + cardHeight - 16);
       });
-      const link = document.createElement("a");
-      link.download = `flowtrack-board-${new Date().toISOString().split("T")[0]}.png`;
-      link.href = canvas.toDataURL("image/png");
-      link.click();
-      showToast("Board image exported!", "success");
+
+      const dataUrl = canvas.toDataURL("image/png");
+      const res = await saveImageSafely(dataUrl, safeFileName);
+      if (res.success) {
+        showToast(`Board exported as High-Res PNG! ${res.filename || ""}`, "success");
+      }
     } catch (err) {
       console.error(err);
       showToast("Export failed", "warning");
@@ -642,47 +780,60 @@ export function StudyNotesBoardPage() {
   }, [notepadDocs, docSearch]);
 
   return (
-    <div className="space-y-4 select-none">
+    <div className={`flex flex-col ${isFullscreen ? "fixed inset-0 z-50 p-2 md:p-3 bg-slate-950" : "space-y-2.5"} select-none`}>
       {/* ─── Top Header & Dual Mode Tabs ─────────────────────────────────── */}
-      <Panel className="bg-slate-900/90 border-slate-800 backdrop-blur-md p-3.5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
-              <Sparkles className="w-5 h-5 animate-pulse" />
+      <Panel className="bg-slate-900/90 border-slate-800 backdrop-blur-md p-2.5 rounded-2xl shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          <div className="flex items-center space-x-2.5">
+            <div className="p-1.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
+              <Sparkles className="w-4 h-4 animate-pulse" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-                Study Notes & Infinite Board
-                <span className="text-[11px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                  {activeTab === "board" ? "Infinite Canvas (Keep+Miro)" : "Real Notepad (Markdown Docs)"}
+              <h1 className="text-sm md:text-base font-bold text-slate-100 flex items-center gap-2">
+                Study Notes & Board
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                  {activeTab === "board" ? "Miro + Keep Board" : "Markdown Docs"}
                 </span>
               </h1>
-              <p className="text-xs text-slate-400">Organize concepts with snap-grid, frames, and Markdown export</p>
             </div>
           </div>
 
-          {/* Dual Navigation Tabs */}
-          <div className="flex items-center p-1 rounded-xl bg-slate-950/80 border border-slate-800">
-            <button
-              onClick={() => setActiveTab("board")}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                activeTab === "board"
-                  ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <Palette className="w-3.5 h-3.5" /> Infinite Canvas
-            </button>
+          {/* Dual Navigation Tabs & Fullscreen */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center p-0.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs">
+              <button
+                onClick={() => setActiveTab("board")}
+                className={`px-3 py-1 rounded-lg font-bold transition flex items-center gap-1.5 ${
+                  activeTab === "board"
+                    ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Palette className="w-3.5 h-3.5" /> Canvas & Grid
+              </button>
+
+              <button
+                onClick={() => setActiveTab("notepad")}
+                className={`px-3 py-1 rounded-lg font-bold transition flex items-center gap-1.5 ${
+                  activeTab === "notepad"
+                    ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" /> Markdown Docs
+              </button>
+            </div>
 
             <button
-              onClick={() => setActiveTab("notepad")}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                activeTab === "notepad"
-                  ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
-                  : "text-slate-400 hover:text-slate-200"
+              onClick={() => setIsFullscreen((prev) => !prev)}
+              className={`p-1.5 rounded-xl border transition ${
+                isFullscreen
+                  ? "bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30"
+                  : "text-slate-400 hover:text-white bg-slate-950 border border-slate-800"
               }`}
+              title={isFullscreen ? "Exit Fullscreen" : "Full Screen Mode"}
             >
-              <FileText className="w-3.5 h-3.5" /> Markdown Docs
+              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
             </button>
           </div>
         </div>
@@ -690,10 +841,10 @@ export function StudyNotesBoardPage() {
 
       {/* ─── TAB 1: INFINITE CANVAS STICKY BOARD ───────────────────────────── */}
       {activeTab === "board" ? (
-        <div className="space-y-3">
+        <div className="space-y-2 flex-1 flex flex-col min-h-0">
           {/* Canvas Controls Toolbar */}
-          <div className="flex flex-wrap items-center justify-between gap-2.5 bg-slate-900/90 border border-slate-800 p-2.5 rounded-2xl">
-            {/* Left: View Mode, Snap, and Templates */}
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-900/90 border border-slate-800 p-2 rounded-2xl shrink-0">
+            {/* Left: View Mode, Snap, Clean Grid, and Templates */}
             <div className="flex items-center gap-2">
               <div className="flex bg-slate-950 p-0.5 rounded-xl border border-slate-800 text-xs">
                 <button
@@ -715,17 +866,27 @@ export function StudyNotesBoardPage() {
               </div>
 
               {boardViewMode === "canvas" && (
-                <button
-                  onClick={() => setSnapEnabled((prev) => !prev)}
-                  className={`px-2.5 py-1 rounded-xl border text-xs font-semibold flex items-center gap-1 transition ${
-                    snapEnabled
-                      ? "bg-purple-600/20 border-purple-500/40 text-purple-300"
-                      : "bg-slate-950 border-slate-800 text-slate-500"
-                  }`}
-                  title="Snap to Grid (8/16px)"
-                >
-                  <Grid className="w-3.5 h-3.5" /> Snap {snapStep}px
-                </button>
+                <>
+                  <button
+                    onClick={() => setSnapEnabled((prev) => !prev)}
+                    className={`px-2.5 py-1 rounded-xl border text-xs font-semibold flex items-center gap-1 transition ${
+                      snapEnabled
+                        ? "bg-purple-600/20 border-purple-500/40 text-purple-300"
+                        : "bg-slate-950 border-slate-800 text-slate-500"
+                    }`}
+                    title="Snap to Grid (8/16px)"
+                  >
+                    <Grid className="w-3.5 h-3.5" /> Snap {snapStep}px
+                  </button>
+
+                  <button
+                    onClick={autoArrangeNotes}
+                    className="px-2.5 py-1 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1.5 transition"
+                    title="Clean layout & prevent any overlapping notes"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Clean Grid
+                  </button>
+                </>
               )}
 
               <button
@@ -844,7 +1005,9 @@ export function StudyNotesBoardPage() {
               onMouseMove={handleCanvasMouseMove}
               onMouseUp={handleCanvasMouseUp}
               onWheel={handleCanvasWheel}
-              className="relative h-[calc(100vh-16rem)] min-h-[500px] w-full bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden cursor-crosshair"
+              className={`relative ${
+                isFullscreen ? "h-[calc(100vh-9rem)]" : "h-[calc(100vh-13.5rem)] min-h-[580px]"
+              } w-full bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden cursor-crosshair`}
             >
               {/* Subtle Grid Dot Pattern */}
               <div
@@ -1074,7 +1237,9 @@ export function StudyNotesBoardPage() {
             /* ─── Grid View Mode (Classic) ─── */
             <div
               ref={notesContainerRef}
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+              className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 overflow-y-auto ${
+                isFullscreen ? "max-h-[calc(100vh-9rem)]" : "max-h-[calc(100vh-13.5rem)] min-h-[580px]"
+              } p-1`}
             >
               {filteredStickyNotes.map((note) => (
                 <div

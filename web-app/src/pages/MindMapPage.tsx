@@ -857,60 +857,91 @@ Provide 8 to 14 insightful subtopics categorized cleanly with 'side': 'left' or 
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] p-3 md:p-4 space-y-3 bg-slate-950 text-slate-100 overflow-hidden select-none">
+    <div className={`flex flex-col ${
+      isFullscreen
+        ? "fixed inset-0 z-50 p-2 md:p-3 bg-slate-950"
+        : "h-[calc(100vh-4rem)] p-3 md:p-4"
+    } space-y-2.5 bg-slate-950 text-slate-100 overflow-hidden select-none`}>
       {/* ─── Header Toolbar ─── */}
       <Panel className="p-2.5 bg-slate-900/95 backdrop-blur border-slate-800 shadow-xl rounded-2xl shrink-0">
         <div className="flex flex-wrap items-center justify-between gap-2.5">
           {/* Left: Engine Mode & Outline Drawer Toggle */}
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 mr-1">
-              <BrainCircuit className="w-5 h-5 text-purple-400 animate-pulse" />
-              <span className="font-extrabold text-sm tracking-wide text-white hidden sm:inline">Visual Studio</span>
-            </div>
-
-            <button
-              onClick={() => setShowOutline((prev) => !prev)}
-              className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition ${
-                showOutline
-                  ? "bg-purple-600/30 border-purple-500/50 text-purple-200"
-                  : "bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-800"
-              }`}
-              title="Toggle Outline Tree (Ctrl+Shift+O)"
-            >
-              <FolderTree className="w-4 h-4" />
-              <span className="hidden md:inline">Outline</span>
-            </button>
-
-            {/* Layout Mode Selector */}
-            <div className="flex items-center bg-slate-950 p-0.5 rounded-xl border border-slate-800 text-xs">
+            {/* Dual Engine Switcher */}
+            <div className="flex items-center p-0.5 rounded-xl bg-slate-950 border border-slate-800 text-xs">
               <button
-                onClick={() => handleApplyLayoutMode("balanced")}
-                className={`px-2 py-1 rounded-lg transition font-medium ${
-                  layoutMode === "balanced" ? "bg-purple-600 text-white shadow" : "text-slate-400 hover:text-white"
+                onClick={() => setEngineMode("tree")}
+                className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
+                  engineMode === "tree"
+                    ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
+                    : "text-slate-400 hover:text-white"
                 }`}
-                title="Balanced Layout"
+                title="Interactive Mind Map"
               >
-                Balanced
+                <BrainCircuit className="w-3.5 h-3.5 text-purple-300" />
+                <span>Mind Map</span>
               </button>
               <button
-                onClick={() => handleApplyLayoutMode("right-only")}
-                className={`px-2 py-1 rounded-lg transition font-medium ${
-                  layoutMode === "right-only" ? "bg-purple-600 text-white shadow" : "text-slate-400 hover:text-white"
+                onClick={() => setEngineMode("whiteboard")}
+                className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
+                  engineMode === "whiteboard"
+                    ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
+                    : "text-slate-400 hover:text-white"
                 }`}
-                title="Right-Only Mind Map"
+                title="Interactive Whiteboard (Fabric.js)"
               >
-                Right
-              </button>
-              <button
-                onClick={() => handleApplyLayoutMode("tree")}
-                className={`px-2 py-1 rounded-lg transition font-medium ${
-                  layoutMode === "tree" ? "bg-purple-600 text-white shadow" : "text-slate-400 hover:text-white"
-                }`}
-                title="Vertical Tree"
-              >
-                Tree
+                <Palette className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Whiteboard</span>
               </button>
             </div>
+
+            {engineMode === "tree" && (
+              <>
+                <button
+                  onClick={() => setShowOutline((prev) => !prev)}
+                  className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition ${
+                    showOutline
+                      ? "bg-purple-600/30 border-purple-500/50 text-purple-200"
+                      : "bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-800"
+                  }`}
+                  title="Toggle Outline Tree (Ctrl+Shift+O)"
+                >
+                  <FolderTree className="w-4 h-4" />
+                  <span className="hidden md:inline">Outline</span>
+                </button>
+
+                {/* Layout Mode Selector */}
+                <div className="flex items-center bg-slate-950 p-0.5 rounded-xl border border-slate-800 text-xs">
+                  <button
+                    onClick={() => handleApplyLayoutMode("balanced")}
+                    className={`px-2 py-1 rounded-lg transition font-medium ${
+                      layoutMode === "balanced" ? "bg-purple-600 text-white shadow" : "text-slate-400 hover:text-white"
+                    }`}
+                    title="Balanced Layout"
+                  >
+                    Balanced
+                  </button>
+                  <button
+                    onClick={() => handleApplyLayoutMode("right-only")}
+                    className={`px-2 py-1 rounded-lg transition font-medium ${
+                      layoutMode === "right-only" ? "bg-purple-600 text-white shadow" : "text-slate-400 hover:text-white"
+                    }`}
+                    title="Right-Only Mind Map"
+                  >
+                    Right
+                  </button>
+                  <button
+                    onClick={() => handleApplyLayoutMode("tree")}
+                    className={`px-2 py-1 rounded-lg transition font-medium ${
+                      layoutMode === "tree" ? "bg-purple-600 text-white shadow" : "text-slate-400 hover:text-white"
+                    }`}
+                    title="Vertical Tree"
+                  >
+                    Tree
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Center: Search & Focus */}
@@ -1022,12 +1053,40 @@ Provide 8 to 14 insightful subtopics categorized cleanly with 'side': 'left' or 
             >
               <HelpCircle className="w-3.5 h-3.5" />
             </button>
+
+            {selectedNode && (
+              <button
+                onClick={() => setShowNotesDrawer((prev) => !prev)}
+                className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1 transition ${
+                  showNotesDrawer
+                    ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-300"
+                    : "bg-slate-800 border-slate-700 text-slate-300 hover:text-white"
+                }`}
+                title="Toggle Properties & Notes Drawer"
+              >
+                <Edit3 className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="hidden xl:inline">Properties</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => setIsFullscreen((prev) => !prev)}
+              className={`p-1.5 rounded-xl border transition ${
+                isFullscreen
+                  ? "bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30"
+                  : "text-slate-400 hover:text-white bg-slate-800 border-slate-700"
+              }`}
+              title={isFullscreen ? "Exit Fullscreen" : "Full Screen Mode"}
+            >
+              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+            </button>
           </div>
         </div>
       </Panel>
 
       {/* ─── Main Workspace Area ─── */}
-      <div className="relative flex-1 flex overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/40">
+      {engineMode === "tree" ? (
+        <div className="relative flex-1 flex overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/40">
         {/* ─── Collapsible Left Outline Drawer ─── */}
         {showOutline && (
           <aside className="w-72 bg-slate-900/95 backdrop-blur border-r border-slate-800 flex flex-col z-30 shrink-0">
@@ -1463,17 +1522,16 @@ Provide 8 to 14 insightful subtopics categorized cleanly with 'side': 'left' or 
         </div>
 
         {/* ─── Right Slide-over Node Inspector & Notes Drawer ─── */}
-        {selectedNode && (
-          <aside className={`w-80 bg-slate-900/95 backdrop-blur border-l border-slate-800 flex flex-col z-30 shrink-0 ${
-            showNotesDrawer ? "flex" : "hidden lg:flex"
-          }`}>
+        {selectedNode && showNotesDrawer && (
+          <aside className="w-80 bg-slate-900/95 backdrop-blur border-l border-slate-800 flex flex-col z-30 shrink-0">
             <div className="p-3 border-b border-slate-800 flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
                 <Edit3 className="w-3.5 h-3.5 text-cyan-400" /> Node Properties
               </span>
               <button
                 onClick={() => setShowNotesDrawer(false)}
-                className="lg:hidden p-1 text-slate-400 hover:text-white"
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                title="Close Properties Panel"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1608,6 +1666,11 @@ Provide 8 to 14 insightful subtopics categorized cleanly with 'side': 'left' or 
           </aside>
         )}
       </div>
+      ) : (
+        <div className="relative flex-1 flex overflow-hidden rounded-2xl border border-slate-800 bg-slate-950">
+          <FabricWhiteboard storageKey="flowtrack_fabric_whiteboard_desktop_v1" />
+        </div>
+      )}
 
       {/* ─── Presentation Mode Overlay ─── */}
       {isPresentMode && nodes.length > 0 && (
