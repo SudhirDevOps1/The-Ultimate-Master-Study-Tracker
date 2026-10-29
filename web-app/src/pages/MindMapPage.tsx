@@ -4,29 +4,32 @@ import {
   Maximize2, Minimize2, Palette, Eye, Move, Check, CornerDownRight, 
   Share2, RotateCcw, LayoutTemplate, Sliders, Search, Wand2, Undo, Redo, 
   CheckCircle2, Circle, Clock, FileText, Upload, ChevronRight, ChevronDown, 
-  BookOpen, BrainCircuit, X, Compass, HelpCircle
+  BookOpen, BrainCircuit, X, Compass, HelpCircle, Image as ImageIcon,
+  Link2, Unlink, ArrowRight, ArrowLeft, FolderTree, Play, Layers, Code,
+  Cpu, AlertCircle
 } from "lucide-react";
 import { useToast } from "@/components/common/Toast";
 import { Panel } from "@/components/common/Panel";
 import { FabricWhiteboard } from "@/components/common/FabricWhiteboard";
+import { MarkdownRenderer } from "@/components/common/MarkdownRenderer";
 import { saveImageSafely } from "@/utils/dataExport";
 import { callUnifiedAI } from "@/utils/aiClient";
+import type { MindNode, NodeStatus, MindMapRelationship } from "@/types/models";
+import {
+  wouldCreateCycle,
+  reparentNode,
+  removeNodeAndDescendants,
+  cleanupRelationships,
+  calculateTreeLayout,
+  calculateDownscaleDimensions,
+} from "@/utils/mindmapGraph";
+import {
+  initStorageMigration,
+  loadMindMap,
+  saveMindMap,
+} from "@/utils/storageMigration";
 
-// ─── Mind Map Tree Engine Models ──────────────────────────────────────────────
-export type NodeStatus = "todo" | "in-progress" | "done";
-
-export interface MindNode {
-  id: string;
-  parentId: string | null;
-  text: string;
-  x: number;
-  y: number;
-  color: string;       // Accent color hex
-  side?: "left" | "right";
-  collapsed?: boolean;
-  status?: NodeStatus; // Study progress badge: todo, in-progress, done
-  notes?: string;      // Detailed study notes for this node
-}
+export type { MindNode, NodeStatus };
 
 const COLOR_PRESETS = [
   { name: "Purple", hex: "#a855f7", bg: "rgba(168,85,247,0.25)", border: "#c084fc", text: "#faf5ff" },
@@ -37,29 +40,6 @@ const COLOR_PRESETS = [
   { name: "Orange", hex: "#f97316", bg: "rgba(249,115,22,0.25)", border: "#fb923c", text: "#fff7ed" },
   { name: "Amber/Gold", hex: "#eab308", bg: "rgba(234,179,8,0.25)", border: "#facc15", text: "#fefce8" },
   { name: "Rose", hex: "#f43f5e", bg: "rgba(244,63,94,0.25)", border: "#fb7185", text: "#fff1f2" }
-];
-
-const STORAGE_KEY = "flowtrack_pro_mindmap_nodes_v2";
-
-const DEFAULT_NODES: MindNode[] = [
-  // Center Root
-  { id: "root", parentId: null, text: "☕ Java Full Stack & DSA", x: 500, y: 320, color: "#a855f7", status: "in-progress" },
-
-  // Left Side Subtopics
-  { id: "l1", parentId: "root", text: "Core OOPs & JVM", x: 220, y: 180, color: "#06b6d4", side: "left", status: "done" },
-  { id: "l1-1", parentId: "l1", text: "Inheritance & Polymorphism", x: -40, y: 140, color: "#06b6d4", side: "left", status: "done" },
-  { id: "l1-2", parentId: "l1", text: "JVM Garbage Collection", x: -40, y: 220, color: "#06b6d4", side: "left", status: "in-progress" },
-
-  { id: "l2", parentId: "root", text: "Spring Boot 3 REST", x: 220, y: 440, color: "#f97316", side: "left", status: "in-progress" },
-  { id: "l2-1", parentId: "l2", text: "Dependency Injection & IoC", x: -40, y: 440, color: "#f97316", side: "left", status: "todo" },
-
-  // Right Side Subtopics
-  { id: "r1", parentId: "root", text: "Data Structures & Algos", x: 780, y: 180, color: "#10b981", side: "right", status: "in-progress" },
-  { id: "r1-1", parentId: "r1", text: "Trees, Graphs & BFS/DFS", x: 1040, y: 140, color: "#10b981", side: "right", status: "in-progress" },
-  { id: "r1-2", parentId: "r1", text: "Dynamic Programming (DP)", x: 1040, y: 220, color: "#10b981", side: "right", status: "todo" },
-
-  { id: "r2", parentId: "root", text: "SQL & Database Schema", x: 780, y: 440, color: "#3b82f6", side: "right", status: "done" },
-  { id: "r2-1", parentId: "r2", text: "Indexing & Query Tuning", x: 1040, y: 440, color: "#3b82f6", side: "right", status: "done" }
 ];
 
 // Pre-built Mind Map Templates
@@ -126,18 +106,15 @@ const TEMPLATES: Record<string, { name: string; nodes: MindNode[] }> = {
 };
 
 export function MindMapPage() {
-  const [nodes, setNodes] = useState<MindNode[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch { /* ignore */ }
-    return DEFAULT_NODES;
-  });
+  const [nodes, setNodes] = useState<MindNode[]>([]);
+  const [relationships, setRelationships] = useState<MindMapRelationship[]>([]);
+  const [layoutMode, setLayoutMode] = useState<"balanced" | "right-only" | "tree">("balanced");
+  const [isLoaded, setIsLoaded] = useState(false);
 
   const [history, setHistory] = useState<MindNode[][]>([]);
   const [historyIdx, setHistoryIdx] = useState<number>(-1);
 
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>("root");
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [engineMode, setEngineMode] = useState<"tree" | "whiteboard">("tree");
@@ -151,145 +128,179 @@ export function MindMapPage() {
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   
+  // New Panels & Features
+  const [showOutline, setShowOutline] = useState(false);
+  const [showNotesDrawer, setShowNotesDrawer] = useState(false);
+  const [isFocusMode, setIsFocusMode] = useState(false);
+  const [isPresentMode, setIsPresentMode] = useState(false);
+  const [presentIndex, setPresentIndex] = useState(0);
+
+  // Cross-link connection mode
+  const [connectingSourceId, setConnectingSourceId] = useState<string | null>(null);
+
+  // Dragging node state with cycle detection & reparenting
+  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [preDragPosition, setPreDragPosition] = useState<{ x: number; y: number } | null>(null);
+  const [hoverReparentTargetId, setHoverReparentTargetId] = useState<string | null>(null);
+
+  // Empty State & Outline Import
+  const [emptyRootInput, setEmptyRootInput] = useState("");
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [markdownOutlineInput, setMarkdownOutlineInput] = useState("");
+
   // Canvas View transform
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
-  
-  // Dragging node state
-  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { showToast } = useToast();
 
-  // Save Nodes & Sync History
+  // Load from Dexie v2 on Mount
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(nodes));
-    } catch { /* ignore */ }
-  }, [nodes]);
+    let isMounted = true;
+    (async () => {
+      await initStorageMigration();
+      const loaded = await loadMindMap();
+      if (isMounted) {
+        if (loaded.nodes && loaded.nodes.length > 0) {
+          setNodes(loaded.nodes);
+          setRelationships(loaded.relationships || []);
+          setLayoutMode(loaded.layoutMode || "balanced");
+          setSelectedNodeId(loaded.nodes[0].id);
+        }
+        setIsLoaded(true);
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
-  const pushState = useCallback((newNodes: MindNode[]) => {
-    setHistory(prev => {
+  // Persist Changes to Dexie v2
+  useEffect(() => {
+    if (!isLoaded) return;
+    saveMindMap(nodes, relationships, layoutMode);
+  }, [nodes, relationships, layoutMode, isLoaded]);
+
+  // Push Undo State (capped at 30 items)
+  const pushState = useCallback((newNodes: MindNode[], newRels?: MindMapRelationship[]) => {
+    setHistory((prev) => {
       const sliced = prev.slice(0, historyIdx + 1);
-      return [...sliced, newNodes];
+      const next = [...sliced, newNodes];
+      if (next.length > 30) next.shift();
+      return next;
     });
-    setHistoryIdx(prev => prev + 1);
+    setHistoryIdx((prev) => Math.min(prev + 1, 29));
     setNodes(newNodes);
+    if (newRels !== undefined) {
+      setRelationships(newRels);
+    }
   }, [historyIdx]);
 
   const undo = useCallback(() => {
     if (historyIdx > 0) {
-      const prevNodes = history[historyIdx - 1];
-      setHistoryIdx(prev => prev - 1);
-      setNodes(prevNodes);
-      showToast("Undo performed", "info");
+      const nextIdx = historyIdx - 1;
+      setHistoryIdx(nextIdx);
+      setNodes(history[nextIdx]);
+      showToast("Undo", "info");
     }
-  }, [history, historyIdx, showToast]);
+  }, [historyIdx, history, showToast]);
 
   const redo = useCallback(() => {
     if (historyIdx < history.length - 1) {
-      const nextNodes = history[historyIdx + 1];
-      setHistoryIdx(prev => prev + 1);
-      setNodes(nextNodes);
-      showToast("Redo performed", "info");
+      const nextIdx = historyIdx + 1;
+      setHistoryIdx(nextIdx);
+      setNodes(history[nextIdx]);
+      showToast("Redo", "info");
     }
-  }, [history, historyIdx, showToast]);
+  }, [historyIdx, history, showToast]);
 
-  // ── Node Helper Functions ──────────────────────────────────────────────────
-  const selectedNode = useMemo(() => nodes.find(n => n.id === selectedNodeId), [nodes, selectedNodeId]);
+  const selectedNode = useMemo(() => {
+    return nodes.find((n) => n.id === selectedNodeId) || null;
+  }, [nodes, selectedNodeId]);
 
-  // Smart Auto-Align Algorithm: Computes beautiful balanced Left/Right Tree Hierarchy
-  const autoAlignTree = useCallback(() => {
-    if (nodes.length === 0) return;
-    const root = nodes.find(n => n.parentId === null) || nodes[0];
-    const rootX = 500;
-    const rootY = 320;
-
-    // Children of root
-    const rootChildren = nodes.filter(n => n.parentId === root.id);
-    const leftChildren: MindNode[] = [];
-    const rightChildren: MindNode[] = [];
-
-    rootChildren.forEach((child, idx) => {
-      if (child.side === "left" || (child.side === undefined && idx % 2 === 0)) {
-        leftChildren.push(child);
-      } else {
-        rightChildren.push(child);
+  // Branch IDs for Focus Mode (Active node + ancestors + descendants)
+  const branchIds = useMemo(() => {
+    if (!isFocusMode || !selectedNodeId) return null;
+    const ids = new Set<string>();
+    
+    // Descendants
+    const collectDescendants = (parentId: string) => {
+      ids.add(parentId);
+      for (const n of nodes) {
+        if (n.parentId === parentId) {
+          collectDescendants(n.id);
+        }
       }
-    });
+    };
+    collectDescendants(selectedNodeId);
 
-    const updatedMap = new Map<string, MindNode>();
-    updatedMap.set(root.id, { ...root, x: rootX, y: rootY });
+    // Ancestors
+    let curr: MindNode | undefined = nodes.find((n) => n.id === selectedNodeId);
+    while (curr && curr.parentId) {
+      ids.add(curr.parentId);
+      curr = nodes.find((n) => n.id === curr!.parentId);
+    }
 
-    // Position Left Branch
-    const leftHeight = Math.max(leftChildren.length * 120, 200);
-    let leftStartY = rootY - leftHeight / 2 + 60;
-    leftChildren.forEach(child => {
-      const childX = rootX - 280;
-      const childY = leftStartY;
-      leftStartY += 120;
-      updatedMap.set(child.id, { ...child, x: childX, y: childY, side: "left" });
+    return ids;
+  }, [isFocusMode, selectedNodeId, nodes]);
 
-      // Grandchildren
-      const grandchildren = nodes.filter(n => n.parentId === child.id);
-      let gStartY = childY - ((grandchildren.length - 1) * 70) / 2;
-      grandchildren.forEach(gc => {
-        updatedMap.set(gc.id, { ...gc, x: childX - 260, y: gStartY, side: "left" });
-        gStartY += 75;
-      });
-    });
+  // Search matches
+  const matchingNodeIds = useMemo(() => {
+    if (!searchQuery.trim()) return new Set<string>();
+    const q = searchQuery.toLowerCase();
+    const matches = nodes.filter((n) => 
+      n.text.toLowerCase().includes(q) || 
+      (n.notes && n.notes.toLowerCase().includes(q))
+    );
+    return new Set(matches.map((n) => n.id));
+  }, [nodes, searchQuery]);
 
-    // Position Right Branch
-    const rightHeight = Math.max(rightChildren.length * 120, 200);
-    let rightStartY = rootY - rightHeight / 2 + 60;
-    rightChildren.forEach(child => {
-      const childX = rootX + 280;
-      const childY = rightStartY;
-      rightStartY += 120;
-      updatedMap.set(child.id, { ...child, x: childX, y: childY, side: "right" });
+  // Layout mode switcher
+  const handleApplyLayoutMode = (mode: "balanced" | "right-only" | "tree") => {
+    setLayoutMode(mode);
+    const laidOut = calculateTreeLayout(nodes, mode);
+    pushState(laidOut);
+    showToast(`Applied ${mode} layout`, "success");
+  };
 
-      // Grandchildren
-      const grandchildren = nodes.filter(n => n.parentId === child.id);
-      let gStartY = childY - ((grandchildren.length - 1) * 70) / 2;
-      grandchildren.forEach(gc => {
-        updatedMap.set(gc.id, { ...gc, x: childX + 260, y: gStartY, side: "right" });
-        gStartY += 75;
-      });
-    });
+  // Node editing
+  const startInlineEdit = (node: MindNode) => {
+    setEditingNodeId(node.id);
+    setEditText(node.text);
+  };
 
-    // Preserve any unconnected independent boxes
-    nodes.forEach(n => {
-      if (!updatedMap.has(n.id)) {
-        updatedMap.set(n.id, n);
-      }
-    });
+  const saveInlineEdit = () => {
+    if (!editingNodeId) return;
+    const text = editText.trim();
+    if (text) {
+      const next = nodes.map((n) => (n.id === editingNodeId ? { ...n, text } : n));
+      pushState(next);
+    }
+    setEditingNodeId(null);
+  };
 
-    const newNodes = Array.from(updatedMap.values());
-    pushState(newNodes);
-    showToast("⚡ Tree Auto-Aligned with Clean Hierarchy!", "success");
-  }, [nodes, pushState, showToast]);
-
-  // Add Independent Main Topic
-  const addIndependentTopic = (xPos?: number, yPos?: number) => {
+  // Add Independent Main Topic / Root
+  const addIndependentTopic = (text = "New Topic Concept", xPos?: number, yPos?: number) => {
     const newNode: MindNode = {
       id: crypto.randomUUID(),
       parentId: null,
-      text: "New Topic Concept",
-      x: xPos !== undefined ? xPos : (350 + Math.random() * 150),
-      y: yPos !== undefined ? yPos : (250 + Math.random() * 150),
+      text,
+      x: xPos !== undefined ? xPos : (450 + Math.random() * 100),
+      y: yPos !== undefined ? yPos : (300 + Math.random() * 80),
       color: activeColor,
-      status: "todo"
+      status: "todo",
     };
     const next = [...nodes, newNode];
     pushState(next);
     setSelectedNodeId(newNode.id);
     setEditingNodeId(newNode.id);
-    setEditText("New Topic Concept");
-    showToast("New Main Topic Created! Press Enter to save", "info");
+    setEditText(text);
   };
 
   // Add Subtopic to Selected Node
@@ -300,21 +311,19 @@ export function MindMapPage() {
       return;
     }
 
-    const parent = nodes.find(n => n.id === targetParentId);
+    const parent = nodes.find((n) => n.id === targetParentId);
     if (!parent) return;
 
-    // Determine direction
-    const isRoot = parent.parentId === null;
     let side = parent.side;
-    if (isRoot) {
-      const leftCount = nodes.filter(n => n.parentId === parent.id && n.side === "left").length;
-      const rightCount = nodes.filter(n => n.parentId === parent.id && n.side === "right").length;
+    if (parent.parentId === null) {
+      const leftCount = nodes.filter((n) => n.parentId === parent.id && n.side === "left").length;
+      const rightCount = nodes.filter((n) => n.parentId === parent.id && n.side === "right").length;
       side = leftCount <= rightCount ? "left" : "right";
     }
 
-    const siblings = nodes.filter(n => n.parentId === targetParentId);
-    const offsetX = side === "left" ? -260 : 260;
-    const offsetY = (siblings.length - 1) * 75 + (Math.random() * 20 - 10);
+    const siblings = nodes.filter((n) => n.parentId === targetParentId);
+    const offsetX = side === "left" ? -240 : 240;
+    const offsetY = (siblings.length) * 70 + (Math.random() * 10 - 5);
 
     const newNode: MindNode = {
       id: crypto.randomUUID(),
@@ -324,19 +333,18 @@ export function MindMapPage() {
       y: parent.y + offsetY,
       color: parent.color || activeColor,
       side,
-      status: "todo"
+      status: "todo",
     };
 
-    // Auto expand parent if it was collapsed
-    const next = nodes.map(n => n.id === parent.id ? { ...n, collapsed: false } : n).concat(newNode);
+    const next = nodes.map((n) => (n.id === parent.id ? { ...n, collapsed: false } : n)).concat(newNode);
     pushState(next);
     setSelectedNodeId(newNode.id);
     setEditingNodeId(newNode.id);
     setEditText("New Subtopic");
-    showToast("Subtopic Added! (Press Tab to add more)", "success");
+    showToast("Subtopic Added", "success");
   };
 
-  // Add Sibling Topic (same level)
+  // Add Sibling Topic
   const addSiblingTopic = () => {
     if (!selectedNode || !selectedNode.parentId) {
       addIndependentTopic();
@@ -345,232 +353,203 @@ export function MindMapPage() {
     addSubtopic(selectedNode.parentId);
   };
 
-  // Delete Selected Node (with cascading delete of children)
+  // Delete Selected Node (with cascading delete and relationship cleanup)
   const deleteSelectedNode = () => {
     if (!selectedNodeId) return;
-    if (nodes.length <= 1) {
-      showToast("Cannot delete the only remaining node", "warning");
+    const { remainingNodes, deletedIds } = removeNodeAndDescendants(nodes, selectedNodeId);
+    const updatedRels = cleanupRelationships(relationships, deletedIds);
+    pushState(remainingNodes, updatedRels);
+    setSelectedNodeId(remainingNodes[0] ? remainingNodes[0].id : null);
+    showToast("Node removed", "info");
+  };
+
+  // Sibling Navigation (Alt+Up / Alt+Down)
+  const navigateSibling = (direction: "prev" | "next") => {
+    if (!selectedNode) return;
+    const siblings = nodes.filter((n) => n.parentId === selectedNode.parentId);
+    if (siblings.length <= 1) return;
+    const currIdx = siblings.findIndex((n) => n.id === selectedNode.id);
+    if (currIdx === -1) return;
+    const targetIdx = direction === "next" 
+      ? (currIdx + 1) % siblings.length 
+      : (currIdx - 1 + siblings.length) % siblings.length;
+    setSelectedNodeId(siblings[targetIdx].id);
+  };
+
+  // Attach Image (downscale to <= 256px, max 200 KB)
+  const handleImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedNodeId) return;
+
+    if (!file.type.startsWith("image/")) {
+      showToast("Please choose a valid image file", "warning");
       return;
     }
 
-    // Collect all descendant ids
-    const toDelete = new Set<string>([selectedNodeId]);
-    let foundNew = true;
-    while (foundNew) {
-      foundNew = false;
-      nodes.forEach(n => {
-        if (n.parentId && toDelete.has(n.parentId) && !toDelete.has(n.id)) {
-          toDelete.add(n.id);
-          foundNew = true;
-        }
-      });
-    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const { width, height } = calculateDownscaleDimensions(img.width, img.height, 256);
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
 
-    const next = nodes.filter(n => !toDelete.has(n.id));
-    pushState(next);
-    setSelectedNodeId(next[0]?.id || null);
-    showToast(`Deleted ${toDelete.size} topic(s)`, "info");
+        const next = nodes.map((n) => (n.id === selectedNodeId ? { ...n, imageUrl: dataUrl } : n));
+        pushState(next);
+        showToast("Image attached to node", "success");
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
   };
 
-  // Toggle Collapse on a Node
-  const toggleCollapse = (nodeId: string) => {
-    setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, collapsed: !n.collapsed } : n));
-  };
-
-  // Cycle Node Status: todo -> in-progress -> done
-  const cycleNodeStatus = (nodeId: string) => {
-    setNodes(prev => prev.map(n => {
-      if (n.id !== nodeId) return n;
-      const current = n.status || "todo";
-      const next: NodeStatus = current === "todo" ? "in-progress" : current === "in-progress" ? "done" : "todo";
-      return { ...n, status: next };
-    }));
-  };
-
-  // Inline Editing
-  const startInlineEdit = (node: MindNode) => {
-    setEditingNodeId(node.id);
-    setEditText(node.text);
-  };
-
-  const saveInlineEdit = () => {
-    if (!editingNodeId) return;
-    const trimmed = editText.trim();
-    if (trimmed) {
-      const next = nodes.map(n => (n.id === editingNodeId ? { ...n, text: trimmed } : n));
-      pushState(next);
-    }
-    setEditingNodeId(null);
-  };
-
-  // Change Color of Selected Node & Descendants
-  const setNodeColor = (colorHex: string) => {
-    setActiveColor(colorHex);
+  const removeNodeImage = () => {
     if (!selectedNodeId) return;
-    const next = nodes.map(n => (n.id === selectedNodeId ? { ...n, color: colorHex } : n));
+    const next = nodes.map((n) => (n.id === selectedNodeId ? { ...n, imageUrl: undefined } : n));
     pushState(next);
+    showToast("Image removed", "info");
   };
 
-  // Load Template
-  const loadTemplate = (key: string) => {
-    const tpl = TEMPLATES[key];
-    if (!tpl) return;
-    pushState(tpl.nodes);
-    setSelectedNodeId("root");
-    showToast(`Loaded Template: ${tpl.name}`, "success");
-    setShowAiModal(false);
+  // Cross-Link Relationships
+  const startCrossLinkConnection = (nodeId: string) => {
+    setConnectingSourceId(nodeId);
+    showToast("Click a target node to connect", "info");
   };
 
-  // Generate Custom AI Topic Mind Map
-  const generateCustomAiMap = async () => {
-    const topic = customAiTopic.trim();
-    if (!topic) {
-      showToast("Please enter a topic name", "warning");
+  const completeCrossLinkConnection = (targetId: string) => {
+    if (!connectingSourceId) return;
+    if (connectingSourceId === targetId) {
+      setConnectingSourceId(null);
       return;
     }
 
-    setIsAiGenerating(true);
-    const rootId = "root";
-    let generated: MindNode[] | null = null;
+    const newRel: MindMapRelationship = {
+      id: crypto.randomUUID(),
+      from: connectingSourceId,
+      to: targetId,
+      label: "relates to",
+      color: "#06b6d4",
+    };
 
-    try {
-      const userPrompt = `Generate a structured mind map tree for the study topic: "${topic}".
-Output ONLY valid JSON with this exact schema:
-{
-  "leftBranches": [
-    { "title": "Subtopic Title", "children": ["Concept 1", "Concept 2"] }
-  ],
-  "rightBranches": [
-    { "title": "Subtopic Title", "children": ["Concept 3", "Concept 4"] }
-  ]
-}`;
-      const sysPrompt = "You are FlowTrack Pro's academic mind map architect. Generate high-yield study subtopics formatted strictly as JSON without extra prose.";
+    setRelationships((prev) => [...prev, newRel]);
+    setConnectingSourceId(null);
+    showToast("Cross-link created", "success");
+  };
 
-      const aiRes = await callUnifiedAI(userPrompt, sysPrompt);
-      if (aiRes.success && aiRes.text) {
-        const jsonMatch = aiRes.text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          const leftBranches = Array.isArray(parsed.leftBranches) ? parsed.leftBranches : [];
-          const rightBranches = Array.isArray(parsed.rightBranches) ? parsed.rightBranches : [];
+  // Status cycling
+  const cycleNodeStatus = (nodeId: string) => {
+    const cycleMap: Record<NodeStatus, NodeStatus> = {
+      todo: "in-progress",
+      "in-progress": "done",
+      done: "todo",
+    };
+    const next = nodes.map((n) => {
+      if (n.id === nodeId) {
+        const nextStatus = cycleMap[n.status || "todo"];
+        return { ...n, status: nextStatus };
+      }
+      return n;
+    });
+    pushState(next);
+  };
 
-          if (leftBranches.length > 0 || rightBranches.length > 0) {
-            const nodesArr: MindNode[] = [
-              { id: rootId, parentId: null, text: `📖 ${topic}`, x: 500, y: 320, color: "#a855f7", status: "in-progress" }
-            ];
+  const toggleCollapse = (nodeId: string) => {
+    const next = nodes.map((n) => (n.id === nodeId ? { ...n, collapsed: !n.collapsed } : n));
+    pushState(next);
+  };
 
-            const leftColors = ["#06b6d4", "#10b981", "#3b82f6", "#0ea5e9"];
-            leftBranches.forEach((b: any, bIdx: number) => {
-              const bId = `left-${bIdx}`;
-              const yPos = 180 + bIdx * 200;
-              const color = leftColors[bIdx % leftColors.length];
-              nodesArr.push({
-                id: bId,
-                parentId: rootId,
-                text: b.title || `Concept ${bIdx + 1}`,
-                x: 220,
-                y: yPos,
-                color,
-                side: "left",
-                status: "done"
-              });
+  // Mouse & Dragging Handlers (with Drag-to-Reparent & Cycle Detection)
+  const handleNodeMouseDown = (e: React.MouseEvent, node: MindNode) => {
+    e.stopPropagation();
+    if (connectingSourceId) {
+      completeCrossLinkConnection(node.id);
+      return;
+    }
 
-              if (Array.isArray(b.children)) {
-                b.children.slice(0, 3).forEach((child: string, cIdx: number) => {
-                  nodesArr.push({
-                    id: `${bId}-${cIdx}`,
-                    parentId: bId,
-                    text: typeof child === "string" ? child : String(child),
-                    x: -40,
-                    y: yPos + (cIdx === 0 ? -30 : cIdx === 1 ? 30 : 0),
-                    color,
-                    side: "left",
-                    status: cIdx === 0 ? "done" : "in-progress"
-                  });
-                });
-              }
-            });
+    setSelectedNodeId(node.id);
+    setDraggingNodeId(node.id);
+    setPreDragPosition({ x: node.x, y: node.y });
+    setDragOffset({
+      x: e.clientX / zoom - node.x,
+      y: e.clientY / zoom - node.y,
+    });
+  };
 
-            const rightColors = ["#f97316", "#eab308", "#ec4899", "#f43f5e"];
-            rightBranches.forEach((b: any, bIdx: number) => {
-              const bId = `right-${bIdx}`;
-              const yPos = 180 + bIdx * 200;
-              const color = rightColors[bIdx % rightColors.length];
-              nodesArr.push({
-                id: bId,
-                parentId: rootId,
-                text: b.title || `Advanced ${bIdx + 1}`,
-                x: 780,
-                y: yPos,
-                color,
-                side: "right",
-                status: "in-progress"
-              });
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button === 0 || e.button === 1) {
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    }
+  };
 
-              if (Array.isArray(b.children)) {
-                b.children.slice(0, 3).forEach((child: string, cIdx: number) => {
-                  nodesArr.push({
-                    id: `${bId}-${cIdx}`,
-                    parentId: bId,
-                    text: typeof child === "string" ? child : String(child),
-                    x: 1040,
-                    y: yPos + (cIdx === 0 ? -30 : cIdx === 1 ? 30 : 0),
-                    color,
-                    side: "right",
-                    status: "todo"
-                  });
-                });
-              }
-            });
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (draggingNodeId) {
+      const newX = e.clientX / zoom - dragOffset.x;
+      const newY = e.clientY / zoom - dragOffset.y;
 
-            generated = nodesArr;
+      // Update position of dragging node
+      setNodes((prev) => prev.map((n) => (n.id === draggingNodeId ? { ...n, x: newX, y: newY } : n)));
+
+      // Detect hover over another node for reparenting (hit test within 85px)
+      const target = nodes.find(
+        (other) =>
+          other.id !== draggingNodeId &&
+          Math.hypot(other.x + 90 - (newX + 90), other.y + 24 - (newY + 24)) < 85
+      );
+      setHoverReparentTargetId(target ? target.id : null);
+    } else if (isPanning) {
+      setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
+    }
+  };
+
+  const handleMouseUp = () => {
+    if (draggingNodeId) {
+      if (hoverReparentTargetId) {
+        // Drag-to-reparent drop
+        if (wouldCreateCycle(nodes, draggingNodeId, hoverReparentTargetId)) {
+          showToast("Cannot move a parent node into its own descendant branch", "warning");
+          // Revert position
+          if (preDragPosition) {
+            setNodes((prev) =>
+              prev.map((n) => (n.id === draggingNodeId ? { ...n, ...preDragPosition } : n))
+            );
           }
+        } else {
+          // Reparent & Re-layout
+          const reparented = reparentNode(nodes, draggingNodeId, hoverReparentTargetId);
+          const laidOut = calculateTreeLayout(reparented, layoutMode);
+          pushState(laidOut);
+          showToast("Node reparented", "success");
         }
       }
-    } catch (err) {
-      console.warn("Unified AI mind map generator failed, falling back to local template", err);
+      setDraggingNodeId(null);
+      setHoverReparentTargetId(null);
+      setPreDragPosition(null);
     }
-
-    if (!generated) {
-      generated = [
-        { id: rootId, parentId: null, text: `📖 ${topic}`, x: 500, y: 320, color: "#a855f7", status: "in-progress" },
-        { id: "sub-1", parentId: rootId, text: `${topic}: Core Fundamentals`, x: 220, y: 180, color: "#06b6d4", side: "left", status: "done" },
-        { id: "sub-1-1", parentId: "sub-1", text: "Key Terminology & Syntax", x: -40, y: 180, color: "#06b6d4", side: "left", status: "done" },
-        { id: "sub-2", parentId: rootId, text: `${topic}: Practical Implementation`, x: 220, y: 440, color: "#10b981", side: "left", status: "in-progress" },
-        { id: "sub-2-1", parentId: "sub-2", text: "Real-world Applications & APIs", x: -40, y: 440, color: "#10b981", side: "left", status: "todo" },
-        { id: "sub-3", parentId: rootId, text: `${topic}: Architecture & Optimization`, x: 780, y: 180, color: "#f97316", side: "right", status: "todo" },
-        { id: "sub-3-1", parentId: "sub-3", text: "Edge Cases & Performance Tuning", x: 1040, y: 180, color: "#f97316", side: "right", status: "todo" },
-        { id: "sub-4", parentId: rootId, text: `${topic}: Exam & Interview Doubts`, x: 780, y: 440, color: "#eab308", side: "right", status: "done" },
-        { id: "sub-4-1", parentId: "sub-4", text: "Revision Checklist & Quick Test", x: 1040, y: 440, color: "#eab308", side: "right", status: "todo" }
-      ];
-    }
-
-    setIsAiGenerating(false);
-    pushState(generated);
-    setSelectedNodeId(rootId);
-    setCustomAiTopic("");
-    setShowAiModal(false);
-    showToast(`✨ Generated AI Mind Map for "${topic}"!`, "success");
+    setIsPanning(false);
   };
 
-  // Center Root in View
-  const centerView = () => {
-    const root = nodes.find(n => n.parentId === null) || nodes[0];
-    if (containerRef.current && root) {
-      const rect = containerRef.current.getBoundingClientRect();
-      setPan({
-        x: rect.width / 2 - root.x * zoom - 90 * zoom,
-        y: rect.height / 2 - root.y * zoom - 24 * zoom
-      });
-      setZoom(1);
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+      const newZoom = Math.min(Math.max(zoom * zoomFactor, 0.25), 3);
+      setZoom(newZoom);
+    } else {
+      setPan((prev) => ({ x: prev.x - e.deltaX, y: prev.y - e.deltaY }));
     }
   };
 
   // Keyboard Shortcuts Listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't intercept if user is typing in an input or textarea
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      if (editingNodeId || (e.target as HTMLElement).tagName === "INPUT" || (e.target as HTMLElement).tagName === "TEXTAREA") {
         return;
       }
 
@@ -583,103 +562,134 @@ Output ONLY valid JSON with this exact schema:
       } else if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault();
         deleteSelectedNode();
-      } else if (e.key === "F2" || (e.code === "Space" && selectedNode)) {
+      } else if (e.key === "F2") {
         e.preventDefault();
         if (selectedNode) startInlineEdit(selectedNode);
-      } else if (e.key === "Escape") {
-        setEditingNodeId(null);
-        setSelectedNodeId(null);
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+      } else if (e.altKey && e.key === "ArrowUp") {
+        e.preventDefault();
+        navigateSibling("prev");
+      } else if (e.altKey && e.key === "ArrowDown") {
+        e.preventDefault();
+        navigateSibling("next");
+      } else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "l") {
+        e.preventDefault();
+        handleApplyLayoutMode(layoutMode === "balanced" ? "right-only" : layoutMode === "right-only" ? "tree" : "balanced");
+      } else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "o") {
+        e.preventDefault();
+        setShowOutline((prev) => !prev);
+      } else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setIsFocusMode((prev) => !prev);
+      } else if (e.ctrlKey && e.key.toLowerCase() === "z") {
         e.preventDefault();
         if (e.shiftKey) redo();
         else undo();
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
-        e.preventDefault();
-        redo();
+      } else if (e.key === "Escape") {
+        if (isPresentMode) setIsPresentMode(false);
+        if (connectingSourceId) setConnectingSourceId(null);
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedNode, addSubtopic, addSiblingTopic, deleteSelectedNode, undo, redo]);
+  }, [selectedNode, editingNodeId, layoutMode, isPresentMode, connectingSourceId]);
 
-  // Double Click Canvas to Add Topic Box
-  const handleCanvasDoubleClick = (e: React.MouseEvent) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const clickX = (e.clientX - rect.left - pan.x) / zoom;
-    const clickY = (e.clientY - rect.top - pan.y) / zoom;
-    addIndependentTopic(clickX - 90, clickY - 24);
-  };
-
-  // Zoom to Mouse Pointer
-  const handleWheel = (e: React.WheelEvent) => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-      const newZoom = Math.min(Math.max(zoom * zoomFactor, 0.25), 3);
-      if (!containerRef.current) return;
+  // Center View
+  const centerView = () => {
+    if (nodes.length === 0) return;
+    const root = nodes.find((n) => n.parentId === null) || nodes[0];
+    if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-      setPan(prev => ({
-        x: mouseX - (mouseX - prev.x) * (newZoom / zoom),
-        y: mouseY - (mouseY - prev.y) * (newZoom / zoom)
-      }));
-      setZoom(newZoom);
-    } else {
-      setPan(prev => ({ x: prev.x - e.deltaX, y: prev.y - e.deltaY }));
+      setPan({
+        x: rect.width / 2 - (root.x + 90) * zoom,
+        y: rect.height / 2 - (root.y + 24) * zoom,
+      });
     }
   };
 
-  // Node Dragging Handlers
-  const handleNodeMouseDown = (e: React.MouseEvent, node: MindNode) => {
-    e.stopPropagation();
-    setSelectedNodeId(node.id);
-    setDraggingNodeId(node.id);
-    setDragOffset({
-      x: e.clientX / zoom - node.x,
-      y: e.clientY / zoom - node.y
+  // Import Markdown Outline
+  const importMarkdownOutline = () => {
+    const lines = markdownOutlineInput.split("\n").filter((l) => l.trim().length > 0);
+    if (lines.length === 0) return;
+
+    const parsedNodes: MindNode[] = [];
+    const stack: { id: string; level: number }[] = [];
+
+    lines.forEach((line, idx) => {
+      const indentMatch = line.match(/^(\s*)[-*#]?\s*(.*)/);
+      if (!indentMatch) return;
+      const indent = indentMatch[1].length;
+      const text = indentMatch[2].trim();
+      if (!text) return;
+
+      const level = Math.floor(indent / 2);
+      const id = `node-${idx}-${Date.now()}`;
+
+      while (stack.length > 0 && stack[stack.length - 1].level >= level) {
+        stack.pop();
+      }
+
+      const parentId = stack.length > 0 ? stack[stack.length - 1].id : null;
+      parsedNodes.push({
+        id,
+        parentId,
+        text,
+        x: 500,
+        y: 320,
+        color: COLOR_PRESETS[idx % COLOR_PRESETS.length].hex,
+        status: "todo",
+      });
+
+      stack.push({ id, level });
     });
+
+    const laidOut = calculateTreeLayout(parsedNodes, layoutMode);
+    pushState(laidOut);
+    setShowImportModal(false);
+    setMarkdownOutlineInput("");
+    showToast(`Imported ${parsedNodes.length} nodes from Outline`, "success");
   };
 
-  // Canvas Pan Handlers
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button === 0 || e.button === 1) {
-      setIsPanning(true);
-      setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-    }
+  // Export Markdown Outline
+  const exportMarkdown = () => {
+    if (nodes.length === 0) return;
+    const root = nodes.find((n) => n.parentId === null) || nodes[0];
+    let md = `# ${root.text}\n\n`;
+
+    const buildSubtree = (parentId: string, level: number) => {
+      const children = nodes.filter((n) => n.parentId === parentId);
+      children.forEach((c) => {
+        const indent = "  ".repeat(level);
+        const statusBox = c.status === "done" ? "[x]" : "[ ]";
+        md += `${indent}- ${statusBox} ${c.text}\n`;
+        if (c.notes) {
+          md += `${indent}  > ${c.notes.replace(/\n/g, `\n${indent}  > `)}\n`;
+        }
+        buildSubtree(c.id, level + 1);
+      });
+    };
+
+    buildSubtree(root.id, 0);
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${root.text.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-outline.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("Markdown Outline Exported", "success");
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (draggingNodeId) {
-      const newX = e.clientX / zoom - dragOffset.x;
-      const newY = e.clientY / zoom - dragOffset.y;
-      setNodes(prev => prev.map(n => (n.id === draggingNodeId ? { ...n, x: newX, y: newY } : n)));
-    } else if (isPanning) {
-      setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
-    }
-  };
-
-  const handleMouseUp = () => {
-    if (draggingNodeId) {
-      setDraggingNodeId(null);
-    }
-    setIsPanning(false);
-  };
-
-  // Export Mind Map Canvas to Content-Aware Crisp PNG (No Giant Void!)
+  // Export Crisp High-Res PNG
   const exportPNG = async () => {
     if (nodes.length === 0) {
       showToast("Mind Map is empty", "warning");
       return;
     }
 
-    // 1. Calculate Content Bounding Box of all active nodes
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    nodes.forEach(n => {
-      const isRoot = n.parentId === null;
-      const w = isRoot ? 220 : 180;
+    nodes.forEach((n) => {
+      const w = n.parentId === null ? 220 : 180;
       const h = 48;
       minX = Math.min(minX, n.x);
       minY = Math.min(minY, n.y);
@@ -689,556 +699,638 @@ Output ONLY valid JSON with this exact schema:
 
     if (!isFinite(minX) || !isFinite(minY)) return;
 
-    // Generous, proportional margins & title header space
-    const paddingX = 80;
-    const paddingY = 90;
-    const headerHeight = 120;
-
-    const rawWidth = (maxX - minX) + paddingX * 2;
-    const rawHeight = (maxY - minY) + paddingY * 2 + headerHeight;
-
-    // High-Definition Crisp Resolution (2.5x Retina Scale)
-    const dpr = 2.5;
-    const canvasWidth = Math.max(Math.round(rawWidth * dpr), 1400);
-    const canvasHeight = Math.max(Math.round(rawHeight * dpr), 900);
-
+    const padding = 80;
+    const rawW = maxX - minX + padding * 2;
+    const rawH = maxY - minY + padding * 2;
+    const dpr = 2;
     const canvas = document.createElement("canvas");
-    canvas.width = canvasWidth;
-    canvas.height = canvasHeight;
+    canvas.width = Math.round(rawW * dpr);
+    canvas.height = Math.round(rawH * dpr);
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Scale context for ultra-crisp Retina text and curves
     ctx.scale(dpr, dpr);
+    ctx.translate(-minX + padding, -minY + padding);
 
-    const virtualW = canvasWidth / dpr;
-    const virtualH = canvasHeight / dpr;
+    // Dark Background
+    ctx.fillStyle = "#020617";
+    ctx.fillRect(minX - padding, minY - padding, rawW, rawH);
 
-    // Center the content in the virtual canvas
-    const offsetX = (virtualW - rawWidth) / 2 + paddingX - minX;
-    const offsetY = (virtualH - rawHeight) / 2 + paddingY + headerHeight - minY;
-
-    // 2. Dark Studio Gradient Background
-    const bgGrad = ctx.createLinearGradient(0, 0, virtualW, virtualH);
-    bgGrad.addColorStop(0, "#070B14");
-    bgGrad.addColorStop(0.5, "#0D1527");
-    bgGrad.addColorStop(1, "#070B14");
-    ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, virtualW, virtualH);
-
-    // Subtle decorative grid dots
-    ctx.fillStyle = "rgba(139, 92, 246, 0.08)";
-    for (let x = 0; x < virtualW; x += 32) {
-      for (let y = 0; y < virtualH; y += 32) {
-        ctx.beginPath();
-        ctx.arc(x, y, 1.2, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-
-    // Outer subtle border
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(20, 20, virtualW - 40, virtualH - 40);
-
-    // 3. Centered Elegant Header Banner
-    const rootNode = nodes.find(n => n.parentId === null) || nodes[0];
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-
-    // Top Brand Tag
-    ctx.fillStyle = "#A855F7";
-    ctx.font = "bold 12px Inter, sans-serif";
-    ctx.fillText("FLOWTRACK PRO • VISUAL STUDY ARCHITECTURE", virtualW / 2, 45);
-
-    // Root Title Banner
-    ctx.fillStyle = "#FFFFFF";
-    ctx.font = "bold 26px Inter, sans-serif";
-    ctx.fillText(rootNode ? rootNode.text : "Mind Map", virtualW / 2, 75);
-
-    // Metadata Subtitle
-    ctx.fillStyle = "#94A3B8";
-    ctx.font = "12px Inter, sans-serif";
-    const masteredCount = nodes.filter(n => n.status === "done").length;
-    ctx.fillText(
-      `${nodes.length} Concepts • ${masteredCount} Mastered • Exported ${new Date().toLocaleDateString()}`,
-      virtualW / 2,
-      102
-    );
-
-    // 4. Draw Connecting Bezier Curves
-    nodes.forEach(node => {
+    // Draw Connectors
+    nodes.forEach((node) => {
       if (!node.parentId) return;
-      const parent = nodes.find(n => n.id === node.parentId);
-      if (!parent || parent.collapsed) return;
+      const parent = nodes.find((n) => n.id === node.parentId);
+      if (!parent) return;
 
       const pW = parent.parentId === null ? 220 : 180;
-      const pH = 48;
-      const nW = 180;
-      const nH = 48;
-
-      const isLeft = node.x < parent.x;
-      const startX = (isLeft ? parent.x : parent.x + pW) + offsetX;
-      const startY = parent.y + pH / 2 + offsetY;
-      const endX = (isLeft ? node.x + nW : node.x) + offsetX;
-      const endY = node.y + nH / 2 + offsetY;
+      const startX = node.x < parent.x ? parent.x : parent.x + pW;
+      const startY = parent.y + 24;
+      const endX = node.x < parent.x ? node.x + 180 : node.x;
+      const endY = node.y + 24;
 
       ctx.beginPath();
       ctx.moveTo(startX, startY);
       const cpX = (startX + endX) / 2;
       ctx.bezierCurveTo(cpX, startY, cpX, endY, endX, endY);
-
-      // Gradient Stroke for Curve
-      const lineGrad = ctx.createLinearGradient(startX, startY, endX, endY);
-      lineGrad.addColorStop(0, parent.color || "#8B5CF6");
-      lineGrad.addColorStop(1, node.color || "#06B6D4");
-
-      ctx.strokeStyle = lineGrad;
-      ctx.lineWidth = 3.5;
-      ctx.lineCap = "round";
+      ctx.strokeStyle = node.color || "#8b5cf6";
+      ctx.lineWidth = 2.5;
       ctx.stroke();
     });
 
-    // 5. Draw Node Cards
-    nodes.forEach(node => {
-      let current = node;
-      let isHidden = false;
-      while (current.parentId) {
-        const p = nodes.find(n => n.id === current.parentId);
-        if (p?.collapsed) { isHidden = true; break; }
-        if (!p) break;
-        current = p;
-      }
-      if (isHidden) return;
+    // Draw Cross-links
+    relationships.forEach((rel) => {
+      const fromNode = nodes.find((n) => n.id === rel.from);
+      const toNode = nodes.find((n) => n.id === rel.to);
+      if (!fromNode || !toNode) return;
 
+      ctx.save();
+      ctx.setLineDash([5, 5]);
+      ctx.strokeStyle = rel.color || "#06b6d4";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(fromNode.x + 90, fromNode.y + 24);
+      ctx.lineTo(toNode.x + 90, toNode.y + 24);
+      ctx.stroke();
+      ctx.restore();
+    });
+
+    // Draw Nodes
+    nodes.forEach((node) => {
       const isRoot = node.parentId === null;
       const w = isRoot ? 220 : 180;
       const h = 48;
-      const x = node.x + offsetX;
-      const y = node.y + offsetY;
-      const colorObj = COLOR_PRESETS.find(c => c.hex === node.color) || COLOR_PRESETS[0];
+      const r = 16;
 
-      // Card Background Gradient
-      const cardGrad = ctx.createLinearGradient(x, y, x, y + h);
-      if (isRoot) {
-        cardGrad.addColorStop(0, "rgba(88, 28, 135, 0.95)");
-        cardGrad.addColorStop(1, "rgba(15, 23, 42, 0.98)");
-      } else {
-        cardGrad.addColorStop(0, "rgba(30, 41, 59, 0.95)");
-        cardGrad.addColorStop(1, "rgba(15, 23, 42, 0.98)");
-      }
-
-      ctx.fillStyle = cardGrad;
+      ctx.save();
       ctx.beginPath();
-      if (typeof ctx.roundRect === "function") {
-        ctx.roundRect(x, y, w, h, 14);
-      } else {
-        ctx.rect(x, y, w, h);
-      }
+      ctx.roundRect(node.x, node.y, w, h, r);
+      ctx.fillStyle = "#0f172a";
       ctx.fill();
-
-      // Card Glowing Border
-      ctx.strokeStyle = node.color || colorObj.border;
-      ctx.lineWidth = isRoot ? 2.8 : 2;
+      ctx.strokeStyle = node.color || "#a855f7";
+      ctx.lineWidth = 2;
       ctx.stroke();
 
-      // Status indicator circle
-      const dotX = x + 16;
-      const dotY = y + h / 2;
-      ctx.beginPath();
-      ctx.arc(dotX, dotY, 4.5, 0, Math.PI * 2);
-      ctx.fillStyle = node.status === "done" ? "#10B981" : node.status === "in-progress" ? "#F59E0B" : "#64748B";
-      ctx.fill();
-
-      // Node Text
-      ctx.fillStyle = "#FFFFFF";
-      ctx.font = `bold ${isRoot ? 14 : 12.5}px Inter, sans-serif`;
+      // Text
+      ctx.fillStyle = "#f8fafc";
+      ctx.font = `bold 12px system-ui, sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-
-      const maxTextWidth = w - 40;
-      let displayText = node.text;
-      if (ctx.measureText(displayText).width > maxTextWidth) {
-        while (displayText.length > 3 && ctx.measureText(displayText + "...").width > maxTextWidth) {
-          displayText = displayText.slice(0, -1);
-        }
-        displayText += "...";
-      }
-      ctx.fillText(displayText, x + w / 2 + 6, y + h / 2);
+      ctx.fillText(node.text.slice(0, 24), node.x + w / 2, node.y + h / 2);
+      ctx.restore();
     });
 
-    const dataUrl = canvas.toDataURL("image/png", 1.0);
-    const cleanTopic = (rootNode?.text || "StudyMap").replace(/[^\w\s-]/g, "").trim().slice(0, 30).replace(/\s+/g, "_") || "StudyMap";
-    const dateStr = new Date().toISOString().slice(0, 10);
-    const defaultFilename = `FlowTrack_MindMap_${cleanTopic}_${dateStr}.png`;
-    const res = await saveImageSafely(dataUrl, defaultFilename);
-    if (res.success) {
-      showToast(`💾 Saved: ${res.filename || defaultFilename}`, "success");
+    const dataUrl = canvas.toDataURL("image/png");
+    saveImageSafely(dataUrl, "mindmap-crisp-export.png");
+    showToast("Mind Map PNG Exported", "success");
+  };
+
+  // AI Topic Generation
+  const generateCustomAiMap = async () => {
+    const topic = customAiTopic.trim();
+    if (!topic) return;
+
+    setIsAiGenerating(true);
+    try {
+      const prompt = `Generate a structured, hierarchical JSON mind map for the topic: "${topic}".
+Output ONLY valid JSON in this exact shape:
+{
+  "title": "${topic}",
+  "nodes": [
+    { "id": "root", "parentId": null, "text": "${topic}", "side": null },
+    { "id": "sub1", "parentId": "root", "text": "Subtopic 1", "side": "left" }
+  ]
+}
+Provide 8 to 14 insightful subtopics categorized cleanly with 'side': 'left' or 'right'. No markdown formatting, just pure JSON.`;
+
+      const response = await callUnifiedAI(prompt);
+      const cleaned = (response.text || "").replace(/```json/g, "").replace(/```/g, "").trim();
+      const parsed = JSON.parse(cleaned);
+
+      if (parsed.nodes && Array.isArray(parsed.nodes)) {
+        const coloredNodes: MindNode[] = parsed.nodes.map((n: any, idx: number) => ({
+          ...n,
+          x: 500,
+          y: 320,
+          color: COLOR_PRESETS[idx % COLOR_PRESETS.length].hex,
+          status: "todo",
+        }));
+        const laidOut = calculateTreeLayout(coloredNodes, layoutMode);
+        pushState(laidOut);
+        setShowAiModal(false);
+        showToast(`AI Mind Map generated for "${topic}"`, "success");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("AI generation failed. Please try a manual root node.", "warning");
+    } finally {
+      setIsAiGenerating(false);
     }
   };
 
-  // Export Mind Map as Markdown Outline
-  const exportMarkdown = () => {
-    const root = nodes.find(n => n.parentId === null) || nodes[0];
-    let md = `# ${root.text}\n\n`;
-
-    const buildSubtree = (parentId: string, level: number) => {
-      const children = nodes.filter(n => n.parentId === parentId);
-      children.forEach(child => {
-        const indent = "  ".repeat(level);
-        const statusEmoji = child.status === "done" ? " [x]" : " [ ]";
-        md += `${indent}-${statusEmoji} **${child.text}**\n`;
-        buildSubtree(child.id, level + 1);
-      });
-    };
-
-    buildSubtree(root.id, 0);
-
-    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
-    const cleanTopic = (root?.text || "StudyNotes").replace(/[^\w\s-]/g, "").trim().slice(0, 30).replace(/\s+/g, "_") || "StudyNotes";
-    const dateStr = new Date().toISOString().slice(0, 10);
-    const filename = `FlowTrack_MindMap_Notes_${cleanTopic}_${dateStr}.md`;
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast(`💾 Exported: ${filename}`, "success");
+  // Presentation Mode Stepper
+  const advancePresentation = (step: number) => {
+    const nextIdx = Math.max(0, Math.min(nodes.length - 1, presentIndex + step));
+    setPresentIndex(nextIdx);
+    setSelectedNodeId(nodes[nextIdx].id);
   };
 
-  // Filtered nodes by search query
-  const matchingNodeIds = useMemo(() => {
-    if (!searchQuery.trim()) return new Set<string>();
-    const q = searchQuery.toLowerCase();
-    return new Set(nodes.filter(n => n.text.toLowerCase().includes(q)).map(n => n.id));
-  }, [nodes, searchQuery]);
-
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] p-4 space-y-3 bg-slate-950 text-slate-100 overflow-hidden select-none">
-      {/* ─── Header Toolbar ─────────────────────────────────────────────────── */}
-      <Panel className="p-3 bg-slate-900/90 backdrop-blur border-slate-800 shadow-xl rounded-2xl shrink-0">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {/* Left: Mode Tabs & Title */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 mr-2">
+    <div className="flex flex-col h-[calc(100vh-4rem)] p-3 md:p-4 space-y-3 bg-slate-950 text-slate-100 overflow-hidden select-none">
+      {/* ─── Header Toolbar ─── */}
+      <Panel className="p-2.5 bg-slate-900/95 backdrop-blur border-slate-800 shadow-xl rounded-2xl shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          {/* Left: Engine Mode & Outline Drawer Toggle */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mr-1">
               <BrainCircuit className="w-5 h-5 text-purple-400 animate-pulse" />
-              <span className="font-extrabold text-sm tracking-wide text-white">Visual Studio</span>
+              <span className="font-extrabold text-sm tracking-wide text-white hidden sm:inline">Visual Studio</span>
             </div>
 
-            <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
+            <button
+              onClick={() => setShowOutline((prev) => !prev)}
+              className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition ${
+                showOutline
+                  ? "bg-purple-600/30 border-purple-500/50 text-purple-200"
+                  : "bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-800"
+              }`}
+              title="Toggle Outline Tree (Ctrl+Shift+O)"
+            >
+              <FolderTree className="w-4 h-4" />
+              <span className="hidden md:inline">Outline</span>
+            </button>
+
+            {/* Layout Mode Selector */}
+            <div className="flex items-center bg-slate-950 p-0.5 rounded-xl border border-slate-800 text-xs">
               <button
-                onClick={() => setEngineMode("tree")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                  engineMode === "tree"
-                    ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
-                    : "text-slate-400 hover:text-slate-200"
+                onClick={() => handleApplyLayoutMode("balanced")}
+                className={`px-2 py-1 rounded-lg transition font-medium ${
+                  layoutMode === "balanced" ? "bg-purple-600 text-white shadow" : "text-slate-400 hover:text-white"
                 }`}
+                title="Balanced Layout"
               >
-                🧠 Smart Mind Map
+                Balanced
               </button>
               <button
-                onClick={() => setEngineMode("whiteboard")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                  engineMode === "whiteboard"
-                    ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
-                    : "text-slate-400 hover:text-slate-200"
+                onClick={() => handleApplyLayoutMode("right-only")}
+                className={`px-2 py-1 rounded-lg transition font-medium ${
+                  layoutMode === "right-only" ? "bg-purple-600 text-white shadow" : "text-slate-400 hover:text-white"
                 }`}
+                title="Right-Only Mind Map"
               >
-                🎨 Studio Whiteboard
+                Right
+              </button>
+              <button
+                onClick={() => handleApplyLayoutMode("tree")}
+                className={`px-2 py-1 rounded-lg transition font-medium ${
+                  layoutMode === "tree" ? "bg-purple-600 text-white shadow" : "text-slate-400 hover:text-white"
+                }`}
+                title="Vertical Tree"
+              >
+                Tree
               </button>
             </div>
-
-            {/* Quick Templates Dropdown */}
-            {engineMode === "tree" && (
-              <div className="hidden lg:flex items-center gap-1.5 pl-2 border-l border-slate-800">
-                <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
-                  <LayoutTemplate className="w-3.5 h-3.5 text-purple-400" /> Templates:
-                </span>
-                {Object.entries(TEMPLATES).map(([key, t]) => (
-                  <button
-                    key={key}
-                    onClick={() => loadTemplate(key)}
-                    className="px-2.5 py-1 text-[11px] font-medium bg-slate-800/80 hover:bg-purple-600/30 hover:text-purple-200 rounded-lg text-slate-300 border border-slate-700/60 transition"
-                  >
-                    {t.name.split(" ")[0]} {t.name.split(" ")[1]}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
-          {/* Right: Actions */}
+          {/* Center: Search & Focus */}
           <div className="flex items-center gap-2">
-            {engineMode === "tree" && (
-              <>
-                {/* Search Bar */}
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    ref={searchInputRef}
-                    type="text"
-                    placeholder="Find concept..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-36 md:w-44 pl-8 pr-2.5 py-1.5 text-xs bg-slate-950 border border-slate-700/70 rounded-xl text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:w-52 transition-all"
-                  />
-                  {searchQuery && (
-                    <button 
-                      onClick={() => setSearchQuery("")}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-
-                {/* AI Mind Map Generator Button */}
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Search concepts..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-32 md:w-44 pl-8 pr-2 py-1 text-xs bg-slate-950 border border-slate-800 rounded-xl text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:w-52 transition-all"
+              />
+              {searchQuery && (
                 <button
-                  onClick={() => setShowAiModal(true)}
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-600/25 border border-purple-400/30 transition flex items-center gap-1.5 animate-pulse"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
                 >
-                  <Wand2 className="w-3.5 h-3.5" /> <span>AI Generator</span>
+                  <X className="w-3 h-3" />
                 </button>
+              )}
+            </div>
 
-                {/* Auto-Align Tree */}
-                <button
-                  onClick={autoAlignTree}
-                  className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 transition flex items-center gap-1.5"
-                  title="Auto-organize nodes into clean hierarchical layout"
-                >
-                  <LayoutTemplate className="w-3.5 h-3.5" /> <span>Auto-Align</span>
-                </button>
-
-                {/* Add Topic Box */}
-                <button
-                  onClick={() => addIndependentTopic()}
-                  className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 transition flex items-center gap-1"
-                  title="Add independent topic box"
-                >
-                  <Plus className="w-3.5 h-3.5" /> <span>+ Topic</span>
-                </button>
-
-                {/* Add Subtopic */}
-                <button
-                  onClick={() => addSubtopic()}
-                  className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 transition flex items-center gap-1"
-                  title="Add child subtopic to selected node (Shortcut: Tab)"
-                >
-                  <CornerDownRight className="w-3.5 h-3.5" /> <span>+ Subtopic</span>
-                </button>
-
-                {/* Color Palette Picker */}
-                <div className="hidden xl:flex items-center gap-1 px-2 py-1 bg-slate-950/80 border border-slate-800 rounded-xl">
-                  {COLOR_PRESETS.map(c => (
-                    <button
-                      key={c.hex}
-                      onClick={() => setNodeColor(c.hex)}
-                      className={`w-4 h-4 rounded-full transition transform hover:scale-125 ${
-                        activeColor === c.hex ? "ring-2 ring-white scale-110" : ""
-                      }`}
-                      style={{ backgroundColor: c.hex }}
-                      title={`Accent: ${c.name}`}
-                    />
-                  ))}
-                </div>
-
-                {/* Undo / Redo */}
-                <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-0.5">
-                  <button
-                    onClick={undo}
-                    disabled={historyIdx <= 0}
-                    className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400"
-                    title="Undo (Ctrl+Z)"
-                  >
-                    <Undo className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={redo}
-                    disabled={historyIdx >= history.length - 1}
-                    className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400"
-                    title="Redo (Ctrl+Y)"
-                  >
-                    <Redo className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                {/* Export Dropdown / Buttons */}
-                <button
-                  onClick={exportPNG}
-                  className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-purple-600/30 hover:bg-purple-600/40 text-purple-200 border border-purple-500/40 transition flex items-center gap-1 shadow-md shadow-purple-500/20"
-                  title="Export High-Resolution 4K PNG"
-                >
-                  <Download className="w-3.5 h-3.5" /> <span>4K PNG</span>
-                </button>
-
-                <button
-                  onClick={exportMarkdown}
-                  className="p-1.5 rounded-xl text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition"
-                  title="Export Markdown Outline (.md)"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                </button>
-
-                {/* Shortcuts Guide */}
-                <button
-                  onClick={() => setShowShortcutsModal(true)}
-                  className="p-1.5 rounded-xl text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition"
-                  title="Keyboard Shortcuts"
-                >
-                  <HelpCircle className="w-3.5 h-3.5" />
-                </button>
-              </>
-            )}
-
-            {/* Fullscreen Toggle */}
             <button
-              onClick={() => setIsFullscreen(!isFullscreen)}
-              className="p-1.5 rounded-xl text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition"
-              title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+              onClick={() => setIsFocusMode((prev) => !prev)}
+              className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1 transition ${
+                isFocusMode
+                  ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
+                  : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
+              }`}
+              title="Focus Branch Mode (Ctrl+Shift+F)"
             >
-              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5 text-purple-400" />}
+              <Eye className="w-4 h-4" />
+              <span className="hidden lg:inline">Focus</span>
+            </button>
+
+            <button
+              onClick={() => {
+                if (nodes.length > 0) {
+                  setIsPresentMode(true);
+                  setPresentIndex(0);
+                }
+              }}
+              disabled={nodes.length === 0}
+              className="p-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-xs text-slate-300 hover:text-white transition flex items-center gap-1 disabled:opacity-40"
+              title="Presentation Mode"
+            >
+              <Play className="w-4 h-4 text-emerald-400" />
+              <span className="hidden lg:inline">Present</span>
+            </button>
+          </div>
+
+          {/* Right: Actions, Import, Export, Shortcuts */}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setShowAiModal(true)}
+              className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-md shadow-purple-600/20 border border-purple-400/30 transition flex items-center gap-1"
+            >
+              <Wand2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">AI Generate</span>
+            </button>
+
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="p-1.5 rounded-xl text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition"
+              title="Import Markdown Outline"
+            >
+              <Upload className="w-3.5 h-3.5" />
+            </button>
+
+            <button
+              onClick={exportMarkdown}
+              className="p-1.5 rounded-xl text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition"
+              title="Export Markdown Outline (.md)"
+            >
+              <FileText className="w-3.5 h-3.5" />
+            </button>
+
+            <button
+              onClick={exportPNG}
+              className="p-1.5 rounded-xl text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition"
+              title="Export High-Res PNG"
+            >
+              <Download className="w-3.5 h-3.5" />
+            </button>
+
+            <button
+              onClick={undo}
+              disabled={historyIdx <= 0}
+              className="p-1.5 rounded-xl text-slate-400 hover:text-white bg-slate-800 border border-slate-700 transition disabled:opacity-30"
+              title="Undo (Ctrl+Z)"
+            >
+              <Undo className="w-3.5 h-3.5" />
+            </button>
+
+            <button
+              onClick={redo}
+              disabled={historyIdx >= history.length - 1}
+              className="p-1.5 rounded-xl text-slate-400 hover:text-white bg-slate-800 border border-slate-700 transition disabled:opacity-30"
+              title="Redo (Ctrl+Shift+Z)"
+            >
+              <Redo className="w-3.5 h-3.5" />
+            </button>
+
+            <button
+              onClick={() => setShowShortcutsModal(true)}
+              className="p-1.5 rounded-xl text-slate-400 hover:text-white bg-slate-800 border border-slate-700 transition"
+              title="Keyboard Shortcuts"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
       </Panel>
 
-      {/* ─── Main Mind Map Canvas / Whiteboard ───────────────────────────────── */}
-      {engineMode === "tree" ? (
-        <div className="relative flex-1 rounded-2xl overflow-hidden border border-slate-800/80 bg-[#070B14] shadow-2xl">
-          <div
-            ref={containerRef}
-            className={`w-full h-full relative overflow-hidden select-none ${
-              isPanning ? "cursor-grabbing" : "cursor-grab"
-            }`}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onWheel={handleWheel}
-            onDoubleClick={handleCanvasDoubleClick}
-          >
-            {/* Ambient Background Grid Pattern */}
-            <div
-              className="absolute inset-0 pointer-events-none opacity-20"
-              style={{
-                backgroundImage: `radial-gradient(circle at 1.5px 1.5px, #8b5cf6 1.2px, transparent 0)`,
-                backgroundSize: `${32 * zoom}px ${32 * zoom}px`,
-                backgroundPosition: `${pan.x}px ${pan.y}px`
-              }}
-            />
+      {/* ─── Main Workspace Area ─── */}
+      <div className="relative flex-1 flex overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/40">
+        {/* ─── Collapsible Left Outline Drawer ─── */}
+        {showOutline && (
+          <aside className="w-72 bg-slate-900/95 backdrop-blur border-r border-slate-800 flex flex-col z-30 shrink-0">
+            <div className="p-3 border-b border-slate-800 flex items-center justify-between">
+              <span className="text-xs font-bold tracking-wider text-slate-300 uppercase flex items-center gap-1.5">
+                <FolderTree className="w-3.5 h-3.5 text-purple-400" /> Topic Outline
+              </span>
+              <button
+                onClick={() => addSubtopic()}
+                className="px-2 py-0.5 rounded-lg bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 text-xs font-semibold flex items-center gap-1 border border-purple-500/30"
+              >
+                <Plus className="w-3 h-3" /> Add Child
+              </button>
+            </div>
 
-            {/* Transform Container for SVG & Floating Nodes */}
-            <div
-              className="absolute inset-0 origin-top-left"
-              style={{
-                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-                transition: isPanning || draggingNodeId ? "none" : "transform 0.08s ease-out"
-              }}
-            >
-              {/* Dynamic Connecting Curved Lines */}
-              <svg className="absolute inset-0 w-[8000px] h-[8000px] pointer-events-none overflow-visible">
-                <defs>
-                  <linearGradient id="curveGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#a855f7" stopOpacity="0.8" />
-                    <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.8" />
-                  </linearGradient>
-                </defs>
-
-                {nodes.map(node => {
-                  if (!node.parentId) return null;
-                  const parent = nodes.find(n => n.id === node.parentId);
-                  if (!parent || parent.collapsed) return null;
-
-                  const pW = parent.parentId === null ? 220 : 180;
-                  const pH = 48;
-                  const nW = 180;
-                  const nH = 48;
-
-                  const isLeft = node.x < parent.x;
-                  const startX = isLeft ? parent.x : parent.x + pW;
-                  const startY = parent.y + pH / 2;
-                  const endX = isLeft ? node.x + nW : node.x;
-                  const endY = node.y + nH / 2;
-
-                  let pathD = "";
-                  if (curveStyle === "bezier") {
-                    const cpX = (startX + endX) / 2;
-                    pathD = `M ${startX} ${startY} C ${cpX} ${startY}, ${cpX} ${endY}, ${endX} ${endY}`;
-                  } else if (curveStyle === "straight") {
-                    pathD = `M ${startX} ${startY} L ${endX} ${endY}`;
-                  } else {
-                    const midX = (startX + endX) / 2;
-                    pathD = `M ${startX} ${startY} H ${midX} V ${endY} H ${endX}`;
-                  }
-
-                  const isParentSelected = selectedNodeId === parent.id || selectedNodeId === node.id;
-
-                  return (
-                    <path
-                      key={`line-${node.id}`}
-                      d={pathD}
-                      fill="none"
-                      stroke={node.color || "#8b5cf6"}
-                      strokeWidth={isParentSelected ? curveWidth + 1.5 : curveWidth}
-                      strokeOpacity={isParentSelected ? 0.95 : 0.65}
-                      strokeLinecap="round"
-                      className="transition-all duration-200"
-                    />
-                  );
-                })}
-              </svg>
-
-              {/* Node Cards */}
-              {nodes.map(node => {
-                // If parent is collapsed, hide this node
-                let current = node;
-                let isHidden = false;
-                while (current.parentId) {
-                  const p = nodes.find(n => n.id === current.parentId);
-                  if (p?.collapsed) {
-                    isHidden = true;
-                    break;
-                  }
-                  if (!p) break;
-                  current = p;
-                }
-                if (isHidden) return null;
-
-                const isSelected = selectedNodeId === node.id;
-                const isEditing = editingNodeId === node.id;
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {nodes.map((node) => {
+                const isSelected = node.id === selectedNodeId;
                 const isRoot = node.parentId === null;
-                const colorObj = COLOR_PRESETS.find(c => c.hex === node.color) || COLOR_PRESETS[0];
-                const hasChildren = nodes.some(n => n.parentId === node.id);
-                const isSearchMatch = matchingNodeIds.has(node.id);
-
+                const depth = isRoot ? 0 : 1;
                 return (
                   <div
-                    key={node.id}
-                    onMouseDown={(e) => handleNodeMouseDown(e, node)}
-                    onDoubleClick={(e) => { e.stopPropagation(); startInlineEdit(node); }}
-                    className={`absolute flex items-center justify-between px-3 py-2 rounded-2xl cursor-pointer border transition-shadow select-none group ${
-                      isSelected
-                        ? "ring-4 ring-cyan-400/60 shadow-cyan-400/30 scale-[1.03] z-30"
-                        : "hover:scale-[1.02] hover:border-white/50 z-10"
-                    } ${isSearchMatch ? "ring-4 ring-amber-400 shadow-amber-400/40 animate-bounce" : ""}`}
-                    style={{
-                      left: `${node.x}px`,
-                      top: `${node.y}px`,
-                      width: isRoot ? "220px" : "180px",
-                      height: "48px",
-                      background: isRoot
-                        ? "linear-gradient(135deg, rgba(168,85,247,0.4) 0%, rgba(30,41,59,0.95) 100%)"
-                        : `linear-gradient(135deg, ${colorObj.bg} 0%, rgba(15,23,42,0.95) 100%)`,
-                      borderColor: isSearchMatch ? "#fbbf24" : colorObj.border,
-                      boxShadow: isSelected 
-                        ? `0 0 25px ${colorObj.border}88, 0 8px 25px -4px ${colorObj.border}55` 
-                        : `0 8px 20px -4px ${node.color}33`
+                    key={`outline-${node.id}`}
+                    onClick={() => {
+                      setSelectedNodeId(node.id);
+                      setPan({
+                        x: 200 - node.x * zoom,
+                        y: 200 - node.y * zoom,
+                      });
                     }}
+                    className={`flex items-center justify-between p-1.5 rounded-xl text-xs cursor-pointer transition ${
+                      isSelected
+                        ? "bg-purple-600/30 border border-purple-500/50 text-white"
+                        : "hover:bg-slate-800/60 text-slate-300"
+                    }`}
+                    style={{ paddingLeft: `${depth * 16 + 8}px` }}
                   >
-                    {/* Status Pill Toggle */}
+                    <div className="flex items-center gap-2 truncate">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          cycleNodeStatus(node.id);
+                        }}
+                      >
+                        {node.status === "done" ? (
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                        ) : node.status === "in-progress" ? (
+                          <Clock className="w-3 h-3 text-amber-400" />
+                        ) : (
+                          <Circle className="w-3 h-3 text-slate-500" />
+                        )}
+                      </button>
+                      <span className="truncate">{node.text}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1 opacity-60 hover:opacity-100">
+                      {node.notes && <FileText className="w-3 h-3 text-cyan-400" />}
+                      {node.imageUrl && <ImageIcon className="w-3 h-3 text-pink-400" />}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </aside>
+        )}
+
+        {/* ─── Interactive Canvas Viewport ─── */}
+        <div
+          ref={containerRef}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onWheel={handleWheel}
+          className="relative flex-1 overflow-hidden cursor-grab active:cursor-grabbing bg-slate-950"
+        >
+          {/* Subtle Grid Pattern */}
+          <div 
+            className="absolute inset-0 pointer-events-none opacity-20"
+            style={{
+              backgroundImage: `radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.25) 1px, transparent 0)`,
+              backgroundSize: "24px 24px",
+            }}
+          />
+
+          {/* Empty State Card */}
+          {nodes.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center p-6 z-20">
+              <div className="max-w-md w-full bg-slate-900/90 backdrop-blur border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4 text-center">
+                <div className="w-12 h-12 mx-auto rounded-2xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                  <BrainCircuit className="w-6 h-6 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Create Your Mind Map</h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Start blank with a subject name, paste a Markdown outline, or pick a template.
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Enter main subject (e.g. Operating Systems)"
+                    value={emptyRootInput}
+                    onChange={(e) => setEmptyRootInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && emptyRootInput.trim()) {
+                        addIndependentTopic(emptyRootInput.trim());
+                        setEmptyRootInput("");
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"
+                  />
+                  <button
+                    onClick={() => {
+                      if (emptyRootInput.trim()) {
+                        addIndependentTopic(emptyRootInput.trim());
+                        setEmptyRootInput("");
+                      }
+                    }}
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white transition shadow-lg shadow-purple-600/30"
+                  >
+                    Create
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-center gap-2 pt-2 border-t border-slate-800/60 text-xs">
+                  <button
+                    onClick={() => setShowImportModal(true)}
+                    className="text-purple-400 hover:text-purple-300 font-semibold"
+                  >
+                    Paste Outline
+                  </button>
+                  <span className="text-slate-600">•</span>
+                  <button
+                    onClick={() => {
+                      const t = TEMPLATES.java.nodes;
+                      pushState(calculateTreeLayout(t, layoutMode));
+                    }}
+                    className="text-slate-400 hover:text-white"
+                  >
+                    Load Sample Map
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Transformed Canvas Content */}
+          <div
+            className="absolute inset-0 origin-top-left pointer-events-none"
+            style={{
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            }}
+          >
+            {/* SVG Connecting Edges & Cross-links */}
+            <svg className="absolute inset-0 w-[8000px] h-[8000px] pointer-events-none overflow-visible">
+              <defs>
+                <marker
+                  id="arrow"
+                  viewBox="0 0 10 10"
+                  refX="6"
+                  refY="5"
+                  markerWidth="6"
+                  markerHeight="6"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M 0 1 L 8 5 L 0 9 z" fill="#06b6d4" />
+                </marker>
+              </defs>
+
+              {/* Hierarchy Tree Edges */}
+              {nodes.map((node) => {
+                if (!node.parentId) return null;
+                const parent = nodes.find((n) => n.id === node.parentId);
+                if (!parent || parent.collapsed) return null;
+
+                const pW = parent.parentId === null ? 220 : 180;
+                const pH = 48;
+                const nW = 180;
+                const nH = 48;
+
+                const isLeft = node.x < parent.x;
+                const startX = isLeft ? parent.x : parent.x + pW;
+                const startY = parent.y + pH / 2;
+                const endX = isLeft ? node.x + nW : node.x;
+                const endY = node.y + nH / 2;
+
+                const deltaX = Math.abs(endX - startX) * 0.55;
+                const cp1X = isLeft ? startX - deltaX : startX + deltaX;
+                const cp2X = isLeft ? endX + deltaX : endX - deltaX;
+                const pathD = `M ${startX} ${startY} C ${cp1X} ${startY}, ${cp2X} ${endY}, ${endX} ${endY}`;
+
+                return (
+                  <path
+                    key={`line-${node.id}`}
+                    d={pathD}
+                    fill="none"
+                    stroke={node.color || "#8b5cf6"}
+                    strokeWidth={curveWidth}
+                    strokeOpacity={branchIds && !branchIds.has(node.id) ? 0.15 : 0.75}
+                    strokeLinecap="round"
+                  />
+                );
+              })}
+
+              {/* Cross-Link Relationships */}
+              {relationships.map((rel) => {
+                const fromNode = nodes.find((n) => n.id === rel.from);
+                const toNode = nodes.find((n) => n.id === rel.to);
+                if (!fromNode || !toNode) return null;
+
+                const startX = fromNode.x + 90;
+                const startY = fromNode.y + 24;
+                const endX = toNode.x + 90;
+                const endY = toNode.y + 24;
+
+                const midX = (startX + endX) / 2;
+                const midY = (startY + endY) / 2 - 30;
+                const pathD = `M ${startX} ${startY} Q ${midX} ${midY} ${endX} ${endY}`;
+
+                return (
+                  <g key={`rel-${rel.id}`}>
+                    <path
+                      d={pathD}
+                      fill="none"
+                      stroke={rel.color || "#06b6d4"}
+                      strokeWidth={2}
+                      strokeDasharray="5,5"
+                      markerEnd="url(#arrow)"
+                      opacity={branchIds && (!branchIds.has(rel.from) || !branchIds.has(rel.to)) ? 0.15 : 0.85}
+                    />
+                    {rel.label && (
+                      <text
+                        x={midX}
+                        y={midY}
+                        fill="#67e8f9"
+                        fontSize="10"
+                        fontWeight="bold"
+                        textAnchor="middle"
+                        className="bg-slate-900"
+                      >
+                        {rel.label}
+                      </text>
+                    )}
+                  </g>
+                );
+              })}
+
+              {/* Ghost Indicator Line on Drag Reparenting */}
+              {draggingNodeId && hoverReparentTargetId && (
+                (() => {
+                  const dragged = nodes.find((n) => n.id === draggingNodeId);
+                  const target = nodes.find((n) => n.id === hoverReparentTargetId);
+                  if (!dragged || !target) return null;
+                  return (
+                    <line
+                      x1={dragged.x + 90}
+                      y1={dragged.y + 24}
+                      x2={target.x + 90}
+                      y2={target.y + 24}
+                      stroke="#10b981"
+                      strokeWidth={3}
+                      strokeDasharray="6,4"
+                      className="animate-pulse"
+                    />
+                  );
+                })()
+              )}
+            </svg>
+
+            {/* Render Node Cards */}
+            {nodes.map((node) => {
+              const isSelected = node.id === selectedNodeId;
+              const isRoot = node.parentId === null;
+              const isEditing = node.id === editingNodeId;
+              const isHoverTarget = node.id === hoverReparentTargetId;
+              const isSearchMatch = matchingNodeIds.has(node.id);
+              const isDimmed = branchIds !== null && !branchIds.has(node.id);
+              const colorObj = COLOR_PRESETS.find((c) => c.hex === node.color) || COLOR_PRESETS[0];
+
+              return (
+                <div
+                  key={node.id}
+                  onMouseDown={(e) => handleNodeMouseDown(e, node)}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    startInlineEdit(node);
+                  }}
+                  className={`absolute pointer-events-auto flex flex-col justify-between p-2 rounded-2xl cursor-pointer border transition-all select-none group ${
+                    isSelected
+                      ? "ring-4 ring-cyan-400/60 shadow-cyan-400/30 scale-[1.02] z-30"
+                      : isHoverTarget
+                      ? "ring-4 ring-emerald-400 shadow-emerald-400/40 scale-[1.04] z-30"
+                      : "hover:scale-[1.01] hover:border-white/50 z-10"
+                  } ${isSearchMatch ? "ring-4 ring-amber-400 animate-bounce" : ""}`}
+                  style={{
+                    left: `${node.x}px`,
+                    top: `${node.y}px`,
+                    width: isRoot ? "220px" : "180px",
+                    minHeight: "48px",
+                    opacity: isDimmed ? 0.15 : 1,
+                    background: isRoot
+                      ? "linear-gradient(135deg, rgba(168,85,247,0.4) 0%, rgba(30,41,59,0.95) 100%)"
+                      : `linear-gradient(135deg, ${colorObj.bg} 0%, rgba(15,23,42,0.95) 100%)`,
+                    borderColor: isHoverTarget ? "#10b981" : isSearchMatch ? "#fbbf24" : colorObj.border,
+                    boxShadow: isSelected
+                      ? `0 0 25px ${colorObj.border}88, 0 8px 25px -4px ${colorObj.border}55`
+                      : `0 8px 20px -4px ${node.color}33`,
+                  }}
+                >
+                  {/* Thumbnail Image if Attached */}
+                  {node.imageUrl && (
+                    <div className="w-full h-16 rounded-xl overflow-hidden mb-1.5 border border-white/10 shrink-0 bg-slate-950">
+                      <img src={node.imageUrl} alt="" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+
+                  {/* Top Bar: Status + Text + Badges */}
+                  <div className="flex items-center justify-between gap-1.5">
                     <button
-                      onClick={(e) => { e.stopPropagation(); cycleNodeStatus(node.id); }}
-                      className="shrink-0 mr-2 p-0.5 rounded-full hover:bg-white/20 transition"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        cycleNodeStatus(node.id);
+                      }}
+                      className="shrink-0 p-0.5 rounded-full hover:bg-white/20 transition"
                       title={`Status: ${node.status || "todo"} (Click to cycle)`}
                     >
                       {node.status === "done" ? (
@@ -1250,13 +1342,12 @@ Output ONLY valid JSON with this exact schema:
                       )}
                     </button>
 
-                    {/* Text Field or Editable Input */}
                     {isEditing ? (
                       <input
                         type="text"
                         value={editText}
                         onChange={(e) => setEditText(e.target.value)}
-                        onKeyDown={(e) => { 
+                        onKeyDown={(e) => {
                           if (e.key === "Enter") saveInlineEdit();
                           if (e.key === "Escape") setEditingNodeId(null);
                         }}
@@ -1265,7 +1356,7 @@ Output ONLY valid JSON with this exact schema:
                         className="w-full bg-slate-900 text-white font-bold text-center text-xs outline-none border-b-2 border-cyan-400 px-1 py-0.5 rounded"
                       />
                     ) : (
-                      <span 
+                      <span
                         className="w-full text-center font-bold text-xs tracking-wide truncate text-white"
                         style={{ color: colorObj.text }}
                       >
@@ -1273,39 +1364,58 @@ Output ONLY valid JSON with this exact schema:
                       </span>
                     )}
 
-                    {/* Collapse / Expand Toggle Button for Parents */}
-                    {hasChildren && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); toggleCollapse(node.id); }}
-                        className="shrink-0 ml-1.5 p-1 rounded-md bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition"
-                        title={node.collapsed ? "Expand subtopics" : "Collapse subtopics"}
-                      >
-                        {node.collapsed ? <ChevronRight className="w-3 h-3 text-cyan-300" /> : <ChevronDown className="w-3 h-3" />}
-                      </button>
-                    )}
-
-                    {/* Add Subtopic Quick (+) Action on Hover or Select */}
-                    {isSelected && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); addSubtopic(node.id); }}
-                        className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-purple-600 hover:bg-purple-500 text-white flex items-center justify-center text-xs font-bold shadow-lg border border-white/20 transition transform hover:scale-125 z-40"
-                        title="Add Subtopic (Shortcut: Tab)"
-                      >
-                        +
-                      </button>
-                    )}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {node.notes && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedNodeId(node.id);
+                            setShowNotesDrawer(true);
+                          }}
+                          className="p-0.5 text-cyan-300 hover:text-white"
+                          title="Open Note"
+                        >
+                          <FileText className="w-3 h-3" />
+                        </button>
+                      )}
+                      {node.collapsed && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleCollapse(node.id);
+                          }}
+                          className="p-0.5 text-cyan-300"
+                        >
+                          <ChevronRight className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                );
-              })}
-            </div>
+
+                  {/* Add Subtopic (+) Action on Select */}
+                  {isSelected && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        addSubtopic(node.id);
+                      }}
+                      className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-purple-600 hover:bg-purple-500 text-white flex items-center justify-center text-xs font-bold shadow-lg border border-white/20 transition transform hover:scale-125 z-40"
+                      title="Add Subtopic (Shortcut: Tab)"
+                    >
+                      +
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
-          {/* Floating Canvas Quick Navigation Pill */}
+          {/* Floating Canvas Zoom & View Controls */}
           <div className="absolute bottom-4 left-4 flex items-center gap-2 bg-slate-900/95 backdrop-blur border border-slate-800 rounded-2xl px-3 py-2 shadow-2xl z-30">
             <button
-              onClick={() => setZoom(prev => Math.min(prev * 1.2, 3))}
+              onClick={() => setZoom((prev) => Math.min(prev * 1.2, 3))}
               className="p-1.5 hover:bg-slate-800 rounded-xl text-slate-300 hover:text-white transition"
-              title="Zoom In (Ctrl + Wheel)"
+              title="Zoom In (Ctrl+Wheel)"
             >
               <ZoomIn className="w-4 h-4" />
             </button>
@@ -1313,52 +1423,262 @@ Output ONLY valid JSON with this exact schema:
               {Math.round(zoom * 100)}%
             </span>
             <button
-              onClick={() => setZoom(prev => Math.max(prev * 0.8, 0.25))}
+              onClick={() => setZoom((prev) => Math.max(prev * 0.8, 0.25))}
               className="p-1.5 hover:bg-slate-800 rounded-xl text-slate-300 hover:text-white transition"
-              title="Zoom Out (Ctrl + Wheel)"
+              title="Zoom Out (Ctrl+Wheel)"
             >
               <ZoomOut className="w-4 h-4" />
             </button>
-
-            <div className="h-4 w-px bg-slate-800 mx-1" />
-
+            <div className="w-px h-4 bg-slate-800 mx-1" />
             <button
               onClick={centerView}
-              className="px-2.5 py-1 text-xs font-semibold bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 rounded-xl border border-purple-500/30 transition flex items-center gap-1"
-              title="Center View on Root Node"
+              className="p-1.5 hover:bg-slate-800 rounded-xl text-slate-300 hover:text-white transition"
+              title="Center View"
             >
-              <Compass className="w-3.5 h-3.5" /> <span>Center</span>
+              <Compass className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* ─── Right Slide-over Node Inspector & Notes Drawer ─── */}
+        {selectedNode && (
+          <aside className={`w-80 bg-slate-900/95 backdrop-blur border-l border-slate-800 flex flex-col z-30 shrink-0 ${
+            showNotesDrawer ? "flex" : "hidden lg:flex"
+          }`}>
+            <div className="p-3 border-b border-slate-800 flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                <Edit3 className="w-3.5 h-3.5 text-cyan-400" /> Node Properties
+              </span>
+              <button
+                onClick={() => setShowNotesDrawer(false)}
+                className="lg:hidden p-1 text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3.5 space-y-4">
+              {/* Text Input */}
+              <div>
+                <label className="text-[11px] font-semibold text-slate-400 uppercase">Concept Label</label>
+                <input
+                  type="text"
+                  value={selectedNode.text}
+                  onChange={(e) => {
+                    const text = e.target.value;
+                    const next = nodes.map((n) => (n.id === selectedNode.id ? { ...n, text } : n));
+                    pushState(next);
+                  }}
+                  className="w-full mt-1 px-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-purple-500"
+                />
+              </div>
+
+              {/* Color Preset Palette */}
+              <div>
+                <label className="text-[11px] font-semibold text-slate-400 uppercase">Accent Color</label>
+                <div className="grid grid-cols-4 gap-2 mt-1.5">
+                  {COLOR_PRESETS.map((color) => (
+                    <button
+                      key={color.name}
+                      onClick={() => {
+                        setActiveColor(color.hex);
+                        const next = nodes.map((n) =>
+                          n.id === selectedNode.id ? { ...n, color: color.hex } : n
+                        );
+                        pushState(next);
+                      }}
+                      className={`h-6 rounded-lg border transition ${
+                        selectedNode.color === color.hex ? "ring-2 ring-white scale-105" : ""
+                      }`}
+                      style={{ backgroundColor: color.hex, borderColor: color.border }}
+                      title={color.name}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Node Media / Image Attachment */}
+              <div>
+                <label className="text-[11px] font-semibold text-slate-400 uppercase flex items-center justify-between">
+                  <span>Attached Image</span>
+                  {selectedNode.imageUrl && (
+                    <button
+                      onClick={removeNodeImage}
+                      className="text-rose-400 hover:text-rose-300 text-[10px]"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </label>
+                {selectedNode.imageUrl ? (
+                  <div className="mt-1.5 w-full h-24 rounded-xl overflow-hidden border border-slate-800 bg-slate-950">
+                    <img src={selectedNode.imageUrl} alt="" className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => imageInputRef.current?.click()}
+                    className="w-full mt-1.5 py-2.5 rounded-xl border border-dashed border-slate-700 hover:border-purple-500 text-slate-400 hover:text-purple-300 text-xs flex items-center justify-center gap-1.5 transition"
+                  >
+                    <ImageIcon className="w-3.5 h-3.5" /> Attach Image (Auto-capped)
+                  </button>
+                )}
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageFileSelect}
+                  className="hidden"
+                />
+              </div>
+
+              {/* Cross-Link Action */}
+              <div>
+                <label className="text-[11px] font-semibold text-slate-400 uppercase">Cross-Links</label>
+                <button
+                  onClick={() => startCrossLinkConnection(selectedNode.id)}
+                  className="w-full mt-1.5 py-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                >
+                  <Link2 className="w-3.5 h-3.5 text-cyan-400" /> Connect to Node...
+                </button>
+              </div>
+
+              {/* Rich Markdown Note Editor */}
+              <div>
+                <label className="text-[11px] font-semibold text-slate-400 uppercase flex items-center justify-between">
+                  <span>Study Notes (Markdown)</span>
+                </label>
+                <textarea
+                  rows={6}
+                  placeholder="Write formulas ($x^2$), key bullet points, or concepts..."
+                  value={selectedNode.notes || ""}
+                  onChange={(e) => {
+                    const notes = e.target.value;
+                    const next = nodes.map((n) => (n.id === selectedNode.id ? { ...n, notes } : n));
+                    pushState(next);
+                  }}
+                  className="w-full mt-1.5 p-2.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-cyan-500 font-mono"
+                />
+                {selectedNode.notes && (
+                  <div className="mt-2 p-2 bg-slate-950 rounded-xl border border-slate-800/80">
+                    <span className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Live Preview:</span>
+                    <MarkdownRenderer content={selectedNode.notes} className="text-xs" />
+                  </div>
+                )}
+              </div>
+
+              {/* Quick Actions */}
+              <div className="pt-2 border-t border-slate-800 flex gap-2">
+                <button
+                  onClick={() => addSubtopic(selectedNode.id)}
+                  className="flex-1 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow"
+                >
+                  + Add Child
+                </button>
+                <button
+                  onClick={deleteSelectedNode}
+                  className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30"
+                  title="Delete Node"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </aside>
+        )}
+      </div>
+
+      {/* ─── Presentation Mode Overlay ─── */}
+      {isPresentMode && nodes.length > 0 && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-slate-950/98 backdrop-blur-xl p-8 text-white animate-in fade-in duration-200">
+          <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+            <div className="flex items-center gap-2">
+              <Play className="w-5 h-5 text-emerald-400" />
+              <span className="font-bold text-sm tracking-wide text-slate-300">
+                Presentation Mode ({presentIndex + 1} of {nodes.length})
+              </span>
+            </div>
+            <button
+              onClick={() => setIsPresentMode(false)}
+              className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 hover:bg-slate-800 text-xs font-semibold flex items-center gap-1.5"
+            >
+              <X className="w-4 h-4" /> Exit (Esc)
             </button>
           </div>
 
-          {/* Floating Instructions Banner */}
-          <div className="hidden md:flex absolute bottom-4 right-4 items-center gap-3 bg-slate-900/80 backdrop-blur border border-slate-800/80 rounded-2xl px-3.5 py-2 text-[11px] text-slate-400 z-20">
-            <span>✨ Double-click canvas to create Topic</span>
-            <span>•</span>
-            <span>Tab: Add Subtopic</span>
-            <span>•</span>
-            <span>Enter: Add Sibling</span>
-            <span>•</span>
-            <span>Del: Delete</span>
+          <div className="flex-1 flex flex-col items-center justify-center max-w-3xl mx-auto w-full space-y-6 text-center">
+            {nodes[presentIndex].imageUrl && (
+              <div className="max-w-md max-h-64 rounded-2xl overflow-hidden border border-slate-800 shadow-2xl">
+                <img src={nodes[presentIndex].imageUrl} alt="" className="w-full h-full object-cover" />
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <span className="text-xs uppercase font-bold tracking-widest text-purple-400">
+                Concept {presentIndex + 1}
+              </span>
+              <h1 className="text-3xl font-extrabold text-white">
+                {nodes[presentIndex].text}
+              </h1>
+            </div>
+
+            {nodes[presentIndex].notes ? (
+              <div className="w-full bg-slate-900/80 border border-slate-800 rounded-3xl p-6 text-left shadow-xl max-h-72 overflow-y-auto">
+                <MarkdownRenderer content={nodes[presentIndex].notes!} />
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500 italic">No notes written for this concept yet.</p>
+            )}
+
+            {/* Subtopics preview */}
+            {(() => {
+              const children = nodes.filter((n) => n.parentId === nodes[presentIndex].id);
+              if (children.length === 0) return null;
+              return (
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-4">
+                  <span className="text-xs text-slate-400 font-semibold mr-2">Subtopics:</span>
+                  {children.map((c) => (
+                    <span
+                      key={c.id}
+                      className="px-3 py-1 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300"
+                    >
+                      {c.text}
+                    </span>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
-        </div>
-      ) : (
-        /* ─── Studio Whiteboard Engine Mode ──────────────────────────────────── */
-        <div className="flex-1 rounded-2xl overflow-hidden border border-slate-800/80 shadow-2xl relative">
-          <FabricWhiteboard storageKey="flowtrack_fabric_whiteboard_web_v1" />
+
+          <div className="flex items-center justify-between pt-4 border-t border-slate-800">
+            <button
+              onClick={() => advancePresentation(-1)}
+              disabled={presentIndex === 0}
+              className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs font-bold flex items-center gap-2 hover:bg-slate-800 disabled:opacity-40"
+            >
+              <ArrowLeft className="w-4 h-4" /> Previous
+            </button>
+            <span className="text-xs text-slate-500 font-mono">Use Space or Arrow Keys to navigate</span>
+            <button
+              onClick={() => advancePresentation(1)}
+              disabled={presentIndex === nodes.length - 1}
+              className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-bold flex items-center gap-2 text-white shadow-lg disabled:opacity-40"
+            >
+              Next <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
 
-      {/* ─── AI Mind Map Generator Modal ────────────────────────────────────── */}
+      {/* ─── AI Generation Modal ─── */}
       {showAiModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
           <div className="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-2.5">
                 <Wand2 className="w-5 h-5 text-purple-400" />
-                <h3 className="font-extrabold text-base text-white">AI Mind Map Generator</h3>
+                <h3 className="font-bold text-base text-white">Generate Structured Mind Map</h3>
               </div>
-              <button 
+              <button
                 onClick={() => setShowAiModal(false)}
                 className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
               >
@@ -1366,68 +1686,91 @@ Output ONLY valid JSON with this exact schema:
               </button>
             </div>
 
-            {/* Custom Prompt Box */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-300">
-                Enter any Subject, Chapter, or Concept:
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="e.g. Operating Systems, Thermodynamics, SQL Queries..."
-                  value={customAiTopic}
-                  onChange={(e) => setCustomAiTopic(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") generateCustomAiMap(); }}
-                  className="flex-1 px-3.5 py-2.5 text-xs bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"
-                  autoFocus
-                />
-                <button
-                  onClick={generateCustomAiMap}
-                  disabled={isAiGenerating}
-                  className="px-4 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-purple-600/30 flex items-center gap-1.5 cursor-pointer"
-                >
-                  {isAiGenerating ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                  <span>{isAiGenerating ? "Generating..." : "Generate"}</span>
-                </button>
-              </div>
-            </div>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Enter any technical or academic topic. The AI generator will structure subtopics, concepts, and relationships automatically.
+            </p>
 
-            {/* Pre-built Academic Master Templates */}
-            <div className="space-y-2.5 pt-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Instant Academic Blueprints:
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {Object.entries(TEMPLATES).map(([key, t]) => (
-                  <button
-                    key={key}
-                    onClick={() => loadTemplate(key)}
-                    className="p-3 text-left rounded-2xl bg-slate-950/70 hover:bg-purple-900/30 border border-slate-800 hover:border-purple-500/50 transition group"
-                  >
-                    <p className="text-xs font-bold text-white group-hover:text-purple-300 transition">
-                      {t.name}
-                    </p>
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      {t.nodes.length} Structured Concepts • Balanced Tree
-                    </p>
-                  </button>
-                ))}
-              </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="e.g. Distributed Consensus Algorithms, React Fiber, Organic Chemistry"
+                value={customAiTopic}
+                onChange={(e) => setCustomAiTopic(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && generateCustomAiMap()}
+                className="flex-1 px-3.5 py-2.5 text-xs bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"
+                autoFocus
+              />
+              <button
+                onClick={generateCustomAiMap}
+                disabled={isAiGenerating}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg transition flex items-center gap-2 disabled:opacity-50"
+              >
+                {isAiGenerating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                <span>Generate</span>
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ─── Keyboard Shortcuts Modal ────────────────────────────────────────── */}
+      {/* ─── Markdown Outline Import Modal ─── */}
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Upload className="w-5 h-5 text-purple-400" />
+                <h3 className="font-bold text-base text-white">Import Markdown Outline</h3>
+              </div>
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-400">
+              Paste an indented bulleted list. Indentation determines parent-child hierarchy:
+            </p>
+
+            <textarea
+              rows={8}
+              placeholder={`# Computer Science\n  - Data Structures\n    - Arrays\n    - Trees\n  - Algorithms\n    - Sorting\n    - Dynamic Programming`}
+              value={markdownOutlineInput}
+              onChange={(e) => setMarkdownOutlineInput(e.target.value)}
+              className="w-full p-3 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white font-mono focus:outline-none focus:border-purple-500"
+            />
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="px-4 py-2 rounded-xl text-xs text-slate-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={importMarkdownOutline}
+                disabled={!markdownOutlineInput.trim()}
+                className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold disabled:opacity-40"
+              >
+                Build Tree
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Keyboard Shortcuts Modal ─── */}
       {showShortcutsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
           <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-2">
                 <HelpCircle className="w-5 h-5 text-purple-400" />
-                <h3 className="font-extrabold text-base text-white">Keyboard Shortcuts</h3>
+                <h3 className="font-bold text-base text-white">Mind Map Shortcuts</h3>
               </div>
-              <button 
+              <button
                 onClick={() => setShowShortcutsModal(false)}
                 className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
               >
@@ -1436,33 +1779,41 @@ Output ONLY valid JSON with this exact schema:
             </div>
 
             <div className="space-y-2 text-xs">
-              <div className="flex justify-between py-1.5 border-b border-slate-800/60">
-                <span className="text-slate-300">Add Child Subtopic</span>
-                <kbd className="px-2 py-0.5 bg-slate-800 rounded font-mono font-bold text-purple-300">Tab</kbd>
+              <div className="flex justify-between py-1 border-b border-slate-800/60">
+                <span className="text-slate-400">Add Subtopic (Child)</span>
+                <kbd className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-purple-300 font-mono">Tab</kbd>
               </div>
-              <div className="flex justify-between py-1.5 border-b border-slate-800/60">
-                <span className="text-slate-300">Add Sibling Topic</span>
-                <kbd className="px-2 py-0.5 bg-slate-800 rounded font-mono font-bold text-purple-300">Enter</kbd>
+              <div className="flex justify-between py-1 border-b border-slate-800/60">
+                <span className="text-slate-400">Add Sibling Topic</span>
+                <kbd className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-purple-300 font-mono">Enter</kbd>
               </div>
-              <div className="flex justify-between py-1.5 border-b border-slate-800/60">
-                <span className="text-slate-300">Edit Selected Node</span>
-                <kbd className="px-2 py-0.5 bg-slate-800 rounded font-mono font-bold text-purple-300">F2 / Space</kbd>
+              <div className="flex justify-between py-1 border-b border-slate-800/60">
+                <span className="text-slate-400">Navigate Siblings</span>
+                <kbd className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-purple-300 font-mono">Alt + ↑ / ↓</kbd>
               </div>
-              <div className="flex justify-between py-1.5 border-b border-slate-800/60">
-                <span className="text-slate-300">Delete Node & Branches</span>
-                <kbd className="px-2 py-0.5 bg-slate-800 rounded font-mono font-bold text-purple-300">Del / Backspace</kbd>
+              <div className="flex justify-between py-1 border-b border-slate-800/60">
+                <span className="text-slate-400">Inline Rename</span>
+                <kbd className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-purple-300 font-mono">F2 / Double-click</kbd>
               </div>
-              <div className="flex justify-between py-1.5 border-b border-slate-800/60">
-                <span className="text-slate-300">Undo / Redo</span>
-                <kbd className="px-2 py-0.5 bg-slate-800 rounded font-mono font-bold text-purple-300">Ctrl+Z / Ctrl+Y</kbd>
+              <div className="flex justify-between py-1 border-b border-slate-800/60">
+                <span className="text-slate-400">Delete Node & Subtree</span>
+                <kbd className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-purple-300 font-mono">Delete / Backspace</kbd>
               </div>
-              <div className="flex justify-between py-1.5 border-b border-slate-800/60">
-                <span className="text-slate-300">Zoom Canvas</span>
-                <kbd className="px-2 py-0.5 bg-slate-800 rounded font-mono font-bold text-purple-300">Ctrl + Mouse Wheel</kbd>
+              <div className="flex justify-between py-1 border-b border-slate-800/60">
+                <span className="text-slate-400">Toggle Layout Mode</span>
+                <kbd className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-purple-300 font-mono">Ctrl + Shift + L</kbd>
               </div>
-              <div className="flex justify-between py-1.5 border-b border-slate-800/60">
-                <span className="text-slate-300">Create Node at Cursor</span>
-                <kbd className="px-2 py-0.5 bg-slate-800 rounded font-mono font-bold text-purple-300">Double Click</kbd>
+              <div className="flex justify-between py-1 border-b border-slate-800/60">
+                <span className="text-slate-400">Toggle Outline Tree</span>
+                <kbd className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-purple-300 font-mono">Ctrl + Shift + O</kbd>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-800/60">
+                <span className="text-slate-400">Toggle Focus Mode</span>
+                <kbd className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-purple-300 font-mono">Ctrl + Shift + F</kbd>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-800/60">
+                <span className="text-slate-400">Undo / Redo</span>
+                <kbd className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-purple-300 font-mono">Ctrl + Z / Ctrl + Shift + Z</kbd>
               </div>
             </div>
           </div>
