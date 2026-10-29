@@ -151,13 +151,13 @@ export function StudyNotesBoardPage() {
       await initStorageMigration();
       const loaded = await loadStickyBoard();
       if (isMounted) {
-        // Detect if any notes overlap (< 35px delta between distinct notes)
+        // Detect if any notes overlap (< 80px delta between distinct notes)
         const hasOverlaps = loaded.notes.some((n1, i) =>
           loaded.notes.some(
             (n2, j) =>
               i !== j &&
-              Math.abs((n1.x ?? 100) - (n2.x ?? 100)) < 35 &&
-              Math.abs((n1.y ?? 100) - (n2.y ?? 100)) < 35
+              Math.abs((n1.x ?? 100) - (n2.x ?? 100)) < 70 &&
+              Math.abs((n1.y ?? 100) - (n2.y ?? 100)) < 70
           )
         );
 
@@ -249,11 +249,11 @@ export function StudyNotesBoardPage() {
     let offset = 0;
     while (
       stickyNotes.some(
-        (n) => Math.abs((n.x || 0) - (posX + offset)) < 40 && Math.abs((n.y || 0) - (posY + offset)) < 40
+        (n) => Math.abs((n.x || 0) - (posX + offset)) < 120 && Math.abs((n.y || 0) - (posY + offset)) < 80
       ) &&
-      offset < 400
+      offset < 600
     ) {
-      offset += 35;
+      offset += 50;
     }
     posX += offset;
     posY += offset;
@@ -376,8 +376,17 @@ export function StudyNotesBoardPage() {
       noteSubject.trim() || "Course Concept"
     );
 
-    setStickyNotes((prev) => [...prev, ...tmplNotes]);
-    setFrames((prev) => [...prev, ...tmplFrames]);
+    let yOffset = 0;
+    if (stickyNotes.length > 0) {
+      const maxY = Math.max(...stickyNotes.map((n) => (n.y || 0) + (n.h || 200)));
+      yOffset = Math.max(0, maxY + 60);
+    }
+
+    const positionedNotes = tmplNotes.map((n) => ({ ...n, y: (n.y || 0) + yOffset }));
+    const positionedFrames = tmplFrames.map((f) => ({ ...f, y: (f.y || 0) + yOffset }));
+
+    setStickyNotes((prev) => [...prev, ...positionedNotes]);
+    setFrames((prev) => [...prev, ...positionedFrames]);
     setConnectors((prev) => [...prev, ...tmplConnectors]);
     setShowTemplateModal(false);
     showToast(`Inserted ${templateKey} template!`, "success");
@@ -578,6 +587,7 @@ export function StudyNotesBoardPage() {
               showToast(`Board exported as High-Res PNG! ${res.filename || ""}`, "success");
               return;
             }
+            if (res.canceled) return;
           }
         } catch (hErr) {
           console.warn("html2canvas error, using 2D canvas fallback:", hErr);
@@ -641,7 +651,7 @@ export function StudyNotesBoardPage() {
         // Content
         ctx.fillStyle = "#94A3B8";
         ctx.font = "11px sans-serif";
-        const lines = note.text.split("\n").slice(0, 7);
+        const lines = (note.text || "").split("\n").slice(0, 7);
         lines.forEach((line, lineIdx) => {
           ctx.fillText(line.slice(0, 44), x + 16, y + 52 + lineIdx * 18);
         });
@@ -656,6 +666,8 @@ export function StudyNotesBoardPage() {
       const res = await saveImageSafely(dataUrl, safeFileName);
       if (res.success) {
         showToast(`Board exported as High-Res PNG! ${res.filename || ""}`, "success");
+      } else if (!res.canceled) {
+        showToast("Export failed: " + (res.error || "Save error"), "warning");
       }
     } catch (err) {
       console.error(err);
@@ -781,63 +793,61 @@ export function StudyNotesBoardPage() {
 
   return (
     <div className={`flex flex-col ${isFullscreen ? "fixed inset-0 z-50 p-2 md:p-3 bg-slate-950" : "space-y-2.5"} select-none`}>
-      {/* ─── Top Header & Dual Mode Tabs ─────────────────────────────────── */}
-      <Panel className="bg-slate-900/90 border-slate-800 backdrop-blur-md p-2.5 rounded-2xl shrink-0">
-        <div className="flex flex-wrap items-center justify-between gap-2.5">
-          <div className="flex items-center space-x-2.5">
-            <div className="p-1.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
-              <Sparkles className="w-4 h-4 animate-pulse" />
+      {/* ─── Top Header & Dual Mode Tabs (Hidden in Fullscreen for Maximum Workspace) ─────────────────────────────────── */}
+      {!isFullscreen && (
+        <Panel className="bg-slate-900/90 border-slate-800 backdrop-blur-md p-2.5 rounded-2xl shrink-0">
+          <div className="flex flex-wrap items-center justify-between gap-2.5">
+            <div className="flex items-center space-x-2.5">
+              <div className="p-1.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
+                <Sparkles className="w-4 h-4 animate-pulse" />
+              </div>
+              <div>
+                <h1 className="text-sm md:text-base font-bold text-slate-100 flex items-center gap-2">
+                  Study Notes & Board
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                    {activeTab === "board" ? "Miro + Keep Board" : "Markdown Docs"}
+                  </span>
+                </h1>
+              </div>
             </div>
-            <div>
-              <h1 className="text-sm md:text-base font-bold text-slate-100 flex items-center gap-2">
-                Study Notes & Board
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                  {activeTab === "board" ? "Miro + Keep Board" : "Markdown Docs"}
-                </span>
-              </h1>
+
+            {/* Dual Navigation Tabs & Fullscreen */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center p-0.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs">
+                <button
+                  onClick={() => setActiveTab("board")}
+                  className={`px-3 py-1 rounded-lg font-bold transition flex items-center gap-1.5 ${
+                    activeTab === "board"
+                      ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <Palette className="w-3.5 h-3.5" /> Canvas & Grid
+                </button>
+
+                <button
+                  onClick={() => setActiveTab("notepad")}
+                  className={`px-3 py-1 rounded-lg font-bold transition flex items-center gap-1.5 ${
+                    activeTab === "notepad"
+                      ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <FileText className="w-3.5 h-3.5" /> Markdown Docs
+                </button>
+              </div>
+
+              <button
+                onClick={() => setIsFullscreen(true)}
+                className="p-1.5 rounded-xl border transition text-slate-400 hover:text-white bg-slate-950 border border-slate-800"
+                title="Full Screen Mode (Clean Space)"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
-
-          {/* Dual Navigation Tabs & Fullscreen */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center p-0.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs">
-              <button
-                onClick={() => setActiveTab("board")}
-                className={`px-3 py-1 rounded-lg font-bold transition flex items-center gap-1.5 ${
-                  activeTab === "board"
-                    ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
-                    : "text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                <Palette className="w-3.5 h-3.5" /> Canvas & Grid
-              </button>
-
-              <button
-                onClick={() => setActiveTab("notepad")}
-                className={`px-3 py-1 rounded-lg font-bold transition flex items-center gap-1.5 ${
-                  activeTab === "notepad"
-                    ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
-                    : "text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                <FileText className="w-3.5 h-3.5" /> Markdown Docs
-              </button>
-            </div>
-
-            <button
-              onClick={() => setIsFullscreen((prev) => !prev)}
-              className={`p-1.5 rounded-xl border transition ${
-                isFullscreen
-                  ? "bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30"
-                  : "text-slate-400 hover:text-white bg-slate-950 border border-slate-800"
-              }`}
-              title={isFullscreen ? "Exit Fullscreen" : "Full Screen Mode"}
-            >
-              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-            </button>
-          </div>
-        </div>
-      </Panel>
+        </Panel>
+      )}
 
       {/* ─── TAB 1: INFINITE CANVAS STICKY BOARD ───────────────────────────── */}
       {activeTab === "board" ? (
@@ -969,6 +979,33 @@ export function StudyNotesBoardPage() {
               >
                 <HelpCircle className="w-3.5 h-3.5 text-purple-400" />
               </button>
+
+              {isFullscreen && (
+                <div className="flex items-center gap-1.5 pl-1 border-l border-slate-800">
+                  <div className="flex items-center p-0.5 rounded-xl bg-slate-950 border border-slate-800 text-xs">
+                    <button
+                      onClick={() => setActiveTab("board")}
+                      className="px-2.5 py-1 rounded-lg font-bold transition flex items-center gap-1 bg-purple-600 text-white shadow"
+                    >
+                      <Palette className="w-3 h-3" /> Board
+                    </button>
+                    <button
+                      onClick={() => setActiveTab("notepad")}
+                      className="px-2.5 py-1 rounded-lg font-bold transition flex items-center gap-1 text-slate-400 hover:text-white"
+                    >
+                      <FileText className="w-3 h-3" /> Docs
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => setIsFullscreen(false)}
+                    className="p-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white shadow-md transition flex items-center gap-1 text-xs font-semibold px-2.5"
+                    title="Exit Fullscreen"
+                  >
+                    <Minimize2 className="w-3.5 h-3.5" />
+                    <span>Exit</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1006,7 +1043,7 @@ export function StudyNotesBoardPage() {
               onMouseUp={handleCanvasMouseUp}
               onWheel={handleCanvasWheel}
               className={`relative ${
-                isFullscreen ? "h-[calc(100vh-9rem)]" : "h-[calc(100vh-13.5rem)] min-h-[580px]"
+                isFullscreen ? "h-[calc(100vh-6.5rem)]" : "h-[calc(100vh-13.5rem)] min-h-[580px]"
               } w-full bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden cursor-crosshair`}
             >
               {/* Subtle Grid Dot Pattern */}
@@ -1238,7 +1275,7 @@ export function StudyNotesBoardPage() {
             <div
               ref={notesContainerRef}
               className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 overflow-y-auto ${
-                isFullscreen ? "max-h-[calc(100vh-9rem)]" : "max-h-[calc(100vh-13.5rem)] min-h-[580px]"
+                isFullscreen ? "max-h-[calc(100vh-6.5rem)]" : "max-h-[calc(100vh-13.5rem)] min-h-[580px]"
               } p-1`}
             >
               {filteredStickyNotes.map((note) => (
@@ -1359,6 +1396,16 @@ export function StudyNotesBoardPage() {
                       <Download className="w-3.5 h-3.5" />
                       <span>Export</span>
                     </button>
+                    {isFullscreen && (
+                      <button
+                        onClick={() => setIsFullscreen(false)}
+                        className="px-2.5 py-1 text-xs bg-purple-600 hover:bg-purple-500 rounded-lg text-white font-semibold flex items-center gap-1 shadow transition"
+                        title="Exit Fullscreen"
+                      >
+                        <Minimize2 className="w-3.5 h-3.5" />
+                        <span>Exit Fullscreen</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
