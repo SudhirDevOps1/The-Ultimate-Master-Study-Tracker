@@ -83,6 +83,17 @@ export function StudyNotesBoardPage() {
   const [draggingFrameId, setDraggingFrameId] = useState<string | null>(null);
   const [frameDragOffset, setFrameDragOffset] = useState({ x: 0, y: 0 });
 
+  // Interactive Resizing State
+  const [resizingNoteId, setResizingNoteId] = useState<string | null>(null);
+  const [resizeStart, setResizeStart] = useState<{ x: number; y: number; w: number; h: number }>({ x: 0, y: 0, w: 260, h: 200 });
+
+  // Modal & Inline Editing State
+  const [editingModalNote, setEditingModalNote] = useState<StickyNote | null>(null);
+  const [inlineEditingNoteId, setInlineEditingNoteId] = useState<string | null>(null);
+  const [inlineEditingField, setInlineEditingField] = useState<"title" | "text" | null>(null);
+  const [inlineBuffer, setInlineBuffer] = useState("");
+  const [activePaletteNoteId, setActivePaletteNoteId] = useState<string | null>(null);
+
   // Connector Creation Mode
   const [connectingFromId, setConnectingFromId] = useState<string | null>(null);
 
@@ -344,6 +355,80 @@ export function StudyNotesBoardPage() {
     });
   };
 
+  // Styling Handlers for Selected Notes
+  const applyBgToSelected = (bgClass: string) => {
+    if (selectedNoteIds.size === 0) return;
+    setStickyNotes((prev) =>
+      prev.map((n) => (selectedNoteIds.has(n.id) ? { ...n, color: bgClass } : n))
+    );
+  };
+
+  const applyTextColorToSelected = (tcClass: string) => {
+    if (selectedNoteIds.size === 0) return;
+    setStickyNotes((prev) =>
+      prev.map((n) => (selectedNoteIds.has(n.id) ? { ...n, textColor: tcClass } : n))
+    );
+  };
+
+  const applyFontToSelected = (fontClass: string) => {
+    if (selectedNoteIds.size === 0) return;
+    setStickyNotes((prev) =>
+      prev.map((n) => (selectedNoteIds.has(n.id) ? { ...n, font: fontClass } : n))
+    );
+  };
+
+  const applySizePresetToSelected = (w: number, h: number) => {
+    if (selectedNoteIds.size === 0) return;
+    setStickyNotes((prev) =>
+      prev.map((n) => (selectedNoteIds.has(n.id) ? { ...n, w, h } : n))
+    );
+    showToast(`Resized ${selectedNoteIds.size} note(s) to ${w}x${h}`, "info");
+  };
+
+  // Inline Editing Handlers
+  const startInlineEdit = (note: StickyNote, field: "title" | "text") => {
+    if (note.locked) return;
+    setInlineEditingNoteId(note.id);
+    setInlineEditingField(field);
+    setInlineBuffer(field === "title" ? (note.title || "") : note.text);
+  };
+
+  const commitInlineEdit = (noteId: string) => {
+    if (!inlineEditingField) return;
+    setStickyNotes((prev) =>
+      prev.map((n) => {
+        if (n.id === noteId) {
+          if (inlineEditingField === "title") {
+            return { ...n, title: inlineBuffer.trim() || undefined };
+          } else {
+            return { ...n, text: inlineBuffer };
+          }
+        }
+        return n;
+      })
+    );
+    setInlineEditingNoteId(null);
+    setInlineEditingField(null);
+  };
+
+  // Resize Handler
+  const handleResizeMouseDown = (e: React.MouseEvent, note: StickyNote) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (note.locked) return;
+    setResizingNoteId(note.id);
+    const rect = boardContainerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const mouseX = (e.clientX - rect.left - pan.x) / zoom;
+    const mouseY = (e.clientY - rect.top - pan.y) / zoom;
+    setResizeStart({
+      x: mouseX,
+      y: mouseY,
+      w: note.w || 260,
+      h: note.h || 200,
+    });
+  };
+
   // Connectors
   const startConnecting = (noteId: string) => {
     setConnectingFromId(noteId);
@@ -392,13 +477,21 @@ export function StudyNotesBoardPage() {
     showToast(`Inserted ${templateKey} template!`, "success");
   };
 
-  // Space key tracking for canvas panning
+  // Space key tracking for canvas panning & Keyboard shortcuts
   const [isSpacePressed, setIsSpacePressed] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === "Space" && (e.target as HTMLElement).tagName !== "INPUT" && (e.target as HTMLElement).tagName !== "TEXTAREA") {
+      const isInput = (e.target as HTMLElement).tagName === "INPUT" || (e.target as HTMLElement).tagName === "TEXTAREA" || (e.target as HTMLElement).isContentEditable;
+      if (e.code === "Space" && !isInput) {
         setIsSpacePressed(true);
+      }
+      if ((e.key === "Delete" || e.key === "Backspace") && !isInput && selectedNoteIds.size > 0) {
+        deleteSelectedNotes();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d" && !isInput && selectedNoteIds.size > 0) {
+        e.preventDefault();
+        duplicateSelectedNotes();
       }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -412,7 +505,7 @@ export function StudyNotesBoardPage() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, []);
+  }, [selectedNoteIds, deleteSelectedNotes, duplicateSelectedNotes]);
 
   // ─── Canvas Mouse & Pointer Handlers ──────────────────────────────────────
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
@@ -485,6 +578,20 @@ export function StudyNotesBoardPage() {
           })
         );
       }
+    } else if (resizingNoteId) {
+      const mouseX = (e.clientX - rect.left - pan.x) / zoom;
+      const mouseY = (e.clientY - rect.top - pan.y) / zoom;
+      const deltaX = mouseX - resizeStart.x;
+      const deltaY = mouseY - resizeStart.y;
+      let newW = Math.max(180, resizeStart.w + deltaX);
+      let newH = Math.max(120, resizeStart.h + deltaY);
+      if (snapEnabled) {
+        newW = snapToGrid(newW, snapStep);
+        newH = snapToGrid(newH, snapStep);
+      }
+      setStickyNotes((prev) =>
+        prev.map((n) => (n.id === resizingNoteId ? { ...n, w: newW, h: newH } : n))
+      );
     } else if (draggingFrameId) {
       const mouseX = (e.clientX - rect.left - pan.x) / zoom;
       const mouseY = (e.clientY - rect.top - pan.y) / zoom;
@@ -513,6 +620,7 @@ export function StudyNotesBoardPage() {
     setMarqueeBox(null);
     setDraggingNoteId(null);
     setDraggingFrameId(null);
+    setResizingNoteId(null);
     setIsPanning(false);
   };
 
@@ -909,8 +1017,86 @@ export function StudyNotesBoardPage() {
 
             {/* Center: Multi-selection operations */}
             {selectedNoteIds.size > 0 && (
-              <div className="flex items-center gap-1.5 bg-purple-950/40 border border-purple-500/30 px-2.5 py-1 rounded-xl text-xs">
-                <span className="font-bold text-purple-300 mr-1">{selectedNoteIds.size} selected</span>
+              <div className="flex items-center gap-1.5 bg-purple-950/40 border border-purple-500/30 px-2.5 py-1 rounded-xl text-xs flex-wrap">
+                <span className="font-bold text-purple-300 mr-1 select-none">
+                  {selectedNoteIds.size} selected
+                </span>
+
+                {/* Edit Button (if 1 note selected) */}
+                {selectedNoteIds.size === 1 && (
+                  <button
+                    onClick={() => {
+                      const noteId = Array.from(selectedNoteIds)[0];
+                      const target = stickyNotes.find((n) => n.id === noteId);
+                      if (target) setEditingModalNote({ ...target });
+                    }}
+                    className="p-1 hover:bg-purple-500/20 rounded text-purple-200"
+                    title="Edit Note (Modal)"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+
+                {/* Background Color Swatches */}
+                <div className="flex items-center gap-1 border-l border-purple-500/30 pl-1.5 ml-0.5" title="Apply Background Color">
+                  <Palette className="w-3 h-3 text-purple-400" />
+                  {NOTE_BACKGROUNDS.slice(0, 6).map((bg) => (
+                    <button
+                      key={bg.name}
+                      onClick={() => applyBgToSelected(bg.class)}
+                      className={`w-3.5 h-3.5 rounded-full border border-white/20 transition hover:scale-125 ${bg.class}`}
+                      title={`Set ${bg.name}`}
+                    />
+                  ))}
+                </div>
+
+                {/* Font Selector */}
+                <select
+                  onChange={(e) => applyFontToSelected(e.target.value)}
+                  className="bg-slate-950 border border-purple-500/30 rounded-lg px-1.5 py-0.5 text-[11px] text-purple-200 outline-none cursor-pointer"
+                  title="Change Font Family"
+                  defaultValue=""
+                >
+                  <option value="" disabled>Font</option>
+                  {NOTE_FONTS.map((f) => (
+                    <option key={f.name} value={f.class}>
+                      {f.name.split(" ")[0]}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Size Presets */}
+                <div className="flex items-center bg-slate-950 p-0.5 rounded-lg border border-purple-500/30 text-[10px]">
+                  <button
+                    onClick={() => applySizePresetToSelected(200, 140)}
+                    className="px-1.5 py-0.5 rounded hover:bg-purple-600 hover:text-white text-purple-300 font-bold"
+                    title="Compact Size (200x140)"
+                  >
+                    S
+                  </button>
+                  <button
+                    onClick={() => applySizePresetToSelected(260, 200)}
+                    className="px-1.5 py-0.5 rounded hover:bg-purple-600 hover:text-white text-purple-300 font-bold"
+                    title="Standard Size (260x200)"
+                  >
+                    M
+                  </button>
+                  <button
+                    onClick={() => applySizePresetToSelected(360, 280)}
+                    className="px-1.5 py-0.5 rounded hover:bg-purple-600 hover:text-white text-purple-300 font-bold"
+                    title="Large Size (360x280)"
+                  >
+                    L
+                  </button>
+                  <button
+                    onClick={() => applySizePresetToSelected(460, 220)}
+                    className="px-1.5 py-0.5 rounded hover:bg-purple-600 hover:text-white text-purple-300 font-bold"
+                    title="Wide Size (460x220)"
+                  >
+                    Wide
+                  </button>
+                </div>
+
                 <button
                   onClick={duplicateSelectedNotes}
                   className="p-1 hover:bg-purple-500/20 rounded text-purple-200"
@@ -935,7 +1121,7 @@ export function StudyNotesBoardPage() {
                 <button
                   onClick={deleteSelectedNotes}
                   className="p-1 hover:bg-rose-500/30 rounded text-rose-300"
-                  title="Delete Selection"
+                  title="Delete Selection (Del)"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -1157,11 +1343,14 @@ export function StudyNotesBoardPage() {
                 {/* Sticky Notes Cards */}
                 {filteredStickyNotes.map((note) => {
                   const isSelected = selectedNoteIds.has(note.id);
+                  const isInlineEditingTitle = inlineEditingNoteId === note.id && inlineEditingField === "title";
+                  const isInlineEditingText = inlineEditingNoteId === note.id && inlineEditingField === "text";
+
                   return (
                     <div
                       key={note.id}
                       onMouseDown={(e) => handleNoteMouseDown(e, note)}
-                      className={`absolute pointer-events-auto rounded-2xl p-3.5 shadow-xl border transition-shadow cursor-grab active:cursor-grabbing flex flex-col justify-between ${
+                      className={`absolute pointer-events-auto rounded-2xl p-3.5 shadow-xl border transition-shadow cursor-grab active:cursor-grabbing flex flex-col justify-between group ${
                         note.color
                       } ${
                         isSelected
@@ -1172,17 +1361,89 @@ export function StudyNotesBoardPage() {
                         left: `${note.x || 100}px`,
                         top: `${note.y || 100}px`,
                         width: `${note.w || 260}px`,
-                        minHeight: `${note.h || 200}px`,
+                        height: `${note.h || 200}px`,
                       }}
                     >
-                      <div>
+                      <div className="flex-1 overflow-hidden flex flex-col">
                         {/* Note Header */}
-                        <div className="flex items-start justify-between gap-2 pb-1.5 border-b border-white/10">
-                          <h4 className={`text-xs font-extrabold truncate ${note.textColor}`}>
-                            {note.title || note.subject}
-                          </h4>
-                          <div className="flex items-center gap-1">
+                        <div className="flex items-start justify-between gap-1.5 pb-1.5 border-b border-white/10 shrink-0">
+                          {isInlineEditingTitle ? (
+                            <input
+                              type="text"
+                              value={inlineBuffer}
+                              onChange={(e) => setInlineBuffer(e.target.value)}
+                              onBlur={() => commitInlineEdit(note.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") commitInlineEdit(note.id);
+                                if (e.key === "Escape") {
+                                  setInlineEditingNoteId(null);
+                                  setInlineEditingField(null);
+                                }
+                              }}
+                              autoFocus
+                              className="text-xs font-extrabold bg-black/50 border border-purple-400 rounded px-1.5 py-0.5 text-white outline-none w-full"
+                            />
+                          ) : (
+                            <h4
+                              onDoubleClick={() => startInlineEdit(note, "title")}
+                              className={`text-xs font-extrabold truncate cursor-pointer hover:underline ${note.textColor}`}
+                              title="Double click to rename title"
+                            >
+                              {note.title || note.subject}
+                            </h4>
+                          )}
+
+                          <div className="flex items-center gap-1 shrink-0">
                             {note.locked && <Lock className="w-3 h-3 text-amber-300" />}
+
+                            {/* Edit Modal Button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingModalNote({ ...note });
+                              }}
+                              className="text-slate-400 hover:text-white"
+                              title="Edit Note (Modal)"
+                            >
+                              <Edit3 className="w-3 h-3" />
+                            </button>
+
+                            {/* Palette Quick Popover */}
+                            <div className="relative">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActivePaletteNoteId(activePaletteNoteId === note.id ? null : note.id);
+                                }}
+                                className="text-slate-400 hover:text-purple-300"
+                                title="Quick Color Change"
+                              >
+                                <Palette className="w-3 h-3" />
+                              </button>
+
+                              {activePaletteNoteId === note.id && (
+                                <div
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="absolute right-0 top-5 z-50 flex items-center gap-1 bg-slate-900 border border-slate-700 p-1.5 rounded-xl shadow-2xl backdrop-blur-md"
+                                >
+                                  {NOTE_BACKGROUNDS.map((bg) => (
+                                    <button
+                                      key={bg.name}
+                                      onClick={() => {
+                                        setStickyNotes((prev) =>
+                                          prev.map((n) => (n.id === note.id ? { ...n, color: bg.class } : n))
+                                        );
+                                        setActivePaletteNoteId(null);
+                                      }}
+                                      className={`w-4 h-4 rounded-full border border-white/20 transition hover:scale-125 ${bg.class}`}
+                                      title={bg.name}
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Connect Arrow */}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1193,12 +1454,15 @@ export function StudyNotesBoardPage() {
                             >
                               <Link2 className="w-3 h-3" />
                             </button>
+
+                            {/* Delete Note */}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 deleteStickyNote(note.id);
                               }}
                               className="text-rose-400 hover:text-rose-300"
+                              title="Delete Note"
                             >
                               <Trash2 className="w-3 h-3" />
                             </button>
@@ -1207,22 +1471,80 @@ export function StudyNotesBoardPage() {
 
                         {/* Note Image */}
                         {note.image && (
-                          <div className="w-full h-24 rounded-lg overflow-hidden my-2 border border-white/10">
+                          <div className="w-full h-24 rounded-lg overflow-hidden my-2 border border-white/10 shrink-0">
                             <img src={note.image} alt="" className="w-full h-full object-cover" />
                           </div>
                         )}
 
-                        {/* Note Body with Markdown Preview */}
-                        <div className={`mt-2 text-xs leading-relaxed ${note.textColor} ${note.font}`}>
-                          <MarkdownRenderer content={note.text} />
+                        {/* Note Body with Markdown Preview or Inline Textarea */}
+                        <div className="flex-1 overflow-y-auto mt-2 pr-1">
+                          {isInlineEditingText ? (
+                            <div className="h-full flex flex-col gap-1">
+                              <textarea
+                                value={inlineBuffer}
+                                onChange={(e) => setInlineBuffer(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Escape") {
+                                    setInlineEditingNoteId(null);
+                                    setInlineEditingField(null);
+                                  }
+                                }}
+                                autoFocus
+                                className="w-full flex-1 p-2 text-xs bg-black/50 border border-purple-400 rounded-lg text-white font-mono outline-none resize-none"
+                              />
+                              <div className="flex justify-end gap-1">
+                                <button
+                                  onClick={() => {
+                                    setInlineEditingNoteId(null);
+                                    setInlineEditingField(null);
+                                  }}
+                                  className="px-2 py-0.5 text-[10px] text-slate-400 hover:text-white"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={() => commitInlineEdit(note.id)}
+                                  className="px-2 py-0.5 text-[10px] bg-purple-600 text-white rounded font-bold"
+                                >
+                                  Save
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div
+                              onDoubleClick={() => startInlineEdit(note, "text")}
+                              className={`text-xs leading-relaxed cursor-pointer ${note.textColor} ${note.font}`}
+                              title="Double click to edit content"
+                            >
+                              <MarkdownRenderer content={note.text} />
+                            </div>
+                          )}
                         </div>
                       </div>
 
                       {/* Footer Info */}
-                      <div className="flex items-center justify-between text-[10px] text-slate-400 pt-2 border-t border-white/10 mt-2">
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 pt-2 border-t border-white/10 mt-2 shrink-0">
                         <span>{note.subject}</span>
                         <span>{note.date}</span>
                       </div>
+
+                      {/* Corner Resize Handle */}
+                      {!note.locked && (
+                        <div
+                          onMouseDown={(e) => handleResizeMouseDown(e, note)}
+                          className="absolute bottom-1 right-1 w-4 h-4 cursor-se-resize flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity z-20 group-hover:opacity-80"
+                          title="Drag to Resize Card"
+                        >
+                          <svg className="w-3 h-3 text-slate-400 hover:text-cyan-400" viewBox="0 0 6 6" fill="currentColor">
+                            <circle cx="5" cy="5" r="0.8" />
+                            <circle cx="3" cy="5" r="0.8" />
+                            <circle cx="5" cy="3" r="0.8" />
+                            <circle cx="1" cy="5" r="0.8" />
+                            <circle cx="3" cy="3" r="0.8" />
+                            <circle cx="5" cy="1" r="0.8" />
+                          </svg>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -1530,6 +1852,140 @@ export function StudyNotesBoardPage() {
                 <span className="text-slate-400">Delete Selected</span>
                 <kbd className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-purple-300 font-mono">Delete / Backspace</kbd>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ─── Note Edit Modal ─── */}
+      {editingModalNote && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Edit3 className="w-5 h-5 text-purple-400" />
+                <h3 className="font-bold text-base text-white">Edit Sticky Note</h3>
+              </div>
+              <button
+                onClick={() => setEditingModalNote(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {/* Title */}
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Title</label>
+                <input
+                  type="text"
+                  value={editingModalNote.title || ""}
+                  onChange={(e) => setEditingModalNote({ ...editingModalNote, title: e.target.value })}
+                  placeholder="Note title (optional)"
+                  className="w-full mt-1 px-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-purple-500"
+                />
+              </div>
+
+              {/* Markdown Content */}
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Content (Markdown Supported)</label>
+                <textarea
+                  rows={5}
+                  value={editingModalNote.text}
+                  onChange={(e) => setEditingModalNote({ ...editingModalNote, text: e.target.value })}
+                  className="w-full mt-1 p-3 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-purple-500 font-mono"
+                />
+              </div>
+
+              {/* Subject */}
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Subject / Category</label>
+                <input
+                  type="text"
+                  value={editingModalNote.subject || ""}
+                  onChange={(e) => setEditingModalNote({ ...editingModalNote, subject: e.target.value })}
+                  placeholder="e.g. Java, Physics, General Study"
+                  className="w-full mt-1 px-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-purple-500"
+                />
+              </div>
+
+              {/* Background Color Swatches */}
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Background Color</label>
+                <div className="flex flex-wrap gap-2 mt-1.5">
+                  {NOTE_BACKGROUNDS.map((bg) => (
+                    <button
+                      key={bg.name}
+                      type="button"
+                      onClick={() => setEditingModalNote({ ...editingModalNote, color: bg.class })}
+                      className={`w-7 h-7 rounded-xl border-2 transition-all ${bg.class} ${
+                        editingModalNote.color === bg.class ? "ring-2 ring-purple-400 scale-110" : "opacity-80 hover:opacity-100"
+                      }`}
+                      title={bg.name}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Text Color Swatches */}
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Text Color</label>
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  {NOTE_TEXT_COLORS.map((tc) => (
+                    <button
+                      key={tc.name}
+                      type="button"
+                      onClick={() => setEditingModalNote({ ...editingModalNote, textColor: tc.class })}
+                      className={`px-2 py-1 rounded-lg border text-xs font-semibold ${tc.class} bg-slate-950 border-slate-800 ${
+                        editingModalNote.textColor === tc.class ? "border-purple-400 ring-1 ring-purple-400" : ""
+                      }`}
+                    >
+                      {tc.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Font Family */}
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Font Family</label>
+                <select
+                  value={editingModalNote.font}
+                  onChange={(e) => setEditingModalNote({ ...editingModalNote, font: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-purple-500"
+                >
+                  {NOTE_FONTS.map((f) => (
+                    <option key={f.name} value={f.class}>
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+              <button
+                onClick={() => setEditingModalNote(null)}
+                className="px-4 py-2 rounded-xl text-xs text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (!editingModalNote.text.trim() && !editingModalNote.title?.trim()) {
+                    showToast("Please provide a title or content", "warning");
+                    return;
+                  }
+                  setStickyNotes((prev) =>
+                    prev.map((n) => (n.id === editingModalNote.id ? editingModalNote : n))
+                  );
+                  setEditingModalNote(null);
+                  showToast("Sticky Note updated!", "success");
+                }}
+                className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-lg shadow-purple-600/30"
+              >
+                Save Changes
+              </button>
             </div>
           </div>
         </div>
