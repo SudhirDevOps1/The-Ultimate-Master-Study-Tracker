@@ -1536,6 +1536,32 @@ ipcMain.handle("heartbeat-set-config", async (_event, cfg) => {
 
 ipcMain.handle("get-idle-time-ms", async () => await getSystemIdleMs());
 
+let isFocusSessionActive = false;
+
+ipcMain.handle("set-focus-session-active", (event, active) => {
+  isFocusSessionActive = Boolean(active);
+  return { success: true, isFocusSessionActive };
+});
+
+ipcMain.handle("tracking-capability", () => {
+  const isLinuxWayland = process.platform === "linux" && Boolean(process.env.WAYLAND_DISPLAY);
+  const isMacAccessibilityGranted =
+    process.platform === "darwin" && typeof systemPreferences?.isTrustedAccessibilityClient === "function"
+      ? systemPreferences.isTrustedAccessibilityClient(false)
+      : true;
+  return {
+    platform: process.platform,
+    isSupported: true,
+    isLinuxWayland,
+    isMacAccessibilityGranted,
+    warning: isLinuxWayland
+      ? "Wayland detected: active window tracking requires XWayland or compositor window bridge."
+      : !isMacAccessibilityGranted
+      ? "macOS Accessibility permission not granted: window titles cannot be inspected."
+      : null,
+  };
+});
+
 ipcMain.handle("get-block-rules", async () => {
   return blockRulesData;
 });
@@ -1548,27 +1574,31 @@ ipcMain.handle("save-block-rules", async (_e, { rules, globalEnabled }) => {
 });
 
 ipcMain.handle("enforce-block-rules", async () => {
-  if (!blockRulesData.globalEnabled || !blockRulesData.rules || blockRulesData.rules.length === 0) {
+  if (!blockRulesData.globalEnabled || !Array.isArray(blockRulesData.rules) || blockRulesData.rules.length === 0) {
     return { success: true, killed: [] };
   }
 
   const killed = [];
   if (process.platform === "win32") {
     for (const rule of blockRulesData.rules) {
-      if (rule.blocked === false || rule.enabled === false) continue;
+      if (!rule || rule.blocked === false || rule.enabled === false) continue;
       if (rule.strictLevel !== "hard") continue;
+      if (rule.ruleType === "website" && !rule.appName.toLowerCase().endsWith(".exe")) continue;
       
-      const target = (rule.appName || "").toLowerCase().trim();
-      if (!target) continue;
-      const cleanTarget = target.replace(/\.exe$/i, "");
+      const isSchedActive = isRuleScheduleActive(rule, new Date(), isFocusSessionActive);
+      if (!isSchedActive) continue;
 
-      // Execute taskkill
-      execFile("taskkill", ["/F", "/IM", `${cleanTarget}.exe`, "/T"], () => {});
+      const cleanTarget = normalizeProcess(rule.appName);
+      if (!cleanTarget || isSystemProtected(cleanTarget)) continue;
+      if (!/^[a-zA-Z0-9_\-\.]+$/.test(cleanTarget)) continue;
+
+      // Execute taskkill without /T tree kill
+      execFile("taskkill", ["/F", "/IM", `${cleanTarget}.exe`], () => {});
       
-      // Stop UWP / Store / Process by name or title wildcard
-      const psKillCmd = `Get-Process | Where-Object { $_.ProcessName -like '*${cleanTarget}*' -or $_.MainWindowTitle -like '*${cleanTarget}*' } | Stop-Process -Force -ErrorAction SilentlyContinue`;
+      // Stop UWP / Store Process by exact name
+      const psKillCmd = `Stop-Process -Name '${cleanTarget}' -Force -ErrorAction SilentlyContinue`;
       execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", psKillCmd], () => {});
-      killed.push(target);
+      killed.push(rule.appName);
     }
   }
   return { success: true, killed };
@@ -1582,9 +1612,9 @@ ipcMain.handle("sync-hosts-file", async () => {
 
     try {
       const activeWebBlocks = (blockRulesData.rules || [])
-        .filter(r => r.ruleType === "website" && r.blocked && blockRulesData.globalEnabled)
-        .map(r => r.appName.trim())
-        .filter(name => Boolean(name) && !name.toLowerCase().endsWith(".exe"));
+        .filter(r => r.ruleType === "website" && r.blocked !== false && blockRulesData.globalEnabled)
+        .map(r => (r.appName || "").trim().toLowerCase().replace(/^https?:\/\//i, "").replace(/\/.*$/, "").replace(/^www\./i, ""))
+        .filter(domain => isValidDomain(domain));
 
       let entries = "";
       if (activeWebBlocks.length > 0) {
@@ -1594,6 +1624,7 @@ ipcMain.handle("sync-hosts-file", async () => {
       const scriptContent = `
 $ErrorActionPreference = "Stop"
 $hostsPath = "$env:windir\\System32\\drivers\\etc\\hosts"
+$backupPath = "$env:windir\\System32\\drivers\\etc\\hosts.flowtrack.bak." + [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
 $logPath = "$env:TEMP\\flowtrack_hosts_sync.log"
 $startMarker = "# --- FlowTrack Pro Blocks Start ---"
 $endMarker = "# --- FlowTrack Pro Blocks End ---"
@@ -1605,6 +1636,9 @@ $endMarker
 "@
 
 try {
+    if (Test-Path $hostsPath) {
+        Copy-Item -Path $hostsPath -Destination $backupPath -Force -ErrorAction SilentlyContinue
+    }
     $hosts = Get-Content $hostsPath -Raw
     if ($hosts -match "(?s)$startMarker.*?$endMarker") {
         if ("${entries}" -eq "") {

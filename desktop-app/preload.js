@@ -29,6 +29,8 @@ const ALLOWED_INVOKE_CHANNELS = [
   "save-block-rules",
   "enforce-block-rules",
   "sync-hosts-file",
+  "set-focus-session-active",
+  "tracking-capability",
   "get-running-apps",
   "get-desktop-settings",
   "save-desktop-settings",

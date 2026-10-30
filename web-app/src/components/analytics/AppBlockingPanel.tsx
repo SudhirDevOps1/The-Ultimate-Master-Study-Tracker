@@ -20,6 +20,7 @@ import {
 import { Panel } from "@/components/common/Panel";
 import { useAppStore, type AppState } from "@/store/useAppStore";
 import type { AppBlockRule, BlockStrictLevel } from "@/types/models";
+import { isRuleScheduleActive } from "@/utils/blockMatch";
 
 interface RunningApp {
   appName: string;
@@ -58,13 +59,18 @@ const POPULAR_WEBSITES: WebsitePreset[] = [
 
 export function AppBlockingPanel() {
   const isBackendConnected = useAppStore((state: AppState) => state.isBackendConnected);
+  const activeSessionId = useAppStore((state: AppState) => state.timer?.activeSessionId);
+  const isTimerPaused = useAppStore((state: AppState) => state.timer?.isPaused);
+  const isFocusSessionActive = Boolean(activeSessionId && !isTimerPaused);
 
   const [rules, setRules] = useState<AppBlockRule[]>([]);
   const [globalEnabled, setGlobalEnabled] = useState(true);
   const [newAppName, setNewAppName] = useState("");
   const [newRuleType, setNewRuleType] = useState<"app" | "website">("app");
   const [strictLevel, setStrictLevel] = useState<BlockStrictLevel>("hard");
-  const [schedule, setSchedule] = useState<"always" | "study_hours">("study_hours");
+  const [schedule, setSchedule] = useState<"always" | "study_hours" | "custom">("always");
+  const [customStartTime, setCustomStartTime] = useState("09:00");
+  const [customEndTime, setCustomEndTime] = useState("17:00");
   const [loading, setLoading] = useState(false);
 
   // Apps state: Running Apps vs Installed PC Software
@@ -201,6 +207,8 @@ export function AppBlockingPanel() {
       blocked: true,
       strictLevel,
       schedule,
+      customStartTime: schedule === "custom" ? customStartTime : undefined,
+      customEndTime: schedule === "custom" ? customEndTime : undefined,
       category: "distracting",
       createdAt: new Date().toISOString()
     };
