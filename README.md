@@ -89,7 +89,9 @@
 > - **ActivityWatch** — Automated local-first window tracking and OS-level AFK idle detection with zero remote server logging.
 > - **Super Productivity** — Ergonomic 20-20-20 eye-care synthesizer, task timeboxing, and developer focus techniques.
 > - **Anki / SuperMemo SM-2** — Spaced repetition memory algorithm ($I_n = I_{n-1} \times EF$) for programming syntax, interview problems & concepts.
-> - **Dayflow & Wakapi** — Passive screen and IDE project categorization between deep study, coding, and browsing.
+> - **Dayflow & Wakapi** — Passive screen and IDE project categorization between deep study, coding, and browsing, featuring 1-click local IDE setup (`127.0.0.1:7777`).
+> - **Excalidraw & Miro** — Multi-slide whiteboard canvas deck with auto-cleaning placeholder text, sticky note designer cards, and floating layer controls.
+> - **MindMap Studio** — True portal fullscreen engine, radar mini-map overview, 5 node shapes, and 4 auto-color branch hierarchy themes.
 
 ---
 

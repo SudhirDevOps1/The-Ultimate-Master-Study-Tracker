@@ -29,7 +29,7 @@ Web-only: `BackendActivityPanel`, `PerformanceScorecardModal`, `WeeklyReviewModa
 
 ## Testing reality
 
-- **14 test suites, 53 unit tests** in `desktop-app/src/utils/__tests__/` (covering `security.ts`, `afkTracking.ts`, `breakEngine.ts`, `downloadManager.ts`, `editorInfo.ts`, `heartbeatReceiver.ts`, `localQueryApi.ts`, `ocrEngine.ts`, `reviewGenerator.ts`, `taskModel.ts`).
+- **21 test suites, 113 unit tests** in `desktop-app/src/utils/__tests__/` (covering `security.ts`, `afkTracking.ts`, `breakEngine.ts`, `downloadManager.ts`, `editorInfo.ts`, `heartbeatReceiver.ts`, `localQueryApi.ts`, `ocrEngine.ts`, `reviewGenerator.ts`, `taskModel.ts`, `mermaidHelper.ts`, `latexToMathML.ts`, `boardMath.ts`, `mindmapGraph.ts`, `aiModelFetcher.ts`, `storageMigration.ts`, `focusScore.ts`, `backupEngine.ts`, `securityContract.ts`, and E2E flows).
 - Coverage `include` is configured for tested utility surfaces. Never quote single-file coverage as overall repo coverage.
 - CI order: typecheck → lint → `py_compile`/`ruff` → test → build. Match it locally before every push.
 
@@ -73,7 +73,9 @@ The build job rewrites `desktop-app/package.json` from the release tag at runtim
 - **ActivityWatch**: Automated local-first active window tracking (`win-tracker.exe`) and OS-level AFK idle detection (`powerMonitor.getSystemIdleTime()`). Strict zero-cloud telemetry policy; all logs remain in local SQLite WAL / Dexie.
 - **Super Productivity**: Ergonomic 20-20-20 eye-care synthesizer, 50m focus stretch, 90m ultradian cycles, task timeboxing, and Web Audio API harmonic chime tones.
 - **Anki / SuperMemo SM-2**: Spaced repetition memory algorithm ($I_n = I_{n-1} \times EF$) with dynamic interval calculation and deterministic fuzzing in `spacedRepetition.ts`.
-- **Dayflow & Wakapi**: Passive screen and IDE project categorization. Loopback heartbeat receiver bound strictly to `127.0.0.1:7777` with CORS & DNS-rebinding protection.
+- **Dayflow & Wakapi**: Passive screen and IDE project categorization. Loopback heartbeat receiver bound strictly to `127.0.0.1:7777` with CORS & DNS-rebinding protection, 1-click `auto-configure-wakatime-cfg` support, pure real-time pulse stream without simulated clutter, explicit demo badging, and user-controlled heartbeat clearing.
+- **Excalidraw & Miro Canvas Synthesizer**: Infinite Fabric.js whiteboard with multi-slide deck engine, sketchy hand-drawn mode, auto-cleanup of orphan placeholder text on blur, class-registered `StickyNoteBox` in Fabric v6, anti-collision staggering, and floating contextual layer/palette controls.
+- **MindMap Portal Engine**: React portal mounting directly to `document.body` bypassing CSS transform containing-block traps, with Mini-Map Radar Navigator, 5 node geometries, and 4 auto-color branch hierarchy themes.
 
 ## Conventions
 
