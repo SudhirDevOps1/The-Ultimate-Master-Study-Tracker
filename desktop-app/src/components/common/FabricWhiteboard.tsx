@@ -103,9 +103,17 @@ export const NOTE_PALETTES = [
  * and palette borders so that notes are ALWAYS full-sized cards rather than tiny single-line text stripes.
  */
 export class StickyNoteBox extends fabric.Textbox {
+  static type = "StickyNoteBox";
   minHeight: number = 180;
   noteColorId: string = "yellow";
   noteBorderColor: string = "#facc15";
+
+  constructor(text: string, options: any = {}) {
+    super(text, {
+      ...options,
+      type: "StickyNoteBox",
+    });
+  }
 
   override initDimensions() {
     super.initDimensions();
@@ -161,6 +169,11 @@ export class StickyNoteBox extends fabric.Textbox {
     ]);
   }
 }
+
+try {
+  (fabric as any).classRegistry?.setClass(StickyNoteBox, "StickyNoteBox");
+  (fabric as any).classRegistry?.setClass(StickyNoteBox, "stickyNote");
+} catch {}
 
 export const isNoteObj = (o: fabric.Object | null | undefined): boolean => {
   if (!o) return false;
@@ -993,7 +1006,23 @@ export function FabricWhiteboard({
       }
     };
 
+    const cleanupOrphans = () => {
+      const active = c.getActiveObject();
+      let changed = false;
+      c.getObjects().forEach((o) => {
+        if (o instanceof fabric.IText && o !== active) {
+          const raw = (o.text || "").trim();
+          if (!raw || raw === "Type text here") {
+            c.remove(o);
+            changed = true;
+          }
+        }
+      });
+      if (changed) c.requestRenderAll();
+    };
+
     const addText = (x: number, y: number) => {
+      cleanupOrphans();
       const L = live.current;
       const font = L.sketchy ? FONTS[0].family : L.font;
       const it = new fabric.IText("Type text here", {
@@ -1002,20 +1031,46 @@ export function FabricWhiteboard({
         fill: L.stroke, opacity: L.opacity,
         editable: true, selectable: true, evented: true,
       });
+
+      const onExit = () => {
+        const raw = (it.text || "").trim();
+        if (!raw || raw === "Type text here") {
+          c.remove(it);
+          c.requestRenderAll();
+        }
+      };
+      it.on("editing:exited", onExit);
+      it.on("deselected", onExit);
+
       c.add(it);
       c.setActiveObject(it);
       it.enterEditing();
       it.selectAll();
       c.requestRenderAll();
+      pushHistory();
       if (!L.locked) setTool("select");
     };
 
     const addNote = (x: number, y: number, textContent = "📌 Sticky Note\n\nClick to write your concepts or formulas...") => {
+      cleanupOrphans();
       const L = live.current;
       const font = L.sketchy ? FONTS[0].family : L.font;
       const curPalette = NOTE_PALETTES.find(p => p.id === L.noteColor) || NOTE_PALETTES[0];
+
+      // Anti-collision staggering: offset if position collides
+      let targetX = x - 120;
+      let targetY = y - 90;
+      const collides = c.getObjects().some(o => {
+        const b = o.getBoundingRect();
+        return Math.abs(b.left - targetX) < 40 && Math.abs(b.top - targetY) < 40;
+      });
+      if (collides) {
+        targetX += 32;
+        targetY += 32;
+      }
+
       const n = new StickyNoteBox(textContent, {
-        left: x - 120, top: y - 90, width: 240,
+        left: targetX, top: targetY, width: 240,
         fontFamily: font, fontSize: 18, lineHeight: 1.35,
         fill: curPalette.text,
         backgroundColor: curPalette.bg,
@@ -1031,6 +1086,7 @@ export function FabricWhiteboard({
       c.add(n);
       c.setActiveObject(n);
       n.enterEditing();
+      n.selectAll();
       c.requestRenderAll();
       pushHistory();
       if (!L.locked) setTool("select");
@@ -1078,6 +1134,7 @@ export function FabricWhiteboard({
     });
 
     c.on("mouse:down", (opt) => {
+      cleanupOrphans();
       const t = live.current.tool;
 
       if (wantsPan(opt.e)) {
@@ -1642,7 +1699,8 @@ export function FabricWhiteboard({
     objs.forEach((o) => c.remove(o));
     c.discardActiveObject();
     c.requestRenderAll();
-  }, []);
+    pushHistory();
+  }, [pushHistory]);
 
   const selectAll = useCallback(() => {
     const c = fcRef.current;
@@ -2431,7 +2489,67 @@ export function FabricWhiteboard({
           </div>
         </div>
 
-        {/* ============================================ TOP-CENTER: tools == */}
+{/* ============================================ CONTEXTUAL FLOATING SELECTION BAR */}
+        {hasSel && (
+          <div className="pointer-events-none absolute left-1/2 top-16 z-30 flex -translate-x-1/2">
+            <div className={`${island} flex items-center gap-1.5 p-1 shadow-2xl border border-cyan-500/30 bg-slate-900/95 backdrop-blur-xl`}>
+              <button
+                onClick={bringFront}
+                title="Bring to Front (Ctrl+])"
+                className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/10 hover:text-white"
+              >
+                <BringToFront className="h-3.5 w-3.5 text-cyan-400" />
+                <span className="hidden sm:inline">Front</span>
+              </button>
+              <button
+                onClick={sendBack}
+                title="Send to Back (Ctrl+[)"
+                className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/10 hover:text-white"
+              >
+                <SendToBack className="h-3.5 w-3.5 text-cyan-400" />
+                <span className="hidden sm:inline">Back</span>
+              </button>
+              <div className="h-4 w-px bg-white/15" />
+              <button
+                onClick={duplicate}
+                title="Duplicate (Ctrl+D)"
+                className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/10 hover:text-white"
+              >
+                <Copy className="h-3.5 w-3.5 text-indigo-400" />
+                <span className="hidden sm:inline">Duplicate</span>
+              </button>
+              <button
+                onClick={deleteSel}
+                title="Delete (Del / Backspace)"
+                className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-rose-300 hover:bg-rose-500/20"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Delete</span>
+              </button>
+
+              {selIsNote && (
+                <>
+                  <div className="h-4 w-px bg-white/15" />
+                  <div className="flex items-center gap-1 pl-1">
+                    {NOTE_PALETTES.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => setNoteColorA(p.id)}
+                        title={p.name}
+                        style={{ backgroundColor: p.bg, borderColor: p.border }}
+                        className={`h-5 w-5 rounded-full border transition-all hover:scale-110 ${
+                          noteColor === p.id ? "ring-2 ring-cyan-400 ring-offset-1 ring-offset-slate-900" : ""
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+                {/* ============================================ TOP-CENTER: tools == */}
         <div className="pointer-events-none absolute left-1/2 top-3 z-30 flex -translate-x-1/2">
           <div className={`${island} scrollbar-none flex max-w-[calc(100vw-24px)] items-center gap-0.5 overflow-x-auto p-1`}>
             {TOOLS.map(({ id, icon: Icon, label, key, accent }, i) => {

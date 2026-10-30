@@ -465,6 +465,28 @@ export function AppTrackingPage() {
   }, [selectedDate]);
 
   const realCodingStats = useMemo(() => aggregateCodingStats(heartbeats), [heartbeats]);
+  const handleAutoConfigureIde = async () => {
+    const ipc = getIpc();
+    if (!ipc) {
+      alert("IDE auto-configuration is available in the desktop app.");
+      return;
+    }
+    const res = await ipc.invoke("auto-configure-wakatime-cfg");
+    if (res?.ok) {
+      alert("Success! Configured ~/.wakatime.cfg pointing to FlowTrack (127.0.0.1:7777).\n\nNow open VS Code, Cursor, or JetBrains with the WakaTime extension installed. Your real files and projects will stream live into FlowTrack!");
+    } else {
+      alert(res?.error || "Could not write ~/.wakatime.cfg. You can copy the manual configuration below.");
+    }
+  };
+
+  const handleClearHeartbeats = async () => {
+    if (!window.confirm("Are you sure you want to clear all heartbeat pulses? This will remove all test and recorded pulses.")) return;
+    const ipc = getIpc();
+    if (ipc) {
+      await ipc.invoke("heartbeat-clear");
+      setHeartbeats([]);
+    }
+  };
   const [heartbeatSearch, setHeartbeatSearch] = useState("");
   const [copiedConfig, setCopiedConfig] = useState(false);
   const [exportStatus, setExportStatus] = useState<"idle"|"exporting"|"importing">("idle");
@@ -1479,20 +1501,30 @@ export function AppTrackingPage() {
                     <div className="py-10 text-center text-slate-500 text-xs space-y-3">
                       <p>No active coding heartbeats detected for {selectedDate}.</p>
                       <p className="text-[11px] text-slate-400">Connect VS Code, Cursor, or JetBrains to see your live languages distribution.</p>
-                      <button
-                        onClick={async () => {
-                          const ipc = getIpc();
-                          if (ipc) {
-                            await ipc.invoke("send-test-heartbeat");
-                            ipc.invoke("heartbeat-get-day", selectedDate).then((items: any) => {
-                              if (Array.isArray(items)) setHeartbeats(items);
-                            });
-                          }
-                        }}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-xs font-semibold hover:bg-cyan-500/30 transition-all cursor-pointer"
-                      >
-                        <span>🧪 Generate Test Pulse & Refresh</span>
-                      </button>
+                      <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                        <button
+                          onClick={handleAutoConfigureIde}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-semibold hover:bg-emerald-500/30 transition-all cursor-pointer"
+                        >
+                          <Zap className="w-3.5 h-3.5" />
+                          <span>⚡ 1-Click Connect Real IDE</span>
+                        </button>
+                        <button
+                          onClick={async () => {
+                            const ipc = getIpc();
+                            if (ipc) {
+                              await ipc.invoke("send-test-heartbeat");
+                              ipc.invoke("heartbeat-get-day", selectedDate).then((items: any) => {
+                                if (Array.isArray(items)) setHeartbeats(items);
+                              });
+                            }
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/5 text-slate-400 border border-white/10 text-xs font-medium hover:bg-white/10 transition-all cursor-pointer"
+                          title="Generate a demo pulse for testing UI visualization"
+                        >
+                          <span>🧪 Generate Demo Pulse</span>
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -1710,19 +1742,34 @@ export function AppTrackingPage() {
                       </div>
 
                       <button
+                        onClick={handleAutoConfigureIde}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-semibold transition-all cursor-pointer"
+                        title="Automatically configure ~/.wakatime.cfg for VS Code / Cursor"
+                      >
+                        <Zap className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Connect IDE</span>
+                      </button>
+
+                      <button
                         onClick={async () => {
                           const ipc = getIpc();
                           if (ipc) {
-                            await ipc.invoke("send-test-heartbeat");
-                            ipc.invoke("heartbeat-get-day", selectedDate).then((items: any) => {
-                              if (Array.isArray(items)) setHeartbeats(items);
-                            });
+                            const items = await ipc.invoke("heartbeat-get-day", selectedDate);
+                            if (Array.isArray(items)) setHeartbeats(items);
                           }
                         }}
-                        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-cyan-300 transition-colors"
-                        title="Generate a test pulse"
+                        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-cyan-300 transition-colors cursor-pointer"
+                        title="Refresh live pulse stream"
                       >
                         <RefreshCw className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        onClick={handleClearHeartbeats}
+                        className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 transition-colors cursor-pointer"
+                        title="Clear all recorded pulses (remove test data)"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
@@ -1735,10 +1782,13 @@ export function AppTrackingPage() {
                     <div className="space-y-2 max-h-[320px] overflow-y-auto pretty-scrollbar pr-1">
                       {[...filteredHeartbeats].reverse().slice(0, 30).map((h, idx) => {
                         const langColor = LANG_COLORS[h.language || "Other"] || "#38bdf8";
+                        const isSimulated = Boolean(h.editor?.includes("Simulated") || h.entity?.includes("test-session.ts"));
                         return (
                           <div
                             key={h.id || idx}
-                            className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.02] border border-white/5 hover:border-cyan-500/30 transition-all text-xs"
+                            className={`flex items-center justify-between p-2.5 rounded-xl bg-white/[0.02] border transition-all text-xs ${
+                              isSimulated ? "border-amber-500/30 bg-amber-500/[0.02]" : "border-white/5 hover:border-cyan-500/30"
+                            }`}
                           >
                             <div className="flex items-center gap-2.5 min-w-0 flex-1">
                               <span
@@ -1747,6 +1797,11 @@ export function AppTrackingPage() {
                               >
                                 {h.language || "Code"}
                               </span>
+                              {isSimulated && (
+                                <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-extrabold uppercase shrink-0">
+                                  Demo
+                                </span>
+                              )}
                               <div className="min-w-0 flex-1">
                                 <p className="font-mono text-slate-200 truncate text-[11px]" title={h.entity}>
                                   {h.entity}
