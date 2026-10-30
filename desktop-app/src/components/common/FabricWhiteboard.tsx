@@ -19,7 +19,7 @@ import {
   Undo2, Redo2, ZoomIn, ZoomOut, Maximize2, Minimize2, Menu, Download,
   Upload, Trash2, Grid3x3, Magnet, ChevronDown, Scan, Palette, FileImage,
   FileJson, FileCode2, Keyboard, MousePointer2, LassoSelect, Hand, Pencil, Highlighter,
-  Zap, Eraser, Square, Circle, Diamond, Minus, ArrowRight, Type, StickyNote,
+  Zap, Eraser, Square, Circle, Diamond, Triangle, Cloud, Minus, ArrowRight, Type, StickyNote,
   ImagePlus, Lock, Unlock, BringToFront, SendToBack, Copy, Ban, X, Sparkles,
   GitFork, FileText, AlignLeft, AlignCenter, AlignRight, AlignJustify, ArrowUpDown, Check,
   ChevronLeft, ChevronRight, Plus, Home, ArrowLeft,
@@ -36,14 +36,17 @@ import { calculateAlignment, calculateDistribution, isPointInPolygon } from "@/u
 
 type Tool =
   | "select" | "lasso" | "pan" | "pen" | "marker" | "laser" | "eraser"
-  | "rect" | "ellipse" | "diamond" | "line" | "arrow" | "text" | "note";
+  | "rect" | "ellipse" | "diamond" | "triangle" | "cloud" | "line" | "arrow" | "text" | "note";
+
+export type WhiteboardSloppiness = "architect" | "artist" | "cartoonist";
+export type WhiteboardFillStyle = "solid" | "hachure";
 
 interface Theme {
   id: string; name: string; page: string; grid: string;
   gtype: "dots" | "lines" | "none"; ink: string; isDark: boolean;
 }
 
-const SHAPE_TOOLS = new Set<Tool>(["rect", "ellipse", "diamond", "line", "arrow"]);
+const SHAPE_TOOLS = new Set<Tool>(["rect", "ellipse", "diamond", "triangle", "cloud", "line", "arrow"]);
 const DRAW_TOOLS  = new Set<Tool>(["pen", "marker"]);
 const TEXT_TYPES  = new Set(["i-text", "text", "textbox"]);
 
@@ -100,9 +103,17 @@ export const NOTE_PALETTES = [
  * and palette borders so that notes are ALWAYS full-sized cards rather than tiny single-line text stripes.
  */
 export class StickyNoteBox extends fabric.Textbox {
+  static type = "StickyNoteBox";
   minHeight: number = 180;
   noteColorId: string = "yellow";
   noteBorderColor: string = "#facc15";
+
+  constructor(text: string, options: any = {}) {
+    super(text, {
+      ...options,
+      type: "StickyNoteBox",
+    });
+  }
 
   override initDimensions() {
     super.initDimensions();
@@ -158,6 +169,11 @@ export class StickyNoteBox extends fabric.Textbox {
     ]);
   }
 }
+
+try {
+  (fabric as any).classRegistry?.setClass(StickyNoteBox, "StickyNoteBox");
+  (fabric as any).classRegistry?.setClass(StickyNoteBox, "stickyNote");
+} catch {}
 
 export const isNoteObj = (o: fabric.Object | null | undefined): boolean => {
   if (!o) return false;
@@ -341,7 +357,7 @@ const DASHES: Record<string, number[] | undefined> = {
 
 const KEYS: Record<string, Tool> = {
   v: "select", q: "lasso", h: "pan", p: "pen", m: "marker", x: "laser", e: "eraser",
-  r: "rect", o: "ellipse", d: "diamond", l: "line", a: "arrow", t: "text", n: "note",
+  r: "rect", o: "ellipse", d: "diamond", g: "triangle", k: "cloud", l: "line", a: "arrow", t: "text", n: "note",
 };
 
 interface ToolMeta { id: Tool; icon: typeof MousePointer2; label: string; key: string; accent: string; }
@@ -356,6 +372,8 @@ const TOOLS: ToolMeta[] = [
   { id: "rect",    icon: Square,        label: "Rectangle",key: "R", accent: "bg-cyan-400 text-slate-950" },
   { id: "ellipse", icon: Circle,        label: "Ellipse",  key: "O", accent: "bg-cyan-400 text-slate-950" },
   { id: "diamond", icon: Diamond,       label: "Diamond",  key: "D", accent: "bg-cyan-400 text-slate-950" },
+  { id: "triangle",icon: Triangle,      label: "Triangle", key: "G", accent: "bg-cyan-400 text-slate-950" },
+  { id: "cloud",   icon: Cloud,         label: "Cloud",    key: "K", accent: "bg-cyan-400 text-slate-950" },
   { id: "line",    icon: Minus,         label: "Line",     key: "L", accent: "bg-cyan-400 text-slate-950" },
   { id: "arrow",   icon: ArrowRight,    label: "Arrow",    key: "A", accent: "bg-cyan-400 text-slate-950" },
   { id: "text",    icon: Type,          label: "Text",     key: "T", accent: "bg-violet-500 text-white" },
@@ -394,15 +412,174 @@ const pointInPoly = (p: { x: number; y: number }, poly: { x: number; y: number }
   return inside;
 };
 
-const arrowPathD = (ax: number, ay: number, bx: number, by: number, w: number) => {
+export function createHachurePattern(color: string, gap = 8, lineWidth = 1.5): fabric.Pattern {
+  const pCanvas = document.createElement("canvas");
+  const size = gap * 4;
+  pCanvas.width = size;
+  pCanvas.height = size;
+  const pCtx = pCanvas.getContext("2d");
+  if (pCtx) {
+    pCtx.strokeStyle = color;
+    pCtx.lineWidth = lineWidth;
+    pCtx.beginPath();
+    for (let x = -size; x <= size * 2; x += gap) {
+      pCtx.moveTo(x, 0);
+      pCtx.lineTo(x + size, size);
+    }
+    pCtx.stroke();
+  }
+  return new fabric.Pattern({
+    source: pCanvas,
+    repeat: "repeat",
+  });
+}
+
+const getRoughnessMultiplier = (sloppiness: WhiteboardSloppiness): number => {
+  if (sloppiness === "architect") return 0.6;
+  if (sloppiness === "cartoonist") return 2.6;
+  return 1.4; // artist
+};
+
+function getSketchyRectPath(W: number, H: number, sloppiness: WhiteboardSloppiness = "artist"): string {
+  const r = getRoughnessMultiplier(sloppiness);
+  const o = r * 2.5; // corner overshoot
+  const j = r * 0.8; // jitter
+  return [
+    `M 0 0 L ${W} 0 L ${W} ${H} L 0 ${H} Z`,
+    `M ${-o} ${j * 0.4} L ${W + o} ${-j * 0.5}`,
+    `M ${-o * 0.6} ${-j * 0.6} L ${W + o * 0.8} ${j * 0.4}`,
+    `M ${W + j * 0.5} ${-o} L ${W - j * 0.4} ${H + o}`,
+    `M ${W - j * 0.6} ${-o * 0.7} L ${W + j * 0.7} ${H + o * 0.8}`,
+    `M ${W + o} ${H + j * 0.5} L ${-o} ${H - j * 0.6}`,
+    `M ${W + o * 0.7} ${H - j * 0.4} L ${-o * 0.8} ${H + j * 0.5}`,
+    `M ${j * 0.4} ${H + o} L ${-j * 0.6} ${-o}`,
+    `M ${-j * 0.5} ${H + o * 0.7} L ${j * 0.6} ${-o * 0.8}`,
+  ].join(" ");
+}
+
+function getSketchyDiamondPath(W: number, H: number, sloppiness: WhiteboardSloppiness = "artist"): string {
+  const r = getRoughnessMultiplier(sloppiness);
+  const o = r * 2.2;
+  const j = r * 0.7;
+  const p1 = { x: W / 2, y: 0 };
+  const p2 = { x: W, y: H / 2 };
+  const p3 = { x: W / 2, y: H };
+  const p4 = { x: 0, y: H / 2 };
+  return [
+    `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y} L ${p3.x} ${p3.y} L ${p4.x} ${p4.y} Z`,
+    `M ${p1.x - o * 0.5} ${p1.y - o * 0.3} L ${p2.x + o * 0.5} ${p2.y + o * 0.3}`,
+    `M ${p1.x + j} ${p1.y} L ${p2.x} ${p2.y - j}`,
+    `M ${p2.x + o * 0.3} ${p2.y - o * 0.5} L ${p3.x - o * 0.3} ${p3.y + o * 0.5}`,
+    `M ${p2.x - j} ${p2.y} L ${p3.x} ${p3.y - j}`,
+    `M ${p3.x + o * 0.5} ${p3.y + o * 0.3} L ${p4.x - o * 0.5} ${p4.y - o * 0.3}`,
+    `M ${p3.x - j} ${p3.y} L ${p4.x} ${p4.y + j}`,
+    `M ${p4.x - o * 0.3} ${p4.y + o * 0.5} L ${p1.x + o * 0.3} ${p1.y - o * 0.5}`,
+    `M ${p4.x + j} ${p4.y} L ${p1.x} ${p1.y + j}`,
+  ].join(" ");
+}
+
+function getSketchyTrianglePath(W: number, H: number, sloppiness: WhiteboardSloppiness = "artist"): string {
+  const r = getRoughnessMultiplier(sloppiness);
+  const o = r * 2.4;
+  const j = r * 0.7;
+  const p1 = { x: W / 2, y: 0 };
+  const p2 = { x: W, y: H };
+  const p3 = { x: 0, y: H };
+  return [
+    `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y} L ${p3.x} ${p3.y} Z`,
+    `M ${p1.x - o * 0.4} ${p1.y - o * 0.5} L ${p2.x + o * 0.5} ${p2.y + o * 0.3}`,
+    `M ${p1.x + j} ${p1.y} L ${p2.x - j} ${p2.y}`,
+    `M ${p2.x + o} ${p2.y + j * 0.5} L ${p3.x - o} ${p3.y - j * 0.5}`,
+    `M ${p2.x + o * 0.7} ${p2.y - j} L ${p3.x - o * 0.7} ${p3.y + j}`,
+    `M ${p3.x - o * 0.5} ${p3.y + o * 0.3} L ${p1.x + o * 0.4} ${p1.y - o * 0.5}`,
+    `M ${p3.x + j} ${p3.y} L ${p1.x - j} ${p1.y}`,
+  ].join(" ");
+}
+
+function getSketchyCloudPath(W: number, H: number, sloppiness: WhiteboardSloppiness = "artist"): string {
+  const r = getRoughnessMultiplier(sloppiness);
+  const j = r * 0.6;
+  const cx = W / 2, cy = H / 2;
+  const rx = Math.max(W / 2 - 8, 12), ry = Math.max(H / 2 - 8, 10);
+  const numLobes = 7;
+  const pts: { x: number; y: number }[] = [];
+  for (let i = 0; i < numLobes; i++) {
+    const a1 = (i / numLobes) * Math.PI * 2;
+    const a2 = ((i + 1) / numLobes) * Math.PI * 2;
+    const midA = (a1 + a2) / 2;
+    const x1 = cx + rx * Math.cos(a1);
+    const y1 = cy + ry * Math.sin(a1);
+    const x2 = cx + rx * Math.cos(a2);
+    const y2 = cy + ry * Math.sin(a2);
+    const bulge = 1.35 + (i % 2 === 0 ? 0.1 : -0.1) * r;
+    const ctrlX = cx + rx * bulge * Math.cos(midA);
+    const ctrlY = cy + ry * bulge * Math.sin(midA);
+    pts.push({ x: x1, y: y1 }, { x: ctrlX, y: ctrlY }, { x: x2, y: y2 });
+  }
+  let pathD = `M ${pts[0].x} ${pts[0].y}`;
+  for (let i = 0; i < pts.length; i += 3) {
+    pathD += ` Q ${pts[i + 1].x} ${pts[i + 1].y} ${pts[i + 2].x} ${pts[i + 2].y}`;
+  }
+  pathD += " Z";
+  let pass2 = ` M ${pts[0].x + j} ${pts[0].y - j}`;
+  for (let i = 0; i < pts.length; i += 3) {
+    pass2 += ` Q ${pts[i + 1].x - j} ${pts[i + 1].y + j} ${pts[i + 2].x + j} ${pts[i + 2].y - j}`;
+  }
+  return pathD + pass2;
+}
+
+function getSketchyEllipsePath(W: number, H: number, sloppiness: WhiteboardSloppiness = "artist"): string {
+  const r = getRoughnessMultiplier(sloppiness);
+  const rx = W / 2, ry = H / 2;
+  const cx = rx, cy = ry;
+  const j = r * 1.2;
+  let p1 = `M ${cx + rx} ${cy} `;
+  p1 += `A ${rx} ${ry} 0 1 0 ${cx - rx} ${cy} `;
+  p1 += `A ${rx} ${ry} 0 1 0 ${cx + rx} ${cy} Z `;
+  p1 += `M ${cx + rx + j * 0.4} ${cy + j * 0.5} `;
+  p1 += `A ${rx + j * 0.6} ${ry - j * 0.4} 0 1 0 ${cx - rx - j * 0.5} ${cy - j * 0.3} `;
+  p1 += `A ${rx - j * 0.4} ${ry + j * 0.6} 0 1 0 ${cx + rx + j * 0.8} ${cy - j * 0.2} `;
+  return p1;
+}
+
+function getSketchyLinePath(ax: number, ay: number, bx: number, by: number, sloppiness: WhiteboardSloppiness = "artist"): string {
+  const r = getRoughnessMultiplier(sloppiness);
+  const o = r * 2.5;
+  const ang = Math.atan2(by - ay, bx - ax);
+  const perpX = -Math.sin(ang) * (r * 0.8);
+  const perpY = Math.cos(ang) * (r * 0.8);
+  const dx = Math.cos(ang) * o;
+  const dy = Math.sin(ang) * o;
+  return [
+    `M ${ax - dx} ${ay - dy} L ${bx + dx} ${by + dy}`,
+    `M ${ax - dx * 0.6 + perpX} ${ay - dy * 0.6 + perpY} L ${bx + dx * 0.8 - perpX} ${by + dy * 0.8 - perpY}`,
+  ].join(" ");
+}
+
+const arrowPathD = (
+  ax: number, ay: number, bx: number, by: number, w: number,
+  sketchy = false, sloppiness: WhiteboardSloppiness = "artist"
+) => {
   const ang = Math.atan2(by - ay, bx - ax);
   const len = Math.hypot(bx - ax, by - ay);
   const k = clamp(10 + w * 1.4, 8, Math.max(8, len * 0.45));
   const a1 = ang - Math.PI / 7, a2 = ang + Math.PI / 7;
-  return `M ${ax} ${ay} L ${bx} ${by} `
-       + `M ${bx - k * Math.cos(a1)} ${by - k * Math.sin(a1)} `
-       + `L ${bx} ${by} `
-       + `L ${bx - k * Math.cos(a2)} ${by - k * Math.sin(a2)}`;
+  if (!sketchy) {
+    return `M ${ax} ${ay} L ${bx} ${by} `
+         + `M ${bx - k * Math.cos(a1)} ${by - k * Math.sin(a1)} `
+         + `L ${bx} ${by} `
+         + `L ${bx - k * Math.cos(a2)} ${by - k * Math.sin(a2)}`;
+  }
+  const r = getRoughnessMultiplier(sloppiness);
+  const j = r * 0.8;
+  return [
+    `M ${ax} ${ay} L ${bx} ${by}`,
+    `M ${ax + j} ${ay - j} L ${bx - j * 0.5} ${by + j * 0.5}`,
+    `M ${bx - k * Math.cos(a1)} ${by - k * Math.sin(a1)} L ${bx} ${by}`,
+    `M ${bx - (k + j) * Math.cos(a1) + j} ${by - (k + j) * Math.sin(a1)} L ${bx} ${by}`,
+    `M ${bx - k * Math.cos(a2)} ${by - k * Math.sin(a2)} L ${bx} ${by}`,
+    `M ${bx - (k - j) * Math.cos(a2) - j} ${by - (k - j) * Math.sin(a2)} L ${bx} ${by}`,
+  ].join(" ");
 };
 
 const cursorFor = (t: Tool) =>
@@ -418,6 +595,8 @@ const cursorFor = (t: Tool) =>
 
 export interface FabricWhiteboardProps {
   storageKey?: string;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
   onExitFullscreen?: () => void;
 }
 export const DEFAULT_STORAGE_KEY = "excalidraw_board_v1";
@@ -428,10 +607,13 @@ interface LiveState {
   tool: Tool; locked: boolean; showGrid: boolean; snap: boolean; theme: Theme;
   stroke: string; fill: string; width: number; style: string; opacity: number;
   font: string; size: number; sketchy: boolean; noteColor: string;
+  sloppiness: WhiteboardSloppiness; fillStyle: WhiteboardFillStyle;
 }
 
 export function FabricWhiteboard({
   storageKey = DEFAULT_STORAGE_KEY,
+  isFullscreen: isFullscreenProp,
+  onToggleFullscreen,
   onExitFullscreen,
 }: FabricWhiteboardProps) {
   const { showToast } = useToast();
@@ -450,7 +632,9 @@ export function FabricWhiteboard({
   const [themeId, setThemeId] = useState(THEMES[0].id);
   const [showGrid, setShowGrid] = useState(true);
   const [snap, setSnap] = useState(false);
-  const [sketchy, setSketchy] = useState(false);
+  const [sketchy, setSketchy] = useState(true);
+  const [sloppiness, setSloppiness] = useState<WhiteboardSloppiness>("artist");
+  const [fillStyle, setFillStyle] = useState<WhiteboardFillStyle>("solid");
 
   const [stroke, setStroke] = useState(THEMES[0].ink);
   const [fill, setFill] = useState("transparent");
@@ -469,7 +653,15 @@ export function FabricWhiteboard({
   const [selIsText, setSelIsText] = useState(false);
   const [selIsNote, setSelIsNote] = useState(false);
 
-  const [fullscreen, setFullscreen] = useState(false);
+  const [internalFullscreen, setInternalFullscreen] = useState(false);
+  const fullscreen = isFullscreenProp !== undefined ? isFullscreenProp : internalFullscreen;
+  const setFullscreen = (valOrFn: boolean | ((prev: boolean) => boolean)) => {
+    if (isFullscreenProp !== undefined && onToggleFullscreen) {
+      onToggleFullscreen();
+    } else {
+      setInternalFullscreen(valOrFn);
+    }
+  };
   const [menuOpen, setMenuOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -511,12 +703,14 @@ export function FabricWhiteboard({
     tool, locked, showGrid, snap, theme,
     stroke, fill, width: strokeWidth, style: strokeStyle, opacity,
     font: fontFamily, size: fontSize, sketchy, noteColor,
+    sloppiness, fillStyle,
   });
   useEffect(() => {
     live.current = {
       tool, locked, showGrid, snap, theme,
       stroke, fill, width: strokeWidth, style: strokeStyle, opacity,
       font: fontFamily, size: fontSize, sketchy, noteColor,
+      sloppiness, fillStyle,
     };
   });
 
@@ -755,63 +949,80 @@ export function FabricWhiteboard({
         strokeLineCap: "round" as const, strokeLineJoin: "round" as const,
       };
       const fl = L.fill === "transparent" ? "" : L.fill;
+      const finalFill = fl ? (L.fillStyle === "hachure" ? createHachurePattern(fl) : fl) : "";
 
       switch (t) {
         case "rect": {
           const W = Math.max(w, 2), H = Math.max(h, 2);
           if (L.sketchy) {
-            const pts = [
-              { x: 0, y: 0 }, { x: W, y: 0 }, { x: W, y: H }, { x: 0, y: H }, { x: 0, y: 0 },
-              { x: 2, y: -1 }, { x: W - 1, y: 1 }, { x: W + 1, y: H - 1 }, { x: -1, y: H + 1 }
-            ];
-            return new fabric.Polygon(pts, { ...base, left, top, fill: fl, objectCaching: false });
+            const pathD = getSketchyRectPath(W, H, L.sloppiness);
+            return new fabric.Path(pathD, { ...base, left, top, fill: finalFill, objectCaching: false });
           }
-          return new fabric.Rect({ ...base, left, top, width: W, height: H, fill: fl, rx: 10, ry: 10 });
+          return new fabric.Rect({ ...base, left, top, width: W, height: H, fill: finalFill, rx: 10, ry: 10 });
         }
         case "ellipse": {
           const rx = Math.max(w / 2, 1), ry = Math.max(h / 2, 1);
           if (L.sketchy) {
-            const pts: { x: number; y: number }[] = [];
-            for (let i = 0; i <= 24; i++) {
-              const angle = (i / 24) * Math.PI * 2;
-              pts.push({ x: rx + rx * Math.cos(angle), y: ry + ry * Math.sin(angle) });
-            }
-            for (let i = 0; i <= 24; i++) {
-              const angle = (i / 24) * Math.PI * 2;
-              const j = (i % 2 === 0 ? 1 : -1) * 1.5;
-              pts.push({ x: rx + (rx + j) * Math.cos(angle), y: ry + (ry + j) * Math.sin(angle) });
-            }
-            return new fabric.Polygon(pts, { ...base, left, top, fill: fl, objectCaching: false });
+            const pathD = getSketchyEllipsePath(Math.max(w, 2), Math.max(h, 2), L.sloppiness);
+            return new fabric.Path(pathD, { ...base, left, top, fill: finalFill, objectCaching: false });
           }
-          return new fabric.Ellipse({ ...base, left, top, rx, ry, fill: fl });
+          return new fabric.Ellipse({ ...base, left, top, rx, ry, fill: finalFill });
         }
         case "diamond": {
           const W = Math.max(w, 2), H = Math.max(h, 2);
-          const pts = L.sketchy
-            ? [
-                { x: W / 2, y: 0 }, { x: W, y: H / 2 }, { x: W / 2, y: H }, { x: 0, y: H / 2 }, { x: W / 2, y: 0 },
-                { x: W / 2 + 1, y: -1 }, { x: W + 1, y: H / 2 + 1 }, { x: W / 2 - 1, y: H - 1 }, { x: -1, y: H / 2 - 1 }
-              ]
-            : [{ x: W / 2, y: 0 }, { x: W, y: H / 2 }, { x: W / 2, y: H }, { x: 0, y: H / 2 }];
-          return new fabric.Polygon(pts, { ...base, left, top, fill: fl, objectCaching: false });
+          if (L.sketchy) {
+            const pathD = getSketchyDiamondPath(W, H, L.sloppiness);
+            return new fabric.Path(pathD, { ...base, left, top, fill: finalFill, objectCaching: false });
+          }
+          const pts = [{ x: W / 2, y: 0 }, { x: W, y: H / 2 }, { x: W / 2, y: H }, { x: 0, y: H / 2 }];
+          return new fabric.Polygon(pts, { ...base, left, top, fill: finalFill, objectCaching: false });
+        }
+        case "triangle": {
+          const W = Math.max(w, 2), H = Math.max(h, 2);
+          if (L.sketchy) {
+            const pathD = getSketchyTrianglePath(W, H, L.sloppiness);
+            return new fabric.Path(pathD, { ...base, left, top, fill: finalFill, objectCaching: false });
+          }
+          const pts = [{ x: W / 2, y: 0 }, { x: W, y: H }, { x: 0, y: H }];
+          return new fabric.Polygon(pts, { ...base, left, top, fill: finalFill, objectCaching: false });
+        }
+        case "cloud": {
+          const W = Math.max(w, 10), H = Math.max(h, 10);
+          const pathD = getSketchyCloudPath(W, H, L.sloppiness);
+          return new fabric.Path(pathD, { ...base, left, top, fill: finalFill, objectCaching: false });
         }
         case "line": {
           if (L.sketchy) {
-            const midX = (a.x + b.x) / 2 + (Math.random() - 0.5) * 4;
-            const midY = (a.y + b.y) / 2 + (Math.random() - 0.5) * 4;
-            return new fabric.Path(`M ${a.x} ${a.y} Q ${midX} ${midY} ${b.x} ${b.y}`, base);
+            const pathD = getSketchyLinePath(a.x, a.y, b.x, b.y, L.sloppiness);
+            return new fabric.Path(pathD, base);
           }
           return new fabric.Line([a.x, a.y, b.x, b.y], base);
         }
         case "arrow": {
-          const pathD = arrowPathD(a.x, a.y, b.x, b.y, L.width);
+          const pathD = arrowPathD(a.x, a.y, b.x, b.y, L.width, L.sketchy, L.sloppiness);
           return new fabric.Path(pathD, base);
         }
         default: return null;
       }
     };
 
+    const cleanupOrphans = () => {
+      const active = c.getActiveObject();
+      let changed = false;
+      c.getObjects().forEach((o) => {
+        if (o instanceof fabric.IText && o !== active) {
+          const raw = (o.text || "").trim();
+          if (!raw || raw === "Type text here") {
+            c.remove(o);
+            changed = true;
+          }
+        }
+      });
+      if (changed) c.requestRenderAll();
+    };
+
     const addText = (x: number, y: number) => {
+      cleanupOrphans();
       const L = live.current;
       const font = L.sketchy ? FONTS[0].family : L.font;
       const it = new fabric.IText("Type text here", {
@@ -820,20 +1031,46 @@ export function FabricWhiteboard({
         fill: L.stroke, opacity: L.opacity,
         editable: true, selectable: true, evented: true,
       });
+
+      const onExit = () => {
+        const raw = (it.text || "").trim();
+        if (!raw || raw === "Type text here") {
+          c.remove(it);
+          c.requestRenderAll();
+        }
+      };
+      it.on("editing:exited", onExit);
+      it.on("deselected", onExit);
+
       c.add(it);
       c.setActiveObject(it);
       it.enterEditing();
       it.selectAll();
       c.requestRenderAll();
+      pushHistory();
       if (!L.locked) setTool("select");
     };
 
     const addNote = (x: number, y: number, textContent = "📌 Sticky Note\n\nClick to write your concepts or formulas...") => {
+      cleanupOrphans();
       const L = live.current;
       const font = L.sketchy ? FONTS[0].family : L.font;
       const curPalette = NOTE_PALETTES.find(p => p.id === L.noteColor) || NOTE_PALETTES[0];
+
+      // Anti-collision staggering: offset if position collides
+      let targetX = x - 120;
+      let targetY = y - 90;
+      const collides = c.getObjects().some(o => {
+        const b = o.getBoundingRect();
+        return Math.abs(b.left - targetX) < 40 && Math.abs(b.top - targetY) < 40;
+      });
+      if (collides) {
+        targetX += 32;
+        targetY += 32;
+      }
+
       const n = new StickyNoteBox(textContent, {
-        left: x - 120, top: y - 90, width: 240,
+        left: targetX, top: targetY, width: 240,
         fontFamily: font, fontSize: 18, lineHeight: 1.35,
         fill: curPalette.text,
         backgroundColor: curPalette.bg,
@@ -849,6 +1086,7 @@ export function FabricWhiteboard({
       c.add(n);
       c.setActiveObject(n);
       n.enterEditing();
+      n.selectAll();
       c.requestRenderAll();
       pushHistory();
       if (!L.locked) setTool("select");
@@ -896,6 +1134,7 @@ export function FabricWhiteboard({
     });
 
     c.on("mouse:down", (opt) => {
+      cleanupOrphans();
       const t = live.current.tool;
 
       if (wantsPan(opt.e)) {
@@ -1460,7 +1699,8 @@ export function FabricWhiteboard({
     objs.forEach((o) => c.remove(o));
     c.discardActiveObject();
     c.requestRenderAll();
-  }, []);
+    pushHistory();
+  }, [pushHistory]);
 
   const selectAll = useCallback(() => {
     const c = fcRef.current;
@@ -2117,8 +2357,8 @@ export function FabricWhiteboard({
   /* ============================================================== UI == */
 
   const shell = fullscreen
-    ? "fixed inset-0 z-[100] rounded-none"
-    : "relative h-[78vh] min-h-[560px] rounded-2xl";
+    ? "fixed inset-0 z-[100] rounded-none h-full w-full"
+    : "relative h-full w-full flex-1 rounded-2xl";
 
   const hint =
     tool === "select" ? "Drag to marquee-select · double-click for text"
@@ -2249,7 +2489,67 @@ export function FabricWhiteboard({
           </div>
         </div>
 
-        {/* ============================================ TOP-CENTER: tools == */}
+{/* ============================================ CONTEXTUAL FLOATING SELECTION BAR */}
+        {hasSel && (
+          <div className="pointer-events-none absolute left-1/2 top-16 z-30 flex -translate-x-1/2">
+            <div className={`${island} flex items-center gap-1.5 p-1 shadow-2xl border border-cyan-500/30 bg-slate-900/95 backdrop-blur-xl`}>
+              <button
+                onClick={bringFront}
+                title="Bring to Front (Ctrl+])"
+                className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/10 hover:text-white"
+              >
+                <BringToFront className="h-3.5 w-3.5 text-cyan-400" />
+                <span className="hidden sm:inline">Front</span>
+              </button>
+              <button
+                onClick={sendBack}
+                title="Send to Back (Ctrl+[)"
+                className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/10 hover:text-white"
+              >
+                <SendToBack className="h-3.5 w-3.5 text-cyan-400" />
+                <span className="hidden sm:inline">Back</span>
+              </button>
+              <div className="h-4 w-px bg-white/15" />
+              <button
+                onClick={duplicate}
+                title="Duplicate (Ctrl+D)"
+                className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/10 hover:text-white"
+              >
+                <Copy className="h-3.5 w-3.5 text-indigo-400" />
+                <span className="hidden sm:inline">Duplicate</span>
+              </button>
+              <button
+                onClick={deleteSel}
+                title="Delete (Del / Backspace)"
+                className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-rose-300 hover:bg-rose-500/20"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Delete</span>
+              </button>
+
+              {selIsNote && (
+                <>
+                  <div className="h-4 w-px bg-white/15" />
+                  <div className="flex items-center gap-1 pl-1">
+                    {NOTE_PALETTES.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => setNoteColorA(p.id)}
+                        title={p.name}
+                        style={{ backgroundColor: p.bg, borderColor: p.border }}
+                        className={`h-5 w-5 rounded-full border transition-all hover:scale-110 ${
+                          noteColor === p.id ? "ring-2 ring-cyan-400 ring-offset-1 ring-offset-slate-900" : ""
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+                {/* ============================================ TOP-CENTER: tools == */}
         <div className="pointer-events-none absolute left-1/2 top-3 z-30 flex -translate-x-1/2">
           <div className={`${island} scrollbar-none flex max-w-[calc(100vw-24px)] items-center gap-0.5 overflow-x-auto p-1`}>
             {TOOLS.map(({ id, icon: Icon, label, key, accent }, i) => {
@@ -2361,6 +2661,24 @@ export function FabricWhiteboard({
               {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
             </button>
           </div>
+
+          {fullscreen && (
+            <div className={`${island} p-1`}>
+              <button
+                onClick={() => {
+                  if (onExitFullscreen) onExitFullscreen();
+                  else if (onToggleFullscreen) onToggleFullscreen();
+                  else setFullscreen(false);
+                }}
+                className="flex items-center gap-1.5 rounded-xl bg-purple-600/90 px-3 py-1.5 text-[11px] font-bold text-white shadow-lg transition-all hover:bg-purple-500 border border-purple-400/40"
+                title="Exit Fullscreen (Esc)"
+              >
+                <Minimize2 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Exit Fullscreen</span>
+                <kbd className="rounded bg-purple-800/80 px-1 py-0.5 text-[10px] font-mono">Esc</kbd>
+              </button>
+            </div>
+          )}
 
           <div className={`${island} relative p-1`}>
             <button
@@ -2524,24 +2842,80 @@ export function FabricWhiteboard({
                     </label>
                   </PanelSection>
 
-                  {(hasSel || tool === "rect" || tool === "ellipse" || tool === "diamond") && (
-                    <PanelSection label="Fill">
-                      <div className="grid grid-cols-5 gap-1.5">
-                        {FILLS.map((clr) => (
-                          <button
-                            key={clr}
-                            onClick={() => setFillA(clr)}
-                            title={clr === "transparent" ? "No fill" : clr}
-                            style={clr === "transparent" ? undefined : { background: clr }}
-                            className={`flex h-6 w-full items-center justify-center rounded-md border transition-all ${
-                              fill === clr ? "border-white ring-2 ring-cyan-400 ring-offset-1 ring-offset-slate-950" : "border-white/20 hover:scale-105"
-                            } ${clr === "transparent" ? "bg-slate-800" : ""}`}
-                          >
-                            {clr === "transparent" && <Ban className="h-3 w-3 text-slate-500" />}
-                          </button>
-                        ))}
-                      </div>
-                    </PanelSection>
+                  {(hasSel || isShape(tool)) && (
+                    <>
+                      <PanelSection label="Fill">
+                        <div className="grid grid-cols-5 gap-1.5">
+                          {FILLS.map((clr) => (
+                            <button
+                              key={clr}
+                              onClick={() => setFillA(clr)}
+                              title={clr === "transparent" ? "No fill" : clr}
+                              style={clr === "transparent" ? undefined : { background: clr }}
+                              className={`flex h-6 w-full items-center justify-center rounded-md border transition-all ${
+                                fill === clr ? "border-white ring-2 ring-cyan-400 ring-offset-1 ring-offset-slate-950" : "border-white/20 hover:scale-105"
+                              } ${clr === "transparent" ? "bg-slate-800" : ""}`}
+                            >
+                              {clr === "transparent" && <Ban className="h-3 w-3 text-slate-500" />}
+                            </button>
+                          ))}
+                        </div>
+                      </PanelSection>
+
+                      {fill !== "transparent" && (
+                        <PanelSection label="Fill Style">
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <button
+                              onClick={() => setFillStyle("solid")}
+                              className={`h-7 rounded-lg border text-[11px] font-bold transition-all ${
+                                fillStyle === "solid"
+                                  ? "border-cyan-400 bg-cyan-500/20 text-white"
+                                  : "border-white/10 bg-white/5 text-slate-400 hover:bg-white/10"
+                              }`}
+                            >
+                              Solid
+                            </button>
+                            <button
+                              onClick={() => setFillStyle("hachure")}
+                              className={`h-7 rounded-lg border text-[11px] font-bold transition-all ${
+                                fillStyle === "hachure"
+                                  ? "border-cyan-400 bg-cyan-500/20 text-white"
+                                  : "border-white/10 bg-white/5 text-slate-400 hover:bg-white/10"
+                              }`}
+                              title="Excalidraw Diagonal Cross-Hatch Pattern"
+                            >
+                              Hachure
+                            </button>
+                          </div>
+                        </PanelSection>
+                      )}
+
+                      <PanelSection label="Sloppiness (Excalidraw)">
+                        <div className="grid grid-cols-3 gap-1">
+                          {(["architect", "artist", "cartoonist"] as const).map((mode) => (
+                            <button
+                              key={mode}
+                              onClick={() => {
+                                setSketchy(true);
+                                setSloppiness(mode);
+                              }}
+                              className={`h-7 rounded-lg border text-[10px] font-bold capitalize transition-all ${
+                                sketchy && sloppiness === mode
+                                  ? "border-cyan-400 bg-cyan-500/20 text-white"
+                                  : "border-white/10 bg-white/5 text-slate-400 hover:bg-white/10"
+                              }`}
+                              title={
+                                mode === "architect" ? "Clean Architect Single-Pass" :
+                                mode === "artist" ? "Organic Artist Double-Pass (Default)" :
+                                "Expressive Cartoonist"
+                              }
+                            >
+                              {mode === "architect" ? "Arch" : mode === "artist" ? "Artist" : "Cartoon"}
+                            </button>
+                          ))}
+                        </div>
+                      </PanelSection>
+                    </>
                   )}
 
                   <PanelSection label={`${isDraw(tool) ? "Pen Size" : "Width"} · ${strokeWidth}px`}>

@@ -1,6 +1,6 @@
 # 🌐 FlowTrack Pro — Serverless Web Application (Browser & Local Hybrid Edition)
 
-> **Version**: `v0.2.4` | **Platform**: Any Modern Web Browser (Desktop / Mobile / Tablet) | **Deployment**: Vercel CDN
+> **Version**: `v0.3.0` | **Platform**: Any Modern Web Browser (Desktop / Mobile / Tablet) | **Deployment**: Vercel CDN
 
 Welcome to the **Web Application** module of FlowTrack Pro. This app operates 100% locally in your browser using IndexedDB for offline data persistence, Progressive Web App (PWA) installation, zero signup requirements, and optional smart auto-connection to the local Python tracker backend.
 
@@ -32,6 +32,9 @@ Welcome to the **Web Application** module of FlowTrack Pro. This app operates 10
   - Mirrors WakaTime IDE heartbeats in SQLite database (`app_tracker.db`).
   - Automatically falls back to offline IndexedDB mode when local backend is not running.
 - 🤖 **Multi-Provider AI Assistant**: Direct browser calls to Gemini, OpenAI, Groq, or local Ollama (via local backend CORS proxy).
+- 🎨 **Excalidraw Multi-Slide Whiteboard**: Multi-slide deck engine, auto-cleaning placeholder text, sticky notes, and floating layer toolbar.
+- 🧠 **MindMap Studio**: Portal fullscreen mode, interactive Radar navigator, 5 node shapes, and 4 branch hierarchy palettes.
+- ⚡ **Real-Time Developer Studio**: Telemetry pulse stream with instant search, 1-click IDE config, and heartbeat clearing.
 
 ---
 

@@ -1,6 +1,6 @@
 # 📖 FlowTrack Pro — Master Technical Architecture & System Guide
 
-> **Version**: `v0.2.4` | **Last Updated**: 2026-10-27 (v0.2.4 Production Release)
+> **Version**: `v0.3.0` | **Last Updated**: 2026-10-30 (v0.3.0 Production Release)
 
 ---
 
@@ -9,7 +9,9 @@
 > - **ActivityWatch**: Automated local-first telemetry, safe query API & AFK idle detection.
 > - **Super Productivity**: Timeboxing, Pomodoro synthesizer, break engine & flowtime focus.
 > - **Anki / SuperMemo SM-2**: Spaced repetition memory engines with learning steps and leech detection.
-> - **Dayflow / Wakapi**: Passive developer screen categorization and WakaTime heartbeat ingestion.
+> - **Dayflow / Wakapi**: Passive developer screen categorization and WakaTime heartbeat ingestion with 1-click IDE auto-configuration.
+> - **Excalidraw & Miro**: Multi-slide canvas deck engine with auto-cleanup of orphan text and sticky note card geometry.
+> - **MindMap Portal**: Fullscreen portal architecture with Radar mini-map navigator and dynamic branch palettes.
 
 Welcome to the official technical manual for **FlowTrack Pro**. This document specifies the exact implementation details, architectural design, data storage mechanisms, and operational modes across **3 Operational Categories**.
 

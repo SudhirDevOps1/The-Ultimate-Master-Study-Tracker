@@ -343,6 +343,7 @@ export interface MindNode {
   notes?: string;
   imageUrl?: string;
   icon?: string;
+  shape?: "rounded" | "rectangle" | "diamond" | "hexagon" | "cloud";
 }
 
 export interface MindMapDoc {

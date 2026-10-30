@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { 
   Download, Plus, Trash2, Edit3, Sparkles, RefreshCw, ZoomIn, ZoomOut, 
   Maximize2, Minimize2, Palette, Eye, Move, Check, CornerDownRight, 
@@ -6,7 +7,7 @@ import {
   CheckCircle2, Circle, Clock, FileText, Upload, ChevronRight, ChevronDown, 
   ChevronLeft, BookOpen, BrainCircuit, X, Compass, HelpCircle, Image as ImageIcon,
   Link2, Unlink, ArrowRight, ArrowLeft, FolderTree, Play, Layers, Code,
-  Cpu, AlertCircle
+  Cpu, AlertCircle, Square, Diamond, Cloud, Hexagon, Smile, MapPin
 } from "lucide-react";
 import { useToast } from "@/components/common/Toast";
 import { Panel } from "@/components/common/Panel";
@@ -146,6 +147,54 @@ const COLOR_PRESETS = [
   { name: "Rose", hex: "#f43f5e", bg: "rgba(244,63,94,0.25)", border: "#fb7185", text: "#fff1f2" }
 ];
 
+export type MindNodeShape = "rounded" | "rectangle" | "diamond" | "hexagon" | "cloud";
+
+export const NODE_SHAPES: { id: MindNodeShape; label: string; icon: any }[] = [
+  { id: "rounded", label: "Pill Capsule", icon: Circle },
+  { id: "rectangle", label: "Sharp Box", icon: Square },
+  { id: "diamond", label: "Diamond Rhombus", icon: Diamond },
+  { id: "hexagon", label: "Hexagon", icon: Hexagon },
+  { id: "cloud", label: "Idea Cloud", icon: Cloud },
+];
+
+export const QUICK_EMOJIS = ["⚡", "☕", "🚀", "💡", "🎯", "📌", "⚠️", "✅", "🧠", "📚", "🔬", "💻", "📊", "🔥"];
+
+export const BRANCH_THEMES: Record<string, { name: string; colors: string[] }> = {
+  spectrum: {
+    name: "🌈 Neon Spectrum",
+    colors: ["#06b6d4", "#a855f7", "#ec4899", "#10b981", "#f97316", "#eab308", "#3b82f6", "#f43f5e"],
+  },
+  ocean: {
+    name: "🌊 Electric Ocean",
+    colors: ["#0284c7", "#06b6d4", "#38bdf8", "#0ea5e9", "#67e8f9", "#7dd3fc"],
+  },
+  forest: {
+    name: "🌲 Emerald Forest",
+    colors: ["#059669", "#10b981", "#34d399", "#84cc16", "#22c55e", "#6ee7b7"],
+  },
+  sunset: {
+    name: "🌅 Sunset Rose",
+    colors: ["#f43f5e", "#f97316", "#fb923c", "#ec4899", "#d946ef", "#fda4af"],
+  },
+};
+
+export function getNodeShapeClasses(shape?: string, isRoot = false): string {
+  if (isRoot) return "rounded-2xl";
+  switch (shape) {
+    case "rectangle":
+      return "rounded-none border-2";
+    case "diamond":
+      return "rounded-md rotate-[0.5deg] border-2";
+    case "hexagon":
+      return "rounded-xl border-dashed border-2";
+    case "cloud":
+      return "rounded-[26px] border-2";
+    case "rounded":
+    default:
+      return "rounded-2xl";
+  }
+}
+
 const ICON_PRESETS = [
   { name: "Book", icon: BookOpen },
   { name: "Code", icon: Code },
@@ -254,6 +303,8 @@ export function MindMapPage() {
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [isPresentMode, setIsPresentMode] = useState(false);
   const [presentIndex, setPresentIndex] = useState(0);
+  const [showMiniMap, setShowMiniMap] = useState(true);
+  const [showThemeModal, setShowThemeModal] = useState(false);
 
   // Cross-link connection mode
   const [connectingSourceId, setConnectingSourceId] = useState<string | null>(null);
@@ -279,6 +330,79 @@ export function MindMapPage() {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { showToast } = useToast();
+
+  // Bounding box for infinite canvas navigation and Mini-Map
+  const bounds = useMemo(() => {
+    if (nodes.length === 0) return { minX: 0, maxX: 1200, minY: 0, maxY: 800, w: 1200, h: 800 };
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const n of nodes) {
+      if (n.x < minX) minX = n.x;
+      if (n.x + 200 > maxX) maxX = n.x + 200;
+      if (n.y < minY) minY = n.y;
+      if (n.y + 60 > maxY) maxY = n.y + 60;
+    }
+    const pad = 120;
+    minX -= pad; maxX += pad; minY -= pad; maxY += pad;
+    return {
+      minX, maxX, minY, maxY,
+      w: Math.max(300, maxX - minX),
+      h: Math.max(200, maxY - minY),
+    };
+  }, [nodes]);
+
+  const panTo = useCallback((worldX: number, worldY: number) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    setPan({
+      x: rect.width / 2 - worldX * zoom,
+      y: rect.height / 2 - worldY * zoom,
+    });
+  }, [zoom]);
+
+  const updateSelectedNodeShape = (shape: MindNodeShape) => {
+    if (!selectedNodeId) return;
+    const next = nodes.map((n) => (n.id === selectedNodeId ? { ...n, shape } : n));
+    pushState(next);
+  };
+
+  const updateSelectedNodeIcon = (icon?: string) => {
+    if (!selectedNodeId) return;
+    const next = nodes.map((n) => (n.id === selectedNodeId ? { ...n, icon } : n));
+    pushState(next);
+  };
+
+  const applyBranchTheme = (themeKey: keyof typeof BRANCH_THEMES) => {
+    if (nodes.length === 0) return;
+    const root = nodes.find((n) => n.parentId === null) || nodes[0];
+    const directChildren = nodes.filter((n) => n.parentId === root.id);
+    if (directChildren.length === 0) return;
+
+    const themeColors = BRANCH_THEMES[themeKey].colors;
+    const colorMap = new Map<string, string>();
+
+    function assignColorDown(parentId: string, color: string) {
+      colorMap.set(parentId, color);
+      const children = nodes.filter((n) => n.parentId === parentId);
+      for (const c of children) {
+        assignColorDown(c.id, color);
+      }
+    }
+
+    directChildren.forEach((child, idx) => {
+      const color = themeColors[idx % themeColors.length];
+      assignColorDown(child.id, color);
+    });
+
+    const nextNodes = nodes.map((n) => {
+      if (n.id === root.id) return n;
+      const c = colorMap.get(n.id);
+      return c ? { ...n, color: c } : n;
+    });
+
+    pushState(nextNodes);
+    setShowThemeModal(false);
+    showToast(`Applied ${BRANCH_THEMES[themeKey].name} to branches!`, "success");
+  };
 
   // Load Deck & Mind Map from Dexie/localStorage on Mount
   useEffect(() => {
@@ -923,17 +1047,35 @@ export function MindMapPage() {
   }, [selectedNode, editingNodeId, layoutMode, isPresentMode, connectingSourceId]);
 
   // Center View
-  const centerView = () => {
+  const centerView = useCallback(() => {
     if (nodes.length === 0) return;
     const root = nodes.find((n) => n.parentId === null) || nodes[0];
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
-      setPan({
-        x: rect.width / 2 - (root.x + 90) * zoom,
-        y: rect.height / 2 - (root.y + 24) * zoom,
-      });
+      if (rect.width > 0 && rect.height > 0) {
+        setPan({
+          x: rect.width / 2 - (root.x + 90) * zoom,
+          y: rect.height / 2 - (root.y + 24) * zoom,
+        });
+      }
     }
-  };
+  }, [nodes, zoom]);
+
+  // Auto-center on fullscreen toggle
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      centerView();
+    }, 60);
+    return () => clearTimeout(timer);
+  }, [isFullscreen, centerView]);
+
+  // Presentation Mode: smoothly center spotlight on active node
+  useEffect(() => {
+    if (isPresentMode && nodes[presentIndex]) {
+      const target = nodes[presentIndex];
+      panTo(target.x + 90, target.y + 24);
+    }
+  }, [presentIndex, isPresentMode, nodes, panTo]);
 
   // Import Markdown Outline
   const importMarkdownOutline = () => {
@@ -1172,12 +1314,12 @@ Provide 8 to 14 insightful subtopics categorized cleanly with 'side': 'left' or 
     setSelectedNodeId(nodes[nextIdx].id);
   };
 
-  return (
+  const mainContent = (
     <div className={`relative flex flex-col ${
       isFullscreen
-        ? "fixed inset-0 z-50 p-2 bg-slate-950"
-        : "h-[calc(100vh-4rem)] p-3 md:p-4"
-    } space-y-2.5 bg-slate-950 text-slate-100 overflow-hidden select-none`}>
+        ? "fixed inset-0 z-[9999] w-screen h-screen p-3 bg-slate-950"
+        : "h-[calc(100vh-4rem)] p-3 md:p-4 space-y-2.5"
+    } bg-slate-950 text-slate-100 overflow-hidden select-none`}>
       {/* ─── Floating Exit Pill in Fullscreen Mode ─── */}
       {isFullscreen && (
         <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
@@ -1194,8 +1336,7 @@ Provide 8 to 14 insightful subtopics categorized cleanly with 'side': 'left' or 
       )}
 
       {/* ─── Sleek Single-Row Header Toolbar ─── */}
-      {!isFullscreen && (
-        <Panel className="p-2 bg-slate-900/95 backdrop-blur border-slate-800 shadow-xl rounded-2xl shrink-0">
+      <Panel className={`p-2 bg-slate-900/95 backdrop-blur border-slate-800 shadow-xl rounded-2xl shrink-0 ${isFullscreen ? "mb-2 border-purple-500/30" : ""}`}>
           <div className="flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
             {/* 1. Left: Slide Deck Navigation & Map Title */}
             <div className="flex items-center gap-1.5 shrink-0">
@@ -1380,6 +1521,37 @@ Provide 8 to 14 insightful subtopics categorized cleanly with 'side': 'left' or 
                 <Play className="w-3.5 h-3.5 text-emerald-400" />
                 <span className="hidden xl:inline">Present</span>
               </button>
+
+              <button
+                onClick={centerView}
+                className="p-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-xs text-slate-300 hover:text-white transition flex items-center gap-1"
+                title="Center View"
+              >
+                <Compass className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="hidden xl:inline">Center</span>
+              </button>
+
+              <button
+                onClick={() => setShowThemeModal(true)}
+                className="p-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-xs text-slate-300 hover:text-white transition flex items-center gap-1"
+                title="Auto-Color Branch Themes"
+              >
+                <Palette className="w-3.5 h-3.5 text-purple-400" />
+                <span className="hidden xl:inline">Theme</span>
+              </button>
+
+              <button
+                onClick={() => setShowMiniMap((prev) => !prev)}
+                className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1 transition ${
+                  showMiniMap
+                    ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-300"
+                    : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
+                }`}
+                title="Toggle Mini-Map Radar Navigator"
+              >
+                <MapPin className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="hidden xl:inline">Radar</span>
+              </button>
             </div>
 
             {/* 4. Right: AI Generate, Export/Import, Undo/Redo & Utility */}
@@ -1471,7 +1643,6 @@ Provide 8 to 14 insightful subtopics categorized cleanly with 'side': 'left' or 
             </div>
           </div>
         </Panel>
-      )}
 
       {/* ─── Main Workspace Area ─── */}
       <div className="relative flex-1 flex overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/40">
@@ -1781,7 +1952,9 @@ Provide 8 to 14 insightful subtopics categorized cleanly with 'side': 'left' or 
                     e.stopPropagation();
                     startInlineEdit(node);
                   }}
-                  className={`absolute pointer-events-auto flex flex-col justify-between p-2 rounded-2xl cursor-pointer border transition-all select-none group ${
+                  className={`absolute pointer-events-auto flex flex-col justify-between p-2 cursor-pointer border transition-all select-none group ${
+                    getNodeShapeClasses(node.shape, isRoot)
+                  } ${
                     isSelected
                       ? "ring-4 ring-cyan-400/60 shadow-cyan-400/30 scale-[1.02] z-30"
                       : isHoverTarget
@@ -1810,24 +1983,30 @@ Provide 8 to 14 insightful subtopics categorized cleanly with 'side': 'left' or 
                     </div>
                   )}
 
-                  {/* Top Bar: Status + Text + Badges */}
+                  {/* Top Bar: Status + Icon + Text + Badges */}
                   <div className="flex items-center justify-between gap-1.5">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        cycleNodeStatus(node.id);
-                      }}
-                      className="shrink-0 p-0.5 rounded-full hover:bg-white/20 transition"
-                      title={`Status: ${node.status || "todo"} (Click to cycle)`}
-                    >
-                      {node.status === "done" ? (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                      ) : node.status === "in-progress" ? (
-                        <Clock className="w-3.5 h-3.5 text-amber-400 animate-spin" />
-                      ) : (
-                        <Circle className="w-3.5 h-3.5 text-slate-400" />
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          cycleNodeStatus(node.id);
+                        }}
+                        className="shrink-0 p-0.5 rounded-full hover:bg-white/20 transition"
+                        title={`Status: ${node.status || "todo"} (Click to cycle)`}
+                      >
+                        {node.status === "done" ? (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        ) : node.status === "in-progress" ? (
+                          <Clock className="w-3.5 h-3.5 text-amber-400 animate-spin" />
+                        ) : (
+                          <Circle className="w-3.5 h-3.5 text-slate-400" />
+                        )}
+                      </button>
+
+                      {node.icon && (
+                        <span className="text-xs select-none">{node.icon}</span>
                       )}
-                    </button>
+                    </div>
 
                     {isEditing ? (
                       <input
@@ -1925,6 +2104,89 @@ Provide 8 to 14 insightful subtopics categorized cleanly with 'side': 'left' or 
               <Compass className="w-4 h-4" />
             </button>
           </div>
+
+          {/* ─── Floating Mini-Map Radar Navigator ─── */}
+          {showMiniMap && nodes.length > 0 && (
+            <div className="absolute bottom-4 right-4 z-40 bg-slate-950/90 backdrop-blur-md border border-slate-700/60 rounded-2xl p-2.5 shadow-2xl flex flex-col gap-1.5 select-none w-52 transition-all">
+              <div className="flex items-center justify-between px-1 text-[10px] font-bold text-slate-400">
+                <span className="flex items-center gap-1.5 text-cyan-400">
+                  <Compass className="w-3.5 h-3.5" /> Mini-Map Radar
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={centerView}
+                    className="p-1 hover:text-white text-slate-400 transition rounded hover:bg-slate-800"
+                    title="Center View"
+                  >
+                    <Move className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={() => setShowMiniMap(false)}
+                    className="p-1 hover:text-white text-slate-400 transition rounded hover:bg-slate-800"
+                    title="Collapse Navigator"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+
+              <div
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const clickX = e.clientX - rect.left;
+                  const clickY = e.clientY - rect.top;
+                  const targetWorldX = bounds.minX + (clickX / rect.width) * bounds.w;
+                  const targetWorldY = bounds.minY + (clickY / rect.height) * bounds.h;
+                  panTo(targetWorldX, targetWorldY);
+                }}
+                className="relative w-full h-24 bg-slate-900/90 rounded-xl overflow-hidden cursor-crosshair border border-slate-800"
+              >
+                {/* Mini Nodes */}
+                {nodes.map((n) => {
+                  const nx = ((n.x - bounds.minX) / bounds.w) * 100;
+                  const ny = ((n.y - bounds.minY) / bounds.h) * 100;
+                  return (
+                    <div
+                      key={`mini-${n.id}`}
+                      className="absolute rounded-sm"
+                      style={{
+                        left: `${nx}%`,
+                        top: `${ny}%`,
+                        width: n.parentId === null ? "12px" : "8px",
+                        height: "4px",
+                        backgroundColor: n.color || "#8b5cf6",
+                      }}
+                    />
+                  );
+                })}
+
+                {/* Viewport Frame */}
+                {containerRef.current && (
+                  <div
+                    className="absolute border border-cyan-400 bg-cyan-400/20 rounded pointer-events-none transition-all duration-75"
+                    style={{
+                      left: `${Math.max(0, Math.min(100, ((-pan.x / zoom - bounds.minX) / bounds.w) * 100))}%`,
+                      top: `${Math.max(0, Math.min(100, ((-pan.y / zoom - bounds.minY) / bounds.h) * 100))}%`,
+                      width: `${Math.min(100, ((containerRef.current.clientWidth / zoom) / bounds.w) * 100)}%`,
+                      height: `${Math.min(100, ((containerRef.current.clientHeight / zoom) / bounds.h) * 100)}%`,
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Collapsed Navigator Button */}
+          {!showMiniMap && nodes.length > 0 && (
+            <button
+              onClick={() => setShowMiniMap(true)}
+              className="absolute bottom-4 right-4 z-40 px-2.5 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white shadow-xl flex items-center gap-1.5 text-xs font-semibold backdrop-blur"
+              title="Open Mini-Map Radar"
+            >
+              <Compass className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="text-[11px]">Radar</span>
+            </button>
+          )}
         </div>
 
         {/* ─── Right Slide-over Node Inspector & Notes Drawer ─── */}
@@ -1979,6 +2241,59 @@ Provide 8 to 14 insightful subtopics categorized cleanly with 'side': 'left' or 
                       style={{ backgroundColor: color.hex, borderColor: color.border }}
                       title={color.name}
                     />
+                  ))}
+                </div>
+              </div>
+
+              {/* Node Geometry Shape Selector */}
+              <div>
+                <label className="text-[11px] font-semibold text-slate-400 uppercase flex items-center gap-1 mb-1.5">
+                  <Square className="w-3.5 h-3.5 text-cyan-400" /> Node Shape (5 Styles)
+                </label>
+                <div className="grid grid-cols-5 gap-1">
+                  {NODE_SHAPES.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => updateSelectedNodeShape(s.id)}
+                      className={`h-7 rounded-lg border text-[10px] font-bold flex items-center justify-center transition ${
+                        (selectedNode.shape || "rounded") === s.id
+                          ? "border-cyan-400 bg-cyan-500/20 text-white"
+                          : "border-slate-800 bg-slate-950 text-slate-400 hover:text-white"
+                      }`}
+                      title={s.label}
+                    >
+                      {s.id === "rounded" ? "Pill" : s.id === "rectangle" ? "Box" : s.id === "diamond" ? "Dia" : s.id === "hexagon" ? "Hex" : "Cloud"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 1-Click Emoji / Icon Badges */}
+              <div>
+                <label className="text-[11px] font-semibold text-slate-400 uppercase flex items-center justify-between mb-1.5">
+                  <span className="flex items-center gap-1">
+                    <Smile className="w-3.5 h-3.5 text-amber-400" /> Quick Icon / Emoji
+                  </span>
+                  {selectedNode.icon && (
+                    <button
+                      onClick={() => updateSelectedNodeIcon(undefined)}
+                      className="text-[10px] text-slate-400 hover:text-rose-400"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </label>
+                <div className="flex items-center gap-1 flex-wrap p-2 bg-slate-950 border border-slate-800 rounded-xl">
+                  {QUICK_EMOJIS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      onClick={() => updateSelectedNodeIcon(selectedNode.icon === emoji ? undefined : emoji)}
+                      className={`w-6 h-6 rounded-lg text-xs flex items-center justify-center transition hover:scale-125 ${
+                        selectedNode.icon === emoji ? "bg-purple-600/50 border border-purple-400" : "hover:bg-slate-800"
+                      }`}
+                    >
+                      {emoji}
+                    </button>
                   ))}
                 </div>
               </div>
@@ -2305,6 +2620,50 @@ Provide 8 to 14 insightful subtopics categorized cleanly with 'side': 'left' or 
           </div>
         </div>
       )}
+
+      {/* ─── Branch Auto-Color Theming Modal ─── */}
+      {showThemeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                <Palette className="w-4 h-4 text-purple-400" />
+                Auto-Color Branches
+              </h3>
+              <button onClick={() => setShowThemeModal(false)} className="text-slate-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-400">
+              Assign harmonious distinct theme colors to every primary branch and all its child topics.
+            </p>
+
+            <div className="space-y-2">
+              {Object.entries(BRANCH_THEMES).map(([key, theme]) => (
+                <button
+                  key={key}
+                  onClick={() => applyBranchTheme(key as any)}
+                  className="w-full p-2.5 rounded-xl border border-slate-800 hover:border-purple-500/50 bg-slate-950 hover:bg-slate-800/80 transition flex items-center justify-between group"
+                >
+                  <span className="text-xs font-semibold text-slate-200 group-hover:text-white">{theme.name}</span>
+                  <div className="flex items-center gap-1">
+                    {theme.colors.slice(0, 5).map((clr) => (
+                      <span key={clr} className="w-3 h-3 rounded-full" style={{ backgroundColor: clr }} />
+                    ))}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
+
+  if (isFullscreen && typeof document !== "undefined") {
+    return createPortal(mainContent, document.body);
+  }
+
+  return mainContent;
 }

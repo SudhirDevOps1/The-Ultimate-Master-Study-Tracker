@@ -1,6 +1,6 @@
 # 🖥️ FlowTrack Pro — Standalone Desktop App (Electron Edition)
 
-> **Version**: `v0.2.4` | **Platform**: Windows 10/11 (64-bit), Linux (AppImage / deb) & macOS | **License**: MIT
+> **Version**: `v0.3.0` | **Platform**: Windows 10/11 (64-bit), Linux (AppImage / deb) & macOS | **License**: MIT
 
 Welcome to the **Standalone Desktop Application** module of FlowTrack Pro. This edition is packaged with Electron 43, embedded C# Win32 active window tracking (`win-tracker.exe`), local Encrypted Password Vault with Chromium DOM Auto-Fill, and silent background auto-updates (`electron-updater`).
 
@@ -38,6 +38,9 @@ Welcome to the **Standalone Desktop Application** module of FlowTrack Pro. This 
 - 🛡️ **Anti-Cheat Clock Guard**: Validates system time deltas to prevent user system time manipulation.
 - ⚡ **Kernel Win32 Tracker (`win-tracker.exe`)**: Fast active window detection consuming < 0.5% CPU and ~40MB RAM.
 - 📦 **LZMA Compressed Build Size**: Portable installers optimized down to ~150MB using maximum ASAR compression.
+- 🎨 **Excalidraw & Miro Multi-Slide Whiteboard**: Canvas with slide deck engine, auto-cleaning empty textboxes, anti-collision sticky notes, and quick layer controls.
+- 🧠 **MindMap Portal Engine**: 100vw × 100vh true portal display, Radar Mini-Map navigator, 5 node shapes, and 4 auto-color branch hierarchy themes.
+- ⚡ **1-Click IDE Telemetry Link**: Automated `~/.wakatime.cfg` configuration for VS Code, Cursor, and JetBrains with instant heartbeat purge controls.
 
 ---
 
