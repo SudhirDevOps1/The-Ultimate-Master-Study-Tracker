@@ -19,6 +19,19 @@ import {
   getMonth,
 } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
+import { 
+  Calendar as CalendarIcon, 
+  ChevronLeft, 
+  ChevronRight, 
+  Clock, 
+  Play, 
+  Edit3, 
+  Copy, 
+  ArrowRight, 
+  BarChart2, 
+  Sparkles,
+  CheckCircle2
+} from "lucide-react";
 import { Panel } from "@/components/common/Panel";
 import { useAppStore } from "@/store/useAppStore";
 import { toDurationLabel, formatTime12Hour } from "@/utils/time";
@@ -36,11 +49,11 @@ export function CalendarPage() {
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [editingSession, setEditingSession] = useState<StudySession | null>(null);
   const [draggedSession, setDraggedSession] = useState<StudySession | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"month" | "year" | "week">("month");
+  const [viewMode, setViewMode] = useState<"month" | "week" | "year">("month");
 
   // Computed week days for week view
   const currentWeekDays = useMemo(() => {
@@ -111,30 +124,29 @@ export function CalendarPage() {
   };
 
   const getIntensityColor = (actual: number) => {
-    if (actual === 0) return "bg-white/5";
-    if (actual < 30) return "bg-emerald-500/20";
-    if (actual < 60) return "bg-emerald-500/40";
-    if (actual < 120) return "bg-emerald-500/60";
-    if (actual < 180) return "bg-emerald-500/80";
-    return "bg-emerald-500";
+    if (actual === 0) return "bg-white/[0.02] border-white/5";
+    if (actual < 30) return "bg-emerald-500/15 border-emerald-500/20";
+    if (actual < 60) return "bg-emerald-500/30 border-emerald-500/30";
+    if (actual < 120) return "bg-emerald-500/45 border-emerald-500/40";
+    if (actual < 180) return "bg-emerald-500/60 border-emerald-500/50 text-white font-bold";
+    return "bg-emerald-500/80 border-emerald-400 text-white font-black";
   };
 
   const getSubjectName = (subjectId: string) => {
-    return subjects.find((s) => s.id === subjectId)?.name ?? "Unknown";
+    return subjects.find((s) => s.id === subjectId)?.name ?? "Independent Study";
   };
 
   const getSubjectColor = (subjectId: string) => {
-    return subjects.find((s) => s.id === subjectId)?.color ?? "#6366f1";
+    return subjects.find((s) => s.id === subjectId)?.color ?? "#06b6d4";
   };
 
   const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-  // Get available years from sessions
+  // Available years from sessions
   const availableYears = useMemo(() => {
     const years = new Set<number>();
     const currentYear = getYear(new Date());
-    // Always include current year and surrounding years
     years.add(currentYear - 2);
     years.add(currentYear - 1);
     years.add(currentYear);
@@ -177,7 +189,7 @@ export function CalendarPage() {
     return { totalHours, sessionCount, daysStudied };
   }, [currentMonth, sessions]);
 
-  // Get month hours for year view
+  // Month hours for year view
   const monthHours = useMemo(() => {
     const year = getYear(currentMonth);
     return months.map((_, monthIndex) => {
@@ -236,591 +248,507 @@ export function CalendarPage() {
     setViewMode("month");
   };
 
-  const jumpToYear = (year: number) => {
-    setCurrentMonth(new Date(year, getMonth(currentMonth), 1));
-  };
-
   return (
-    <div className="space-y-5">
-      {/* Action Message */}
+    <div className="space-y-6">
+      {/* Action Toast Alert */}
       <AnimatePresence>
         {actionMessage && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed top-4 left-1/2 -translate-x-1/2 z-50 rounded-xl bg-emerald-500/90 px-6 py-3 text-sm font-medium text-white shadow-lg backdrop-blur-md"
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-50 rounded-2xl bg-slate-900 border border-emerald-500/40 px-5 py-2.5 text-xs font-bold text-emerald-300 shadow-2xl backdrop-blur-md flex items-center gap-2"
           >
-            {actionMessage}
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span>{actionMessage}</span>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Calendar Header */}
-      <Panel>
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-cyan-200/80">📅 Calendar</p>
-            <h2 className="mt-1 text-2xl font-semibold text-white md:text-3xl">
-              {viewMode === "month" ? format(currentMonth, "MMMM yyyy") : viewMode === "week" ? `${format(weekStart, "MMM d")} – ${format(addDays(weekStart, 6), "MMM d, yyyy")}` : getYear(currentMonth)}
-            </h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Click day to view • Drag session to reschedule • View past/future months & years
+      {/* Top Banner Toolbar */}
+      <Panel className="relative overflow-hidden border border-cyan-500/20 bg-gradient-to-br from-slate-900 via-slate-900/95 to-cyan-950/20">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <CalendarIcon className="w-4 h-4 text-cyan-400" />
+              <p className="text-xs font-bold uppercase tracking-wider text-cyan-300">Schedule & Calendar</p>
+            </div>
+            <h1 className="text-2xl font-black text-white sm:text-3xl">
+              {viewMode === "month"
+                ? format(currentMonth, "MMMM yyyy")
+                : viewMode === "week"
+                ? `${format(weekStart, "MMM d")} – ${format(addDays(weekStart, 6), "MMM d, yyyy")}`
+                : `${getYear(currentMonth)} Annual Matrix`}
+            </h1>
+            <p className="text-xs text-slate-400 max-w-xl">
+              Visual study time mapping with drag-and-drop rescheduling. Switch between Week, Month, and Year matrices.
             </p>
           </div>
-          <div className="flex flex-wrap gap-3">
+
+          {/* Controls: Mode Switch & Navigation */}
+          <div className="flex flex-wrap items-center gap-3">
             {/* View Mode Toggle */}
-            <div className="flex gap-1 rounded-xl bg-white/5 p-1">
-              <button
-                onClick={() => setViewMode("week")}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "week" ? `bg-gradient-to-r ${getThemeGradient()} text-white` : "text-slate-400 hover:text-white"}`}
-              >
-                📋 Week
-              </button>
+            <div className="flex items-center gap-1 rounded-xl bg-slate-950 p-1 border border-white/10">
               <button
                 onClick={() => setViewMode("month")}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "month" ? `bg-gradient-to-r ${getThemeGradient()} text-white` : "text-slate-400 hover:text-white"}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  viewMode === "month" ? "bg-cyan-500 text-slate-950 shadow" : "text-slate-400 hover:text-white"
+                }`}
               >
-                📆 Month
+                Month
+              </button>
+              <button
+                onClick={() => setViewMode("week")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  viewMode === "week" ? "bg-cyan-500 text-slate-950 shadow" : "text-slate-400 hover:text-white"
+                }`}
+              >
+                Week
               </button>
               <button
                 onClick={() => setViewMode("year")}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "year" ? `bg-gradient-to-r ${getThemeGradient()} text-white` : "text-slate-400 hover:text-white"}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  viewMode === "year" ? "bg-cyan-500 text-slate-950 shadow" : "text-slate-400 hover:text-white"
+                }`}
               >
-                📅 Year
+                Year
               </button>
             </div>
 
-            {/* Year Selector */}
-            <select
-              value={getYear(currentMonth)}
-              onChange={(e) => jumpToYear(Number(e.target.value))}
-              className="rounded-xl border border-white/10 bg-slate-900/70 px-3 py-2 text-sm text-white focus:border-cyan-400 focus:outline-none"
-            >
-              {availableYears.map((year) => (
-                <option key={year} value={year}>{year}</option>
-              ))}
-            </select>
-
-            {/* Navigation */}
-            <div className="flex gap-2">
-              {viewMode === "month" ? (
+            {/* Navigation Controls */}
+            <div className="flex items-center gap-1 rounded-xl bg-slate-950 p-1 border border-white/10">
+              {viewMode === "month" && (
                 <>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setCurrentMonth(subYears(currentMonth, 1))}
-                    className="rounded-xl bg-white/5 px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
-                  >
-                    ⏪ -1Y
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                  <button
                     onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-                    className="rounded-xl bg-white/5 px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+                    title="Previous Month"
                   >
-                    ← Prev
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
                     onClick={() => setCurrentMonth(new Date())}
-                    className={`rounded-xl bg-gradient-to-r ${getThemeGradient()} px-4 py-2 text-sm font-medium text-white shadow-lg`}
+                    className="px-2.5 py-1 text-xs font-bold text-slate-200 hover:text-white transition-colors"
                   >
                     Today
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                  </button>
+                  <button
                     onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-                    className="rounded-xl bg-white/5 px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+                    title="Next Month"
                   >
-                    Next →
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setCurrentMonth(addYears(currentMonth, 1))}
-                    className="rounded-xl bg-white/5 px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
-                  >
-                    +1Y ⏩
-                  </motion.button>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
                 </>
-              ) : viewMode === "week" ? (
+              )}
+
+              {viewMode === "week" && (
                 <>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                  <button
                     onClick={() => setWeekStart(subWeeks(weekStart, 1))}
-                    className="rounded-xl bg-white/5 px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+                    title="Previous Week"
                   >
-                    ← Prev
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => { setWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 })); setCurrentMonth(new Date()); }}
-                    className={`rounded-xl bg-gradient-to-r ${getThemeGradient()} px-4 py-2 text-sm font-medium text-white shadow-lg`}
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }));
+                      setCurrentMonth(new Date());
+                    }}
+                    className="px-2.5 py-1 text-xs font-bold text-slate-200 hover:text-white transition-colors"
                   >
                     This Week
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                  </button>
+                  <button
                     onClick={() => setWeekStart(addWeeks(weekStart, 1))}
-                    className="rounded-xl bg-white/5 px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+                    title="Next Week"
                   >
-                    Next →
-                  </motion.button>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
                 </>
-              ) : (
+              )}
+
+              {viewMode === "year" && (
                 <>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                  <button
                     onClick={() => setCurrentMonth(subYears(currentMonth, 1))}
-                    className="rounded-xl bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+                    title="Previous Year"
                   >
-                    ← {getYear(currentMonth) - 1}
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
                     onClick={() => setCurrentMonth(new Date())}
-                    className={`rounded-xl bg-gradient-to-r ${getThemeGradient()} px-4 py-2 text-sm font-medium text-white shadow-lg`}
+                    className="px-2.5 py-1 text-xs font-bold text-slate-200 hover:text-white transition-colors"
                   >
                     This Year
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                  </button>
+                  <button
                     onClick={() => setCurrentMonth(addYears(currentMonth, 1))}
-                    className="rounded-xl bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+                    title="Next Year"
                   >
-                    {getYear(currentMonth) + 1} →
-                  </motion.button>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
                 </>
               )}
             </div>
           </div>
         </div>
 
-        {/* Stats */}
-        {viewMode === "month" ? (
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className={`rounded-xl bg-gradient-to-br ${getThemeGradient()} p-[2px]`}>
-              <div className="rounded-xl bg-slate-900/90 p-3 text-center">
-                <p className="text-2xl font-bold text-white">{toDurationLabel(monthStats.totalMinutes)}</p>
-                <p className="text-xs text-slate-400">Studied</p>
-              </div>
+        {/* Micro KPI Bar based on active view */}
+        {viewMode === "month" && (
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 pt-4 border-t border-white/5">
+            <div className="rounded-xl bg-white/[0.03] p-3 border border-white/5">
+              <p className="text-[11px] font-semibold text-slate-400">Month Studied</p>
+              <p className="text-xl font-bold text-cyan-400 mt-0.5">{toDurationLabel(monthStats.totalMinutes)}</p>
             </div>
-            <div className="rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 p-[2px]">
-              <div className="rounded-xl bg-slate-900/90 p-3 text-center">
-                <p className="text-2xl font-bold text-white">{toDurationLabel(monthStats.plannedMinutes)}</p>
-                <p className="text-xs text-slate-400">Planned</p>
-              </div>
+            <div className="rounded-xl bg-white/[0.03] p-3 border border-white/5">
+              <p className="text-[11px] font-semibold text-slate-400">Total Sessions</p>
+              <p className="text-xl font-bold text-white mt-0.5">{monthStats.sessionCount}</p>
             </div>
-            <div className="rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 p-[2px]">
-              <div className="rounded-xl bg-slate-900/90 p-3 text-center">
-                <p className="text-2xl font-bold text-white">{monthStats.sessionCount}</p>
-                <p className="text-xs text-slate-400">Sessions</p>
-              </div>
+            <div className="rounded-xl bg-white/[0.03] p-3 border border-white/5">
+              <p className="text-[11px] font-semibold text-slate-400">Goal Completion</p>
+              <p className="text-xl font-bold text-emerald-400 mt-0.5">{monthStats.completionPct}%</p>
             </div>
-            <div className="rounded-xl bg-gradient-to-br from-yellow-500 to-orange-500 p-[2px]">
-              <div className="rounded-xl bg-slate-900/90 p-3 text-center">
-                <p className="text-2xl font-bold text-white">{monthStats.completionPct}%</p>
-                <p className="text-xs text-slate-400">Completion</p>
-              </div>
+            <div className="rounded-xl bg-white/[0.03] p-3 border border-white/5">
+              <p className="text-[11px] font-semibold text-slate-400">Daily Average</p>
+              <p className="text-xl font-bold text-yellow-400 mt-0.5">{toDurationLabel(monthStats.avgPerDay)}</p>
             </div>
           </div>
-        ) : viewMode === "week" ? (
-          <div className="mt-4 grid grid-cols-3 gap-3">
-            <div className={`rounded-xl bg-gradient-to-br ${getThemeGradient()} p-[2px]`}>
-              <div className="rounded-xl bg-slate-900/90 p-3 text-center">
-                <p className="text-2xl font-bold text-white">{toDurationLabel(weekStats.totalMinutes)}</p>
-                <p className="text-xs text-slate-400">Week Studied</p>
-              </div>
+        )}
+
+        {viewMode === "week" && (
+          <div className="mt-6 grid grid-cols-3 gap-3 pt-4 border-t border-white/5">
+            <div className="rounded-xl bg-white/[0.03] p-3 border border-white/5">
+              <p className="text-[11px] font-semibold text-slate-400">Week Studied</p>
+              <p className="text-xl font-bold text-cyan-400 mt-0.5">{toDurationLabel(weekStats.totalMinutes)}</p>
             </div>
-            <div className="rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 p-[2px]">
-              <div className="rounded-xl bg-slate-900/90 p-3 text-center">
-                <p className="text-2xl font-bold text-white">{weekStats.completedCount}</p>
-                <p className="text-xs text-slate-400">Completed</p>
-              </div>
+            <div className="rounded-xl bg-white/[0.03] p-3 border border-white/5">
+              <p className="text-[11px] font-semibold text-slate-400">Completed Sessions</p>
+              <p className="text-xl font-bold text-emerald-400 mt-0.5">{weekStats.completedCount}</p>
             </div>
-            <div className="rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 p-[2px]">
-              <div className="rounded-xl bg-slate-900/90 p-3 text-center">
-                <p className="text-2xl font-bold text-white">{weekStats.plannedCount}</p>
-                <p className="text-xs text-slate-400">Total Sessions</p>
-              </div>
+            <div className="rounded-xl bg-white/[0.03] p-3 border border-white/5">
+              <p className="text-[11px] font-semibold text-slate-400">Planned Sessions</p>
+              <p className="text-xl font-bold text-white mt-0.5">{weekStats.plannedCount}</p>
             </div>
           </div>
-        ) : (
-          <div className="mt-4 grid grid-cols-3 gap-3">
-            <div className={`rounded-xl bg-gradient-to-br ${getThemeGradient()} p-[2px]`}>
-              <div className="rounded-xl bg-slate-900/90 p-3 text-center">
-                <p className="text-2xl font-bold text-white">{yearStats.totalHours}h</p>
-                <p className="text-xs text-slate-400">Total Hours</p>
-              </div>
+        )}
+
+        {viewMode === "year" && (
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 pt-4 border-t border-white/5">
+            <div className="rounded-xl bg-white/[0.03] p-3 border border-white/5">
+              <p className="text-[11px] font-semibold text-slate-400">Year Study Time</p>
+              <p className="text-xl font-bold text-cyan-400 mt-0.5">{yearStats.totalHours} hrs</p>
             </div>
-            <div className="rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 p-[2px]">
-              <div className="rounded-xl bg-slate-900/90 p-3 text-center">
-                <p className="text-2xl font-bold text-white">{yearStats.sessionCount}</p>
-                <p className="text-xs text-slate-400">Sessions</p>
-              </div>
+            <div className="rounded-xl bg-white/[0.03] p-3 border border-white/5">
+              <p className="text-[11px] font-semibold text-slate-400">Days Studied</p>
+              <p className="text-xl font-bold text-emerald-400 mt-0.5">{yearStats.daysStudied} days</p>
             </div>
-            <div className="rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 p-[2px]">
-              <div className="rounded-xl bg-slate-900/90 p-3 text-center">
-                <p className="text-2xl font-bold text-white">{yearStats.daysStudied}</p>
-                <p className="text-xs text-slate-400">Days Studied</p>
-              </div>
+            <div className="rounded-xl bg-white/[0.03] p-3 border border-white/5">
+              <p className="text-[11px] font-semibold text-slate-400">Total Sessions</p>
+              <p className="text-xl font-bold text-white mt-0.5">{yearStats.sessionCount}</p>
+            </div>
+            <div className="rounded-xl bg-white/[0.03] p-3 border border-white/5">
+              <p className="text-[11px] font-semibold text-slate-400">Avg / Active Day</p>
+              <p className="text-xl font-bold text-yellow-400 mt-0.5">
+                {yearStats.daysStudied > 0 ? (yearStats.totalHours / yearStats.daysStudied).toFixed(1) : 0} hrs
+              </p>
             </div>
           </div>
         )}
       </Panel>
 
+      {/* Week View */}
       {viewMode === "week" && (
-        /* Week View - 7 Day Grid */
-        <Panel>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-white">
-              📋 {format(weekStart, "MMM d")} – {format(addDays(weekStart, 6), "MMM d, yyyy")}
+        <Panel className="space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-white/5">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <span>7-Day Focused Week View</span>
             </h3>
-            <div className="flex gap-2">
-              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setWeekStart(subWeeks(weekStart, 1))} className="rounded-xl bg-white/5 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/10 hover:text-white transition-colors">← Prev Week</motion.button>
-              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }))} className={`rounded-xl bg-gradient-to-r ${getThemeGradient()} px-4 py-2 text-sm font-medium text-white shadow-lg`}>This Week</motion.button>
-              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setWeekStart(addWeeks(weekStart, 1))} className="rounded-xl bg-white/5 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/10 hover:text-white transition-colors">Next Week →</motion.button>
-            </div>
+            <span className="text-xs text-slate-400">Drag sessions across days to reschedule</span>
           </div>
-          <div className="grid grid-cols-7 gap-2">
+
+          <div className="grid grid-cols-1 sm:grid-cols-7 gap-2.5">
             {currentWeekDays.map((day) => {
               const dateKey = format(day, "yyyy-MM-dd");
               const daySessions = sessionsByDate.get(dateKey) ?? [];
               const isToday = isSameDay(day, new Date());
               const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
-              const totalMins = Math.round(daySessions.reduce((s, x) => s + x.actualSeconds, 0) / 60);
+              const totalMins = Math.round(daySessions.reduce((s, x) => s + (x.actualSeconds || 0), 0) / 60);
+
               return (
-                <motion.div
+                <div
                   key={dateKey}
-                  whileHover={{ scale: 1.02 }}
-                  onClick={() => setSelectedDate(isSelected ? null : day)}
-                  className={`rounded-2xl p-3 cursor-pointer border min-h-[120px] transition-all ${
-                    isSelected ? `bg-gradient-to-br ${getThemeGradient()} border-transparent` :
-                    isToday ? "bg-white/8 border-white/20" : "bg-white/[0.02] border-white/5 hover:bg-white/5"
+                  onClick={() => setSelectedDate(day)}
+                  onDragOver={handleDragOver}
+                  onDrop={() => handleDrop(day)}
+                  className={`rounded-2xl p-3 border min-h-[140px] cursor-pointer transition-all flex flex-col justify-between ${
+                    isSelected
+                      ? "border-cyan-400 bg-cyan-500/10 shadow-lg shadow-cyan-500/10"
+                      : isToday
+                      ? "border-white/20 bg-slate-900/90"
+                      : "border-white/5 bg-slate-950/60 hover:bg-slate-900/50 hover:border-white/10"
                   }`}
                 >
-                  <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${isSelected ? "text-white" : "text-slate-500"}`}>{format(day, "EEE")}</p>
-                  <p className={`text-xl font-black ${isToday ? "text-cyan-400" : isSelected ? "text-white" : "text-white"}`}>{format(day, "d")}</p>
-                  {totalMins > 0 && <p className={`text-[9px] mt-1 font-mono font-bold ${isSelected ? "text-white/80" : "text-cyan-400"}`}>{toDurationLabel(totalMins)}</p>}
-                  <div className="mt-2 space-y-1">
-                    {daySessions.slice(0, 3).map(s => {
-                      const sub = subjects.find(x => x.id === s.subjectId);
-                      return (
-                        <div key={s.id} className="rounded-md px-1.5 py-0.5 text-[8px] font-bold text-white truncate" style={{ backgroundColor: `${sub?.color ?? "#6366f1"}30`, borderLeft: `2px solid ${sub?.color ?? "#6366f1"}` }}>
-                          {sub?.emoji} {sub?.name ?? "Session"}
-                        </div>
-                      );
-                    })}
-                    {daySessions.length > 3 && <p className="text-[8px] text-slate-500">+{daySessions.length - 3} more</p>}
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{format(day, "EEE")}</span>
+                      <span className={`text-base font-black ${isToday ? "text-cyan-400" : "text-white"}`}>{format(day, "d")}</span>
+                    </div>
+
+                    {totalMins > 0 && (
+                      <p className="text-[10px] font-bold text-cyan-300 mt-0.5">{toDurationLabel(totalMins)}</p>
+                    )}
+
+                    <div className="mt-2.5 space-y-1.5">
+                      {daySessions.slice(0, 3).map((s) => {
+                        const sub = subjects.find((x) => x.id === s.subjectId);
+                        const color = sub?.color || "#06b6d4";
+                        return (
+                          <div
+                            key={s.id}
+                            draggable
+                            onDragStart={() => handleDragStart(s)}
+                            className="rounded-lg px-2 py-1 text-[10px] font-bold text-white truncate cursor-grab active:cursor-grabbing shadow-sm"
+                            style={{
+                              backgroundColor: `${color}25`,
+                              borderLeft: `3px solid ${color}`,
+                            }}
+                          >
+                            {sub?.name ?? "Study Session"}
+                          </div>
+                        );
+                      })}
+                      {daySessions.length > 3 && (
+                        <p className="text-[9px] text-slate-500 font-semibold">+{daySessions.length - 3} more</p>
+                      )}
+                    </div>
                   </div>
-                </motion.div>
+                </div>
               );
             })}
           </div>
         </Panel>
       )}
 
-      {viewMode === "year" ? (
-        /* Year View - Month Grid */
-        <Panel>
-          <h3 className="mb-4 text-lg font-semibold text-white">📅 {getYear(currentMonth)} Overview - Click month to view</h3>
-          <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-6">
+      {/* Year View */}
+      {viewMode === "year" && (
+        <Panel className="space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-white/5">
+            <h3 className="text-sm font-bold text-white">Annual Consistency Matrix — Click any month to drill down</h3>
+            <span className="text-xs text-slate-400">Year {getYear(currentMonth)}</span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {months.map((month, index) => {
               const hours = Math.round(monthHours[index] / 60);
               const isCurrentMonth = index === getMonth(new Date()) && getYear(currentMonth) === getYear(new Date());
-              const isPast = new Date(getYear(currentMonth), index, 1) < new Date();
-              
+
               return (
-                <motion.button
+                <button
                   key={month}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
                   onClick={() => jumpToMonth(index)}
-                  className={`relative rounded-2xl p-4 text-center transition-all ${
-                    isCurrentMonth 
-                      ? `bg-gradient-to-br ${getThemeGradient()} text-white` 
-                      : isPast 
-                        ? "bg-white/5 text-slate-300 hover:bg-white/10" 
-                        : "bg-white/3 text-slate-400 hover:bg-white/8"
+                  className={`rounded-2xl p-4 text-center border transition-all hover:scale-105 active:scale-95 ${
+                    isCurrentMonth
+                      ? "border-cyan-400 bg-cyan-500/10 shadow-lg shadow-cyan-500/10 text-white"
+                      : hours > 0
+                      ? "border-white/10 bg-slate-900/60 hover:bg-slate-900 text-slate-200"
+                      : "border-white/5 bg-slate-950/40 hover:bg-slate-900/40 text-slate-400"
                   }`}
                 >
-                  <p className="text-lg font-bold">{month}</p>
-                  <p className={`mt-1 text-2xl font-bold ${hours > 0 ? "text-cyan-400" : "text-slate-500"}`}>
-                    {hours > 0 ? `${hours}h` : "-"}
+                  <p className="text-sm font-bold">{month}</p>
+                  <p className={`mt-2 text-2xl font-black ${hours > 0 ? "text-cyan-400" : "text-slate-600"}`}>
+                    {hours > 0 ? `${hours}h` : "—"}
                   </p>
-                  <p className="text-xs text-slate-400">{toDurationLabel(monthHours[index])}</p>
-                  {isCurrentMonth && (
-                    <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-yellow-400 animate-pulse" />
-                  )}
-                </motion.button>
+                  <p className="text-[10px] text-slate-500 mt-1">{toDurationLabel(monthHours[index])}</p>
+                </button>
               );
             })}
           </div>
-          
-          {/* Year Summary */}
-          <div className="mt-6 rounded-2xl bg-gradient-to-r from-indigo-500/20 to-cyan-500/20 p-4">
-            <h4 className="font-semibold text-white">📊 {getYear(currentMonth)} Summary</h4>
-            <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <div>
-                <p className="text-2xl font-bold text-cyan-400">{yearStats.totalHours}h</p>
-                <p className="text-xs text-slate-400">Total Study Hours</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-emerald-400">{yearStats.sessionCount}</p>
-                <p className="text-xs text-slate-400">Total Sessions</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-purple-400">{yearStats.daysStudied}</p>
-                <p className="text-xs text-slate-400">Days Studied</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-yellow-400">
-                  {yearStats.daysStudied > 0 ? (yearStats.totalHours / yearStats.daysStudied).toFixed(1) : 0}h
-                </p>
-                <p className="text-xs text-slate-400">Avg per Study Day</p>
-              </div>
-            </div>
-          </div>
         </Panel>
-      ) : (
-        <div className="grid gap-5 lg:grid-cols-3">
+      )}
+
+      {/* Month View & Selected Day Inspector */}
+      {viewMode === "month" && (
+        <div className="grid gap-6 lg:grid-cols-3">
           {/* Calendar Grid */}
-          <Panel className="lg:col-span-2">
+          <Panel className="lg:col-span-2 space-y-3">
             {/* Week days header */}
-            <div className="mb-3 grid grid-cols-7 gap-1">
+            <div className="grid grid-cols-7 gap-1 pb-1 border-b border-white/5">
               {weekDays.map((day) => (
-                <div key={day} className="py-2 text-center text-xs font-semibold uppercase tracking-wider text-slate-400">
+                <div key={day} className="py-1 text-center text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   {day}
                 </div>
               ))}
             </div>
 
-            {/* Calendar days */}
-            <div className="grid grid-cols-7 gap-1">
+            {/* Calendar days matrix */}
+            <div className="grid grid-cols-7 gap-1.5">
               {calendarDays.map((day, i) => {
-                const stats = getDayStats(day);
+                const dayStats = getDayStats(day);
                 const isCurrentMonth = isSameMonth(day, currentMonth);
                 const isToday = isSameDay(day, new Date());
                 const isSelected = selectedDate && isSameDay(day, selectedDate);
-                const isPast = day < new Date() && !isToday;
 
                 return (
-                  <motion.button
+                  <button
                     key={day.toISOString()}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: i * 0.005 }}
                     onClick={() => setSelectedDate(day)}
                     onDragOver={handleDragOver}
                     onDrop={() => handleDrop(day)}
-                    whileHover={{ scale: 1.08 }}
-                    whileTap={{ scale: 0.95 }}
                     className={`
-                      relative aspect-square rounded-xl p-1 text-left transition-all
-                      ${isCurrentMonth ? "text-white" : "text-slate-600"}
-                      ${isPast && isCurrentMonth ? "opacity-80" : ""}
-                      ${isToday ? "ring-2 ring-cyan-400 ring-offset-1 ring-offset-slate-900" : ""}
-                      ${isSelected ? "ring-2 ring-yellow-400 ring-offset-1 ring-offset-slate-900" : ""}
-                      ${draggedSession ? "hover:ring-2 hover:ring-emerald-400" : ""}
-                      ${getIntensityColor(stats.actual)}
+                      relative aspect-square rounded-2xl p-2 text-left transition-all border
+                      ${isCurrentMonth ? "text-white" : "text-slate-600 opacity-40"}
+                      ${isToday ? "ring-2 ring-cyan-400 ring-offset-2 ring-offset-slate-950 font-bold" : ""}
+                      ${isSelected ? "ring-2 ring-amber-400 ring-offset-2 ring-offset-slate-950" : ""}
+                      ${getIntensityColor(dayStats.actual)}
+                      hover:scale-105 active:scale-95
                     `}
                   >
-                    <span className={`text-sm font-medium ${isToday ? "text-cyan-300" : ""}`}>
+                    <span className={`text-xs font-bold ${isToday ? "text-cyan-300" : ""}`}>
                       {format(day, "d")}
                     </span>
-                    {stats.count > 0 && (
-                      <div className="absolute bottom-1 left-1 right-1 flex gap-0.5">
-                        {[...Array(Math.min(5, stats.count))].map((_, idx) => (
+
+                    {/* Dot indicators */}
+                    {dayStats.count > 0 && (
+                      <div className="absolute bottom-2 left-2 right-2 flex gap-1">
+                        {[...Array(Math.min(4, dayStats.count))].map((_, idx) => (
                           <div
                             key={idx}
-                            className={`h-1 flex-1 rounded-full bg-gradient-to-r ${getThemeGradient()}`}
+                            className="h-1 flex-1 rounded-full bg-cyan-400 shadow-sm"
                           />
                         ))}
                       </div>
                     )}
-                  </motion.button>
+                  </button>
                 );
               })}
             </div>
 
-            {/* Legend */}
-            <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-slate-400">
-              <span>Intensity:</span>
-              <div className="flex items-center gap-1">
-                <div className="h-4 w-4 rounded bg-white/5" />
+            {/* Intensity Legend */}
+            <div className="mt-4 flex flex-wrap items-center gap-3 pt-3 border-t border-white/5 text-[11px] text-slate-400">
+              <span className="font-semibold text-slate-300">Study Heatmap:</span>
+              <div className="flex items-center gap-1.5">
+                <div className="h-3 w-3 rounded bg-white/[0.02] border border-white/5" />
                 <span>0m</span>
               </div>
-              <div className="flex items-center gap-1">
-                <div className="h-4 w-4 rounded bg-emerald-500/20" />
+              <div className="flex items-center gap-1.5">
+                <div className="h-3 w-3 rounded bg-emerald-500/20 border border-emerald-500/25" />
                 <span>&lt;30m</span>
               </div>
-              <div className="flex items-center gap-1">
-                <div className="h-4 w-4 rounded bg-emerald-500/40" />
+              <div className="flex items-center gap-1.5">
+                <div className="h-3 w-3 rounded bg-emerald-500/40 border border-emerald-500/40" />
                 <span>30-60m</span>
               </div>
-              <div className="flex items-center gap-1">
-                <div className="h-4 w-4 rounded bg-emerald-500/60" />
+              <div className="flex items-center gap-1.5">
+                <div className="h-3 w-3 rounded bg-emerald-500/60 border border-emerald-500/60" />
                 <span>1-2h</span>
               </div>
-              <div className="flex items-center gap-1">
-                <div className="h-4 w-4 rounded bg-emerald-500/80" />
-                <span>2-3h</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="h-4 w-4 rounded bg-emerald-500" />
-                <span>3h+</span>
+              <div className="flex items-center gap-1.5">
+                <div className="h-3 w-3 rounded bg-emerald-500/80 border border-emerald-400" />
+                <span>2h+</span>
               </div>
             </div>
           </Panel>
 
-          {/* Selected Day Sessions */}
-          <Panel>
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold text-white">
-                {selectedDate ? format(selectedDate, "EEEE, MMMM d, yyyy") : "📆 Select a day"}
+          {/* Selected Day Inspector Panel */}
+          <Panel className="space-y-4">
+            <div className="pb-3 border-b border-white/5">
+              <h3 className="text-base font-bold text-white">
+                {selectedDate ? format(selectedDate, "EEEE, MMMM d") : "Select a day"}
               </h3>
-              {selectedDate && (
-                <p className="mt-1 text-sm text-slate-400">
-                  {selectedDateSessions.length} session{selectedDateSessions.length !== 1 ? "s" : ""} • Drag to move
-                </p>
-              )}
+              <p className="text-xs text-slate-400 mt-0.5">
+                {selectedDateSessions.length} {selectedDateSessions.length === 1 ? "session" : "sessions"} recorded
+              </p>
             </div>
 
-            <AnimatePresence mode="wait">
-              {selectedDate ? (
-                selectedDateSessions.length > 0 ? (
-                  <motion.div
-                    key="sessions"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="space-y-3 max-h-[500px] overflow-y-auto pretty-scrollbar"
-                  >
-                    {selectedDateSessions.map((session, i) => {
-                      const completion = session.plannedMinutes > 0 
-                        ? Math.round((session.actualSeconds / 60 / session.plannedMinutes) * 100)
-                        : 0;
-                      return (
-                        <motion.div
-                          key={session.id}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: i * 0.05 }}
-                          draggable
-                          onDragStart={() => handleDragStart(session)}
-                          className="rounded-xl p-3 text-left transition-all cursor-grab active:cursor-grabbing hover:ring-2 hover:ring-white/20"
-                          style={{
-                            backgroundColor: `${getSubjectColor(session.subjectId)}15`,
-                            borderLeft: `4px solid ${getSubjectColor(session.subjectId)}`,
-                          }}
+            <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1 pretty-scrollbar">
+              {selectedDateSessions.length > 0 ? (
+                selectedDateSessions.map((session) => {
+                  const subColor = getSubjectColor(session.subjectId);
+                  const subName = getSubjectName(session.subjectId);
+                  const completion = session.plannedMinutes > 0
+                    ? Math.round((session.actualSeconds / 60 / session.plannedMinutes) * 100)
+                    : 0;
+
+                  return (
+                    <div
+                      key={session.id}
+                      draggable
+                      onDragStart={() => handleDragStart(session)}
+                      className="rounded-2xl p-3.5 border border-white/5 bg-slate-950/70 space-y-2.5 transition-all hover:border-white/15 cursor-grab active:cursor-grabbing"
+                      style={{
+                        borderLeft: `4px solid ${subColor}`,
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-white truncate">{subName}</p>
+                          <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-slate-500" />
+                            <span>{formatTime12Hour(session.startTime)} → {formatTime12Hour(session.endTime)}</span>
+                          </p>
+                        </div>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          session.status === "completed"
+                            ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                            : "bg-slate-800 text-slate-300"
+                        }`}>
+                          {session.status.replace("_", " ")}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                        <span>Actual: <strong className="text-cyan-300">{toDurationLabel(Math.round(session.actualSeconds / 60))}</strong></span>
+                        <span>Planned: <strong className="text-slate-200">{toDurationLabel(session.plannedMinutes)}</strong></span>
+                        <span className="font-bold text-emerald-400">{completion}%</span>
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="flex items-center gap-1.5 pt-1 border-t border-white/5">
+                        <button
+                          onClick={() => setEditingSession(session)}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[10px] font-bold text-slate-300 transition-colors"
                         >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0 flex-1">
-                              <p className="font-medium text-white truncate">{getSubjectName(session.subjectId)}</p>
-                              <p className="mt-1 text-xs text-slate-400">
-                                ⏰ {formatTime12Hour(session.startTime)} → {formatTime12Hour(session.endTime)}
-                              </p>
-                            </div>
-                            <span
-                              className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
-                                session.status === "completed"
-                                  ? "bg-emerald-500/20 text-emerald-300"
-                                  : session.status === "in_progress"
-                                    ? "bg-cyan-500/20 text-cyan-300"
-                                    : session.status === "paused"
-                                      ? "bg-yellow-500/20 text-yellow-300"
-                                      : "bg-slate-500/20 text-slate-300"
-                              }`}
-                            >
-                              {session.status.replace("_", " ")}
-                            </span>
-                          </div>
-
-                          <div className="mt-2 flex items-center gap-3 text-xs">
-                            <span className="text-slate-400">
-                              📊 {toDurationLabel(session.plannedMinutes)}
-                            </span>
-                            <span className="text-slate-400">
-                              ✅ {toDurationLabel(Math.round(session.actualSeconds / 60))}
-                            </span>
-                            <span className={`font-medium ${completion >= 80 ? "text-emerald-400" : completion >= 50 ? "text-yellow-400" : "text-slate-400"}`}>
-                              {completion}%
-                            </span>
-                          </div>
-
-                          {/* Quick Actions */}
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={() => setEditingSession(session)}
-                              className="rounded-lg bg-white/10 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-white/20"
-                            >
-                              ✏️ Edit
-                            </motion.button>
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={() => handleMoveNext(session)}
-                              className="rounded-lg bg-amber-500/20 px-2.5 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-500/30"
-                            >
-                              ➡️ Tomorrow
-                            </motion.button>
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={() => handleQuickClone(session, 1)}
-                              className="rounded-lg bg-purple-500/20 px-2.5 py-1.5 text-xs font-medium text-purple-300 hover:bg-purple-500/30"
-                            >
-                              📋 Clone +1d
-                            </motion.button>
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={() => startSession(session.id)}
-                              className={`rounded-lg bg-gradient-to-r ${getThemeGradient()} px-2.5 py-1.5 text-xs font-medium text-white`}
-                            >
-                              ▶️ Start
-                            </motion.button>
-                          </div>
-                        </motion.div>
-                      );
-                    })}
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="empty"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="rounded-xl bg-white/5 p-6 text-center"
-                  >
-                    <p className="text-3xl">📭</p>
-                    <p className="mt-2 text-sm text-slate-400">No sessions on this day</p>
-                    <p className="mt-1 text-xs text-slate-500">Drag a session here to move it</p>
-                  </motion.div>
-                )
+                          <Edit3 className="w-3 h-3" />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          onClick={() => handleMoveNext(session)}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-[10px] font-bold text-amber-300 transition-colors"
+                        >
+                          <ArrowRight className="w-3 h-3" />
+                          <span>+1d</span>
+                        </button>
+                        <button
+                          onClick={() => handleQuickClone(session, 1)}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-[10px] font-bold text-purple-300 transition-colors"
+                        >
+                          <Copy className="w-3 h-3" />
+                          <span>Clone</span>
+                        </button>
+                        <button
+                          onClick={() => startSession(session.id)}
+                          className={`ml-auto flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gradient-to-r ${getThemeGradient()} text-[10px] font-bold text-white shadow-sm`}
+                        >
+                          <Play className="w-3 h-3 fill-current" />
+                          <span>Start</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
               ) : (
-                <motion.div
-                  key="select"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="rounded-xl bg-white/5 p-6 text-center"
-                >
-                  <p className="text-3xl">👆</p>
-                  <p className="mt-2 text-sm text-slate-400">Click on a day to view sessions</p>
-                </motion.div>
+                <div className="rounded-2xl border border-white/5 bg-slate-950/40 p-8 text-center space-y-1">
+                  <CalendarIcon className="w-8 h-8 text-slate-600 mx-auto" />
+                  <p className="text-xs font-bold text-white">No sessions recorded</p>
+                  <p className="text-[11px] text-slate-400">Drag a session here or click start to log focus.</p>
+                </div>
               )}
-            </AnimatePresence>
+            </div>
           </Panel>
         </div>
       )}
