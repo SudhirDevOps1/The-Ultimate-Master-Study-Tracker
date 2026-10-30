@@ -182,7 +182,7 @@ export function splitSegment(options: SplitSegmentOptions): SplitSegmentResult {
  * Reads entry duration safely with backward compatibility.
  * Old entries without activeSeconds/afkSeconds are transparently normalized.
  */
-export function normalizeEntryDuration(entry: ActivityEntry): {
+export function normalizeEntryDuration(entry: Partial<ActivityEntry>): {
   activeSeconds: number;
   afkSeconds: number;
   totalSeconds: number;

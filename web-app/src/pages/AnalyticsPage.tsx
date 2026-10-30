@@ -139,17 +139,28 @@ export function AnalyticsPage() {
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
-  // Focus Score breakdown
+    // Focus Score breakdown: derived strictly from real sessions and tracked metrics without fabrication
   const focusScoreBreakdown = useMemo(() => {
     const totalMins = Math.round((sessions?.reduce((sum, s) => sum + (s.actualSeconds || 0), 0) || 0) / 60);
     const completed = (sessions || []).filter(s => s.status === "completed").length;
     const planned = (sessions || []).length;
+
+    // Read real break count from break log if present, else null (untracked)
+    let realBreakCount: number | null = null;
+    try {
+      const storedBreaks = localStorage.getItem("flowtrack_break_history");
+      if (storedBreaks) {
+        const parsed = JSON.parse(storedBreaks);
+        if (Array.isArray(parsed)) realBreakCount = parsed.length;
+      }
+    } catch {}
+
     return calculateFocusScore({
       studyMinutes: totalMins,
       completedSessions: completed,
       totalPlannedSessions: planned,
-      breakAdherenceCount: Math.min(8, Math.floor(totalMins / 30)),
-      distractionSeconds: 0,
+      breakAdherenceCount: realBreakCount,
+      distractionSeconds: null,
     });
   }, [sessions]);
 

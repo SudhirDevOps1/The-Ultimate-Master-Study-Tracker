@@ -2235,9 +2235,18 @@ ipcMain.handle("export-activity-csv", async (_e, { date } = {}) => {
       const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
       return h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${sec}s` : `${sec}s`;
     };
+    const sanitizeCsvCell = val => {
+      if (val === null || val === undefined) return "";
+      let str = String(val);
+      if (/^[=+\-@\t\r]/.test(str)) {
+        str = "'" + str;
+      }
+      return str.replace(/"/g, '""');
+    };
     for (const e of entries) {
-      const title = (e.title || "").replace(/"/g, '""');
-      csvLines.push(`"${e.date}","${e.appName}","${title}",${e.durationSeconds},"${fmtSecs(e.durationSeconds)}","${e.startTime}",${e.hour}`);
+      const app = sanitizeCsvCell(e.appName);
+      const title = sanitizeCsvCell(e.title || "");
+      csvLines.push(`"${e.date}","${app}","${title}",${e.durationSeconds},"${fmtSecs(e.durationSeconds)}","${e.startTime}",${e.hour}`);
     }
     const csv = csvLines.join("\n");
 

@@ -1,4 +1,5 @@
 import { toLocalDateKey } from "@/utils/localDate";
+import { classifyApplication } from "@/utils/appCategorizer";
 import { normalizeEntryDuration } from "@/utils/trackerMath";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -75,27 +76,7 @@ const ENTERT  = [
 ];
 
 function classifyApp(app: string, title: string = ""): string {
-  const n = app.toLowerCase();
-  const t = (title || "").toLowerCase();
-  const isBrowserProcess = BROWSER.some(b => n.includes(b));
-  
-  if (isBrowserProcess || n.includes("chrome") || n.includes("firefox") || n.includes("edge") || n.includes("brave") || n.includes("opera") || n.includes("safari")) {
-    if (t.includes("youtube") || t.includes("netflix") || t.includes("spotify") || t.includes("twitch") || t.includes("prime video") || t.includes("hotstar") || t.includes("vimeo") || t.includes("mxplayer") || t.includes("music.youtube")) {
-      return "entertainment";
-    }
-    if (t.includes("instagram") || t.includes("linkedin") || t.includes("facebook") || t.includes("twitter") || t.includes(" x ") || t.includes("reddit") || t.includes("whatsapp") || t.includes("discord") || t.includes("telegram") || t.includes("slack")) {
-      return "social";
-    }
-    if (t.includes("github") || t.includes("stackoverflow") || t.includes("leetcode") || t.includes("chatgpt") || t.includes("openai") || t.includes("coursera") || t.includes("udemy") || t.includes("w3schools") || t.includes("wikipedia") || t.includes("mdn") || t.includes("geeksforgeeks") || t.includes("gfg") || t.includes("apna college") || t.includes("freecodecamp") || t.includes("codewithharry") || t.includes("overleaf")) {
-      return "study";
-    }
-  }
-
-  if (STUDY.some(k   => n.includes(k))) return "study";
-  if (isBrowserProcess) return "browser";
-  if (SOCIAL.some(k  => n.includes(k))) return "social";
-  if (ENTERT.some(k  => n.includes(k))) return "entertainment";
-  return "system";
+  return classifyApplication(app, title);
 }
 
 function extractDevMetadata(appName: string, title: string = ""): { isDev: boolean; language?: string; project?: string } {
