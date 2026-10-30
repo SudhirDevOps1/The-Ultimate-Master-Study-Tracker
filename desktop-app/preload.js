@@ -27,6 +27,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   "get-block-rules",
   "focus-main-window",
   "save-block-rules",
+  "enforce-block-rules",
   "sync-hosts-file",
   "get-running-apps",
   "get-desktop-settings",

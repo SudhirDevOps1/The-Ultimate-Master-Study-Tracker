@@ -31,6 +31,103 @@ const ranges: { key: ExtendedRange; label: string; icon: string }[] = [
   { key: "alltime", label: "All Time", icon: "♾️" },
 ];
 
+// ─── Subcomponent: Studied vs Skipped Days Panel (Unconditional Hooks) ───────────
+function StudiedVsSkippedDaysPanel({ sessions }: { sessions: any[] }) {
+  const { dates, dayMap, studiedCount, skippedCount, todayStr } = useMemo(() => {
+    const datesList: string[] = [];
+    const map = new Map<string, number>();
+    sessions.forEach(s => {
+      if (s.actualSeconds > 0) {
+        const dKey = format(new Date(s.startTime), "yyyy-MM-dd");
+        map.set(dKey, (map.get(dKey) ?? 0) + s.actualSeconds);
+      }
+    });
+
+    const studyDates = sessions
+      .filter(s => s.actualSeconds > 0)
+      .map(s => new Date(s.startTime).getTime())
+      .sort((a, b) => a - b);
+      
+    const minDate = studyDates.length > 0 ? new Date(studyDates[0]) : new Date();
+    minDate.setHours(0, 0, 0, 0);
+
+    const cursor = new Date();
+    cursor.setHours(0, 0, 0, 0);
+    
+    for (let i = 0; i < 30; i++) {
+      if (cursor.getTime() >= minDate.getTime()) {
+        datesList.push(format(cursor, "yyyy-MM-dd"));
+      }
+      cursor.setDate(cursor.getDate() - 1);
+    }
+
+    const today = format(new Date(), "yyyy-MM-dd");
+    const studied = datesList.filter(d => map.has(d)).length;
+    const skipped = datesList.filter(d => d !== today && !map.has(d)).length;
+
+    return { dates: datesList, dayMap: map, studiedCount: studied, skippedCount: skipped, todayStr: today };
+  }, [sessions]);
+
+  return (
+    <Panel className="space-y-4">
+      <div>
+        <h3 className="text-base font-bold text-white flex items-center justify-between">
+          <span>📅 Active vs Skipped Days</span>
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-slate-400 font-mono">Last 30 Days</span>
+        </h3>
+        <div className="mt-2 grid grid-cols-2 gap-2 text-center text-xs">
+          <div className="rounded-xl border border-emerald-500/10 bg-emerald-950/20 p-2.5">
+            <p className="font-bold text-emerald-400 text-lg">{studiedCount} Days</p>
+            <p className="text-[10px] text-slate-400">Studied ✅</p>
+          </div>
+          <div className="rounded-xl border border-rose-500/10 bg-rose-950/20 p-2.5">
+            <p className="font-bold text-rose-400 text-lg">{skippedCount} Days</p>
+            <p className="text-[10px] text-slate-400">Missed ❌</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="pretty-scrollbar max-h-64 overflow-y-auto space-y-1.5 pr-1">
+        {dates.map(dateStr => {
+          const isToday = dateStr === todayStr;
+          const hasStudied = dayMap.has(dateStr);
+          const totalSec = dayMap.get(dateStr) ?? 0;
+          const hoursVal = (totalSec / 3600).toFixed(1);
+          const parsedDate = new Date(dateStr + "T12:00:00");
+
+          let statusBadge = <span className="font-mono font-bold text-rose-400">❌ Missed</span>;
+          let rowClasses = "bg-rose-950/10 border-rose-500/10 text-rose-300";
+
+          if (hasStudied) {
+            statusBadge = <span className="font-mono font-bold text-emerald-400">✅ {hoursVal}h</span>;
+            rowClasses = "bg-emerald-950/10 border-emerald-500/10 text-emerald-300";
+          } else if (isToday) {
+            statusBadge = <span className="font-mono font-bold text-amber-400">⏳ In Progress</span>;
+            rowClasses = "bg-amber-950/10 border-amber-500/10 text-amber-300";
+          }
+
+          return (
+            <div 
+              key={dateStr}
+              className={`flex items-center justify-between rounded-xl p-2.5 text-xs border ${rowClasses}`}
+            >
+              <span className="font-medium flex items-center gap-1.5">
+                {format(parsedDate, "EEE, MMM dd, yyyy")}
+                {isToday && (
+                  <span className="text-[9px] uppercase font-bold text-cyan-300 px-1.5 py-0.5 rounded bg-cyan-500/15 border border-cyan-500/25">
+                    Today
+                  </span>
+                )}
+              </span>
+              {statusBadge}
+            </div>
+          );
+        })}
+      </div>
+    </Panel>
+  );
+}
+
 export function AnalyticsPage() {
   const sessions = useAppStore((state: AppState) => state.sessions);
   const subjects = useAppStore((state: AppState) => state.subjects);
@@ -460,97 +557,7 @@ export function AnalyticsPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             {/* Studied vs Skipped Days Log */}
             <div className="lg:col-span-2">
-              {useMemo(() => {
-                const dates: string[] = [];
-                const dayMap = new Map<string, number>();
-                sessions.forEach(s => {
-                  if (s.actualSeconds > 0) {
-                    const dKey = format(new Date(s.startTime), "yyyy-MM-dd");
-                    dayMap.set(dKey, (dayMap.get(dKey) ?? 0) + s.actualSeconds);
-                  }
-                });
-
-                const studyDates = sessions
-                  .filter(s => s.actualSeconds > 0)
-                  .map(s => new Date(s.startTime).getTime())
-                  .sort((a, b) => a - b);
-                  
-                const minDate = studyDates.length > 0 ? new Date(studyDates[0]) : new Date();
-                minDate.setHours(0,0,0,0);
-
-                const cursor = new Date();
-                cursor.setHours(0,0,0,0);
-                
-                for (let i = 0; i < 30; i++) {
-                  if (cursor.getTime() >= minDate.getTime()) {
-                    dates.push(format(cursor, "yyyy-MM-dd"));
-                  }
-                  cursor.setDate(cursor.getDate() - 1);
-                }
-
-                const todayStr = format(new Date(), "yyyy-MM-dd");
-                const studiedCount = dates.filter(d => dayMap.has(d)).length;
-                const skippedCount = dates.filter(d => d !== todayStr && !dayMap.has(d)).length;
-
-                return (
-                  <Panel className="space-y-4">
-                    <div>
-                      <h3 className="text-base font-bold text-white flex items-center justify-between">
-                        <span>📅 Active vs Skipped Days</span>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-slate-400 font-mono">Last 30 Days</span>
-                      </h3>
-                      <div className="mt-2 grid grid-cols-2 gap-2 text-center text-xs">
-                        <div className="rounded-xl border border-emerald-500/10 bg-emerald-950/20 p-2.5">
-                          <p className="font-bold text-emerald-400 text-lg">{studiedCount} Days</p>
-                          <p className="text-[10px] text-slate-400">Studied ✅</p>
-                        </div>
-                        <div className="rounded-xl border border-rose-500/10 bg-rose-950/20 p-2.5">
-                          <p className="font-bold text-rose-400 text-lg">{skippedCount} Days</p>
-                          <p className="text-[10px] text-slate-400">Missed ❌</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="pretty-scrollbar max-h-64 overflow-y-auto space-y-1.5 pr-1">
-                      {dates.map(dateStr => {
-                        const isToday = dateStr === todayStr;
-                        const hasStudied = dayMap.has(dateStr);
-                        const totalSec = dayMap.get(dateStr) ?? 0;
-                        const hoursVal = (totalSec / 3600).toFixed(1);
-                        const parsedDate = new Date(dateStr + "T12:00:00");
-
-                        let statusBadge = <span className="font-mono font-bold text-rose-400">❌ Missed</span>;
-                        let rowClasses = "bg-rose-950/10 border-rose-500/10 text-rose-300";
-
-                        if (hasStudied) {
-                          statusBadge = <span className="font-mono font-bold text-emerald-400">✅ {hoursVal}h</span>;
-                          rowClasses = "bg-emerald-950/10 border-emerald-500/10 text-emerald-300";
-                        } else if (isToday) {
-                          statusBadge = <span className="font-mono font-bold text-amber-400">⏳ In Progress</span>;
-                          rowClasses = "bg-amber-950/10 border-amber-500/10 text-amber-300";
-                        }
-
-                        return (
-                          <div 
-                            key={dateStr}
-                            className={`flex items-center justify-between rounded-xl p-2.5 text-xs border ${rowClasses}`}
-                          >
-                            <span className="font-medium flex items-center gap-1.5">
-                              {format(parsedDate, "EEE, MMM dd, yyyy")}
-                              {isToday && (
-                                <span className="text-[9px] uppercase font-bold text-cyan-300 px-1.5 py-0.5 rounded bg-cyan-500/15 border border-cyan-500/25">
-                                  Today
-                                </span>
-                              )}
-                            </span>
-                            {statusBadge}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </Panel>
-                );
-              }, [sessions])}
+              <StudiedVsSkippedDaysPanel sessions={sessions} />
             </div>
 
             {/* Personal Bests */}

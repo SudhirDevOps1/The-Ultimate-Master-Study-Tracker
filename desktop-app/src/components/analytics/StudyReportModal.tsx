@@ -1,3 +1,4 @@
+import { APP_VERSION } from "@/config/version";
 import { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
 import { X, Printer, Sparkles, BookOpen, ShieldCheck } from "lucide-react";
@@ -236,7 +237,7 @@ export function StudyReportModal({ isOpen, onClose }: StudyReportModalProps) {
             {/* Formal Verification Footer */}
             <div className="pt-3 border-t border-slate-200 flex items-center justify-between text-[9px] text-slate-500">
               <div className="flex items-center gap-1 font-semibold text-slate-600">
-                <span>Verified by FlowTrack Pro Engine v0.2.4</span>
+                <span>Verified by FlowTrack Pro Engine v{APP_VERSION}</span>
                 <span>•</span>
                 <span>Self-Hosted & Private</span>
               </div>

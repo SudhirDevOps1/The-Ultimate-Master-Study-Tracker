@@ -1,3 +1,4 @@
+import { APP_VERSION, CURRENT_CHANGELOG, hasSeenCurrentChangelog, markCurrentChangelogAsSeen } from "@/config/version";
 import { useEffect, useMemo, useState } from "react";
 import { isSameDay, format, startOfWeek, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
@@ -472,7 +473,7 @@ export function DashboardPage() {
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-purple-300 bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 rounded">
               💻 Native Desktop App Available
             </span>
-            <span className="text-[10px] font-mono text-cyan-400 font-bold">v0.2.4</span>
+            <span className="text-[10px] font-mono text-cyan-400 font-bold">v{APP_VERSION}</span>
           </div>
           <p className="text-sm font-bold text-white">
             Want Native App & Browser Tab Blocker + PiP Floating Timer?
@@ -980,14 +981,13 @@ function WelcomeChangelogModal() {
 
   useEffect(() => {
     // Show only once per major release version update
-    const seenVersion = localStorage.getItem("flowtrack_changelog_v0.2.4");
-    if (!seenVersion) {
+    if (!hasSeenCurrentChangelog()) {
       setIsOpen(true);
     }
   }, []);
 
   const handleClose = () => {
-    localStorage.setItem("flowtrack_changelog_v0.2.4", "true");
+    markCurrentChangelogAsSeen();
     setIsOpen(false);
   };
 
@@ -1003,63 +1003,29 @@ function WelcomeChangelogModal() {
           >
             <div className="space-y-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">
-                🚀 Shipped: v0.2.4
+                {CURRENT_CHANGELOG.badge}
               </span>
               <h3 className="text-2xl font-black text-white">
-                What&apos;s New in FlowTrack Pro v0.2.4!
+                {CURRENT_CHANGELOG.title}
               </h3>
               <p className="text-xs text-slate-400">
-                Explore the latest premium features and security updates added to your tracker.
+                {CURRENT_CHANGELOG.description}
               </p>
             </div>
 
             <hr className="border-white/5" />
 
             <div className="space-y-3 max-h-60 overflow-y-auto pr-1 text-xs text-slate-300 pretty-scrollbar">
-              <div className="space-y-1">
-                <p className="font-bold text-white flex items-center gap-1.5">
-                  📁 Categorized Web & Desktop Architecture
-                </p>
-                <p className="text-slate-400 pl-5">
-                  Isolated web-app and desktop-app modules with dual 127.0.0.1 / localhost auto-connect fallback.
-                </p>
-              </div>
-
-              <div className="space-y-1">
-                <p className="font-bold text-white flex items-center gap-1.5">
-                  📝 Real Notepad & 1-Click Note PNG Exporter
-                </p>
-                <p className="text-slate-400 pl-5">
-                  Full-screen lined Notepad mode (.TXT exporter) + single note card PNG image download and image attachments.
-                </p>
-              </div>
-
-              <div className="space-y-1">
-                <p className="font-bold text-white flex items-center gap-1.5">
-                  📄 Study Workspace (Dual-Mode PDF / OCR)
-                </p>
-                <p className="text-slate-400 pl-5">
-                  Native PDF vector text layer reader + Canvas high-res OCR engine for scanned PDF textbooks.
-                </p>
-              </div>
-
-              <div className="space-y-1">
-                <p className="font-bold text-white flex items-center gap-1.5">
-                  🎧 Separated Focus Audio & Soundscape Engine
-                </p>
-                <p className="text-slate-400 pl-5">
-                  10Hz Alpha Binaural Beats and Ambience Soundscapes/Local Files play cleanly without background clashing.
-                </p>
-              </div>
-
-              <div className="space-y-1">
-                <p className="font-bold text-white flex items-center gap-1.5">
-                  ⚡ 0ms Anti-Lag Analytics & Re-ordered Menu
-                </p>
-                <p className="text-slate-400 pl-5">
-                  Instant memoized analytics charts and top navigation organized by daily study priority.
-                </p>
-              </div>
+              {CURRENT_CHANGELOG.highlights.map((highlight, idx) => (
+                <div key={idx} className="space-y-1">
+                  <p className="font-bold text-white flex items-center gap-1.5">
+                    <span>{highlight.icon}</span> {highlight.title}
+                  </p>
+                  <p className="text-slate-400 pl-5">
+                    {highlight.description}
+                  </p>
+                </div>
+              ))}
             </div>
 
             <div className="pt-2 flex justify-end">

@@ -546,17 +546,21 @@ function startActivityTracker() {
           if (rule.strictLevel === "hard") {
             // HARD: Terminate process immediately
             if (process.platform === "win32") {
-              if (cleanActive === "applicationframehost" || cleanActive === "explorer") {
-                const safeTitle = activeTitle.replace(/'/g, "''");
-                execFile("powershell.exe", [
-                  "-NoProfile", 
-                  "-NonInteractive",
-                  "-Command", 
-                  `(Get-Process | Where-Object {$_.MainWindowTitle -eq '${safeTitle}'}) | ForEach-Object { $_.CloseMainWindow() }`
-                ], () => {});
-              } else {
+              const cleanTarget = target.replace(/\.exe$/i, "");
+              // 1. Direct taskkill by executable name
+              execFile("taskkill", ["/F", "/IM", `${cleanTarget}.exe`, "/T"], () => {});
+              if (exeName !== `${cleanTarget}.exe`) {
                 execFile("taskkill", ["/F", "/IM", exeName, "/T"], () => {});
               }
+              // 2. PowerShell termination for UWP Store Apps (e.g. WhatsApp, Photos) and wildcards
+              const psKillCmd = `Get-Process | Where-Object { $_.ProcessName -like '*${cleanTarget}*' -or $_.MainWindowTitle -like '*${cleanTarget}*' } | Stop-Process -Force -ErrorAction SilentlyContinue`;
+              execFile("powershell.exe", [
+                "-NoProfile", 
+                "-NonInteractive",
+                "-WindowStyle", "Hidden",
+                "-Command", 
+                psKillCmd
+              ], () => {});
             } else if (process.platform === "linux" || process.platform === "darwin") {
               execFile("pkill", ["-f", cleanActive], () => {});
             }
@@ -1289,6 +1293,33 @@ ipcMain.handle("save-block-rules", async (_e, { rules, globalEnabled }) => {
   if (typeof globalEnabled === "boolean") blockRulesData.globalEnabled = globalEnabled;
   saveBlockRulesToFile();
   return { success: true, blockRulesData };
+});
+
+ipcMain.handle("enforce-block-rules", async () => {
+  if (!blockRulesData.globalEnabled || !blockRulesData.rules || blockRulesData.rules.length === 0) {
+    return { success: true, killed: [] };
+  }
+
+  const killed = [];
+  if (process.platform === "win32") {
+    for (const rule of blockRulesData.rules) {
+      if (rule.blocked === false || rule.enabled === false) continue;
+      if (rule.strictLevel !== "hard") continue;
+      
+      const target = (rule.appName || "").toLowerCase().trim();
+      if (!target) continue;
+      const cleanTarget = target.replace(/\.exe$/i, "");
+
+      // Execute taskkill
+      execFile("taskkill", ["/F", "/IM", `${cleanTarget}.exe`, "/T"], () => {});
+      
+      // Stop UWP / Store / Process by name or title wildcard
+      const psKillCmd = `Get-Process | Where-Object { $_.ProcessName -like '*${cleanTarget}*' -or $_.MainWindowTitle -like '*${cleanTarget}*' } | Stop-Process -Force -ErrorAction SilentlyContinue`;
+      execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", psKillCmd], () => {});
+      killed.push(target);
+    }
+  }
+  return { success: true, killed };
 });
 
 ipcMain.handle("sync-hosts-file", async () => {

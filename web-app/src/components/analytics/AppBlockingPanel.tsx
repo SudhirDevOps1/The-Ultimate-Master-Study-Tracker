@@ -109,7 +109,8 @@ export function AppBlockingPanel() {
     try {
       const normalizeRules = (arr: AppBlockRule[]): AppBlockRule[] => {
         return arr.map(r => {
-          if (r.appName.toLowerCase().endsWith(".exe") && r.ruleType === "website") {
+          const isExe = r.appName.toLowerCase().endsWith(".exe");
+          if (isExe && r.ruleType !== "app") {
             return { ...r, ruleType: "app" };
           }
           return r;
@@ -170,6 +171,10 @@ export function AppBlockingPanel() {
     const ipc = getIpc();
     if (ipc) {
       await ipc.invoke("save-block-rules", { rules: updatedRules, globalEnabled: isGlobal });
+      // Proactively enforce shield on currently running hard-blocked apps
+      try {
+        await ipc.invoke("enforce-block-rules");
+      } catch {}
     }
   };
 
@@ -231,6 +236,28 @@ export function AppBlockingPanel() {
       }
     } else {
       alert("System hosts sync is supported on the FlowTrack desktop app with Admin privileges.");
+    }
+  };
+
+  const enforceShieldNow = async () => {
+    const ipc = getIpc();
+    if (ipc) {
+      setSyncStatus("Enforcing Shield...");
+      try {
+        const res = await ipc.invoke("enforce-block-rules");
+        if (res && res.killed && res.killed.length > 0) {
+          setSyncStatus(`Shield: Terminated ${res.killed.length} app(s)!`);
+        } else {
+          setSyncStatus("Shield Active!");
+        }
+        setTimeout(() => setSyncStatus(null), 3000);
+      } catch {
+        setSyncStatus("Shield Active");
+        setTimeout(() => setSyncStatus(null), 2500);
+      }
+    } else {
+      setSyncStatus("Shield Guard Active");
+      setTimeout(() => setSyncStatus(null), 2500);
     }
   };
 
@@ -618,7 +645,8 @@ export function AppBlockingPanel() {
               </p>
             ) : (
               filteredRules.map((rule) => {
-                const isWebsite = rule.ruleType === "website" || rule.appName.includes(".") || ["instagram", "facebook", "twitter", "netflix", "youtube", "reddit"].includes(rule.appName.toLowerCase());
+                const isExe = rule.appName.toLowerCase().endsWith(".exe");
+                const isWebsite = !isExe && (rule.ruleType === "website" || (!rule.appName.endsWith(".exe") && (rule.appName.includes(".") || ["instagram", "facebook", "twitter", "netflix", "youtube", "reddit"].includes(rule.appName.toLowerCase()))));
                 return (
                   <div
                     key={rule.id}
@@ -633,7 +661,7 @@ export function AppBlockingPanel() {
                       <div className="min-w-0">
                         <p className="text-sm font-bold text-white truncate">{rule.appName}</p>
                         <p className="text-[11px] text-slate-400 mt-0.5">
-                          Type: <span className="font-semibold text-slate-300">{isWebsite ? "Website Domain" : "Desktop Process"}</span> • Strictness: <span className="text-rose-400 font-bold capitalize">{rule.strictLevel}</span>
+                          Type: <span className="font-semibold text-slate-300">{isWebsite ? "Website Domain" : "Desktop Process (.exe)"}</span> • Strictness: <span className="text-rose-400 font-bold capitalize">{rule.strictLevel}</span>
                         </p>
                       </div>
                     </div>
