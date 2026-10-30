@@ -8,6 +8,7 @@ interface MediaSandboxProps {
   activeSubjectName: string;
   color: string;
   onInteraction?: () => void;
+  isPaused?: boolean;
 }
 
 interface LocalPlaylistItem {
@@ -50,7 +51,7 @@ function formatLocalVideoUrl(inputUrl: string): string {
   return clean;
 }
 
-export function MediaSandbox({ url, activeSubjectName, color, onInteraction }: MediaSandboxProps) {
+export function MediaSandbox({ url, activeSubjectName, color, onInteraction, isPaused }: MediaSandboxProps) {
   const [mediaType, setMediaType] = useState<"youtube" | "video" | "audio" | "web" | "unknown">("web");
   const [localSourceUrl, setLocalSourceUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
