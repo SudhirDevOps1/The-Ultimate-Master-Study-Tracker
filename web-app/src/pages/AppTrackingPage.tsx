@@ -501,11 +501,38 @@ export function AppTrackingPage() {
   };
 
   const handleClearHeartbeats = async () => {
-    if (!window.confirm("Are you sure you want to clear all heartbeat pulses? This will remove all test and recorded pulses.")) return;
     const ipc = getIpc();
-    if (ipc) {
-      await ipc.invoke("heartbeat-clear");
+    if (!ipc) return;
+    const pulseCount = heartbeats.length;
+    const dayCount = trackedDates.length;
+
+    const choice = window.confirm(
+      `Clear Heartbeats Scope:\n\nClick [OK] to clear ONLY TODAY's heartbeats (${pulseCount} pulses).\nClick [Cancel] if you wish to clear all days or abort.`
+    );
+
+    if (choice) {
+      await ipc.invoke("heartbeat-clear", { scope: "today" });
       setHeartbeats([]);
+      return;
+    }
+
+    const clearAllConfirm = window.confirm(
+      `⚠️ PERMANENT CLEAR: Are you sure you want to clear ALL ${dayCount} days of recorded IDE heartbeats? This cannot be undone.`
+    );
+    if (clearAllConfirm) {
+      await ipc.invoke("heartbeat-clear", { scope: "all" });
+      setHeartbeats([]);
+    }
+  };
+
+  const handlePurgeDiagnosticPulses = async () => {
+    const ipc = getIpc();
+    if (!ipc) return;
+    const res = await ipc.invoke("purge-diagnostic-heartbeats");
+    if (res && res.purgedCount !== undefined) {
+      alert(`Cleaned up ${res.purgedCount} simulated/diagnostic test pulse(s). Real coding statistics updated!`);
+      const updated = await ipc.invoke("heartbeat-get-day", selectedDate);
+      if (Array.isArray(updated)) setHeartbeats(updated);
     }
   };
   const [heartbeatSearch, setHeartbeatSearch] = useState("");
@@ -1799,9 +1826,17 @@ export function AppTrackingPage() {
                       </button>
 
                       <button
+                        onClick={handlePurgeDiagnosticPulses}
+                        className="px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-300 text-[11px] font-semibold transition-colors cursor-pointer flex items-center gap-1.5"
+                        title="Purge simulated/diagnostic test heartbeats"
+                      >
+                        🧹 Remove Diagnostic Pulses
+                      </button>
+
+                      <button
                         onClick={handleClearHeartbeats}
                         className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 transition-colors cursor-pointer"
-                        title="Clear all recorded pulses (remove test data)"
+                        title="Clear recorded pulses (scoped: today or all)"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>

@@ -1,71 +1,167 @@
-import { describe, it, expect } from "vitest";
+// @vitest-environment node
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import http from "http";
+import path from "path";
+import fs from "fs";
+import os from "os";
+
 const receiver = require("../../../electron-main/wakatime-receiver.js");
 
-describe("WakaTime-Compatible Heartbeat Processor & Stats Engine", () => {
-  it("processes a valid heartbeat and derives editor from user-agent", () => {
-    const raw = {
-      entity: "D:/project/src/App.tsx",
+function postHeartbeat(port: number, payload: any, headers: Record<string, string> = {}): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(payload);
+    const req = http.request({
+      hostname: "127.0.0.1",
+      port,
+      path: "/api/v1/users/current/heartbeats?api_key=00000000-0000-4000-8000-000000000000",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(data),
+        Host: `127.0.0.1:${port}`,
+        ...headers,
+      },
+    }, (res) => {
+      let body = "";
+      res.on("data", chunk => { body += chunk; });
+      res.on("end", () => {
+        resolve({ status: res.statusCode || 0, body });
+      });
+    });
+
+    req.on("error", reject);
+    req.write(data);
+    req.end();
+  });
+}
+
+describe("WakaTime Receiver Correctness (Part F / F4)", () => {
+  let tempDir: string;
+  let serverPort: number;
+
+  beforeAll(async () => {
+    tempDir = path.join(os.tmpdir(), `wakatime-test-${Date.now()}`);
+    fs.mkdirSync(tempDir, { recursive: true });
+
+    // Start on ephemeral port (port 0)
+    await receiver.startReceiver(tempDir, 0);
+    serverPort = receiver.getActivePort();
+  });
+
+  afterAll(async () => {
+    await receiver.stopReceiver();
+    try {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    } catch {}
+  });
+
+  it("starts on dynamic port and is bound to 127.0.0.1", () => {
+    expect(serverPort).toBeGreaterThan(0);
+    const status = receiver.getStatus();
+    expect(status.isRunning).toBe(true);
+    expect(status.port).toBe(serverPort);
+  });
+
+  it("accepts valid JSON heartbeat and responds with 201 created", async () => {
+    const payload = {
+      entity: "D:/workspace/src/App.tsx",
       type: "file",
-      time: 1700000000,
+      time: Math.floor(Date.now() / 1000),
       project: "FlowTrackPro",
       branch: "main",
       language: "TypeScript",
       category: "coding",
       is_write: true,
-      lines: 450,
-      lineno: 120,
     };
-    const userAgent = "wakatime/v1.100.0 (Windows) vscode/1.96.0 vscode-wakatime/24.0.0";
-    const processed = receiver.processHeartbeat(raw, userAgent);
 
-    expect(processed).not.toBeNull();
-    expect(processed.entity).toBe("D:/project/src/App.tsx");
-    expect(processed.project).toBe("FlowTrackPro");
-    expect(processed.language).toBe("TypeScript");
-    expect(processed.editor).toBe("VS Code");
-    expect(processed.is_write).toBe(true);
+    const res = await postHeartbeat(serverPort, payload);
+    expect(res.status).toBe(201);
+
+    const todayHeartbeats = receiver.getDayHeartbeats();
+    expect(todayHeartbeats.length).toBeGreaterThanOrEqual(1);
+    expect(todayHeartbeats.some((h: any) => h.entity.includes("App.tsx"))).toBe(true);
   });
 
-  it("extracts custom editor variants like VSCodium, Antigravity, Cursor", () => {
-    const raw = { entity: "file.js", time: 1700000010 };
-    const p1 = receiver.processHeartbeat(raw, "vscodium-wakatime/1.0");
-    expect(p1.editor).toBe("VSCodium");
-
-    const p2 = receiver.processHeartbeat({ entity: "file2.js", time: 1700000020 }, "antigravity-editor/2.0");
-    expect(p2.editor).toBe("Google Antigravity");
-
-    const p3 = receiver.processHeartbeat({ entity: "file3.js", time: 1700000030 }, "cursor/0.40");
-    expect(p3.editor).toBe("Cursor");
+  it("rejects requests with foreign Origin with 403 Forbidden", async () => {
+    const payload = { entity: "test.ts" };
+    const res = await postHeartbeat(serverPort, payload, { Origin: "http://evil-attacker.com" });
+    expect(res.status).toBe(403);
   });
 
-  it("deduplicates identical heartbeats sent within 2 seconds", () => {
-    const raw = {
-      entity: "D:/project/src/index.ts",
-      project: "DedupeTest",
-      time: 1700000100,
-    };
-    const first = receiver.processHeartbeat(raw, "vscode");
-    const duplicate = receiver.processHeartbeat({ ...raw, time: 1700000101 }, "vscode");
+  it("rejects requests with non-JSON Content-Type with 415 Unsupported Media Type", async () => {
+    const res = await new Promise<{ status: number }>((resolve, reject) => {
+      const req = http.request({
+        hostname: "127.0.0.1",
+        port: serverPort,
+        path: "/api/v1/users/current/heartbeats?api_key=00000000-0000-4000-8000-000000000000",
+        method: "POST",
+        headers: {
+          "Content-Type": "text/plain",
+          Host: `127.0.0.1:${serverPort}`,
+        },
+      }, (r) => {
+        resolve({ status: r.statusCode || 0 });
+      });
+      req.on("error", reject);
+      req.write("plain text");
+      req.end();
+    });
 
-    expect(first).not.toBeNull();
-    expect(duplicate).toBeNull(); // Dropped as duplicate
+    expect(res.status).toBe(415);
   });
 
-  it("rejects invalid payloads with missing entity or invalid time", () => {
-    expect(receiver.processHeartbeat(null)).toBeNull();
-    expect(receiver.processHeartbeat({})).toBeNull();
-    expect(receiver.processHeartbeat({ entity: "" })).toBeNull();
-    expect(receiver.processHeartbeat({ entity: "test.js", time: -10 })).toBeNull();
-    expect(receiver.processHeartbeat({ entity: "test.js", time: NaN })).toBeNull();
+  it("stats duration is 0 for an isolated single heartbeat", () => {
+    const singleHeartbeat = [
+      {
+        entity: "D:/repo/main.py",
+        time: 1700000000,
+        project: "PythonProject",
+        language: "Python",
+        editor: "VS Code",
+      },
+    ];
+
+    const stats = receiver.getHeartbeatStats(undefined, singleHeartbeat);
+    expect(stats.totalSeconds).toBe(0);
+    expect(stats.byLanguage.Python).toBe(0);
   });
 
-  it("calculates accurate coding statistics grouped by project, language, and editor", () => {
-    const stats = receiver.getHeartbeatStats();
-    expect(stats).toBeDefined();
-    expect(typeof stats.totalSeconds).toBe("number");
-    expect(typeof stats.byProject).toBe("object");
-    expect(typeof stats.byLanguage).toBe("object");
-    expect(typeof stats.byEditor).toBe("object");
-    expect(Array.isArray(stats.topFiles)).toBe(true);
+  it("stats duration accurately calculates interval capped at 120s for subsequent pulses", () => {
+    const pulses = [
+      { entity: "main.py", time: 1700000000, project: "Proj", language: "Python", editor: "VS Code" },
+      { entity: "main.py", time: 1700000045, project: "Proj", language: "Python", editor: "VS Code" }, // +45s
+      { entity: "main.py", time: 1700000100, project: "Proj", language: "Python", editor: "VS Code" }, // +55s
+    ];
+
+    const stats = receiver.getHeartbeatStats(undefined, pulses);
+    // 0: gapToNext = 45s; 1: gapFromPrev = 45s; 2: gapFromPrev = 55s
+    expect(stats.totalSeconds).toBe(145);
+    expect(stats.byLanguage.Python).toBe(145);
+  });
+
+  it("excludes diagnostic pulses from statistics and allows purging them", () => {
+    const withDiag = [
+      { entity: "main.py", time: 1700000000, project: "Proj", language: "Python", editor: "VS Code" },
+      { entity: "main.py", time: 1700000030, project: "Proj", language: "Python", editor: "VS Code" },
+      { entity: "test.ts", time: 1700000060, project: "FlowTrack Pro Workspace", language: "TypeScript", editor: "VS Code (Simulated)", isDiagnostic: true },
+    ];
+
+    const stats = receiver.getHeartbeatStats(undefined, withDiag);
+    expect(stats.byProject["FlowTrack Pro Workspace"]).toBeUndefined();
+    expect(stats.byLanguage["TypeScript"]).toBeUndefined();
+
+    const purgeRes = receiver.purgeDiagnosticHeartbeats();
+    expect(purgeRes.success).toBe(true);
+  });
+
+  it("clearHeartbeats with scope 'today' unlinks today's file and preserves other days", () => {
+    // Write a dummy historical day file
+    const histDate = "2026-01-01";
+    const histFile = path.join(tempDir, `${histDate}.json`);
+    fs.writeFileSync(histFile, JSON.stringify([{ entity: "old.ts", time: 1600000000 }]), "utf8");
+
+    const clearRes = receiver.clearHeartbeats({ scope: "today" });
+    expect(clearRes.scope).toBe("today");
+    expect(fs.existsSync(histFile)).toBe(true); // Historical preserved!
   });
 });

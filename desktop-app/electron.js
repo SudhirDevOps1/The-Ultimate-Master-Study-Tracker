@@ -1433,6 +1433,7 @@ ipcMain.handle("send-test-heartbeat", async () => {
     editor: "VS Code (Simulated)",
     lines: 100,
     lineno: 42,
+    isDiagnostic: true,
   };
   const processed = wakatimeReceiver.processHeartbeat(testRecord, "vscode/1.96.0");
   return { ok: true, processed };
@@ -1442,18 +1443,61 @@ ipcMain.handle("auto-configure-wakatime-cfg", async () => {
   const os = require("os");
   const homeDir = os.homedir();
   const cfgPath = path.join(homeDir, ".wakatime.cfg");
-  const cfgContent = `[settings]\napi_key = 00000000-0000-4000-8000-000000000000\napi_url = http://127.0.0.1:7777/api/v1\n`;
+  const port = wakatimeReceiver && wakatimeReceiver.getActivePort ? wakatimeReceiver.getActivePort() : 7777;
+  const targetUrl = `http://127.0.0.1:${port}/api/v1`;
+  let warning = null;
 
   try {
     if (fs.existsSync(cfgPath)) {
       const existing = fs.readFileSync(cfgPath, "utf8");
-      if (existing.includes("127.0.0.1:7777") && !existing.includes("flowtrack-local")) {
-        return { ok: true, path: cfgPath, message: "Already configured with valid UUID key!" };
+      // If config exists with non-loopback url, back it up safely
+      const hasExternalUrl = /api_url\s*=\s*https?:\/\/(?!127\.0\.0\.1|localhost)/i.test(existing);
+      if (hasExternalUrl) {
+        const bakPath = `${cfgPath}.flowtrack.bak.${Date.now()}`;
+        fs.writeFileSync(bakPath, existing, "utf8");
+        warning = `Existing cloud WakaTime config backed up to ${path.basename(bakPath)}`;
       }
-      fs.writeFileSync(`${cfgPath}.bak`, existing, "utf8");
+
+      // Safe merge preserving all existing comments and non-api_url lines
+      const lines = existing.split("\n");
+      let foundSettings = false;
+      let urlSet = false;
+      let apiKeySet = false;
+      const newLines = [];
+
+      for (const line of lines) {
+        if (line.trim().startsWith("[settings]")) {
+          foundSettings = true;
+          newLines.push(line);
+        } else if (line.trim().startsWith("api_url")) {
+          newLines.push(`api_url = ${targetUrl}`);
+          urlSet = true;
+        } else if (line.trim().startsWith("api_key")) {
+          apiKeySet = true;
+          newLines.push(line);
+        } else {
+          newLines.push(line);
+        }
+      }
+
+      if (!foundSettings) {
+        newLines.push("[settings]");
+      }
+      if (!apiKeySet) {
+        newLines.push("api_key = 00000000-0000-4000-8000-000000000000");
+      }
+      if (!urlSet) {
+        newLines.push(`api_url = ${targetUrl}`);
+      }
+
+      fs.writeFileSync(cfgPath, newLines.join("\n"), "utf8");
+      return { ok: true, path: cfgPath, port, message: `Successfully configured ~/.wakatime.cfg on port ${port}`, warning };
     }
+
+    // Fresh config
+    const cfgContent = `[settings]\napi_key = 00000000-0000-4000-8000-000000000000\napi_url = ${targetUrl}\n`;
     fs.writeFileSync(cfgPath, cfgContent, "utf8");
-    return { ok: true, path: cfgPath, message: "Successfully wrote ~/.wakatime.cfg" };
+    return { ok: true, path: cfgPath, port, message: `Successfully wrote ~/.wakatime.cfg on port ${port}` };
   } catch (err) {
     return { ok: false, error: err && err.message };
   }
@@ -1463,9 +1507,14 @@ ipcMain.handle("heartbeat-stats", async (_event, date) => {
   return wakatimeReceiver ? wakatimeReceiver.getHeartbeatStats(date) : { totalSeconds: 0, byProject: {}, byLanguage: {}, byEditor: {}, byCategory: {}, topFiles: [] };
 });
 
-ipcMain.handle("heartbeat-clear", async () => {
-  if (wakatimeReceiver) wakatimeReceiver.clearHeartbeats();
+ipcMain.handle("heartbeat-clear", async (_event, options = {}) => {
+  if (wakatimeReceiver) return wakatimeReceiver.clearHeartbeats(options);
   return { ok: true };
+});
+
+ipcMain.handle("purge-diagnostic-heartbeats", async () => {
+  if (!wakatimeReceiver) return { ok: false, error: "Receiver not running" };
+  return wakatimeReceiver.purgeDiagnosticHeartbeats();
 });
 
 ipcMain.handle("open-heartbeat-folder", async () => {

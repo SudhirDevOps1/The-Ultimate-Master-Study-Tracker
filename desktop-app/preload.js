@@ -55,6 +55,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   "heartbeat-get-day",
   "heartbeat-stats",
   "heartbeat-clear",
+  "purge-diagnostic-heartbeats",
   "open-heartbeat-folder",
   "heartbeat-set-config",
   "send-test-heartbeat",
