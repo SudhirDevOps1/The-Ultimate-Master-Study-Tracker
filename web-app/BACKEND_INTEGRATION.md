@@ -45,3 +45,8 @@ The FlowTrack Pro Web App features an optional, zero-failure hybrid connection t
 The backend maintains two primary tables:
 1. `activities`: Passive OS active window transitions (id, window_title, process_name, start_time, end_time, duration_seconds, category).
 2. `heartbeats`: Developer IDE coding activity (id, entity, type, category, project, branch, language, is_write, lines, line_no, cursorpos, time, created_at).
+
+## 🛡️ Client Resilience & Low-RAM Polling Invariants
+- **Dual-Host Discovery**: Store automatically attempts primary URL (`http://localhost:5001`), seamlessly trying `127.0.0.1:5001` fallback with an `AbortController` 2500ms timeout.
+- **Connection-Gated Polling**: Active window polling is strictly conditioned on `isBackendConnected`. If backend is offline, polling is suppressed to eliminate console error spam and unnecessary CPU cycles.
+- **Low-RAM SQLite WAL**: Backend operates in SQLite Write-Ahead Logging (`WAL`) mode with automatic log slicing preventing memory leaks.

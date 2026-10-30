@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { Panel } from "@/components/common/Panel";
 import { toDurationLabel } from "@/utils/time";
 import { classifyApplication } from "@/utils/appCategorizer";
+import { useAppStore } from "@/store/useAppStore";
 
 interface ActivityEntry {
   appName: string;
@@ -26,14 +27,29 @@ export function AppActivityList() {
 
     const fetchLogs = async () => {
       const ipc = getIpc();
-      if (!ipc) return;
-      try {
-        const today = new Date().toISOString().split("T")[0];
-        const logs: ActivityEntry[] = await ipc.invoke("get-activity-log", { date: today });
-        if (isMounted) {
-          setActivities(logs);
-        }
-      } catch { /* ignore */ }
+      if (ipc) {
+        try {
+          const today = new Date().toISOString().split("T")[0];
+          const logs: ActivityEntry[] = await ipc.invoke("get-activity-log", { date: today });
+          if (isMounted && Array.isArray(logs) && logs.length > 0) {
+            setActivities(logs);
+            return;
+          }
+        } catch { /* ignore */ }
+      }
+
+      // Hybrid Web Fallback: read from useAppStore backend activities
+      const storeActs = useAppStore.getState().backendActivities;
+      if (isMounted && Array.isArray(storeActs) && storeActs.length > 0) {
+        setActivities(storeActs.map((act: any) => ({
+          appName: act.app_name || act.appName || act.process || "Unknown App",
+          title: act.window_title || act.title || "Desktop / Idle",
+          durationSeconds: Number(act.duration_seconds || act.durationSeconds || act.duration || 0),
+          startTime: act.timestamp || new Date().toISOString(),
+          date: new Date().toISOString().split("T")[0],
+          hour: new Date().getHours()
+        })));
+      }
     };
 
     void fetchLogs();
@@ -99,7 +115,7 @@ export function AppActivityList() {
           <h3 className="text-lg font-bold text-white flex items-center gap-2">
             📊 Activity Logs Breakdown
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-              Desktop Native Tracker
+              {isElectron ? "Desktop Native Tracker" : "Hybrid Tracker"}
             </span>
           </h3>
           <p className="text-xs text-slate-400 mt-0.5">

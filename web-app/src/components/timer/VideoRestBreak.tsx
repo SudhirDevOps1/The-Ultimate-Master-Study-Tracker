@@ -1,4 +1,5 @@
 import { shouldBreak } from "@/utils/breakEngine";
+import { sendNotification } from '@/utils/notification';
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, Pause, Volume2, VolumeX, ShieldAlert, SkipForward, RefreshCw } from "lucide-react";
@@ -63,6 +64,15 @@ export function VideoRestBreak() {
     ) {
       lastTriggeredSecondRef.current = elapsedSeconds;
       void triggerBreak();
+    // Super Productivity 20-20-20 Ergonomic Eye Rule (Every 20 minutes)
+    if (elapsedSeconds > 0 && elapsedSeconds % (20 * 60) === 0 && !showOverlay) {
+      if ("Notification" in window && Notification.permission === "granted") {
+        sendNotification("👀 20-20-20 Eye Care Break", {
+          body: "Look away from the screen at an object 20 feet away for 20 seconds to relax your optic nerves!",
+          tag: "eye-care"
+        });
+      }
+    }
     }
   }, [elapsedSeconds, activeSession, schedule.enabled, schedule.intervalMinutes, showOverlay]);
 
@@ -78,7 +88,7 @@ export function VideoRestBreak() {
 
     // Trigger Desktop Notification if permitted
     if ("Notification" in window && Notification.permission === "granted") {
-      new Notification("FlowTrack Rest Break! 🎬", {
+      sendNotification("FlowTrack Rest Break! 🎬", {
         body: `Time for a ${schedule.restMinutes}-minute break. Watch a relaxing video!`,
         tag: "rest-break",
         badge: "🎬"
@@ -109,7 +119,7 @@ export function VideoRestBreak() {
           setShowOverlay(false);
           // Show focus notification when done
           if ("Notification" in window && Notification.permission === "granted") {
-            new Notification("Time to focus! 🎯", {
+            sendNotification("Time to focus! 🎯", {
               body: "Your rest break is complete. Let's resume studying!",
               tag: "rest-break-end"
             });

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEventHandler } from "
 import { formatSeconds } from "@/utils/time";
 import { useAppStore } from "@/store/useAppStore";
 
-const getIpc = () => (typeof window !== "undefined" ? (window as any).electron : null);
+const getIpc = () => (typeof window !== "undefined" && (window as any).electron ? (window as any).electron.ipcRenderer : null);
 
 interface FloatingTimerProps {
   subject: string;
@@ -150,22 +150,19 @@ export function FloatingTimer({ subject, elapsed, remaining, progress, onHeartbe
     root.innerHTML = `
       <div style="height:100%;padding:16px;background:linear-gradient(135deg,#0f172a,#111827,#1e1b4b);color:#fff;font-family:Inter,Arial,sans-serif;display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-          <div style="flex:1;min-width:0;padding-right:8px;">
-            <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#a5b4fc;font-weight:bold;">FlowTrack</div>
-            <div style="font-size:20px;font-weight:700;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${subject}</div>
+          <div>
+            <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#a5b4fc;">FlowTrack</div>
+            <div style="font-size:20px;font-weight:700;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;">${subject}</div>
           </div>
-        </div>
-        <div style="display:flex;flex-direction:column;justify-content:flex-end;flex:1;">
-          <div style="font-size:12px;color:rgba(199,210,254,0.8);font-weight:500;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:0.025em;">
+          <div style="text-align:right;font-size:12px;color:#94a3b8;font-weight:500;">
             ${liveTime}
           </div>
-          <div style="font-size:36px;font-weight:800;line-height:1;font-family:monospace;">${ui.elapsedLabel}</div>
-          <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:4px;">
-            <div style="font-size:12px;color:#cbd5e1;">Remaining ${ui.remainingLabel}</div>
-            <div style="font-size:12px;color:#94a3b8;font-weight:500;">${Math.round(progress)}%</div>
-          </div>
-          <div style="height:6px;background:rgba(255,255,255,0.1);border-radius:999px;overflow:hidden;margin-top:8px;">
-            <div style="height:100%;width:${Math.max(0, Math.min(100, progress))}%;background:linear-gradient(90deg,#818cf8,#22d3ee);transition:width 0.3s;"></div>
+        </div>
+        <div>
+          <div style="font-size:36px;font-weight:800;line-height:1;">${ui.elapsedLabel}</div>
+          <div style="font-size:12px;color:#cbd5e1;margin-top:4px;">Remaining ${ui.remainingLabel}</div>
+          <div style="height:6px;background:rgba(255,255,255,0.12);border-radius:999px;overflow:hidden;margin-top:8px;">
+            <div style="height:100%;width:${Math.max(0, Math.min(100, progress))}%;background:linear-gradient(90deg,#818cf8,#22d3ee);"></div>
           </div>
         </div>
       </div>
@@ -191,6 +188,7 @@ export function FloatingTimer({ subject, elapsed, remaining, progress, onHeartbe
     }
 
     try {
+      useAppStore.getState().setIsPipActive(true);
       drawCanvasFrame();
       await videoRef.current.play();
       await videoRef.current.requestPictureInPicture();
@@ -203,8 +201,8 @@ export function FloatingTimer({ subject, elapsed, remaining, progress, onHeartbe
         },
         { once: true }
       );
-      useAppStore.getState().setIsPipActive(true);
     } catch {
+      useAppStore.getState().setIsPipActive(false);
       setMode("fallback");
     }
   };
@@ -212,7 +210,9 @@ export function FloatingTimer({ subject, elapsed, remaining, progress, onHeartbe
   const openPiP = async () => {
     const ipc = getIpc();
     if (ipc) {
-      void ipc.invoke("set-always-on-top", { alwaysOnTop: true });
+      useAppStore.getState().setIsPipActive(true);
+      void ipc.invoke("open-pip-window");
+      return;
     }
 
     if (window.documentPictureInPicture) {
@@ -240,9 +240,6 @@ export function FloatingTimer({ subject, elapsed, remaining, progress, onHeartbe
           pipWindowRef.current = null;
           setMode("none");
           useAppStore.getState().setIsPipActive(false);
-          if (ipc) {
-            void ipc.invoke("set-always-on-top", { alwaysOnTop: false });
-          }
         });
 
         useAppStore.getState().setIsPipActive(true);
@@ -256,11 +253,6 @@ export function FloatingTimer({ subject, elapsed, remaining, progress, onHeartbe
   };
 
   const closeFloating = async () => {
-    const ipc = getIpc();
-    if (ipc) {
-      void ipc.invoke("set-always-on-top", { alwaysOnTop: false });
-    }
-
     if (document.pictureInPictureElement) {
       try {
         await document.exitPictureInPicture();

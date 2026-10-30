@@ -47,6 +47,7 @@ function sanitizeHtml(html: string): string {
   return DOMPurify.sanitize(html, SANITIZE_CONFIG);
 }
 
+// Error boundary to prevent any markdown parsing error from breaking the application
 class MarkdownErrorBoundary extends Component<
   { children: ReactNode; fallbackContent?: string },
   { hasError: boolean }
@@ -145,16 +146,19 @@ function MarkdownRendererInner({ content, className = "" }: MarkdownRendererProp
       flushTable();
 
       if (inMathBlock) {
+        // Closing multiline math block
         const formula = mathBlockBuffer.join("\n");
         blocks.push({ type: "math", content: formula });
         inMathBlock = false;
         mathBlockBuffer = [];
         continue;
       } else if (trimmed.endsWith("$$") && trimmed.length > 2) {
+        // Single-line block math: $$ formula $$
         const formula = trimmed.slice(2, -2).trim();
         blocks.push({ type: "math", content: formula });
         continue;
       } else {
+        // Opening multiline math block
         inMathBlock = true;
         const remainder = trimmed.slice(2).trim();
         if (remainder) mathBlockBuffer.push(remainder);
@@ -315,6 +319,7 @@ function MarkdownRendererInner({ content, className = "" }: MarkdownRendererProp
   flushQuote();
   flushTable();
 
+  // If still in unclosed blocks, flush them gracefully
   if (inMathBlock && mathBlockBuffer.length > 0) {
     blocks.push({ type: "math", content: mathBlockBuffer.join("\n") });
   }
@@ -510,15 +515,34 @@ function CodeBlock({ code, lang }: { code: string; lang?: string }) {
   );
 }
 
+/**
+ * Rich inline formatter supporting:
+ * - Bold: **text** or __text__
+ * - Italic: *text* or _text_
+ * - Strikethrough: ~~text~~
+ * - Inline Code: `code`
+ * - Inline Math: $formula$
+ * - Markdown Images: ![alt](url)
+ * - Safe Markdown Links: [label](url)
+ */
 function renderInline(text: string): React.ReactNode {
   if (!text) return "";
 
+  // Tokenize regex capturing:
+  // 1. Images: !\[.*?\]\(.*?\)
+  // 2. Links: \[.*?\]\(.*?\)
+  // 3. Math: \$[^\$]+?\$
+  // 4. Code: `.*?`
+  // 5. Strikethrough: ~~.*?~~
+  // 6. Bold: \*\*.*?\*\* or __.*?__
+  // 7. Italic: \*.*?\* or _.*?_
   const tokenRegex = /(!\[.*?\]\(.*?\)|\[.*?\]\(.*?\)|\$[^\$]+?\$|`[^`]+?`|~~.*?~~|\*\*.*?\*\*|__.*?__|\*[^*]+?\*|_[^_]+?_)/g;
   const parts = text.split(tokenRegex);
 
   return parts.map((part, idx) => {
     if (!part) return null;
 
+    // Image: ![alt](url)
     const imgMatch = part.match(/^!\[(.*?)\]\((.*?)\)$/);
     if (imgMatch) {
       const alt = imgMatch[1];
@@ -536,6 +560,7 @@ function renderInline(text: string): React.ReactNode {
       return <span key={idx} className="text-slate-500 italic">[unsafe image omitted]</span>;
     }
 
+    // Link: [title](url)
     const linkMatch = part.match(/^\[(.*?)\]\((.*?)\)$/);
     if (linkMatch) {
       const label = linkMatch[1];
@@ -558,6 +583,7 @@ function renderInline(text: string): React.ReactNode {
       return <span key={idx} className="text-slate-400">{label}</span>;
     }
 
+    // Inline Math: $formula$
     if (part.startsWith("$") && part.endsWith("$") && part.length >= 2) {
       const formula = part.slice(1, -1);
       const mathml = latexToMathML(formula, false);
@@ -570,6 +596,7 @@ function renderInline(text: string): React.ReactNode {
       );
     }
 
+    // Inline Code: `code`
     if (part.startsWith("`") && part.endsWith("`") && part.length >= 2) {
       return (
         <code
@@ -581,6 +608,7 @@ function renderInline(text: string): React.ReactNode {
       );
     }
 
+    // Strikethrough: ~~text~~
     if (part.startsWith("~~") && part.endsWith("~~") && part.length >= 4) {
       return (
         <del key={idx} className="line-through text-slate-500">
@@ -589,6 +617,7 @@ function renderInline(text: string): React.ReactNode {
       );
     }
 
+    // Bold: **text** or __text__
     if (
       (part.startsWith("**") && part.endsWith("**") && part.length >= 4) ||
       (part.startsWith("__") && part.endsWith("__") && part.length >= 4)
@@ -600,6 +629,7 @@ function renderInline(text: string): React.ReactNode {
       );
     }
 
+    // Italic: *text* or _text_
     if (
       (part.startsWith("*") && part.endsWith("*") && part.length >= 2) ||
       (part.startsWith("_") && part.endsWith("_") && part.length >= 2)

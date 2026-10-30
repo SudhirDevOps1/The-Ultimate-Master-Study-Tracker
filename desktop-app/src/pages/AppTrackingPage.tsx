@@ -1520,9 +1520,9 @@ export function AppTrackingPage() {
                             }
                           }}
                           className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/5 text-slate-400 border border-white/10 text-xs font-medium hover:bg-white/10 transition-all cursor-pointer"
-                          title="Generate a demo pulse for testing UI visualization"
+                          title="Generate a diagnostic test pulse to verify local loopback (127.0.0.1:7777) receiver"
                         >
-                          <span>🧪 Generate Demo Pulse</span>
+                          <span>🧪 Diagnostic Pulse Probe</span>
                         </button>
                       </div>
                     </div>
@@ -1799,7 +1799,7 @@ export function AppTrackingPage() {
                               </span>
                               {isSimulated && (
                                 <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-extrabold uppercase shrink-0">
-                                  Demo
+                                  Test Probe
                                 </span>
                               )}
                               <div className="min-w-0 flex-1">

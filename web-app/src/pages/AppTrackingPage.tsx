@@ -4,13 +4,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Monitor, Calendar, ShieldAlert, RefreshCw,
   Activity, Download, ChevronLeft, ChevronRight, Eye, Zap, TrendingUp, Globe,
-  Upload, PackageOpen, Trash2
+  Upload, PackageOpen, Trash2, Code2, FolderGit2, Shield, Terminal,
+  Search, Laptop, Clock, Flame, CheckCircle2, Copy
 } from "lucide-react";
 import { Panel } from "@/components/common/Panel";
 import { useAppStore } from "@/store/useAppStore";
 import { isOcrEnabled, setOcrEnabled, searchOcrTimeline } from "@/utils/ocrEngine";
 import { aggregateCodingStats, type HeartbeatItem } from "@/utils/editorInfo";
-import { Code2, FolderGit2, Shield, Terminal, Search, Laptop, Clock, Flame, CheckCircle2, Copy } from "lucide-react";
 import { db } from "@/lib/db";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -94,6 +94,33 @@ function classifyApp(app: string, title: string = ""): string {
   if (SOCIAL.some(k  => n.includes(k))) return "social";
   if (ENTERT.some(k  => n.includes(k))) return "entertainment";
   return "system";
+}
+
+function extractDevMetadata(appName: string, title: string = ""): { isDev: boolean; language?: string; project?: string } {
+  const n = (appName || "").toLowerCase();
+  const t = (title || "");
+  const isIde = ["vs code", "vscode", "code", "cursor", "intellij", "pycharm", "webstorm", "clion", "goland", "sublime", "neovim", "vim", "vscodium"].some(k => n.includes(k));
+  if (!isIde) return { isDev: false };
+
+  let language: string | undefined;
+  if (/\.tsx?/i.test(t)) language = "TypeScript";
+  else if (/\.jsx?/i.test(t)) language = "JavaScript";
+  else if (/\.py/i.test(t)) language = "Python";
+  else if (/\.java/i.test(t)) language = "Java";
+  else if (/\.rs/i.test(t)) language = "Rust";
+  else if (/\.go/i.test(t)) language = "Go";
+  else if (/\.(c|cpp|h|hpp)/i.test(t)) language = "C/C++";
+  else if (/\.(html|css|scss)/i.test(t)) language = "Web Frontend";
+  else if (/\.md/i.test(t)) language = "Documentation";
+  else if (/\.json/i.test(t)) language = "Configuration";
+
+  let project: string | undefined;
+  const parts = t.split(" - ");
+  if (parts.length >= 2) {
+    project = parts[parts.length - 2]?.trim();
+  }
+
+  return { isDev: true, language, project };
 }
 
 function extractWebDomain(title: string, appName: string, rawProcess?: string): { domain: string; cleanTitle: string } | null {
@@ -203,8 +230,8 @@ function fmt(secs: number): string {
   return `${s}s`;
 }
 
-const isElectron = typeof window !== "undefined" && !!(window as any).require;
-const getIpc = () => isElectron ? (window as any).require("electron").ipcRenderer : null;
+const isElectron = typeof window !== "undefined" && !!(window as any).electron?.ipcRenderer;
+const getIpc = () => isElectron ? (window as any).electron.ipcRenderer : null;
 
 // ─── Timeline Component ───────────────────────────────────────────────────────
 function Timeline({ rawLog }: { rawLog: ActivityEntry[] }) {
@@ -324,6 +351,74 @@ function Favicon({ domain }: { domain: string }) {
   );
 }
 
+function AppIcon({ appName, category }: { appName: string; category: string }) {
+  const name = appName.toLowerCase();
+  
+  if (name.includes("word") || name.includes("winword")) {
+    return (
+      <div className="w-10 h-10 rounded-xl bg-blue-600/15 border border-blue-500/30 flex items-center justify-center font-bold text-blue-400 text-base shrink-0 select-none">
+        W
+      </div>
+    );
+  }
+  if (name.includes("excel") || name.includes("xls")) {
+    return (
+      <div className="w-10 h-10 rounded-xl bg-emerald-600/15 border border-emerald-500/30 flex items-center justify-center font-bold text-emerald-400 text-base shrink-0 select-none">
+        X
+      </div>
+    );
+  }
+  if (name.includes("powerpnt") || name.includes("powerpoint")) {
+    return (
+      <div className="w-10 h-10 rounded-xl bg-orange-600/15 border border-orange-500/30 flex items-center justify-center font-bold text-orange-400 text-base shrink-0 select-none">
+        P
+      </div>
+    );
+  }
+  if (name.includes("code") || name.includes("vscode") || name.includes("visual studio")) {
+    return (
+      <div className="w-10 h-10 rounded-xl bg-cyan-600/15 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-400 text-base shrink-0 select-none">
+        VS
+      </div>
+    );
+  }
+  if (name.includes("chrome")) {
+    return (
+      <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center font-bold text-amber-400 text-xs shrink-0 select-none">
+        CHR
+      </div>
+    );
+  }
+  if (name.includes("edge") || name.includes("msedge")) {
+    return (
+      <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-400 text-xs shrink-0 select-none">
+        EDG
+      </div>
+    );
+  }
+  if (name.includes("discord")) {
+    return (
+      <div className="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center font-bold text-indigo-400 text-xs shrink-0 select-none">
+        DIS
+      </div>
+    );
+  }
+  if (name.includes("spotify")) {
+    return (
+      <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center font-bold text-emerald-400 text-xs shrink-0 select-none">
+        SPO
+      </div>
+    );
+  }
+
+  // Fallback to Category Icon
+  return (
+    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 border ${CAT_TAG[category]}`}>
+      {CAT_EMOJI[category]}
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export function AppTrackingPage() {
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split("T")[0]);
@@ -352,7 +447,6 @@ export function AppTrackingPage() {
       searchOcrTimeline(ocrQuery).then(setOcrResults).catch(() => setOcrResults([]));
     }
   }, [ocrActive, ocrQuery, activeTab]);
-
   const [heartbeats, setHeartbeats] = useState<HeartbeatItem[]>([]);
 
   useEffect(() => {
@@ -395,36 +489,6 @@ export function AppTrackingPage() {
   };
   const [heartbeatSearch, setHeartbeatSearch] = useState("");
   const [copiedConfig, setCopiedConfig] = useState(false);
-
-  const displayLanguages = useMemo(() => realCodingStats.languages, [realCodingStats.languages]);
-  const displayProjects  = useMemo(() => realCodingStats.projects,  [realCodingStats.projects]);
-  const totalDevSeconds  = useMemo(() => realCodingStats.totalSeconds || 0, [realCodingStats.totalSeconds]);
-
-  const hourlyCodingDistribution = useMemo(() => {
-    const hours = Array(24).fill(0);
-    for (const h of heartbeats) {
-      const hr = new Date(h.time * 1000).getHours();
-      if (hr >= 0 && hr < 24) hours[hr] += 120;
-    }
-    return hours;
-  }, [heartbeats]);
-
-  const maxHourlySecs  = useMemo(() => Math.max(...hourlyCodingDistribution, 1), [hourlyCodingDistribution]);
-  const peakHourIndex  = useMemo(() => {
-    let max = 0, idx = -1;
-    hourlyCodingDistribution.forEach((s, hr) => { if (s > max) { max = s; idx = hr; } });
-    return idx;
-  }, [hourlyCodingDistribution]);
-
-  const filteredHeartbeats = useMemo(() => {
-    if (!heartbeatSearch.trim()) return heartbeats;
-    const q = heartbeatSearch.toLowerCase();
-    return heartbeats.filter(h =>
-      (h.entity   && h.entity.toLowerCase().includes(q)) ||
-      (h.project  && h.project.toLowerCase().includes(q)) ||
-      (h.language && h.language.toLowerCase().includes(q))
-    );
-  }, [heartbeats, heartbeatSearch]);
   const [exportStatus, setExportStatus] = useState<"idle"|"exporting"|"importing">("idle");
   const [weeklyOverview, setWeeklyOverview] = useState<{ date: string; seconds: number }[]>([]);
   const [periodTotals, setPeriodTotals] = useState<{ today: number; week: number; month: number; allTime: number }>({
@@ -438,50 +502,28 @@ export function AppTrackingPage() {
   const initApp = useAppStore(s => s.initApp);
   const importAll = useAppStore(s => s.importAll);
 
-  const isBackendConnected = useAppStore(s => s.isBackendConnected);
-  const backendUrl = useAppStore(s => s.backendUrl);
-  const activeWindow = useAppStore(s => s.activeWindow);
-
   // ── Fetch past 7 days of screen time totals ─────────────────────────────
   useEffect(() => {
     const fetchWeeklyOverview = async () => {
       const ipc = getIpc();
-      if (ipc && trackedDates.length > 0) {
-        try {
-          const datesToFetch = trackedDates.slice(0, 7).reverse();
-          const totals = await Promise.all(
-            datesToFetch.map(async (d) => {
-              const entries: ActivityEntry[] = await ipc.invoke("get-activity-log", { date: d });
-              const total = entries.reduce((sum, e) => sum + e.durationSeconds, 0);
-              return { date: d, seconds: total };
-            })
-          );
-          setWeeklyOverview(totals);
-          return;
-        } catch (err) {
-          console.warn("[AppTracking] Error loading weekly overview", err);
-        }
-      }
-
-      if (backendUrl && isBackendConnected) {
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 2000);
-          const res = await fetch(`${backendUrl}/app-usage?days=7`, { signal: controller.signal });
-          clearTimeout(timeoutId);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.dailyTotals) {
-              setWeeklyOverview(data.dailyTotals.map((d: any) => ({ date: d.date, seconds: d.totalSeconds })));
-            }
-          }
-        } catch {
-          // ignore
-        }
+      if (!ipc || trackedDates.length === 0) return;
+      try {
+        // Take the last 7 tracked dates (newest first in trackedDates, reverse to show left-to-right chrono)
+        const datesToFetch = trackedDates.slice(0, 7).reverse();
+        const totals = await Promise.all(
+          datesToFetch.map(async (d) => {
+            const entries: ActivityEntry[] = await ipc.invoke("get-activity-log", { date: d });
+            const total = entries.reduce((sum, e) => sum + e.durationSeconds, 0);
+            return { date: d, seconds: total };
+          })
+        );
+        setWeeklyOverview(totals);
+      } catch (err) {
+        console.warn("[AppTracking] Error loading weekly overview", err);
       }
     };
     void fetchWeeklyOverview();
-  }, [trackedDates, isBackendConnected, backendUrl]);
+  }, [trackedDates]);
 
   // ── Fetch all period totals (Today, Week, Month, All-Time) ──────────────
   const fetchPeriodTotals = useCallback(async () => {
@@ -514,136 +556,72 @@ export function AppTrackingPage() {
   }, [trackedDates, today]);
 
   // ── Fetch activity log based on timeScope ──────────────────────────────
-  const fetchLog = useCallback(async (scope: "day" | "week" | "month" | "all", dateFilter: string) => {
+  const fetchLog = useCallback(async (scope: "day" | "week" | "month" | "all", date: string) => {
     const ipc = getIpc();
-    if (ipc) {
-      setLoading(true);
-      try {
-        if (scope === "day") {
-          const entries: ActivityEntry[] = await ipc.invoke("get-activity-log", { date: dateFilter });
-          setRawLog(entries);
-        } else if (scope === "week") {
-          const datesToLoad = trackedDates.slice(0, 7);
-          const logs: ActivityEntry[][] = await Promise.all(datesToLoad.map(d => ipc.invoke("get-activity-log", { date: d })));
-          setRawLog(logs.flat());
-        } else if (scope === "month") {
-          const datesToLoad = trackedDates.slice(0, 30);
-          const logs: ActivityEntry[][] = await Promise.all(datesToLoad.map(d => ipc.invoke("get-activity-log", { date: d })));
-          setRawLog(logs.flat());
-        } else if (scope === "all") {
-          const logs: ActivityEntry[][] = await Promise.all(trackedDates.map(d => ipc.invoke("get-activity-log", { date: d })));
-          setRawLog(logs.flat());
-        }
-      } catch (e) { console.warn("[AppTracking]", e); }
-      setLoading(false);
-      return;
-    }
-
-    if (backendUrl && isBackendConnected) {
-      setLoading(true);
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000);
-        // Fetch raw activities from python backend /export
-        const res = await fetch(`${backendUrl}/export?type=activities&format=json`, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        if (res.ok) {
-          const data = await res.json();
-          const rawActivities = data.activities || [];
-          
-          const normalized: ActivityEntry[] = rawActivities.map((a: any) => {
-            const dt = a.start_ts ? new Date(a.start_ts * 1000) : new Date();
-            const dateStr = a.date || dt.toISOString().split("T")[0];
-            const hourNum = typeof a.hour === "number" ? a.hour : dt.getHours();
-            const minNum  = typeof a.minute === "number" ? a.minute : dt.getMinutes();
-            return {
-              appName: a.appName || a.process || a.app_name || "Unknown App",
-              title: a.title || "Desktop / Idle",
-              durationSeconds: Math.round(a.durationSeconds || a.duration || a.duration_sec || 0),
-              startTime: a.startTime || dt.toISOString(),
-              date: dateStr,
-              hour: hourNum,
-              minute: minNum,
-              isLive: !!a.isLive || !!a.live,
-            };
-          });
-
-          const filtered = scope === "day" 
-            ? normalized.filter((a) => !dateFilter || a.date === dateFilter)
-            : normalized;
-          setRawLog(filtered);
-        }
-      } catch {
-        // ignore
+    if (!ipc) return;
+    setLoading(true);
+    try {
+      if (scope === "day") {
+        const entries: ActivityEntry[] = await ipc.invoke("get-activity-log", { date });
+        setRawLog(entries);
+      } else if (scope === "week") {
+        const datesToLoad = trackedDates.slice(0, 7);
+        const logs: ActivityEntry[][] = await Promise.all(datesToLoad.map(d => ipc.invoke("get-activity-log", { date: d })));
+        setRawLog(logs.flat());
+      } else if (scope === "month") {
+        const datesToLoad = trackedDates.slice(0, 30);
+        const logs: ActivityEntry[][] = await Promise.all(datesToLoad.map(d => ipc.invoke("get-activity-log", { date: d })));
+        setRawLog(logs.flat());
+      } else if (scope === "all") {
+        const logs: ActivityEntry[][] = await Promise.all(trackedDates.map(d => ipc.invoke("get-activity-log", { date: d })));
+        setRawLog(logs.flat());
       }
-      setLoading(false);
-    }
-  }, [backendUrl, isBackendConnected]);
+    } catch (e) { console.warn("[AppTracking]", e); }
+    setLoading(false);
+  }, [trackedDates]);
 
   // ── Fetch available historical dates ───────────────────────────────────
   const fetchDates = useCallback(async () => {
     const ipc = getIpc();
-    if (ipc) {
-      try {
-        const dates: string[] = await ipc.invoke("get-tracked-dates");
-        setTrackedDates(dates && dates.length > 0 ? dates : [today]);
-      } catch { setTrackedDates([today]); }
-      return;
-    }
+    if (!ipc) return;
+    try {
+      const dates: string[] = await ipc.invoke("get-tracked-dates");
+      setTrackedDates(dates && dates.length > 0 ? dates : [today]);
+    } catch { /* ignore */ }
+  }, [today]);
 
-    if (backendUrl && isBackendConnected) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000);
-        const res = await fetch(`${backendUrl}/app-usage?days=30`, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        if (res.ok) {
-          const data = await res.json();
-          let dates: string[] = [];
-          if (data.by_date) {
-            dates = Object.keys(data.by_date).sort().reverse();
-          }
-          if (!dates.includes(today)) dates.unshift(today);
-          setTrackedDates(dates);
-        } else {
-          setTrackedDates([today]);
-        }
-      } catch {
-        setTrackedDates([today]);
-      }
-    } else {
-      setTrackedDates([today]);
-    }
-  }, [backendUrl, isBackendConnected, today]);
-
-
-  // ── Poll live data every 5 s ───────────────────────────────────────────
+  // ── Poll live data and listen for instant active-window events ──────────
   useEffect(() => {
-    const poll = async () => {
-      const ipc = getIpc();
-      if (ipc) {
-        try {
-          const [win, idle] = await Promise.all([
-            ipc.invoke("get-active-window"),
-            ipc.invoke("get-idle-time-ms"),
-          ]);
-          const showLive = win && !win.skip && win.appName;
-          setLiveApp(showLive ? { process: win.appName, title: win.title } : null);
-          setLiveIdleMs(idle as number);
-        } catch { /* ignore */ }
-        return;
-      }
+    const ipc = getIpc();
+    if (!ipc) return;
 
-      if (activeWindow) {
-        setLiveApp({ process: "Active Browser/Tab", title: activeWindow });
-      } else {
-        setLiveApp(null);
-      }
+    const poll = async () => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      try {
+        const [win, idle] = await Promise.all([
+          ipc.invoke("get-active-window"),
+          ipc.invoke("get-idle-time-ms"),
+        ]);
+        const showLive = win && !win.skip && win.appName;
+        setLiveApp(showLive ? { process: win.appName, title: win.title } : null);
+        setLiveIdleMs(idle as number);
+      } catch { /* ignore */ }
     };
     void poll();
     pollRef.current = setInterval(() => void poll(), 5000);
-    return () => clearInterval(pollRef.current);
-  }, [activeWindow]);
+
+    // Instant notification from main process when active window switches
+    const cleanupListener = ipc.on?.("active-window-changed", (data: any) => {
+      if (data && data.appName) {
+        setLiveApp({ process: data.appName, title: data.title || "" });
+      }
+    });
+
+    return () => {
+      clearInterval(pollRef.current);
+      if (typeof cleanupListener === "function") cleanupListener();
+    };
+  }, []);
 
   // ── Auto-refresh log and period totals ─────────────────────────────────
   useEffect(() => {
@@ -716,6 +694,93 @@ export function AppTrackingPage() {
     }
     return Object.entries(m).sort((a, b) => b[1] - a[1]);
   }, [dailyLog]);
+
+  // ── Developer Coding & Language Aggregations (Wakapi / Dayflow Inspired) ─
+  const devSummaries = useMemo(() => {
+    const langMap = new Map<string, number>();
+    const projMap = new Map<string, number>();
+    for (const e of dailyLog) {
+      const dev = extractDevMetadata(e.appName, e.title);
+      if (dev.isDev) {
+        if (dev.language) {
+          langMap.set(dev.language, (langMap.get(dev.language) || 0) + e.durationSeconds);
+        }
+        if (dev.project) {
+          projMap.set(dev.project, (projMap.get(dev.project) || 0) + e.durationSeconds);
+        }
+      }
+    }
+    return {
+      languages: [...langMap.entries()].sort((a, b) => b[1] - a[1]),
+      projects: [...projMap.entries()].sort((a, b) => b[1] - a[1]),
+    };
+  }, [dailyLog]);
+
+  const displayLanguages = useMemo(() => {
+    if (realCodingStats.languages.length > 0) {
+      return realCodingStats.languages;
+    }
+    const total = devSummaries.languages.reduce((acc, [, s]) => acc + s, 0);
+    return devSummaries.languages.map(([name, seconds]) => ({
+      name,
+      seconds,
+      percent: total > 0 ? Math.round((seconds / total) * 100) : 0,
+    }));
+  }, [realCodingStats.languages, devSummaries.languages]);
+
+  const displayProjects = useMemo(() => {
+    if (realCodingStats.projects.length > 0) {
+      return realCodingStats.projects;
+    }
+    const total = devSummaries.projects.reduce((acc, [, s]) => acc + s, 0);
+    return devSummaries.projects.map(([name, seconds]) => ({
+      name,
+      seconds,
+      percent: total > 0 ? Math.round((seconds / total) * 100) : 0,
+    }));
+  }, [realCodingStats.projects, devSummaries.projects]);
+
+  const totalDevSeconds = useMemo(() => {
+    return realCodingStats.totalSeconds || devSummaries.languages.reduce((acc, [, s]) => acc + s, 0) || 0;
+  }, [realCodingStats.totalSeconds, devSummaries.languages]);
+
+  const hourlyCodingDistribution = useMemo(() => {
+    const hours = Array(24).fill(0);
+    for (const h of heartbeats) {
+      const d = new Date(h.time * 1000);
+      const hr = d.getHours();
+      if (hr >= 0 && hr < 24) {
+        hours[hr] += 120;
+      }
+    }
+    return hours;
+  }, [heartbeats]);
+
+  const maxHourlySecs = useMemo(() => {
+    return Math.max(...hourlyCodingDistribution, 1);
+  }, [hourlyCodingDistribution]);
+
+  const peakHourIndex = useMemo(() => {
+    let max = 0;
+    let idx = -1;
+    hourlyCodingDistribution.forEach((sec, hr) => {
+      if (sec > max) {
+        max = sec;
+        idx = hr;
+      }
+    });
+    return idx;
+  }, [hourlyCodingDistribution]);
+
+  const filteredHeartbeats = useMemo(() => {
+    if (!heartbeatSearch.trim()) return heartbeats;
+    const q = heartbeatSearch.toLowerCase();
+    return heartbeats.filter(h =>
+      (h.entity && h.entity.toLowerCase().includes(q)) ||
+      (h.project && h.project.toLowerCase().includes(q)) ||
+      (h.language && h.language.toLowerCase().includes(q))
+    );
+  }, [heartbeats, heartbeatSearch]);
 
   // ── Date navigation ────────────────────────────────────────────────────
   const dateIdx   = trackedDates.indexOf(selectedDate);
@@ -827,6 +892,28 @@ export function AppTrackingPage() {
     setExportStatus("idle");
   };
 
+  // ── Clear App Tracking Logs ───────────────────────────────────────────
+  const handleClearLogs = async () => {
+    const ipc = getIpc();
+    if (!ipc) return;
+    const confirmed = window.confirm(
+      "⚠️ Are you sure you want to clear ALL App & Website Activity Tracking logs?\n\n" +
+      "This will permanently delete all activity log files stored on disk. This action CANNOT be undone."
+    );
+    if (!confirmed) return;
+
+    try {
+      const res = await ipc.invoke("clear-activity-log");
+      if (res?.success) {
+        alert("✅ App & Website activity tracking logs cleared successfully!");
+        void fetchLog(timeScope, selectedDate);
+        void fetchDates();
+      } else {
+        alert(`❌ Failed to clear logs: ${res?.error || "Unknown error"}`);
+      }
+    } catch (e: any) { alert(`Clear logs error: ${e.message}`); }
+  };
+
   return (
     <div className="space-y-5">
       {/* ── Header ── */}
@@ -844,7 +931,6 @@ export function AppTrackingPage() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-
 
           {/* Date navigation */}
           <div className="flex items-center gap-1 rounded-xl bg-slate-900 border border-white/10 px-1 py-1">
@@ -882,7 +968,15 @@ export function AppTrackingPage() {
             {exportStatus === "importing" ? "Restoring..." : "Restore"}
           </button>
 
-          <button onClick={() => { void fetchLog(timeScope, selectedDate); void fetchDates(); void fetchPeriodTotals(); }}
+          {/* Clear App Tracking Activity Logs */}
+          {isElectron && (
+            <button onClick={handleClearLogs} title="Clear all app & website tracking logs"
+              className="flex items-center gap-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 px-3 py-2 text-xs font-bold text-rose-400 hover:bg-rose-500/20 transition-all">
+              <Trash2 className="w-3.5 h-3.5" /> Clear Logs
+            </button>
+          )}
+
+          <button onClick={() => { void fetchLog(timeScope, selectedDate); void fetchDates(); }}
             className={`p-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 transition-colors ${loading ? "animate-spin" : ""}`}>
             <RefreshCw className="w-4 h-4" />
           </button>
@@ -905,7 +999,7 @@ export function AppTrackingPage() {
             </>
           ) : (
             <p className="mt-1 text-sm text-slate-500 italic">
-              Desktop is idle / backend initializing...
+              {isElectron ? "Desktop is idle" : "Requires desktop app"}
             </p>
           )}
         </motion.div>
@@ -982,17 +1076,18 @@ export function AppTrackingPage() {
             </span>
           </div>
 
-          <div className="flex items-end justify-between gap-2 h-28 pt-2 overflow-x-auto min-w-[280px]">
+          {/* Bar chart */}
+          <div className="relative h-32 flex items-end gap-1.5 overflow-x-auto min-w-[280px] mt-2">
             {weeklyOverview.map((item) => {
               const maxSecs = Math.max(...weeklyOverview.map(w => w.seconds), 1);
-              const heightPct = Math.max(8, (item.seconds / maxSecs) * 100);
+              const heightPct = Math.max(6, (item.seconds / maxSecs) * 100);
               const isSelected = timeScope === "day" && item.date === selectedDate;
               
               return (
-                <div key={item.date} className="flex-1 flex flex-col items-center gap-1.5 group select-none min-w-[32px]">
-                  {/* Hours badge */}
-                  <span className={`text-[10px] font-bold ${isSelected ? "text-cyan-400 font-extraboldScale" : "text-slate-400 group-hover:text-white"} transition-colors`}>
-                    {item.seconds > 0 ? fmt(item.seconds).split(" ")[0] : "0s"}
+                <div key={item.date} className="flex-1 flex flex-col items-center min-w-[36px] h-full justify-end gap-1 group select-none">
+                  {/* Value badge */}
+                  <span className={`text-[10px] font-bold leading-none ${isSelected ? "text-cyan-400" : "text-slate-400 group-hover:text-white"} transition-colors`}>
+                    {item.seconds > 0 ? fmt(item.seconds).split(" ")[0] : "—"}
                   </span>
                   
                   {/* Bar */}
@@ -1001,18 +1096,19 @@ export function AppTrackingPage() {
                       setTimeScope("day");
                       setSelectedDate(item.date);
                     }}
-                    className="w-full relative rounded-t-lg transition-all focus:outline-none"
-                    style={{ height: `${heightPct}%` }}
+                    title={`${item.date}: ${item.seconds > 0 ? fmt(item.seconds) : "No data"}`}
+                    className="w-full focus:outline-none"
+                    style={{ height: `${heightPct}%`, minHeight: "6px" }}
                   >
-                    <div className={`absolute inset-0 rounded-t-lg bg-gradient-to-t transition-all ${
+                    <div className={`h-full w-full rounded-t-lg transition-all duration-200 ${
                       isSelected 
-                        ? "from-cyan-500 to-indigo-500 shadow-[0_0_12px_rgba(34,211,238,0.4)]" 
-                        : "from-slate-700/60 to-slate-500/70 group-hover:from-cyan-600/60 group-hover:to-cyan-400/80"
+                        ? "bg-gradient-to-t from-cyan-500 to-indigo-400 shadow-[0_0_14px_rgba(34,211,238,0.5)]" 
+                        : "bg-gradient-to-t from-slate-600 to-slate-400 group-hover:from-cyan-600/80 group-hover:to-cyan-300/90"
                     }`} />
                   </button>
 
                   {/* Day label */}
-                  <span className={`text-[9px] font-bold tracking-wider ${isSelected ? "text-cyan-300 font-extrabold" : "text-slate-500 group-hover:text-slate-300"} transition-colors`}>
+                  <span className={`text-[9px] font-bold ${isSelected ? "text-cyan-300" : "text-slate-500 group-hover:text-slate-300"} transition-colors`}>
                     {item.date === today ? "Today" : item.date.slice(5)}
                   </span>
                 </div>
@@ -1077,9 +1173,9 @@ export function AppTrackingPage() {
       <AnimatePresence mode="wait">
         <motion.div key="usage" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} className="space-y-5">
 
-            {/* ── Open-Source Engine Foundations Status Bar ── */}
+            {/* ── FlowTrack Core Engines Status Bar ── */}
             <div className="grid sm:grid-cols-2 gap-3">
-              {/* ActivityWatch Engine Card */}
+              {/* FlowTrack Sensor Core */}
               <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-950/30 via-slate-900 to-slate-950 border border-emerald-500/20 flex items-start gap-3">
                 <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shrink-0">
                   <Shield className="w-4 h-4" />
@@ -1089,20 +1185,20 @@ export function AppTrackingPage() {
                     <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
                       <span>FlowTrack Native Sensor Core</span>
                       <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                        LOCAL-FIRST
+                        100% PRIVATE
                       </span>
                     </h4>
                     <span className="text-[10px] font-mono text-emerald-400 font-semibold">
-                      {liveIdleMs >= 10 * 60 * 1000 ? "⏸ AFK DETECTED" : "✅ 0ms LAG"}
+                      {liveIdleMs >= 10 * 60 * 1000 ? "⏸ AFK DETECTED" : "✅ SENSOR ACTIVE"}
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
-                    OS-level AFK idle detection & win-tracker daemon. <b>100% on-device</b> SQLite WAL / Dexie; 0 telemetry packets emitted to remote servers.
+                    OS-level AFK idle detection & background window tracker daemon. <b>100% on-device</b> SQLite WAL / Dexie; zero data transmission to external servers.
                   </p>
                 </div>
               </div>
 
-              {/* Dayflow & Wakapi Categorization Card */}
+              {/* FlowTrack Developer Intelligence */}
               <div className="p-3.5 rounded-2xl bg-gradient-to-r from-cyan-950/30 via-slate-900 to-slate-950 border border-cyan-500/20 flex items-start gap-3">
                 <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 shrink-0">
                   <Terminal className="w-4 h-4" />
@@ -1116,11 +1212,11 @@ export function AppTrackingPage() {
                       </span>
                     </h4>
                     <span className="text-[10px] font-mono text-cyan-400 font-semibold">
-                      🟢 Ready
+                      {heartbeats.length > 0 ? `⚡ ${heartbeats.length} Heartbeats` : "🟢 Receiver Active"}
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
-                    Passive IDE project categorization (VS Code / JetBrains) & screen-time analysis across Coding, Deep Study, and Web Research.
+                    Automated IDE workspace classification, programming language analytics, and 24-hour coding rhythm tracking.
                   </p>
                 </div>
               </div>
@@ -1132,7 +1228,7 @@ export function AppTrackingPage() {
                 { id: "overview", label: "📊 Overview", count: appSummaries.length },
                 { id: "timeline", label: "📈 Timeline", count: dailyLog.length > 0 ? 1 : 0 },
                 { id: "websites", label: "🌐 Web Sites & Tabs", count: webTabSummaries.length },
-                { id: "developer", label: "⚡ Developer Studio", count: heartbeats.length },
+                { id: "developer", label: "⚡ Developer Studio", count: heartbeats.length || displayLanguages.length },
                 { id: "windows", label: "🪟 Windows Log", count: dailyLog.length },
               ].map(t => (
                 <button
@@ -1167,7 +1263,7 @@ export function AppTrackingPage() {
                   </h3>
                   {categoryTotals.length === 0 ? (
                     <p className="text-xs text-slate-500 text-center py-8">
-                      No app activity logged yet.
+                      {isElectron ? "Use apps — data appears in ~5 seconds." : "Requires desktop app."}
                     </p>
                   ) : (
                     <div className="space-y-3">
@@ -1212,7 +1308,7 @@ export function AppTrackingPage() {
                           <p className="text-4xl mb-3">🖥️</p>
                           <p className="text-sm text-slate-400 font-semibold">No app activity logged yet</p>
                           <p className="text-xs text-slate-500 mt-1">
-                            Start using apps or run backend tracker to log activity.
+                            {isElectron ? "Start using apps — appears in ~5 s" : "Open as desktop app to enable tracking"}
                           </p>
                         </div>
                       ) : appSummaries.map((app, i) => {
@@ -1220,9 +1316,7 @@ export function AppTrackingPage() {
                         return (
                           <motion.div key={app.appName} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.025 }}
                             className="flex items-center gap-3 p-3 rounded-2xl hover:bg-white/[0.03] border border-transparent hover:border-white/5 transition-all group">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 border ${CAT_TAG[app.category]}`}>
-                              {CAT_EMOJI[app.category]}
-                            </div>
+                            <AppIcon appName={app.appName} category={app.category} />
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1.5">
                                 <span className="text-sm font-bold text-white truncate">{app.appName}</span>
@@ -1426,9 +1520,9 @@ export function AppTrackingPage() {
                             }
                           }}
                           className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/5 text-slate-400 border border-white/10 text-xs font-medium hover:bg-white/10 transition-all cursor-pointer"
-                          title="Generate a demo pulse for testing UI visualization"
+                          title="Generate a diagnostic test pulse to verify local loopback (127.0.0.1:7777) receiver"
                         >
-                          <span>🧪 Generate Demo Pulse</span>
+                          <span>🧪 Diagnostic Pulse Probe</span>
                         </button>
                       </div>
                     </div>
@@ -1705,7 +1799,7 @@ export function AppTrackingPage() {
                               </span>
                               {isSimulated && (
                                 <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-extrabold uppercase shrink-0">
-                                  Demo
+                                  Test Probe
                                 </span>
                               )}
                               <div className="min-w-0 flex-1">

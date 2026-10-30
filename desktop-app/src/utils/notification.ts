@@ -14,19 +14,21 @@ export async function sendNotification(title: string, options?: NotificationOpti
   }
 
   // Fallback for Web/Browser or if IPC fails
-  if (Notification.permission === "granted") {
-    new Notification(title, {
-      ...options,
-      icon: options?.icon || "/icon-192.png"
-    });
-  } else if (Notification.permission !== "denied") {
-    Notification.requestPermission().then(permission => {
-      if (permission === "granted") {
-        new Notification(title, {
-          ...options,
-          icon: options?.icon || "/icon-192.png"
-        });
-      }
-    });
+  if (typeof Notification !== "undefined") {
+    if (Notification.permission === "granted") {
+      new Notification(title, {
+        ...options,
+        icon: options?.icon || "/icon-192.png"
+      });
+    } else if (Notification.permission !== "denied") {
+      Notification.requestPermission().then(permission => {
+        if (permission === "granted") {
+          new Notification(title, {
+            ...options,
+            icon: options?.icon || "/icon-192.png"
+          });
+        }
+      });
+    }
   }
 }
