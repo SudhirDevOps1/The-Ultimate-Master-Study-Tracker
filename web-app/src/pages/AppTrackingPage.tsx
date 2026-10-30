@@ -1,3 +1,4 @@
+import { toLocalDateKey } from "@/utils/localDate";
 import { normalizeEntryDuration } from "@/utils/trackerMath";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -441,7 +442,7 @@ function AppIcon({ appName, category }: { appName: string; category: string }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export function AppTrackingPage() {
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [selectedDate, setSelectedDate] = useState(() => toLocalDateKey());
   const [timeScope, setTimeScope]       = useState<"day" | "week" | "month" | "all">("day");
   const [rawLog, setRawLog]             = useState<ActivityEntry[]>([]);
   const [trackedDates, setTrackedDates] = useState<string[]>([]);
@@ -518,7 +519,7 @@ export function AppTrackingPage() {
     allTime: 0,
   });
   const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
-  const today   = new Date().toISOString().split("T")[0];
+  const today = toLocalDateKey();
   const initApp = useAppStore(s => s.initApp);
   const importAll = useAppStore(s => s.importAll);
 

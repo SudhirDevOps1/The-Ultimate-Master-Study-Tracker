@@ -1,3 +1,4 @@
+import { toLocalDateKey } from "@/utils/localDate";
 import { useMemo, useState, useEffect } from "react";
 import { Panel } from "@/components/common/Panel";
 import { toDurationLabel } from "@/utils/time";
@@ -29,7 +30,7 @@ export function AppActivityList() {
       const ipc = getIpc();
       if (ipc) {
         try {
-          const today = new Date().toISOString().split("T")[0];
+          const today = toLocalDateKey();
           const logs: ActivityEntry[] = await ipc.invoke("get-activity-log", { date: today });
           if (isMounted && Array.isArray(logs) && logs.length > 0) {
             setActivities(logs);
@@ -46,7 +47,7 @@ export function AppActivityList() {
           title: act.window_title || act.title || "Desktop / Idle",
           durationSeconds: Number(act.duration_seconds || act.durationSeconds || act.duration || 0),
           startTime: act.timestamp || new Date().toISOString(),
-          date: new Date().toISOString().split("T")[0],
+          date: toLocalDateKey(),
           hour: new Date().getHours()
         })));
       }

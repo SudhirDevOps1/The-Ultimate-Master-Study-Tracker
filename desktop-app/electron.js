@@ -147,6 +147,7 @@ const {
   mergeDayEntries,
   splitSegment,
 } = require("./electron-main/tracker-math.js");
+const { toLocalDateKey } = require("./electron-main/local-date.js");
 
 let dataDir  = null;
 let activityLog = []; // In-memory UI display cache, bounded to 2,000 entries max
@@ -196,7 +197,7 @@ function flushCurrentActivity(forcedEndMs) {
     !shouldSkip(currentActivity.processName, currentActivity.windowTitle)
   ) {
     const startDt = new Date(currentActivity.startMs);
-    const dateKey = startDt.toISOString().split("T")[0];
+    const dateKey = toLocalDateKey(startDt);
     const isAfk = split.afkSeconds > 0 && split.activeSeconds === 0;
 
     const entry = ensureEntryId({
@@ -340,6 +341,48 @@ function migrateHistoricalActivityLogs(targetDir) {
       "utf8"
     );
 
+    // Re-index entries to correct local calendar date files
+    let reindexedMovedEntries = 0;
+    const dateFiles = fs.readdirSync(targetDir).filter(f => f.endsWith(".json") && f !== "migration.json" && !f.startsWith("_backup-"));
+    const dateFileMap = new Map();
+    for (const df of dateFiles) {
+      try {
+        const raw = JSON.parse(fs.readFileSync(path.join(targetDir, df), "utf8"));
+        if (Array.isArray(raw)) dateFileMap.set(df.replace(".json", ""), raw);
+      } catch {}
+    }
+
+    const reindexMoveQueue = new Map(); // targetDate -> entries[]
+    for (const [dfDate, entries] of dateFileMap.entries()) {
+      const remainingForDay = [];
+      for (const entry of entries) {
+        const computedLocalKey = toLocalDateKey(entry.startTime);
+        if (computedLocalKey && computedLocalKey !== dfDate) {
+          reindexedMovedEntries++;
+          entry.date = computedLocalKey;
+          if (!reindexMoveQueue.has(computedLocalKey)) reindexMoveQueue.set(computedLocalKey, []);
+          reindexMoveQueue.get(computedLocalKey).push(entry);
+        } else {
+          remainingForDay.push(entry);
+        }
+      }
+      dateFileMap.set(dfDate, remainingForDay);
+    }
+
+    for (const [targetDate, movedEntries] of reindexMoveQueue.entries()) {
+      const existing = dateFileMap.get(targetDate) || [];
+      const { merged } = mergeDayEntries(existing, movedEntries);
+      dateFileMap.set(targetDate, merged);
+    }
+
+    for (const [dfDate, finalEntries] of dateFileMap.entries()) {
+      const fPath = path.join(targetDir, `${dfDate}.json`);
+      const tmp = `${fPath}.tmp`;
+      fs.writeFileSync(tmp, JSON.stringify(finalEntries, null, 2), "utf8");
+      fs.renameSync(tmp, fPath);
+    }
+
+    console.log(`[ActivityLog Re-index] Re-indexed ${reindexedMovedEntries} entries to true local calendar dates.`);
     console.log(`[ActivityLog Migration] Scanned ${filesScanned} files, ${entriesProcessed} entries processed, ${filesSkipped} files skipped.`);
   } catch (err) {
     console.error("[ActivityLog Migration] Error:", err);
@@ -1964,7 +2007,7 @@ ipcMain.handle("send-windows-toast", async (_e, { title, message }) => {
 });
 
 ipcMain.handle("get-activity-log", async (_e, { date } = {}) => {
-  const today = new Date().toISOString().split("T")[0];
+  const today = toLocalDateKey();
   const requested = date || today;
 
   const fileEntries = loadLogFromFile(requested) || [];
@@ -2041,7 +2084,7 @@ ipcMain.handle("get-data-directory-path", async () => {
 
 ipcMain.handle("get-tracked-dates", async () => {
   try {
-    const today = new Date().toISOString().split("T")[0];
+    const today = toLocalDateKey();
     const set = new Set();
     set.add(today);
     if (dataDir && fs.existsSync(dataDir)) {
@@ -2051,7 +2094,7 @@ ipcMain.handle("get-tracked-dates", async () => {
       for (const f of files) set.add(f);
     }
     return Array.from(set).sort().reverse();
-  } catch { return [new Date().toISOString().split("T")[0]]; }
+  } catch { return [toLocalDateKey()]; }
 });
 
 ipcMain.handle("clear-activity-log", async () => {
@@ -2117,7 +2160,7 @@ ipcMain.handle("export-activity-csv", async (_e, { date } = {}) => {
 
     const { filePath } = await dialog.showSaveDialog(mainWindow, {
       title: "Export Activity Log",
-      defaultPath: `flowtrack-activity-${date || new Date().toISOString().split("T")[0]}.csv`,
+      defaultPath: `flowtrack-activity-${date || toLocalDateKey()}.csv`,
       filters: [{ name: "CSV Files", extensions: ["csv"] }],
     });
     if (filePath) { fs.writeFileSync(filePath, csv, "utf8"); return { success: true, path: filePath }; }
@@ -2206,7 +2249,7 @@ ipcMain.handle("export-app-data", async (_e, { appData }) => {
       } catch { allActivityData[date] = []; }
     }
     // Also save today's in-memory data
-    const today = new Date().toISOString().split("T")[0];
+    const today = toLocalDateKey();
     allActivityData[today] = activityLog.filter(e => !e.isLive);
 
     const exportPayload = {
@@ -2261,7 +2304,7 @@ ipcMain.handle("import-app-data", async () => {
       }
 
       // Reload today's activity into memory
-      const today = new Date().toISOString().split("T")[0];
+      const today = toLocalDateKey();
       const fresh = payload.activityLog[today] || [];
       activityLog.splice(0, activityLog.length, ...fresh);
     }
