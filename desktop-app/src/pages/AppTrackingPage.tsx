@@ -1,3 +1,4 @@
+import { normalizeEntryDuration } from "@/utils/trackerMath";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -238,25 +239,28 @@ function Timeline({ rawLog }: { rawLog: ActivityEntry[] }) {
   const processedRows = useMemo(() => {
     if (!rawLog || rawLog.length === 0) return [];
 
-    const map = new Map<string, { totalSec: number; entries: ActivityEntry[] }>();
+    const map = new Map<string, { totalActiveSec: number; totalAfkSec: number; entries: ActivityEntry[] }>();
     for (let i = 0; i < rawLog.length; i++) {
       const entry = rawLog[i];
-      if (!entry.appName) continue;
+      if (!entry.appName || entry.isLive) continue;
       let item = map.get(entry.appName);
       if (!item) {
-        item = { totalSec: 0, entries: [] };
+        item = { totalActiveSec: 0, totalAfkSec: 0, entries: [] };
         map.set(entry.appName, item);
       }
-      item.totalSec += entry.durationSeconds;
+      const { activeSeconds, afkSeconds } = normalizeEntryDuration(entry);
+      item.totalActiveSec += activeSeconds;
+      item.totalAfkSec += afkSeconds;
       item.entries.push(entry);
     }
 
     return Array.from(map.entries())
-      .sort((a, b) => b[1].totalSec - a[1].totalSec)
+      .sort((a, b) => b[1].totalActiveSec - a[1].totalActiveSec)
       .slice(0, 15)
       .map(([appName, item]) => ({
         appName,
-        totalSec: item.totalSec,
+        totalActiveSec: item.totalActiveSec,
+        totalAfkSec: item.totalAfkSec,
         appEntries: item.entries,
       }));
   }, [rawLog]);
@@ -280,33 +284,45 @@ function Timeline({ rawLog }: { rawLog: ActivityEntry[] }) {
       </div>
 
       {/* One row per app that was active */}
-      {processedRows.map(({ appName, totalSec, appEntries }) => (
+      {processedRows.map(({ appName, totalActiveSec, appEntries }) => (
         <div key={appName} className="flex items-center gap-2 group">
           {/* Label */}
           <span className="w-24 shrink-0 text-[10px] text-slate-400 truncate text-right font-semibold">
             {appName}
           </span>
 
-          {/* 24-hour track */}
+          {/* 24-hour track with active and AFK away segments */}
           <div className="relative flex-1 h-5 bg-white/[0.03] rounded overflow-hidden border border-white/5">
             {appEntries.map((entry, i) => {
               const startMin = entry.hour * 60 + (entry.minute ?? 0);
               const leftPct  = (startMin / 1440) * 100;
-              const widthPct = Math.max(0.5, (entry.durationSeconds / 86400) * 100);
+              const { activeSeconds, afkSeconds, totalSeconds } = normalizeEntryDuration(entry);
+              const totalWidthPct = Math.max(0.5, (totalSeconds / 86400) * 100);
               const cat = classifyApp(entry.appName, entry.title);
+              
               return (
-                <div
-                  key={i}
-                  className={`absolute top-0 h-full rounded-sm ${CAT_SOLID[cat] ?? "bg-slate-500"} ${entry.isLive ? "animate-pulse" : ""}`}
-                  style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                  title={`${appName} @ ${String(entry.hour).padStart(2,"0")}:${String(entry.minute ?? 0).padStart(2,"0")} — ${fmt(entry.durationSeconds)}`}
-                />
+                <div key={i} className="absolute top-0 h-full flex" style={{ left: `${leftPct}%`, width: `${totalWidthPct}%` }}>
+                  {activeSeconds > 0 && (
+                    <div
+                      className={`h-full rounded-sm ${CAT_SOLID[cat] ?? "bg-slate-500"}`}
+                      style={{ width: afkSeconds > 0 ? `${(activeSeconds / totalSeconds) * 100}%` : "100%" }}
+                      title={`${appName} (active) @ ${String(entry.hour).padStart(2,"0")}:${String(entry.minute ?? 0).padStart(2,"0")} — ${fmt(activeSeconds)}`}
+                    />
+                  )}
+                  {afkSeconds > 0 && (
+                    <div
+                      className="h-full rounded-sm bg-slate-700/80 border-l border-slate-900/60"
+                      style={{ width: activeSeconds > 0 ? `${(afkSeconds / totalSeconds) * 100}%` : "100%" }}
+                      title={`${appName} (away) @ ${String(entry.hour).padStart(2,"0")}:${String(entry.minute ?? 0).padStart(2,"0")} — ${fmt(afkSeconds)} (away)`}
+                    />
+                  )}
+                </div>
               );
             })}
           </div>
 
-          {/* Duration */}
-          <span className="w-12 shrink-0 text-[10px] text-slate-400 font-mono text-right">{fmt(totalSec)}</span>
+          {/* Active Duration */}
+          <span className="w-16 shrink-0 text-[10px] text-slate-400 font-mono text-right">{fmt(totalActiveSec)}</span>
         </div>
       ))}
 
@@ -318,6 +334,10 @@ function Timeline({ rawLog }: { rawLog: ActivityEntry[] }) {
             {cat}
           </span>
         ))}
+        <span className="flex items-center gap-1 text-[10px] text-slate-400">
+          <span className="w-2.5 h-2.5 rounded-sm bg-slate-700 border border-slate-600" />
+          Away / AFK
+        </span>
       </div>
     </div>
   );
@@ -513,7 +533,7 @@ export function AppTrackingPage() {
         const totals = await Promise.all(
           datesToFetch.map(async (d) => {
             const entries: ActivityEntry[] = await ipc.invoke("get-activity-log", { date: d });
-            const total = entries.reduce((sum, e) => sum + e.durationSeconds, 0);
+            const total = entries.reduce((sum, e) => sum + normalizeEntryDuration(e).activeSeconds, 0);
             return { date: d, seconds: total };
           })
         );
@@ -531,18 +551,18 @@ export function AppTrackingPage() {
     if (!ipc || trackedDates.length === 0) return;
     try {
       const todayEntries: ActivityEntry[] = await ipc.invoke("get-activity-log", { date: today });
-      const todaySec = (todayEntries || []).reduce((sum, e) => sum + e.durationSeconds, 0);
+      const todaySec = (todayEntries || []).reduce((sum, e) => sum + normalizeEntryDuration(e).activeSeconds, 0);
 
       const weekDates = trackedDates.slice(0, 7);
       const weekLogs: ActivityEntry[][] = await Promise.all(weekDates.map(d => ipc.invoke("get-activity-log", { date: d })));
-      const weekSec = weekLogs.flat().reduce((sum, e) => sum + e.durationSeconds, 0);
+      const weekSec = weekLogs.flat().reduce((sum, e) => sum + normalizeEntryDuration(e).activeSeconds, 0);
 
       const monthDates = trackedDates.slice(0, 30);
       const monthLogs: ActivityEntry[][] = await Promise.all(monthDates.map(d => ipc.invoke("get-activity-log", { date: d })));
-      const monthSec = monthLogs.flat().reduce((sum, e) => sum + e.durationSeconds, 0);
+      const monthSec = monthLogs.flat().reduce((sum, e) => sum + normalizeEntryDuration(e).activeSeconds, 0);
 
       const allLogs: ActivityEntry[][] = await Promise.all(trackedDates.map(d => ipc.invoke("get-activity-log", { date: d })));
-      const allSec = allLogs.flat().reduce((sum, e) => sum + e.durationSeconds, 0);
+      const allSec = allLogs.flat().reduce((sum, e) => sum + normalizeEntryDuration(e).activeSeconds, 0);
 
       setPeriodTotals({
         today: todaySec,
@@ -653,7 +673,8 @@ export function AppTrackingPage() {
       const key = e.appName.toLowerCase();
       if (!map.has(key)) map.set(key, { appName: e.appName, totalSeconds: 0, sessions: 0, category: classifyApp(e.appName, e.title), isLive: false });
       const r = map.get(key)!;
-      r.totalSeconds += e.durationSeconds;
+      const { activeSeconds } = normalizeEntryDuration(e);
+      r.totalSeconds += activeSeconds;
       r.sessions++;
       if (e.isLive) r.isLive = true;
     }
@@ -678,13 +699,15 @@ export function AppTrackingPage() {
         });
       }
       const r = map.get(key)!;
-      r.totalSeconds += e.durationSeconds;
+      const { activeSeconds } = normalizeEntryDuration(e);
+      r.totalSeconds += activeSeconds;
       r.visitCount++;
     }
     return [...map.values()].sort((a, b) => b.totalSeconds - a.totalSeconds);
   }, [dailyLog]);
 
   const totalSeconds = useMemo(() => appSummaries.reduce((s, a) => s + a.totalSeconds, 0), [appSummaries]);
+  const totalAfkSeconds = useMemo(() => dailyLog.reduce((s, e) => s + normalizeEntryDuration(e).afkSeconds, 0), [dailyLog]);
 
   const categoryTotals = useMemo(() => {
     const m: Record<string, number> = {};
@@ -1015,6 +1038,16 @@ export function AppTrackingPage() {
               className={`h-full rounded-full ${liveIdleMs >= 10 * 60 * 1000 ? "bg-rose-500" : liveIdleMs >= 5 * 60 * 1000 ? "bg-amber-400" : "bg-emerald-400"}`} />
           </div>
           <p className="text-[9px] text-slate-500 mt-1">{liveIdleMs >= 10 * 60 * 1000 ? "⏸ Paused" : "✅ Active"}</p>
+        </div>
+
+        {/* Active vs Away Summary Chip */}
+        <div className="col-span-full flex items-center justify-between py-1">
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-800/80 border border-slate-700/60 text-slate-300 shadow-sm flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+              Active <strong className="text-white">{fmt(totalSeconds)}</strong> · Away <strong className="text-slate-400">{fmt(totalAfkSeconds)}</strong>
+            </span>
+          </div>
         </div>
 
         {/* Today Total */}

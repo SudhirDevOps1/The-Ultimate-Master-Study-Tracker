@@ -7,15 +7,15 @@
 export interface ActivityEntry {
   id?: string;
   appName: string;
-  rawProcess: string;
+  rawProcess?: string;
   title: string;
   durationSeconds: number;
   activeSeconds?: number;
   afkSeconds?: number;
   startTime: string;
-  date: string;
-  hour: number;
-  minute: number;
+  date?: string;
+  hour?: number;
+  minute?: number;
   isAfk?: boolean;
   idleSeconds?: number;
   isLive?: boolean;

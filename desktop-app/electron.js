@@ -154,6 +154,7 @@ let currentActivity = { processName: "", windowTitle: "", startMs: Date.now() };
 let dirtyDayEntries = new Map(); // date -> ActivityEntry[]
 let dirtyDateKeys = new Set();
 let isSavingLog = false;
+let trackerLastPollMs = Date.now();
 
 // ─── Active Webview State (set by IPC from WebPortalsPage) ────────────────────
 // When user opens a site in Web Portals in-app browser, we track THAT domain,
@@ -178,26 +179,33 @@ function loadLogFromFile(date) {
  */
 function flushCurrentActivity(forcedEndMs) {
   const now = forcedEndMs || Date.now();
-  const durationSeconds = Math.round((now - currentActivity.startMs) / 1000);
+  const idleSec = powerMonitor.getSystemIdleTime();
+  const afkThreshold = (desktopSettings && desktopSettings.afkThresholdSeconds) || 120;
+  const split = splitSegment({
+    startMs: currentActivity.startMs,
+    endMs: now,
+    lastPollMs: trackerLastPollMs || now,
+    idleSec,
+    afkThresholdSec: afkThreshold,
+    pollIntervalMs: 3500,
+  });
 
   if (
     currentActivity.processName &&
-    durationSeconds >= 3 &&
+    split.totalSeconds >= 3 &&
     !shouldSkip(currentActivity.processName, currentActivity.windowTitle)
   ) {
     const startDt = new Date(currentActivity.startMs);
     const dateKey = startDt.toISOString().split("T")[0];
-    const idleSec = powerMonitor.getSystemIdleTime();
-    const afkThreshold = (desktopSettings && desktopSettings.afkThresholdSeconds) || 120;
-    const isAfk = idleSec >= afkThreshold;
+    const isAfk = split.afkSeconds > 0 && split.activeSeconds === 0;
 
     const entry = ensureEntryId({
       appName:         normalizeAppName(currentActivity.processName),
       rawProcess:      currentActivity.processName,
       title:           cleanWindowTitle(currentActivity.windowTitle),
-      durationSeconds,
-      activeSeconds:   isAfk ? 0 : durationSeconds,
-      afkSeconds:      isAfk ? durationSeconds : 0,
+      durationSeconds: split.totalSeconds,
+      activeSeconds:   split.activeSeconds,
+      afkSeconds:      split.afkSeconds,
       startTime:       startDt.toISOString(),
       date:            dateKey,
       hour:            startDt.getHours(),
@@ -807,6 +815,7 @@ function startActivityTracker() {
         });
       }
     }
+    trackerLastPollMs = now;
   // Polling every 2000ms for swift and responsive tracking across Linux, Windows & macOS
   }, 3500);
 
@@ -1242,6 +1251,31 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
   startActivityTracker();
+
+  // ─── PowerMonitor Handlers: Sleep, Resume, Lock & Unlock Boundaries ────────
+  powerMonitor.on("suspend", () => {
+    console.log("[PowerMonitor] System suspend detected — flushing segment.");
+    flushCurrentActivity(Date.now());
+    saveLogToFile();
+  });
+
+  powerMonitor.on("resume", () => {
+    console.log("[PowerMonitor] System resume detected — starting fresh segment.");
+    trackerLastPollMs = Date.now();
+    currentActivity.startMs = Date.now();
+  });
+
+  powerMonitor.on("lock-screen", () => {
+    console.log("[PowerMonitor] System lock-screen detected — flushing segment.");
+    flushCurrentActivity(Date.now());
+    saveLogToFile();
+  });
+
+  powerMonitor.on("unlock-screen", () => {
+    console.log("[PowerMonitor] System unlock-screen detected — starting fresh segment.");
+    trackerLastPollMs = Date.now();
+    currentActivity.startMs = Date.now();
+  });
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

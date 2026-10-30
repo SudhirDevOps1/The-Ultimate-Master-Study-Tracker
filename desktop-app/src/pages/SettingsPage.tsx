@@ -428,6 +428,21 @@ export function SettingsPage() {
   const [isCompactFloating, setIsCompactFloating] = useState(() => {
     return localStorage.getItem("flowtrack_compact_floating") === "true";
   });
+  const [afkThreshold, setAfkThreshold] = useState<number>(() => {
+    return Number(localStorage.getItem("flowtrack_afk_threshold")) || 120;
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && (window as any).electron) {
+      (window as any).electron.ipcRenderer?.invoke?.("get-desktop-settings")
+        .then((res: any) => {
+          if (res?.settings?.afkThresholdSeconds) {
+            setAfkThreshold(res.settings.afkThresholdSeconds);
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
   const [isOpenAtLogin, setIsOpenAtLogin] = useState(() => {
     return localStorage.getItem("flowtrack_open_at_login") === "true";
   });
@@ -567,6 +582,36 @@ export function SettingsPage() {
             </label>
             <p className="text-xs text-slate-400 pl-8">
               Keep FlowTrack window floating above VS Code, Zoom, or PDF lectures.
+            </p>
+          </div>
+
+          {/* AFK / Idle Detection Threshold */}
+          <div className="p-4 rounded-2xl bg-slate-900/40 backdrop-blur-md shadow-inner transition-all hover:bg-slate-900/50 border border-white/10 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-semibold text-white flex items-center gap-2">
+                <span>⏱️ AFK & Idle Detection Threshold</span>
+              </label>
+              <select
+                value={afkThreshold}
+                onChange={async (e) => {
+                  const val = Number(e.target.value);
+                  setAfkThreshold(val);
+                  localStorage.setItem("flowtrack_afk_threshold", String(val));
+                  if (typeof window !== "undefined" && (window as any).electron) {
+                    await (window as any).electron.ipcRenderer?.invoke?.("save-desktop-settings", { afkThresholdSeconds: val });
+                  }
+                  showMessage(`⏱️ AFK Idle Threshold set to ${val}s (${val / 60}m)`);
+                }}
+                className="bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-cyan-400 cursor-pointer"
+              >
+                <option value={60}>60s (1 min)</option>
+                <option value={120}>120s (2 mins - Default)</option>
+                <option value={300}>300s (5 mins)</option>
+                <option value={600}>600s (10 mins)</option>
+              </select>
+            </div>
+            <p className="text-xs text-slate-400">
+              System idle duration before the tracker marks you as away, saving active focus time accurately.
             </p>
           </div>
 

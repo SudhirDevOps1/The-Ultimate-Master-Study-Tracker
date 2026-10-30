@@ -204,4 +204,125 @@ describe("trackerMath Primitives (Part C / F1)", () => {
       totalSeconds: 300,
     });
   });
+
+  describe("splitSegment Calculations (Part D / F2)", () => {
+    it("handles idle < threshold as 100% active", () => {
+      const res = splitSegment({
+        startMs: 1000,
+        endMs: 31000, // 30s elapsed
+        lastPollMs: 27500,
+        idleSec: 10,
+        afkThresholdSec: 120,
+        pollIntervalMs: 3500,
+      });
+
+      expect(res.activeSeconds).toBe(30);
+      expect(res.afkSeconds).toBe(0);
+      expect(res.totalSeconds).toBe(30);
+      expect(res.isGap).toBe(false);
+    });
+
+    it("splits segment when idle > threshold mid-segment", () => {
+      // 10 minute segment (600s), user stopped interacting 3 minutes ago (idleSec = 180, threshold = 120)
+      const startMs = 0;
+      const endMs = 600000;
+      const lastPollMs = 596500;
+      const idleSec = 180;
+      const afkThresholdSec = 120;
+
+      const res = splitSegment({
+        startMs,
+        endMs,
+        lastPollMs,
+        idleSec,
+        afkThresholdSec,
+        pollIntervalMs: 3500,
+      });
+
+      // Active = 600 - 180 = 420s (7 mins), AFK = 180s (3 mins)
+      expect(res.activeSeconds).toBe(420);
+      expect(res.afkSeconds).toBe(180);
+      expect(res.totalSeconds).toBe(600);
+      expect(res.isGap).toBe(false);
+    });
+
+    it("handles sleep gap of 8 hours without attributing gap to app", () => {
+      const startMs = 1000;
+      const lastPollMs = 4000; // Last active poll before closing laptop
+      const endMs = lastPollMs + 8 * 3600 * 1000; // 8 hours later
+
+      const res = splitSegment({
+        startMs,
+        endMs,
+        lastPollMs,
+        idleSec: 8 * 3600,
+        afkThresholdSec: 120,
+        pollIntervalMs: 3500,
+      });
+
+      expect(res.isGap).toBe(true);
+      // Segment closed at lastPollMs (3000ms duration = 3s)
+      expect(res.endedAtMs).toBe(lastPollMs);
+      expect(res.totalSeconds).toBe(3);
+    });
+
+    it("handles lock interval of 2 hours", () => {
+      const startMs = 100000;
+      const endMs = startMs + 2 * 3600 * 1000;
+      const lastPollMs = endMs - 3500;
+      const idleSec = 2 * 3600; // Locked for 2 hours
+
+      const res = splitSegment({
+        startMs,
+        endMs,
+        lastPollMs,
+        idleSec,
+        afkThresholdSec: 120,
+        pollIntervalMs: 3500,
+      });
+
+      expect(res.activeSeconds).toBe(0);
+      expect(res.afkSeconds).toBe(7200);
+      expect(res.totalSeconds).toBe(7200);
+      expect(res.totalSeconds).toBe(res.activeSeconds + res.afkSeconds);
+    });
+
+    it("handles idle exactly at threshold", () => {
+      const res = splitSegment({
+        startMs: 0,
+        endMs: 200000, // 200s
+        lastPollMs: 196500,
+        idleSec: 120,
+        afkThresholdSec: 120,
+        pollIntervalMs: 3500,
+      });
+
+      expect(res.activeSeconds).toBe(80);
+      expect(res.afkSeconds).toBe(120);
+      expect(res.totalSeconds).toBe(200);
+      expect(res.totalSeconds).toBe(res.activeSeconds + res.afkSeconds);
+    });
+
+    it("guarantees afkSeconds is never negative and total always equals active + afk", () => {
+      const testCases = [
+        { start: 0, end: 1000, idle: 0 },
+        { start: 0, end: 5000, idle: 10 },
+        { start: 10000, end: 12000, idle: 500 },
+      ];
+
+      for (const tc of testCases) {
+        const res = splitSegment({
+          startMs: tc.start,
+          endMs: tc.end,
+          lastPollMs: tc.end - 1000,
+          idleSec: tc.idle,
+          afkThresholdSec: 120,
+        });
+
+        expect(res.afkSeconds).toBeGreaterThanOrEqual(0);
+        expect(res.activeSeconds).toBeGreaterThanOrEqual(0);
+        expect(res.totalSeconds).toBe(res.activeSeconds + res.afkSeconds);
+      }
+    });
+  });
 });
