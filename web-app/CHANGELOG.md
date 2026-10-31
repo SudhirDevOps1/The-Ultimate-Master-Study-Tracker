@@ -24,6 +24,20 @@ All notable changes, version updates, feature additions, architectural improveme
 
 ---
 
+## [0.4.0](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v0.3.0...v0.4.0) (2026-10-31)
+
+
+### ✨ Features & Enhancements
+
+* **e2e:** implement automated E2E integration suite and connect E2E gate workflow ([#40](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/issues/40)) ([#41](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/issues/41)) ([8ad4e11](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/8ad4e11b903391644b744503b3e4170008fb4455))
+* release mindmap portal fullscreen, whiteboard anti-overlap engine, and real IDE telemetry ([#48](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/issues/48)) ([400b382](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/400b382c1780f0cf1ce608e47c0005d53fc2dcbe))
+* upgrade smart pdf and document study extraction engine ([#49](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/issues/49)) ([4978554](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/49785548509db8d45b0247d28ca401ad710ef9ab))
+
+
+### 👷 CI/CD & DevOps
+
+* **e2e:** surface explicit E2E integration test suite across CI gates ([#46](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/issues/46)) ([f88e24d](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/f88e24da218ae7e63af257bed8b41f200b64b29c))
+
 ## [0.3.0](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v0.2.4...v0.3.0) (2026-10-28)
 
 
