@@ -23,8 +23,11 @@ import {
   ImagePlus, Lock, Unlock, BringToFront, SendToBack, Copy, Ban, X, Sparkles,
   GitFork, FileText, AlignLeft, AlignCenter, AlignRight, AlignJustify, ArrowUpDown, Check,
   ChevronLeft, ChevronRight, Plus, Home, ArrowLeft,
+  LayoutTemplate, Layers, Group as GroupIcon, Ungroup as UngroupIcon,
+  Eye, EyeOff, ChevronsUp, ChevronsDown,
 } from "lucide-react";
 import { useToast } from "@/components/common/Toast";
+import { MarkdownRenderer } from "@/components/common/MarkdownRenderer";
 import { saveImageSafely } from "@/utils/dataExport";
 import { renderMermaidToSvg, MERMAID_PRESETS } from "@/utils/mermaidHelper";
 import { callUnifiedAI } from "@/utils/aiClient";
@@ -387,6 +390,8 @@ const SHORTCUTS: [string, string][] = [
   ["Ctrl+Z","Undo"],["Ctrl+Shift+Z","Redo"],["Ctrl+D","Duplicate"],
   ["Ctrl+C / V","Copy / paste"],["Ctrl+A","Select all"],["Delete","Delete"],
   ["Ctrl+0","Reset zoom"],["Ctrl+1","Zoom to fit"],
+  ["Ctrl+G","Group selection"],["Ctrl+Shift+G","Ungroup"],
+  ["Ctrl+L","Lock / unlock"],["Ctrl+Shift+L","Unlock everything"],
   ["Shift+drag","Constrain"],["Alt+drag","Pan canvas"],
 ];
 
@@ -622,6 +627,7 @@ export function FabricWhiteboard({
   /* --- DOM refs --------------------------------------------------------- */
   const hostRef = useRef<HTMLDivElement | null>(null);
   const canvasElRef = useRef<HTMLCanvasElement | null>(null);
+  const topBarRef = useRef<HTMLDivElement | null>(null);
   const fcRef = useRef<fabric.Canvas | null>(null);
   const imgFileRef = useRef<HTMLInputElement | null>(null);
   const jsonFileRef = useRef<HTMLInputElement | null>(null);
@@ -665,6 +671,11 @@ export function FabricWhiteboard({
   const [menuOpen, setMenuOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [layersOpen, setLayersOpen] = useState(false);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [layersTick, setLayersTick] = useState(0);
+  /** Measured height of the top bar — panels below it follow wrapping. */
+  const [barH, setBarH] = useState(66);
   const [ready, setReady] = useState(false);
 
   // Mermaid Modal & AI state
@@ -727,6 +738,23 @@ export function FabricWhiteboard({
     }, AUTOSAVE_MS);
   }, [storageKey]);
 
+  const layersOpenRef = useRef(false);
+  /** Cheap re-sync trigger for the Layers panel — only does work while it is open. */
+  const bumpLayers = useCallback(() => {
+    if (layersOpenRef.current) setLayersTick((t) => (t + 1) % 100000);
+  }, []);
+
+  /* Track the top bar's real height so overlay panels always start below it,
+     even when the toolbar wraps onto two rows on a narrow window. */
+  useEffect(() => {
+    const el = topBarRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setBarH(el.getBoundingClientRect().height + 6));
+    ro.observe(el);
+    setBarH(el.getBoundingClientRect().height + 6);
+    return () => ro.disconnect();
+  }, []);
+
   const pushHistory = useCallback(() => {
     const c = fcRef.current;
     if (!c || suspendRef.current) return;
@@ -739,7 +767,8 @@ export function FabricWhiteboard({
     setCanUndo(idxRef.current > 0);
     setCanRedo(false);
     persist(json);
-  }, [persist]);
+    bumpLayers();
+  }, [persist, bumpLayers]);
 
   const loadJSON = useCallback(async (json: string) => {
     const c = fcRef.current;
@@ -791,6 +820,10 @@ export function FabricWhiteboard({
     resetView:  () => { /* set below */ },
     fitView:    () => { /* set below */ },
     selectAll:  () => { /* set below */ },
+    group:      () => { /* set below */ },
+    ungroup:    () => { /* set below */ },
+    lockSel:    () => { /* set below */ },
+    unlockAll:  () => { /* set below */ },
   });
 
   /* ============================================================ ENGINE == */
@@ -1513,6 +1546,16 @@ export function FabricWhiteboard({
       if (meta && k === "a") { e.preventDefault(); cbs.current.selectAll(); return; }
       if (meta && k === "0") { e.preventDefault(); cbs.current.resetView(); return; }
       if (meta && k === "1") { e.preventDefault(); cbs.current.fitView(); return; }
+      if (meta && k === "g") {
+        e.preventDefault();
+        e.shiftKey ? cbs.current.ungroup() : cbs.current.group();
+        return;
+      }
+      if (meta && k === "l") {
+        e.preventDefault();
+        e.shiftKey ? cbs.current.unlockAll() : cbs.current.lockSel();
+        return;
+      }
       if (meta) return;
 
       if (e.key === "Delete" || e.key === "Backspace") {
@@ -1721,6 +1764,285 @@ export function FabricWhiteboard({
     const c = fcRef.current, a = c?.getActiveObject();
     if (c && a) { c.sendObjectToBack(a); c.requestRenderAll(); pushHistory(); }
   }, [pushHistory]);
+
+  /* --- Grouping & locking (Excalidraw / tldraw parity) ---------------- */
+  const groupSelection = useCallback(() => {
+    const c = fcRef.current;
+    const act = c?.getActiveObject();
+    if (!c) return;
+    if (!(act instanceof fabric.ActiveSelection) || act.size() < 2) {
+      showToast("Select at least 2 objects to group", "warning");
+      return;
+    }
+    // Fabric 7 dropped ActiveSelection#toGroup(), so build the group explicitly.
+    const objects = c.getActiveObjects();
+    c.discardActiveObject();
+    c.remove(...objects);
+    const group = new fabric.Group(objects);
+    c.add(group);
+    c.setActiveObject(group);
+    c.requestRenderAll();
+    pushHistory();
+    showToast(`Grouped ${group.size()} objects`, "success");
+  }, [pushHistory, showToast]);
+
+  const ungroupSelection = useCallback(() => {
+    const c = fcRef.current;
+    const act = c?.getActiveObject();
+    if (!c) return;
+    if (!(act instanceof fabric.Group) || act instanceof fabric.ActiveSelection) {
+      showToast("Select a group first", "warning");
+      return;
+    }
+    // Fabric 7 dropped Group#toActiveSelection(), so unpack manually.
+    const objects = act.getObjects().slice();
+    const count = objects.length;
+    act.removeAll();
+    c.remove(act);
+    c.add(...objects);
+    const sel = new fabric.ActiveSelection(objects, { canvas: c });
+    c.setActiveObject(sel);
+    c.requestRenderAll();
+    pushHistory();
+    showToast(`Ungrouped ${count} objects`, "success");
+  }, [pushHistory, showToast]);
+
+  const lockSelection = useCallback(() => {
+    const c = fcRef.current;
+    if (!c) return;
+    const objs = c.getActiveObjects();
+    if (!objs.length) { showToast("Select something to lock", "warning"); return; }
+    const shouldLock = objs.some((o) => !(o as any).__locked);
+    objs.forEach((o) => {
+      (o as any).__locked = shouldLock;
+      o.set({
+        selectable: !shouldLock,
+        evented: !shouldLock,
+        lockMovementX: shouldLock,
+        lockMovementY: shouldLock,
+        lockRotation: shouldLock,
+        lockScalingX: shouldLock,
+        lockScalingY: shouldLock,
+        hoverCursor: shouldLock ? "not-allowed" : "move",
+      });
+    });
+    c.discardActiveObject();
+    c.requestRenderAll();
+    pushHistory();
+    showToast(shouldLock ? `Locked ${objs.length} object(s)` : `Unlocked ${objs.length} object(s)`, "success");
+  }, [pushHistory, showToast]);
+
+  const unlockAll = useCallback(() => {
+    const c = fcRef.current;
+    if (!c) return;
+    let n = 0;
+    c.getObjects().forEach((o) => {
+      if (!(o as any).__locked) return;
+      (o as any).__locked = false;
+      o.set({
+        selectable: true, evented: true,
+        lockMovementX: false, lockMovementY: false, lockRotation: false,
+        lockScalingX: false, lockScalingY: false, hoverCursor: "move",
+      });
+      n += 1;
+    });
+    c.requestRenderAll();
+    if (n) { pushHistory(); showToast(`Unlocked ${n} object(s)`, "success"); }
+    else showToast("Nothing is locked", "info");
+  }, [pushHistory, showToast]);
+
+  /* --- Layers panel --------------------------------------------------- */
+  const [layerRows, setLayerRows] = useState<
+    { index: number; type: string; label: string; locked: boolean; hidden: boolean; active: boolean }[]
+  >([]);
+
+  useEffect(() => {
+    if (!layersOpen) return;
+    const c = fcRef.current;
+    if (!c) return;
+    const activeSet = new Set<fabric.Object>(c.getActiveObjects());
+    const rows = c.getObjects().map((o, index) => {
+      const type = String((o as any).type ?? "object");
+      let label = type.charAt(0).toUpperCase() + type.slice(1);
+      if (isNoteObj(o)) label = "Sticky note";
+      else if (isTextObj(o)) label = String((o as any).text ?? "Text").replace(/\s+/g, " ").slice(0, 34) || "Text";
+      else if (type === "image") label = "Image";
+      else if (type === "path") label = "Drawing";
+      else if (type === "group") label = `Group · ${(o as any).size?.() ?? 0} items`;
+      return {
+        index,
+        type,
+        label,
+        locked: !!(o as any).__locked,
+        hidden: o.visible === false,
+        active: activeSet.has(o),
+      };
+    });
+    setLayerRows(rows.reverse());
+  }, [layersOpen, layersTick]);
+
+  const layerObjectAt = (index: number) => fcRef.current?.getObjects()[index];
+
+  const selectLayer = useCallback((index: number) => {
+    const c = fcRef.current;
+    const o = layerObjectAt(index);
+    if (!c || !o) return;
+    if (o.selectable === false) { showToast("Object is locked — unlock it first", "warning"); return; }
+    c.discardActiveObject();
+    c.setActiveObject(o);
+    c.requestRenderAll();
+  }, [showToast]);
+
+  const toggleLayerLock = useCallback((index: number) => {
+    const c = fcRef.current;
+    const o = layerObjectAt(index);
+    if (!c || !o) return;
+    const locked = !(o as any).__locked;
+    (o as any).__locked = locked;
+    o.set({ selectable: !locked, evented: !locked, lockMovementX: locked, lockMovementY: locked, hoverCursor: locked ? "not-allowed" : "move" });
+    if (locked) c.discardActiveObject();
+    c.requestRenderAll();
+    pushHistory();
+  }, [pushHistory]);
+
+  const toggleLayerVisible = useCallback((index: number) => {
+    const c = fcRef.current;
+    const o = layerObjectAt(index);
+    if (!c || !o) return;
+    o.set({ visible: o.visible === false });
+    c.requestRenderAll();
+    pushHistory();
+  }, [pushHistory]);
+
+  const moveLayer = useCallback((index: number, dir: 1 | -1) => {
+    const c = fcRef.current;
+    const o = layerObjectAt(index);
+    if (!c || !o) return;
+    if (dir > 0) c.bringObjectForward(o); else c.sendObjectBackwards(o);
+    c.requestRenderAll();
+    pushHistory();
+  }, [pushHistory]);
+
+  const deleteLayer = useCallback((index: number) => {
+    const c = fcRef.current;
+    const o = layerObjectAt(index);
+    if (!c || !o) return;
+    c.remove(o);
+    c.discardActiveObject();
+    c.requestRenderAll();
+    pushHistory();
+  }, [pushHistory]);
+
+  /* --- Miro-style starter templates ----------------------------------- */
+  const applyTemplate = useCallback((id: string) => {
+    const c = fcRef.current;
+    if (!c) return;
+    const cp = c.getVpCenter();
+    const ink = theme.ink;
+    const add = (o: fabric.Object) => { c.add(o); return o; };
+
+    const box = (x: number, y: number, w: number, h: number, text: string, accent: string) => {
+      const rect = new fabric.Rect({
+        left: x, top: y, width: w, height: h, rx: 14, ry: 14,
+        fill: `${accent}1f`, stroke: accent, strokeWidth: 2, strokeUniform: true,
+      });
+      const label = new fabric.Textbox(text, {
+        left: x + 14, top: y + 14, width: Math.max(40, w - 28),
+        fontSize: 16, fontFamily: FONTS[0].family, fill: ink, lineHeight: 1.25,
+      });
+      return add(new fabric.Group([rect, label]));
+    };
+    const link = (x1: number, y1: number, x2: number, y2: number, color: string) =>
+      add(new fabric.Path(arrowPathD(x1, y1, x2, y2, 2, false), {
+        stroke: color, strokeWidth: 2, fill: "", strokeUniform: true, strokeLineCap: "round",
+      }));
+    const text = (s: string, x: number, y: number, size = 18, color = ink, w = 320) =>
+      add(new fabric.Textbox(s, { left: x, top: y, width: w, fontSize: size, fontFamily: FONTS[0].family, fill: color, lineHeight: 1.25 }));
+
+    switch (id) {
+      case "mindmap": {
+        const cx = cp.x - 110, cy = cp.y - 44;
+        box(cx, cy, 220, 88, "Central idea", "#8b5cf6");
+        const branches = [
+          { dx: -320, dy: -190, t: "Branch 1" },
+          { dx: 200, dy: -190, t: "Branch 2" },
+          { dx: -320, dy: 150, t: "Branch 3" },
+          { dx: 200, dy: 150, t: "Branch 4" },
+        ];
+        branches.forEach((b) => {
+          box(cx + b.dx, cy + b.dy, 180, 80, b.t, "#22d3ee");
+          const sx = b.dx < 0 ? cx : cx + 220;
+          const sy = cy + 44;
+          const ex = b.dx < 0 ? cx + b.dx + 180 : cx + b.dx;
+          const ey = cy + b.dy + 40;
+          link(sx, sy, ex, ey, "#64748b");
+        });
+        break;
+      }
+      case "kanban": {
+        const cols = ["To do", "In progress", "Done"];
+        const colors = ["#f59e0b", "#3b82f6", "#10b981"];
+        const startX = cp.x - 390;
+        cols.forEach((title, i) => {
+          const x = startX + i * 264;
+          box(x, cp.y - 200, 240, 56, title, colors[i]);
+          box(x, cp.y - 128, 240, 84, "Card title\nAdd details…", "#64748b");
+          box(x, cp.y - 32, 240, 84, "Card title\nAdd details…", "#64748b");
+        });
+        break;
+      }
+      case "flow": {
+        const x = cp.x - 110;
+        box(x, cp.y - 240, 220, 80, "Start", "#10b981");
+        box(x, cp.y - 100, 220, 80, "Process step", "#3b82f6");
+        box(x, cp.y + 40, 220, 80, "Decision?", "#f59e0b");
+        box(x, cp.y + 180, 220, 80, "Done", "#8b5cf6");
+        link(x + 110, cp.y - 160, x + 110, cp.y - 100, "#64748b");
+        link(x + 110, cp.y - 20, x + 110, cp.y + 40, "#64748b");
+        link(x + 110, cp.y + 120, x + 110, cp.y + 180, "#64748b");
+        break;
+      }
+      case "swot": {
+        const cells = [
+          { t: "Strengths", c: "#10b981", dx: -280, dy: -220 },
+          { t: "Weaknesses", c: "#f59e0b", dx: 0, dy: -220 },
+          { t: "Opportunities", c: "#3b82f6", dx: -280, dy: 0 },
+          { t: "Threats", c: "#ef4444", dx: 0, dy: 0 },
+        ];
+        cells.forEach((cell) => box(cp.x + cell.dx, cp.y + cell.dy, 260, 200, `${cell.t}\n\n`, cell.c));
+        break;
+      }
+      case "cornell": {
+        const w = 720, h = 480;
+        const x = cp.x - w / 2, y = cp.y - h / 2;
+        add(new fabric.Rect({ left: x, top: y, width: w, height: h, fill: "transparent", stroke: "#94a3b8", strokeWidth: 2 }));
+        add(new fabric.Line([x + 200, y, x + 200, y + h], { stroke: "#94a3b8", strokeWidth: 2 }));
+        add(new fabric.Line([x, y + h - 140, x + w, y + h - 140], { stroke: "#94a3b8", strokeWidth: 2 }));
+        text("Cues / questions", x + 12, y + 12, 16, "#94a3b8", 176);
+        text("Notes", x + 216, y + 12, 16, "#94a3b8", w - 236);
+        text("Summary", x + 12, y + h - 128, 16, "#94a3b8", w - 24);
+        break;
+      }
+      case "timeline": {
+        const y = cp.y;
+        const x0 = cp.x - 360;
+        add(new fabric.Line([x0, y, x0 + 720, y], { stroke: "#64748b", strokeWidth: 3 }));
+        for (let i = 0; i < 5; i += 1) {
+          const px = x0 + i * 180;
+          add(new fabric.Circle({ left: px - 9, top: y - 9, radius: 9, fill: "#22d3ee", stroke: "#0ea5e9", strokeWidth: 2 }));
+          text(`Milestone ${i + 1}`, px - 70, y + 24, 14, ink, 160);
+        }
+        break;
+      }
+      default:
+        break;
+    }
+
+    c.requestRenderAll();
+    pushHistory();
+    setTemplatesOpen(false);
+    showToast("Template added to the board", "success");
+  }, [theme.ink, pushHistory, showToast]);
 
   /* --- Slide Deck Operations ----------------------------------------- */
   const persistSlides = useCallback((updatedSlides: { id: string; title: string; json: string }[]) => {
@@ -2021,6 +2343,8 @@ export function FabricWhiteboard({
     cbs.current = {
       undo, redo, duplicate, copy: copySel, paste, deleteSel,
       resetView, fitView, selectAll,
+      group: groupSelection, ungroup: ungroupSelection,
+      lockSel: lockSelection, unlockAll,
     };
   });
 
@@ -2395,8 +2719,17 @@ export function FabricWhiteboard({
           <canvas ref={canvasElRef} />
         </div>
 
-        {/* ============================================ TOP-LEFT: menu === */}
-        <div className="pointer-events-none absolute left-3 top-3 z-30 flex gap-2">
+        {/* ============================================================
+            TOP BAR — one flex row: menu | tools | history+export.
+            Previously each cluster was absolutely positioned, so the
+            centred toolbar slid underneath "Exit Fullscreen"/"Export"
+            at any window narrower than ~1400px (the Mermaid and Markdown
+            buttons became invisible). Flex guarantees no overlap: the
+            toolbar shrinks and scrolls instead.
+           ============================================================ */}
+        <div ref={topBarRef} className="pointer-events-none absolute inset-x-0 top-0 z-30 flex flex-wrap items-start gap-2 p-3">
+        {/* LEFT: menu */}
+        <div className="pointer-events-none order-1 flex shrink-0 gap-2">
           <div className={`${island} relative p-1`}>
             <button
               onClick={() => { setMenuOpen(v => !v); setExportOpen(false); }}
@@ -2489,9 +2822,10 @@ export function FabricWhiteboard({
           </div>
         </div>
 
-{/* ============================================ CONTEXTUAL FLOATING SELECTION BAR */}
+{/* CONTEXTUAL SELECTION BAR — own full-width row (order-4) so it can never
+            sit on top of the toolbar, whatever the window width. */}
         {hasSel && (
-          <div className="pointer-events-none absolute left-1/2 top-16 z-30 flex -translate-x-1/2">
+          <div className="pointer-events-none order-4 flex w-full justify-center">
             <div className={`${island} flex items-center gap-1.5 p-1 shadow-2xl border border-cyan-500/30 bg-slate-900/95 backdrop-blur-xl`}>
               <button
                 onClick={bringFront}
@@ -2549,9 +2883,10 @@ export function FabricWhiteboard({
           </div>
         )}
 
-                {/* ============================================ TOP-CENTER: tools == */}
-        <div className="pointer-events-none absolute left-1/2 top-3 z-30 flex -translate-x-1/2">
-          <div className={`${island} scrollbar-none flex max-w-[calc(100vw-24px)] items-center gap-0.5 overflow-x-auto p-1`}>
+        {/* CENTER: tools — wraps onto extra rows on narrow windows so every
+            button stays reachable instead of scrolling out of sight. */}
+        <div className="pointer-events-none order-2 flex min-w-0 flex-1 justify-center">
+          <div className={`${island} flex w-fit max-w-full flex-wrap items-center justify-center gap-0.5 p-1`}>
             {TOOLS.map(({ id, icon: Icon, label, key, accent }, i) => {
               const active = tool === id;
               return (
@@ -2598,6 +2933,53 @@ export function FabricWhiteboard({
             >
               <FileText className="h-[17px] w-[17px]" />
             </button>
+            <div className="mx-1 h-6 w-px bg-white/10" />
+            <button
+              onClick={() => { setTemplatesOpen(true); setLayersOpen(false); }}
+              title="Templates — mind map, kanban, flow, SWOT, Cornell, timeline"
+              className={`${iconBtn} shrink-0 ${templatesOpen ? "bg-indigo-500 text-white" : "text-slate-400 hover:bg-white/10 hover:text-indigo-300"}`}
+            >
+              <LayoutTemplate className="h-[17px] w-[17px]" />
+            </button>
+            <button
+              onClick={() => {
+                setLayersOpen((v) => {
+                  const next = !v;
+                  layersOpenRef.current = next;
+                  if (next) setLayersTick((t) => (t + 1) % 100000);
+                  return next;
+                });
+                setTemplatesOpen(false);
+              }}
+              title="Layers panel"
+              className={`${iconBtn} shrink-0 ${layersOpen ? "bg-cyan-500 text-slate-950" : "text-slate-400 hover:bg-white/10 hover:text-cyan-300"}`}
+            >
+              <Layers className="h-[17px] w-[17px]" />
+            </button>
+            <div className="mx-1 h-6 w-px bg-white/10" />
+            <button
+              onClick={groupSelection}
+              disabled={!isMultiSel}
+              title="Group selection (Ctrl+G)"
+              className={`${iconBtn} shrink-0 ${isMultiSel ? "text-slate-400 hover:bg-white/10 hover:text-white" : "text-slate-600"}`}
+            >
+              <GroupIcon className="h-[17px] w-[17px]" />
+            </button>
+            <button
+              onClick={ungroupSelection}
+              title="Ungroup selection (Ctrl+Shift+G)"
+              className={`${iconBtn} shrink-0 text-slate-400 hover:bg-white/10 hover:text-white`}
+            >
+              <UngroupIcon className="h-[17px] w-[17px]" />
+            </button>
+            <button
+              onClick={lockSelection}
+              disabled={!hasSel}
+              title="Lock / unlock selection (Ctrl+L)"
+              className={`${iconBtn} shrink-0 ${hasSel ? "text-slate-400 hover:bg-white/10 hover:text-amber-300" : "text-slate-600"}`}
+            >
+              <Lock className="h-[17px] w-[17px]" />
+            </button>
             <button
               onClick={() => imgFileRef.current?.click()}
               title="Insert image"
@@ -2615,8 +2997,8 @@ export function FabricWhiteboard({
           </div>
         </div>
 
-        {/* ============================================ TOP-RIGHT: history / export */}
-        <div className="pointer-events-none absolute right-3 top-3 z-30 flex gap-2">
+        {/* RIGHT: history / fullscreen / export */}
+        <div className="pointer-events-none order-3 flex shrink-0 flex-wrap justify-end gap-2">
           <div className={`${island} flex items-center gap-0.5 p-1`}>
             <button
               onClick={undo}
@@ -2716,10 +3098,15 @@ export function FabricWhiteboard({
             )}
           </div>
         </div>
+        </div>{/* /TOP BAR */}
 
-        {/* ============================================ LEFT: properties (contextual) */}
+        {/* LEFT: properties (contextual) — starts below the bar; pushed further
+            down when the selection row is visible so the two never collide. */}
         {showProps && (
-          <div className="pointer-events-none absolute bottom-16 left-3 top-16 z-20 flex items-start">
+          <div
+            className="pointer-events-none absolute bottom-16 left-3 z-20 flex items-start transition-[top] duration-150"
+            style={{ top: barH }}
+          >
             <div className={`${island} scrollbar-none w-[214px] max-h-full space-y-3 overflow-y-auto p-3`}>
               {(tool === "note" || selIsNote) ? (
                 <>
@@ -3052,7 +3439,101 @@ export function FabricWhiteboard({
           </div>
         )}
 
-        {/* ============================================ BOTTOM-CENTER: Slide Deck Controller */}
+        {/* ============================================ RIGHT: Layers panel */}
+        {layersOpen && (
+          <div className="pointer-events-none absolute bottom-16 right-3 z-20 flex w-[250px] items-start" style={{ top: barH }}>
+            <div className={`${island} flex max-h-full w-full flex-col overflow-hidden`}>
+              <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-3 py-2">
+                <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-cyan-300">
+                  <Layers className="h-3.5 w-3.5" /> Layers
+                </span>
+                <div className="flex items-center gap-0.5">
+                  <button
+                    onClick={unlockAll}
+                    title="Unlock everything"
+                    className="rounded-md px-1.5 py-1 text-[10px] font-semibold text-slate-400 hover:bg-white/10 hover:text-amber-300"
+                  >
+                    Unlock all
+                  </button>
+                  <button
+                    onClick={() => { setLayersOpen(false); layersOpenRef.current = false; }}
+                    className="rounded-md p-1 text-slate-400 hover:bg-white/10 hover:text-white"
+                    title="Close layers"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto p-1.5">
+                {layerRows.length === 0 ? (
+                  <p className="px-2 py-6 text-center text-[11px] text-slate-500">
+                    Board is empty — draw something and it will appear here.
+                  </p>
+                ) : (
+                  layerRows.map((row) => (
+                    <div
+                      key={row.index}
+                      className={`group flex items-center gap-1 rounded-lg px-1.5 py-1 ${
+                        row.active ? "bg-cyan-500/15 ring-1 ring-cyan-500/40" : "hover:bg-white/5"
+                      }`}
+                    >
+                      <button
+                        onClick={() => selectLayer(row.index)}
+                        className={`min-w-0 flex-1 truncate text-left text-[11px] ${
+                          row.locked ? "text-slate-500" : "text-slate-200"
+                        }`}
+                        title={row.label}
+                      >
+                        {row.label}
+                      </button>
+                      <button
+                        onClick={() => moveLayer(row.index, 1)}
+                        title="Move up (forward)"
+                        className="rounded p-0.5 text-slate-500 opacity-0 transition group-hover:opacity-100 hover:bg-white/10 hover:text-white"
+                      >
+                        <ChevronsUp className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => moveLayer(row.index, -1)}
+                        title="Move down (backward)"
+                        className="rounded p-0.5 text-slate-500 opacity-0 transition group-hover:opacity-100 hover:bg-white/10 hover:text-white"
+                      >
+                        <ChevronsDown className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => toggleLayerVisible(row.index)}
+                        title={row.hidden ? "Show" : "Hide"}
+                        className={`rounded p-0.5 hover:bg-white/10 ${row.hidden ? "text-slate-600" : "text-slate-400 hover:text-white"}`}
+                      >
+                        {row.hidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                      </button>
+                      <button
+                        onClick={() => toggleLayerLock(row.index)}
+                        title={row.locked ? "Unlock" : "Lock"}
+                        className={`rounded p-0.5 hover:bg-white/10 ${row.locked ? "text-amber-300" : "text-slate-400 hover:text-amber-300"}`}
+                      >
+                        <Lock className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => deleteLayer(row.index)}
+                        title="Delete"
+                        className="rounded p-0.5 text-slate-500 hover:bg-rose-500/20 hover:text-rose-300"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="shrink-0 border-t border-white/10 px-3 py-1.5 text-[10px] text-slate-500">
+                {layerRows.length} object{layerRows.length === 1 ? "" : "s"} · top of list = front
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center">
           <div className={`${island} flex items-center gap-1.5 px-3 py-1.5 shadow-xl`}>
             <button
@@ -3119,6 +3600,71 @@ export function FabricWhiteboard({
           {hint}
         </div>
 
+        {/* ============================================ BOTTOM-RIGHT: hint */}
+        <div className="pointer-events-none absolute bottom-3 right-3 z-20 hidden rounded-xl border border-white/10 bg-slate-950/70 px-3 py-1.5 text-[11px] font-medium text-slate-400 backdrop-blur-xl md:block">
+          {hint}
+        </div>
+
+        {/* ============================================ Templates gallery (Miro-style) */}
+        {templatesOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-md"
+            onClick={() => setTemplatesOpen(false)}
+          >
+            <div
+              className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-950/40 px-5 py-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-indigo-500/30 bg-indigo-500/20 text-indigo-300">
+                    <LayoutTemplate className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">Templates</h3>
+                    <p className="text-[11px] text-slate-400">Drop a ready-made board layout, then edit anything on it</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setTemplatesOpen(false)}
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto p-5">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+                  {[
+                    { id: "mindmap",  name: "Mind map",        desc: "Central idea + 4 branches",      icon: GitFork,        tint: "from-violet-500/20 to-violet-500/5 border-violet-500/30 text-violet-300" },
+                    { id: "kanban",   name: "Kanban board",    desc: "To do · In progress · Done",     icon: Layers,         tint: "from-blue-500/20 to-blue-500/5 border-blue-500/30 text-blue-300" },
+                    { id: "flow",     name: "Flowchart",       desc: "Start → process → decision → done", icon: GitFork,     tint: "from-emerald-500/20 to-emerald-500/5 border-emerald-500/30 text-emerald-300" },
+                    { id: "swot",     name: "SWOT analysis",   desc: "Strengths, weaknesses, opportunities, threats", icon: LayoutTemplate, tint: "from-amber-500/20 to-amber-500/5 border-amber-500/30 text-amber-300" },
+                    { id: "cornell",  name: "Cornell notes",   desc: "Cues · notes · summary layout",  icon: FileText,       tint: "from-cyan-500/20 to-cyan-500/5 border-cyan-500/30 text-cyan-300" },
+                    { id: "timeline", name: "Timeline",        desc: "5 milestones on a horizontal line", icon: Scan,        tint: "from-rose-500/20 to-rose-500/5 border-rose-500/30 text-rose-300" },
+                  ].map((tpl) => {
+                    const TplIcon = tpl.icon;
+                    return (
+                      <button
+                        key={tpl.id}
+                        onClick={() => applyTemplate(tpl.id)}
+                        className={`group flex flex-col items-start gap-2 rounded-xl border bg-gradient-to-br p-3 text-left transition hover:scale-[1.02] hover:shadow-lg ${tpl.tint}`}
+                      >
+                        <TplIcon className="h-5 w-5" />
+                        <span className="text-xs font-bold text-white">{tpl.name}</span>
+                        <span className="text-[11px] leading-snug text-slate-400">{tpl.desc}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-4 text-[11px] text-slate-500">
+                  Templates are inserted at the centre of your current view and can be moved, restyled or deleted like any other object.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ============================================ Mermaid Diagram Studio Modal */}
         {mermaidModalOpen && (
           <div
@@ -3130,7 +3676,7 @@ export function FabricWhiteboard({
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 bg-slate-950/40">
+              <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-5 py-4 bg-slate-950/40">
                 <div className="flex items-center gap-2.5">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
                     <GitFork className="h-4 w-4" />
@@ -3213,8 +3759,8 @@ export function FabricWhiteboard({
                     <textarea
                       value={mermaidCode}
                       onChange={(e) => setMermaidCode(e.target.value)}
-                      rows={10}
-                      className="w-full font-mono text-xs rounded-xl border border-white/10 bg-slate-950/80 p-3 text-slate-200 focus:border-cyan-500 focus:outline-none resize-none"
+                      rows={12}
+                      className="w-full h-[240px] font-mono text-xs rounded-xl border border-white/10 bg-slate-950/80 p-3 text-slate-200 focus:border-cyan-500 focus:outline-none resize-none"
                       spellCheck={false}
                     />
                     {mermaidError && (
@@ -3225,10 +3771,13 @@ export function FabricWhiteboard({
                     <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
                       Live Preview
                     </label>
-                    <div className="flex items-center justify-center min-h-[220px] max-h-[260px] overflow-auto rounded-xl border border-white/10 bg-slate-950/40 p-4">
+                    {/* Fixed viewport; the SVG is forced to fit. Mermaid emits
+                        width="100%" with no height, so overriding width with
+                        w-auto collapsed it to 0x0 — never do that. */}
+                    <div className="flex h-[240px] items-center justify-center overflow-auto rounded-xl border border-white/10 bg-slate-950/40 p-3">
                       {mermaidPreviewSvg ? (
                         <div
-                          className="max-w-full"
+                          className="w-full [&>svg]:h-[208px] [&>svg]:w-full"
                           dangerouslySetInnerHTML={{ __html: mermaidPreviewSvg }}
                         />
                       ) : (
@@ -3242,7 +3791,7 @@ export function FabricWhiteboard({
               </div>
 
               {/* Footer */}
-              <div className="flex items-center justify-end gap-2 border-t border-white/10 px-5 py-3 bg-slate-950/40">
+              <div className="flex shrink-0 items-center justify-end gap-2 border-t border-white/10 px-5 py-3 bg-slate-950/40">
                 <button
                   onClick={() => setMermaidModalOpen(false)}
                   className="rounded-lg border border-white/10 px-3.5 py-1.5 text-xs font-semibold text-slate-300 hover:bg-white/10"
@@ -3272,7 +3821,7 @@ export function FabricWhiteboard({
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 bg-slate-950/40">
+              <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-5 py-4 bg-slate-950/40">
                 <div className="flex items-center gap-2.5">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/30">
                     <FileText className="h-4 w-4" />
@@ -3365,21 +3914,27 @@ export function FabricWhiteboard({
 
                   <div>
                     <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Visual Preview</label>
-                    <div className="rounded-xl border border-white/10 bg-slate-950/80 p-4 h-[280px] overflow-y-auto space-y-2">
-                      <div className="flex items-center gap-2 pb-2 border-b border-white/10">
+                    <div className="rounded-xl border border-white/10 bg-slate-950/80 p-4 h-[300px] overflow-y-auto">
+                      <div className="flex items-center gap-2 pb-2 mb-2 border-b border-white/10">
                         <div className="h-3 w-3 rounded-full" style={{ backgroundColor: markdownAccent }} />
                         <h4 className="text-xs font-bold text-white">{markdownTitle || "Untitled Card"}</h4>
                       </div>
-                      <div className="text-[11px] text-slate-300 whitespace-pre-wrap font-sans leading-relaxed">
-                        {markdownContent}
-                      </div>
+                      {/* Real Markdown rendering (headings, lists, code, tables,
+                          math, mermaid) instead of raw pre-wrapped text. */}
+                      {markdownContent.trim() ? (
+                        <div className="text-[11px]">
+                          <MarkdownRenderer content={markdownContent} />
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-slate-500 italic">Nothing to preview yet — start typing Markdown on the left.</p>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="flex items-center justify-end gap-2 border-t border-white/10 px-5 py-3 bg-slate-950/40">
+              <div className="flex shrink-0 items-center justify-end gap-2 border-t border-white/10 px-5 py-3 bg-slate-950/40">
                 <button
                   onClick={() => setMarkdownModalOpen(false)}
                   className="rounded-lg border border-white/10 px-3.5 py-1.5 text-xs font-semibold text-slate-300 hover:bg-white/10"
