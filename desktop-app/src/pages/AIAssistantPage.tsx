@@ -13,6 +13,7 @@ import { toDurationLabel } from "@/utils/time";
 import { db } from "@/lib/db";
 import { MarkdownRenderer } from "@/components/common/MarkdownRenderer";
 import { fetchLiveModels, FALLBACK_MODELS, type FetchedModel } from "@/utils/aiModelFetcher";
+import { decodeAiProviderError, universalAiFetch } from "@/utils/aiClient";
 
 // --- Universal Markdown & Mermaid Renderer -----------------------------
 function Markdown({ text }: { text: string }) {
@@ -85,37 +86,100 @@ export interface ChatSession {
 
 const SESSIONS_STORAGE_KEY = "flowtrack_ai_chat_sessions_v2";
 
-// ─── Provider Configs ──────────────────────────────────────────────────
-const PROVIDERS = [
-  { id: "local_rules", name: "Local AI Rules (Free & Private)", needsKey: false, defaultModel: "local-rules" },
-  { id: "gemini", name: "Google Gemini", needsKey: true, defaultModel: "gemini-1.5-flash" },
-  { id: "groq", name: "Groq Cloud ⚡ (Ultra-Fast)", needsKey: true, defaultModel: "llama-3.3-70b-versatile" },
-  { id: "cerebras", name: "Cerebras API (Ultra-Fast)", needsKey: true, defaultModel: "llama3.1-8b" },
-  { id: "openai", name: "OpenAI ChatGPT", needsKey: true, defaultModel: "gpt-4o-mini" },
-  { id: "mistral", name: "Mistral AI", needsKey: true, defaultModel: "mistral-small-latest" },
-  { id: "grok", name: "xAI Grok", needsKey: true, defaultModel: "grok-beta" },
-  { id: "ollama", name: "Ollama (Local Offline)", needsKey: false, defaultModel: "llama3:latest" },
-  { id: "custom", name: "Custom Provider", needsKey: true, defaultModel: "" }
-] as const;
+export type ProviderTier = "free" | "trial" | "paid";
 
-function getProviderEndpoint(provider: AiConfig["provider"], _model: string, ollamaUrl: string, customEndpoint?: string) {
+export interface ProviderItem {
+  id: AiConfig["provider"];
+  name: string;
+  needsKey: boolean;
+  defaultModel: string;
+  isFree: boolean;
+  tier: ProviderTier;
+  keyUrl: string;
+  badge: string;
+  desc: string;
+}
+
+// ─── Provider Configs Categorized by Verified Tiers (20+ Platforms) ───
+export const PROVIDERS: ProviderItem[] = [
+  // ── 🟢 100% Free (No Credit Card / Zero Deposit Needed) ──
+  { id: "local_rules", name: "🛡️ Local AI Rules (100% Free & Offline)", needsKey: false, defaultModel: "local-rules", isFree: true, tier: "free", badge: "100% Free", desc: "No internet or API key required. Built-in academic study mentor.", keyUrl: "" },
+  { id: "groq", name: "⚡ Groq Cloud (100% Free Ultra-Fast)", needsKey: true, defaultModel: "llama-3.3-70b-versatile", isFree: true, tier: "free", badge: "100% Free • No Card", desc: "Free tier with ultra-fast LPU inference (Llama 3.3 70B & 8B). Zero card needed.", keyUrl: "https://console.groq.com/keys" },
+  { id: "openrouter", name: "🌐 OpenRouter (Free :free Models)", needsKey: true, defaultModel: "openrouter/free", isFree: true, tier: "free", badge: "100% Free • No Card", desc: "Access free models like openrouter/free, Llama 3.3 :free, and DeepSeek R1 :free without credits.", keyUrl: "https://openrouter.ai/keys" },
+  { id: "gemini", name: "🌟 Google Gemini (Free 15 RPM Tier)", needsKey: true, defaultModel: "gemini-1.5-flash", isFree: true, tier: "free", badge: "100% Free • No Card", desc: "Free 15 requests/minute on Google AI Studio without credit card.", keyUrl: "https://aistudio.google.com/app/apikey" },
+  { id: "github_models", name: "🐙 GitHub Models (Free for Developers)", needsKey: true, defaultModel: "gpt-4o-mini", isFree: true, tier: "free", badge: "100% Free • GitHub Token", desc: "Free playground & inference for developers with a GitHub Personal Access Token.", keyUrl: "https://github.com/marketplace/models" },
+  { id: "huggingface", name: "🤗 Hugging Face (Free Serverless)", needsKey: true, defaultModel: "mistralai/Mistral-7B-Instruct-v0.3", isFree: true, tier: "free", badge: "100% Free • HF Token", desc: "Free serverless inference on router.huggingface.co with your HF user token.", keyUrl: "https://huggingface.co/settings/tokens" },
+  { id: "ollama", name: "🦙 Ollama Local (100% Free Offline)", needsKey: false, defaultModel: "llama3:latest", isFree: true, tier: "free", badge: "Local Offline", desc: "Runs completely locally on your hardware on localhost:11434.", keyUrl: "https://ollama.ai" },
+  { id: "lmstudio", name: "💻 LM Studio (Local Offline Port 1234)", needsKey: false, defaultModel: "local-model", isFree: true, tier: "free", badge: "Local Offline", desc: "Runs locally on your machine on localhost:1234.", keyUrl: "https://lmstudio.ai" },
+
+  // ── 🟡 Free Trial / Promo Credits (Credit Card / Activation Required) ──
+  { id: "cerebras", name: "🏎️ Cerebras API ($5 Trial - Card Required)", needsKey: true, defaultModel: "llama3.1-8b", isFree: false, tier: "trial", badge: "Trial • Card Required", desc: "Provides $5 free credits, but requires adding a credit card / payment method in cloud.cerebras.ai to activate.", keyUrl: "https://cloud.cerebras.ai" },
+  { id: "sambanova", name: "🚀 SambaNova Cloud (Developer Tier)", needsKey: true, defaultModel: "Meta-Llama-3.1-70B-Instruct", isFree: false, tier: "trial", badge: "Trial • Setup Required", desc: "Developer tier requires verification for sustained RPM usage.", keyUrl: "https://cloud.sambanova.ai" },
+  { id: "together", name: "🤝 Together AI ($5 Trial Credits)", needsKey: true, defaultModel: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", isFree: false, tier: "trial", badge: "Trial Credits", desc: "$5 free trial credits upon account registration and phone verification.", keyUrl: "https://api.together.ai" },
+  { id: "deepinfra", name: "⚡ DeepInfra (Trial Credits)", needsKey: true, defaultModel: "meta-llama/Meta-Llama-3.1-8B-Instruct", isFree: false, tier: "trial", badge: "Trial Credits", desc: "Free trial credits for new accounts; requires active balance afterwards.", keyUrl: "https://deepinfra.com" },
+  { id: "novita", name: "💫 Novita AI (Trial Credits)", needsKey: true, defaultModel: "meta-llama/llama-3.1-8b-instruct", isFree: false, tier: "trial", badge: "Trial Credits", desc: "Free trial balance on signup; requires balance top-up for long-term use.", keyUrl: "https://novita.ai" },
+
+  // ── 🔴 Paid / Commercial Flagships (Balance / Subscription Required) ──
+  { id: "mistral", name: "🇫🇷 Mistral AI (Pay-as-you-go)", needsKey: true, defaultModel: "mistral-small-latest", isFree: false, tier: "paid", badge: "Paid • Billing Required", desc: "Tier 0 accounts have 0 compute quota. Requires adding phone or billing card on console.mistral.ai (returns 429 otherwise).", keyUrl: "https://console.mistral.ai" },
+  { id: "openai", name: "🤖 OpenAI ChatGPT (GPT-4o / 4o-mini)", needsKey: true, defaultModel: "gpt-4o-mini", isFree: false, tier: "paid", badge: "Paid • Prepaid Balance", desc: "Requires prepaid API credit balance on platform.openai.com.", keyUrl: "https://platform.openai.com/api-keys" },
+  { id: "deepseek", name: "🧠 DeepSeek Direct (V3 & R1)", needsKey: true, defaultModel: "deepseek-chat", isFree: false, tier: "paid", badge: "Paid • Prepaid Balance", desc: "Direct official API. Requires adding credit balance on platform.deepseek.com.", keyUrl: "https://platform.deepseek.com" },
+  { id: "grok", name: "🛸 xAI Grok (Grok Beta / Vision)", needsKey: true, defaultModel: "grok-beta", isFree: false, tier: "paid", badge: "Paid • X Account Billing", desc: "Requires paid credits on console.x.ai.", keyUrl: "https://console.x.ai" },
+  { id: "cohere", name: "🧭 Cohere (Command R / R+)", needsKey: true, defaultModel: "command-r", isFree: false, tier: "paid", badge: "Paid", desc: "Pay-as-you-go developer tokens.", keyUrl: "https://dashboard.cohere.com/api-keys" },
+  { id: "perplexity", name: "🔍 Perplexity AI (Sonar Search)", needsKey: true, defaultModel: "sonar", isFree: false, tier: "paid", badge: "Paid • Pro/API Balance", desc: "Requires API credit balance on perplexity.ai.", keyUrl: "https://www.perplexity.ai/settings/api" },
+  { id: "hyperbolic", name: "🌀 Hyperbolic (Fast Open Source)", needsKey: true, defaultModel: "meta-llama/Meta-Llama-3.1-70B-Instruct", isFree: false, tier: "paid", badge: "Paid", desc: "Requires account balance on hyperbolic.xyz.", keyUrl: "https://hyperbolic.xyz" },
+  { id: "fireworks", name: "🎆 Fireworks AI (Fast Open Source)", needsKey: true, defaultModel: "accounts/fireworks/models/llama-v3p1-70b-instruct", isFree: false, tier: "paid", badge: "Paid", desc: "Requires payment account on fireworks.ai.", keyUrl: "https://fireworks.ai" },
+  { id: "cloudflare", name: "☁️ Cloudflare Workers AI", needsKey: true, defaultModel: "@cf/meta/llama-3.1-8b-instruct", isFree: false, tier: "paid", badge: "Account Required", desc: "Requires Cloudflare account ID and API token.", keyUrl: "https://dash.cloudflare.com" },
+  { id: "custom", name: "🔌 Custom OpenAI-Compatible Provider", needsKey: true, defaultModel: "", isFree: false, tier: "paid", badge: "Custom", desc: "Custom self-hosted or proxy endpoint.", keyUrl: "" }
+];
+
+function getProviderEndpoint(provider: AiConfig["provider"], _model: string, ollamaUrl: string, customEndpoint?: string, cloudflareAccountId?: string) {
   switch (provider) {
-    case "openai":  return "https://api.openai.com/v1/chat/completions";
-    case "groq":    return "https://api.groq.com/openai/v1/chat/completions";
-    case "cerebras":return "https://api.cerebras.ai/v1/chat/completions";
-    case "mistral": return "https://api.mistral.ai/v1/chat/completions";
-    case "grok":    return "https://api.x.ai/v1/chat/completions";
-    case "ollama":  return `${ollamaUrl}/v1/chat/completions`;
-    case "custom":  return customEndpoint || "";
-    default:        return "";
+    case "groq":          return "https://api.groq.com/openai/v1/chat/completions";
+    case "openrouter":    return "https://openrouter.ai/api/v1/chat/completions";
+    case "sambanova":     return "https://api.sambanova.ai/v1/chat/completions";
+    case "cerebras":      return "https://api.cerebras.ai/v1/chat/completions";
+    case "deepseek":      return "https://api.deepseek.com/chat/completions";
+    case "github_models": return "https://models.inference.ai.azure.com/chat/completions";
+    case "huggingface":   return "https://router.huggingface.co/v1/chat/completions";
+    case "together":      return "https://api.together.ai/v1/chat/completions";
+    case "deepinfra":     return "https://api.deepinfra.com/v1/openai/chat/completions";
+    case "novita":        return "https://api.novita.ai/v3/openai/chat/completions";
+    case "hyperbolic":    return "https://api.hyperbolic.xyz/v1/chat/completions";
+    case "fireworks":     return "https://api.fireworks.ai/inference/v1/chat/completions";
+    case "cohere":        return "https://api.cohere.com/v2/chat";
+    case "perplexity":    return "https://api.perplexity.ai/chat/completions";
+    case "mistral":       return "https://api.mistral.ai/v1/chat/completions";
+    case "grok":          return "https://api.x.ai/v1/chat/completions";
+    case "openai":        return "https://api.openai.com/v1/chat/completions";
+    case "cloudflare": {
+      const acc = (cloudflareAccountId || "").trim() || "ai";
+      return `https://api.cloudflare.com/client/v4/accounts/${acc}/ai/v1/chat/completions`;
+    }
+    case "ollama":        return `${ollamaUrl}/v1/chat/completions`;
+    case "lmstudio":      return "http://localhost:1234/v1/chat/completions";
+    case "custom":        return customEndpoint || "";
+    default:              return "";
   }
 }
 
 function getProviderHeaders(provider: AiConfig["provider"], apiKey: string): Record<string, string> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (provider === "ollama") return headers;
+  if (provider === "ollama" || provider === "lmstudio" || provider === "local_rules") return headers;
   if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+  if (provider === "openrouter") {
+    headers["HTTP-Referer"] = "https://flowtrack.pro";
+    headers["X-Title"] = "FlowTrack Pro";
+  }
   return headers;
+}
+
+export function getValidModelForProvider(targetProv: AiConfig["provider"], currentModel?: string): string {
+  if (currentModel && currentModel.trim()) {
+    return currentModel.trim();
+  }
+  const matched = PROVIDERS.find(p => p.id === targetProv);
+  const fallbacks = FALLBACK_MODELS[targetProv] || [];
+  return matched?.defaultModel || fallbacks[0]?.id || "";
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -140,11 +204,12 @@ export function AIAssistantPage() {
   const [apiKey, setApiKey]         = useState(aiConfig?.apiKey ?? "");
   const [model, setModel]           = useState(aiConfig?.model ?? "local-rules");
   const [ollamaUrl, setOllamaUrl]   = useState(aiConfig?.ollamaUrl ?? "http://localhost:11434");
+  const [cloudflareAccountId, setCloudflareAccountId] = useState(aiConfig?.cloudflareAccountId ?? "");
   const [customProviderName, setCustomProviderName] = useState(aiConfig?.customProvider?.name ?? "");
-  const [customProviderEndpoint, setCustomProviderEndpoint] = useState(aiConfig?.customProvider?.endpoint ?? "");
+  const [customProviderEndpoint, setCustomProviderEndpoint] = useState(aiConfig?.customProvider?.endpoint ?? aiConfig?.customProviderEndpoint ?? "");
   const [groqStreaming, setGroqStreaming] = useState(true);
 
-  // Keep separate API keys for each provider
+  // Keep separate API keys and models for each provider
   const [apiKeys, setApiKeys] = useState<Record<string, string>>(() => {
     const initialKeys: Record<string, string> = {
       gemini: "", cerebras: "", openai: "", mistral: "", grok: "", groq: "", ollama: "", local_rules: "",
@@ -153,6 +218,27 @@ export function AIAssistantPage() {
     if (aiConfig?.provider && aiConfig?.apiKey) initialKeys[aiConfig.provider] = aiConfig.apiKey;
     return initialKeys;
   });
+
+  const [providerModels, setProviderModels] = useState<Record<string, string>>(() => {
+    return aiConfig?.models ? { ...aiConfig.models } : {};
+  });
+
+  // Synchronize with centralized Zustand store when loaded
+  useEffect(() => {
+    if (aiConfig?.provider) {
+      setProvider(aiConfig.provider);
+      const savedModel = (aiConfig.models && aiConfig.models[aiConfig.provider]) || aiConfig.model || "";
+      setModel(getValidModelForProvider(aiConfig.provider, savedModel));
+    }
+    const currentKey = (aiConfig?.apiKeys && aiConfig.apiKeys[aiConfig.provider || "local_rules"]) || aiConfig?.apiKey || "";
+    setApiKey(currentKey);
+    if (aiConfig?.apiKeys) setApiKeys(prev => ({ ...prev, ...aiConfig.apiKeys }));
+    if (aiConfig?.models) setProviderModels(prev => ({ ...prev, ...aiConfig.models }));
+    if (aiConfig?.cloudflareAccountId) setCloudflareAccountId(aiConfig.cloudflareAccountId);
+    if (aiConfig?.customProvider?.name) setCustomProviderName(aiConfig.customProvider.name);
+    if (aiConfig?.customProvider?.endpoint) setCustomProviderEndpoint(aiConfig.customProvider.endpoint);
+    else if (aiConfig?.customProviderEndpoint) setCustomProviderEndpoint(aiConfig.customProviderEndpoint);
+  }, [aiConfig]);
 
   // UI state
   const [showConfig, setShowConfig] = useState(false);
@@ -219,11 +305,23 @@ export function AIAssistantPage() {
 
   // Fetch live models from provider
   const refreshLiveModels = useCallback(async (targetProv = provider, targetKey = apiKey) => {
+    const keyToUse = targetKey.trim() || apiKeys[targetProv]?.trim() || "";
+    if (targetProv !== "local_rules" && targetProv !== "ollama" && targetProv !== "lmstudio" && !keyToUse) {
+      setAvailableModels(FALLBACK_MODELS[targetProv] || []);
+      setFetchError(null);
+      return;
+    }
     setFetchingModels(true);
     setFetchError(null);
     try {
-      const res = await fetchLiveModels(targetProv, targetKey, ollamaUrl);
-      setAvailableModels(res.models);
+      const res = await fetchLiveModels(targetProv, keyToUse, ollamaUrl);
+      if (res.models && res.models.length > 0) {
+        setAvailableModels(res.models);
+        setModel(prev => {
+          const exists = res.models.some(m => m.id === prev);
+          return exists ? prev : res.models[0].id;
+        });
+      }
       if (!res.success && res.error) {
         setFetchError(res.error);
       }
@@ -232,7 +330,7 @@ export function AIAssistantPage() {
     } finally {
       setFetchingModels(false);
     }
-  }, [provider, apiKey, ollamaUrl]);
+  }, [provider, apiKey, apiKeys, ollamaUrl]);
 
   // Initial models refresh
   useEffect(() => {
@@ -404,7 +502,7 @@ ${studyContext.recentActivity}`;
   };
 
   // ─── Groq Streaming Fetch ──────────────────────────────────────────
-  const fetchGroqStreaming = async (userMessage: string) => {
+  const fetchGroqStreaming = async (userMessage: string, activeModel?: string) => {
     const endpoint = "https://api.groq.com/openai/v1/chat/completions";
     const headers = {
       "Content-Type": "application/json",
@@ -417,7 +515,7 @@ ${studyContext.recentActivity}`;
     ];
 
     const body = JSON.stringify({
-      model: model || "llama-3.3-70b-versatile",
+      model: activeModel || model || "llama-3.3-70b-versatile",
       messages: [{ role: "system", content: buildSystemPrompt() }, ...allMessages],
       temperature: 0.5,
       stream: true,
@@ -435,7 +533,7 @@ ${studyContext.recentActivity}`;
 
     if (!res.ok) {
       const errData = await res.json().catch(() => null);
-      throw new Error(errData?.error?.message || `HTTP ${res.status}`);
+      throw new Error(decodeAiProviderError(res.status, errData, provider));
     }
 
     const reader = res.body?.getReader();
@@ -471,8 +569,8 @@ ${studyContext.recentActivity}`;
   };
 
   // ─── Non-Streaming Fetch ───────────────────────────────────────────
-  const fetchNonStreaming = async (userMessage: string): Promise<string> => {
-    const endpoint = getProviderEndpoint(provider, model, ollamaUrl, customProviderEndpoint);
+  const fetchNonStreaming = async (userMessage: string, activeModel?: string): Promise<string> => {
+    const endpoint = getProviderEndpoint(provider, activeModel || model, ollamaUrl, customProviderEndpoint, cloudflareAccountId);
     const headers = getProviderHeaders(provider, apiKey);
     const allMessages = [
       ...messages.filter(m => m.role === "user" || m.role === "assistant").slice(-10),
@@ -480,25 +578,24 @@ ${studyContext.recentActivity}`;
     ];
 
     const body = {
-      model: model || "gpt-4o-mini",
+      model: activeModel || model || "gpt-4o-mini",
       messages: [{ role: "system", content: buildSystemPrompt() }, ...allMessages],
       temperature: 0.5,
       max_tokens: 2048
     };
 
-    const res = await fetch(endpoint, {
+    const res = await universalAiFetch(endpoint, {
       method: "POST",
       headers,
       body: JSON.stringify(body)
     });
 
     if (!res.ok) {
-      const errData = await res.json().catch(() => null);
-      throw new Error(errData?.error?.message || `HTTP ${res.status}`);
+      throw new Error(decodeAiProviderError(res.status, res.data, provider));
     }
 
-    const data = await res.json();
-    const reply = data.choices?.[0]?.message?.content || "";
+    const data = res.data;
+    const reply = data?.choices?.[0]?.message?.content || "";
     if (data.usage) {
       void recordTokenUsage(data.usage.prompt_tokens || 0, data.usage.completion_tokens || 0, data.usage.total_tokens || 0);
     } else {
@@ -510,9 +607,9 @@ ${studyContext.recentActivity}`;
   };
 
   // ─── Gemini Fetch ──────────────────────────────────────────────────
-  const fetchGemini = async (userMessage: string): Promise<string> => {
+  const fetchGemini = async (userMessage: string, activeModel?: string): Promise<string> => {
     const ipc = getIpc();
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model || "gemini-1.5-flash"}:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel || model || "gemini-1.5-flash"}:generateContent?key=${apiKey}`;
     const reqBody = {
       contents: [{ role: "user", parts: [{ text: `${buildSystemPrompt()}\n\nUser Question: ${userMessage}` }] }]
     };
@@ -530,7 +627,7 @@ ${studyContext.recentActivity}`;
       });
       if (!res.ok) {
         const err = await res.json().catch(() => null);
-        throw new Error(err?.error?.message || `HTTP ${res.status}`);
+        throw new Error(decodeAiProviderError(res.status, err, "gemini"));
       }
       data = await res.json();
     }
@@ -577,16 +674,21 @@ ${studyContext.recentActivity}`;
     setStreamingText("");
 
     try {
+      const activeModel = getValidModelForProvider(provider, model);
       let reply = "";
       if (provider === "local_rules") {
         await new Promise(r => setTimeout(r, 800));
         reply = getLocalRuleResponse(messageToSend);
       } else if (provider === "groq" && groqStreaming) {
-        reply = await fetchGroqStreaming(messageToSend) || "";
+        try {
+          reply = await fetchGroqStreaming(messageToSend, activeModel) || "";
+        } catch {
+          reply = await fetchNonStreaming(messageToSend, activeModel);
+        }
       } else if (provider === "gemini") {
-        reply = await fetchGemini(messageToSend);
+        reply = await fetchGemini(messageToSend, activeModel);
       } else {
-        reply = await fetchNonStreaming(messageToSend);
+        reply = await fetchNonStreaming(messageToSend, activeModel);
       }
 
       const finalMsgs = [...currentMsgs, { role: "assistant" as const, content: reply }];
@@ -599,8 +701,22 @@ ${studyContext.recentActivity}`;
       persistSessions(finalSessions);
     } catch (err: any) {
       const errorMsg = err?.message || "Unknown error";
-      const errReply = `❌ **API Error**: ${errorMsg}\n\nPlease verify your API Key and internet connection. Switch to **Local AI Rules** for 100% offline support!`;
-      const finalMsgs = [...currentMsgs, { role: "assistant" as const, content: errReply }];
+      const is429 = errorMsg.includes("429");
+      const is404 = errorMsg.includes("404");
+      const activeModel = getValidModelForProvider(provider, model);
+
+      let notice = `Notice (${provider.toUpperCase()}): ${errorMsg}`;
+      if (is429) {
+        notice = `Provider quota or rate limit exceeded on ${provider.toUpperCase()}. Tip: Switch to Groq Cloud (Free Llama 3.3) or OpenRouter :free models in AI Setup!`;
+      } else if (is404) {
+        notice = `Model "${activeModel}" was inactive or not found on ${provider.toUpperCase()}. Switched to verified model in AI Setup.`;
+      }
+
+      // Generate offline smart response so user study flow is NEVER stopped
+      const offlineReply = getLocalRuleResponse(messageToSend);
+      const combinedReply = `> ⚠️ **Provider Advisory**: ${notice}\n> *Answered via FlowTrack Local AI Study Engine so your study session is uninterrupted!*\n\n${offlineReply}`;
+
+      const finalMsgs = [...currentMsgs, { role: "assistant" as const, content: combinedReply }];
       const finalSessions = sessionsList.map(s => {
         if (s.id === activeSession.id) {
           return { ...s, updatedAt: Date.now(), messages: finalMsgs };
@@ -626,28 +742,86 @@ ${studyContext.recentActivity}`;
       }
 
       if (provider === "gemini") {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-        const res = await fetch(url, {
+        const activeModel = getValidModelForProvider(provider, model) || "gemini-2.0-flash";
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${apiKey}`;
+        const res = await universalAiFetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "ping" }] }] })
         });
-        if (!res.ok) throw new Error(`Gemini API error ${res.status}`);
+        if (!res.ok) {
+          throw new Error(decodeAiProviderError(res.status, res.data, "gemini"));
+        }
         setConnectionResult({ success: true, message: "✅ Gemini API connection successful!" });
-      } else {
-        const endpoint = getProviderEndpoint(provider, model, ollamaUrl, customProviderEndpoint);
-        const headers = getProviderHeaders(provider, apiKey);
-        const res = await fetch(endpoint, {
+      } else if (provider === "cloudflare") {
+        if (!cloudflareAccountId.trim()) {
+          throw new Error("Please enter your Cloudflare Account ID before testing connection.");
+        }
+        if (!apiKey.trim()) {
+          throw new Error("Please enter your Cloudflare Workers AI API Token before testing connection.");
+        }
+        const activeModel = getValidModelForProvider(provider, model) || "@cf/meta/llama-3.1-8b-instruct";
+        const endpoint = `https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId.trim()}/ai/v1/chat/completions`;
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey.trim()}`
+        };
+        const res = await universalAiFetch(endpoint, {
           method: "POST",
           headers,
           body: JSON.stringify({
-            model: model || "llama-3.3-70b-versatile",
+            model: activeModel,
             messages: [{ role: "user", content: "ping" }],
             max_tokens: 5
           })
         });
-        if (!res.ok) throw new Error(`Provider returned HTTP ${res.status}`);
-        setConnectionResult({ success: true, message: `✅ Successfully connected to ${provider} (${model})!` });
+        if (!res.ok) {
+          throw new Error(decodeAiProviderError(res.status, res.data, "cloudflare"));
+        }
+        setConnectionResult({
+          success: true,
+          message: `✅ Successfully connected to Cloudflare Workers AI (${activeModel})!`
+        });
+      } else if (provider === "custom") {
+        if (!customProviderEndpoint.trim()) {
+          throw new Error("Please enter a valid API Endpoint URL (e.g. http://localhost:8000/v1/chat/completions)");
+        }
+        const activeModel = model.trim() || "custom-model";
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (apiKey.trim()) headers["Authorization"] = `Bearer ${apiKey.trim()}`;
+        const res = await universalAiFetch(customProviderEndpoint.trim(), {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            model: activeModel,
+            messages: [{ role: "user", content: "ping" }],
+            max_tokens: 5
+          })
+        });
+        if (!res.ok) {
+          throw new Error(decodeAiProviderError(res.status, res.data, "custom"));
+        }
+        setConnectionResult({
+          success: true,
+          message: `✅ Successfully connected to ${customProviderName.trim() || "Custom Provider"} (${activeModel})!`
+        });
+      } else {
+        const activeModel = getValidModelForProvider(provider, model);
+        const endpoint = getProviderEndpoint(provider, activeModel, ollamaUrl, customProviderEndpoint, cloudflareAccountId);
+        const headers = getProviderHeaders(provider, apiKey);
+        const res = await universalAiFetch(endpoint, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            model: activeModel || "llama-3.3-70b-versatile",
+            messages: [{ role: "user", content: "ping" }],
+            max_tokens: 5
+          })
+        });
+        if (!res.ok) {
+          throw new Error(decodeAiProviderError(res.status, res.data, provider));
+        }
+        setConnectionResult({ success: true, message: `✅ Successfully connected to ${provider} (${activeModel})!` });
       }
     } catch (err: any) {
       setConnectionResult({ success: false, message: `❌ Connection failed: ${err.message}` });
@@ -657,16 +831,25 @@ ${studyContext.recentActivity}`;
   };
 
   const saveSettings = () => {
+    const updatedKeys = { ...apiKeys, [provider]: apiKey.trim() };
+    const updatedModels = { ...providerModels, [provider]: model };
     setAiConfig({
       provider,
-      apiKey,
+      apiKey: apiKey.trim(),
       model,
       ollamaUrl,
-      apiKeys: { ...apiKeys, [provider]: apiKey },
-      customProvider: { name: customProviderName, endpoint: customProviderEndpoint, apiKey: "" }
+      cloudflareAccountId: cloudflareAccountId.trim(),
+      apiKeys: updatedKeys,
+      models: updatedModels,
+      customProviderEndpoint: customProviderEndpoint.trim(),
+      customProvider: {
+        name: customProviderName.trim() || "Custom Provider",
+        endpoint: customProviderEndpoint.trim(),
+        apiKey: apiKey.trim()
+      }
     });
-    setStatusMessage("✅ AI Settings saved successfully!");
-    setTimeout(() => setStatusMessage(""), 2500);
+    setStatusMessage("✅ AI Settings saved! Every provider retains its own API key & model.");
+    setTimeout(() => setStatusMessage(""), 3000);
   };
 
   return (
@@ -1012,32 +1195,92 @@ ${studyContext.recentActivity}`;
                   </div>
                 </Panel>
 
-                {/* Provider Selection */}
+                {/* Provider Selection (Grouped by Verified Free / Trial / Paid Tiers) */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-300">AI Provider</label>
                   <select
                     value={provider}
                     onChange={(e) => {
-                      const prov = e.target.value as AiConfig["provider"];
-                      setProvider(prov);
-                      const matched = PROVIDERS.find(p => p.id === prov);
-                      if (matched) setModel(matched.defaultModel || "");
-                      setApiKey(apiKeys[prov] || "");
+                      const newProv = e.target.value as AiConfig["provider"];
+                      const currentKey = apiKey.trim();
+                      const nextKeys = { ...apiKeys, [provider]: currentKey };
+                      const nextModels = { ...providerModels, [provider]: model };
+                      setApiKeys(nextKeys);
+                      setProviderModels(nextModels);
+
+                      const targetKey = nextKeys[newProv] || "";
+                      const targetModel = nextModels[newProv] || getValidModelForProvider(newProv, "");
+                      setProvider(newProv);
+                      setApiKey(targetKey);
+                      setModel(targetModel);
                       setConnectionResult(null);
-                      refreshLiveModels(prov, apiKeys[prov] || "");
+
+                      setAiConfig({
+                        ...aiConfig,
+                        provider: newProv,
+                        apiKey: targetKey,
+                        model: targetModel,
+                        apiKeys: nextKeys,
+                        models: nextModels
+                      });
+
+                      refreshLiveModels(newProv, targetKey);
                     }}
                     className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400"
                   >
-                    {PROVIDERS.map((p) => (
-                      <option key={p.id} value={p.id} className="bg-slate-900 text-white">
-                        {p.name}
-                      </option>
-                    ))}
+                    <optgroup label="🟢 100% Free (No Credit Card / Zero Deposit Needed)">
+                      {PROVIDERS.filter(p => p.tier === "free").map((p) => (
+                        <option key={p.id} value={p.id} className="bg-slate-900 text-white">
+                          {p.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="🟡 Free Trial / Promo (Card/Setup Required)">
+                      {PROVIDERS.filter(p => p.tier === "trial").map((p) => (
+                        <option key={p.id} value={p.id} className="bg-slate-900 text-white">
+                          {p.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="🔴 Paid / Subscription APIs">
+                      {PROVIDERS.filter(p => p.tier === "paid").map((p) => (
+                        <option key={p.id} value={p.id} className="bg-slate-900 text-white">
+                          {p.name}
+                        </option>
+                      ))}
+                    </optgroup>
                   </select>
+
+                  {/* Dynamic Tier Explainer Card */}
+                  {(() => {
+                    const currentP = PROVIDERS.find(p => p.id === provider);
+                    if (!currentP) return null;
+                    const isFree = currentP.tier === "free";
+                    const isTrial = currentP.tier === "trial";
+                    return (
+                      <div className={`p-2 rounded-xl border text-[11px] space-y-1 mt-1.5 ${
+                        isFree
+                          ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                          : isTrial
+                          ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
+                          : "bg-purple-500/10 border-purple-500/30 text-purple-300"
+                      }`}>
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold flex items-center gap-1.5">
+                            {isFree ? "🟢 100% Free Tier Available" : isTrial ? "🟡 Free Trial (Setup Required)" : "🔴 Paid / Balance Required"}
+                          </span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold border bg-white/5 border-white/10">
+                            {currentP.badge}
+                          </span>
+                        </div>
+                        <p className="text-[10px] leading-relaxed opacity-90">{currentP.desc}</p>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* API Key (if needed) */}
-                {provider !== "local_rules" && provider !== "ollama" && (
+                {provider !== "local_rules" && provider !== "ollama" && provider !== "lmstudio" && (
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-bold text-slate-300">API Key</label>
@@ -1050,10 +1293,99 @@ ${studyContext.recentActivity}`;
                         const val = e.target.value;
                         setApiKey(val);
                         setApiKeys(prev => ({ ...prev, [provider]: val }));
+                        if (val.trim().length >= 8) {
+                          refreshLiveModels(provider, val.trim());
+                        }
+                      }}
+                      onPaste={(e) => {
+                        const pasted = e.clipboardData.getData("text");
+                        if (pasted && pasted.trim().length >= 8) {
+                          setApiKey(pasted.trim());
+                          setApiKeys(prev => ({ ...prev, [provider]: pasted.trim() }));
+                          refreshLiveModels(provider, pasted.trim());
+                        }
+                      }}
+                      onBlur={() => {
+                        if (apiKey.trim()) {
+                          refreshLiveModels(provider, apiKey.trim());
+                        }
                       }}
                       placeholder={`Paste your ${provider} API Key here...`}
                       className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400"
                     />
+                    {(() => {
+                      const provObj = PROVIDERS.find(p => p.id === provider);
+                      if (provObj?.keyUrl) {
+                        return (
+                          <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
+                            <span>Need an API key?</span>
+                            <a
+                              href={provObj.keyUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-cyan-400 hover:text-cyan-300 underline font-medium"
+                            >
+                              Get {provObj.name.split(" ")[1] || provider} Key ↗
+                            </a>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
+                )}
+
+                {/* Mistral Quota Notice */}
+                {provider === "mistral" && (
+                  <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300 space-y-1">
+                    <p className="font-semibold flex items-center gap-1.5">
+                      <span>⚠️</span> Mistral Free Tier Quota Notice:
+                    </p>
+                    <p className="text-amber-300/80 leading-relaxed text-[10px]">
+                      Mistral requires phone or billing verification on <span className="text-white underline">console.mistral.ai</span> to activate chat compute tokens. If you get <strong>HTTP 429</strong>, switch to <strong>Groq Cloud ⚡</strong> (100% free & ultra-fast) or <strong>Gemini</strong>!
+                    </p>
+                  </div>
+                )}
+
+                {/* Cloudflare Account ID & Token UI */}
+                {provider === "cloudflare" && (
+                  <div className="space-y-3 p-3 rounded-xl bg-orange-950/20 border border-orange-500/30">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-orange-300">
+                      <span>☁️</span> Cloudflare Workers AI Configuration
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-bold text-slate-300">Cloudflare Account ID</label>
+                        <span className="text-[10px] text-slate-500">From Cloudflare Dashboard</span>
+                      </div>
+                      <input
+                        type="text"
+                        value={cloudflareAccountId}
+                        onChange={(e) => {
+                          const val = e.target.value.trim();
+                          setCloudflareAccountId(val);
+                          setAiConfig({
+                            ...aiConfig,
+                            cloudflareAccountId: val
+                          });
+                        }}
+                        placeholder="e.g. 8f9b2c3d4e5f6a7b8c9d0e1f2a3b4c5d"
+                        className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-400"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
+                      <span>Where to find this?</span>
+                      <a
+                        href="https://dash.cloudflare.com/?to=/:account/workers-and-pages"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-orange-400 hover:text-orange-300 underline font-medium"
+                      >
+                        Cloudflare Dashboard Account ID ↗
+                      </a>
+                    </div>
                   </div>
                 )}
 
@@ -1071,7 +1403,87 @@ ${studyContext.recentActivity}`;
                   </div>
                 )}
 
-                {/* Live Model Selector with Real-Time Fetch Button */}
+                {/* Custom OpenAI-Compatible Provider Inputs */}
+                {provider === "custom" && (
+                  <div className="space-y-3 p-3 rounded-xl bg-purple-950/20 border border-purple-500/30">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-purple-300">
+                      <SlidersHorizontal className="w-4 h-4 text-purple-400" />
+                      <span>Custom Endpoint & Server Details</span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-300">Custom Provider Name / Alias</label>
+                      <input
+                        type="text"
+                        value={customProviderName}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCustomProviderName(val);
+                          setAiConfig({
+                            ...aiConfig,
+                            customProvider: {
+                              name: val,
+                              endpoint: customProviderEndpoint,
+                              apiKey
+                            }
+                          });
+                        }}
+                        placeholder="e.g. My Local vLLM, FastChat, or Proxy"
+                        className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-bold text-slate-300">Endpoint URL (/chat/completions)</label>
+                        <span className="text-[10px] text-slate-500">Full endpoint URL</span>
+                      </div>
+                      <input
+                        type="text"
+                        value={customProviderEndpoint}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCustomProviderEndpoint(val);
+                          setAiConfig({
+                            ...aiConfig,
+                            customProviderEndpoint: val,
+                            customProvider: {
+                              name: customProviderName,
+                              endpoint: val,
+                              apiKey
+                            }
+                          });
+                        }}
+                        placeholder="http://localhost:8000/v1/chat/completions"
+                        className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-400"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-300">Model Name / Identifier</label>
+                      <input
+                        type="text"
+                        value={model}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setModel(val);
+                          const nextModels = { ...providerModels, custom: val };
+                          setProviderModels(nextModels);
+                          setAiConfig({
+                            ...aiConfig,
+                            model: val,
+                            models: nextModels
+                          });
+                        }}
+                        placeholder="e.g. llama-3, qwen2.5, mistral-large"
+                        className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-400"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Live Model Selector with Real-Time Fetch Button (Hidden when custom provider has its own model input) */}
+                {provider !== "custom" && (
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-slate-300">Model Selection</label>
@@ -1092,7 +1504,18 @@ ${studyContext.recentActivity}`;
 
                   <select
                     value={model}
-                    onChange={(e) => setModel(e.target.value)}
+                    onChange={(e) => {
+                      const newM = e.target.value;
+                      setModel(newM);
+                      const nextModels = { ...providerModels, [provider]: newM };
+                      setProviderModels(nextModels);
+                      setAiConfig({
+                        ...aiConfig,
+                        provider,
+                        model: newM,
+                        models: nextModels
+                      });
+                    }}
                     className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400"
                   >
                     {availableModels.map((m) => (
@@ -1102,6 +1525,7 @@ ${studyContext.recentActivity}`;
                     ))}
                   </select>
                 </div>
+                )}
 
                 {/* Groq Streaming Toggle */}
                 {provider === "groq" && (
@@ -1144,6 +1568,45 @@ ${studyContext.recentActivity}`;
                       }`}
                     >
                       {connectionResult.message}
+                    </div>
+                  )}
+
+                  {connectionResult && !connectionResult.success && (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <button
+                        onClick={() => {
+                          setProvider("groq");
+                          setModel("llama-3.3-70b-versatile");
+                          setApiKey(apiKeys["groq"] || "");
+                          setConnectionResult(null);
+                          refreshLiveModels("groq", apiKeys["groq"] || "");
+                        }}
+                        className="text-[10px] px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30 transition font-medium"
+                      >
+                        ⚡ Switch to Groq Cloud (100% Free)
+                      </button>
+                      <button
+                        onClick={() => {
+                          setProvider("openrouter");
+                          setModel("openrouter/free");
+                          setApiKey(apiKeys["openrouter"] || "");
+                          setConnectionResult(null);
+                          refreshLiveModels("openrouter", apiKeys["openrouter"] || "");
+                        }}
+                        className="text-[10px] px-2.5 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-500/30 transition font-medium"
+                      >
+                        🌐 Switch to OpenRouter (:free)
+                      </button>
+                      <button
+                        onClick={() => {
+                          setProvider("local_rules");
+                          setModel("local-rules");
+                          setConnectionResult(null);
+                        }}
+                        className="text-[10px] px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700 transition font-medium"
+                      >
+                        🛡️ Switch to Offline Rules
+                      </button>
                     </div>
                   )}
                 </div>

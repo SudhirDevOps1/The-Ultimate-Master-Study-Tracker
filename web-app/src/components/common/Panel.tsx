@@ -9,10 +9,10 @@ interface PanelProps extends HTMLAttributes<HTMLElement> {
 export function Panel({ children, className, ...props }: PanelProps) {
   return (
     <section 
-      className={cn("f7-card transition-all hover:border-white/10", className)} 
+      className={cn("glass transition-all hover:border-white/20", className)} 
       {...props}
     >
-      <div className="f7-card-content">
+      <div className="p-6">
         {children}
       </div>
     </section>

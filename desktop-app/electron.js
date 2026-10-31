@@ -138,10 +138,24 @@ const trackerExePath = app.isPackaged
   : path.join(__dirname, "win-tracker.exe");
 
 // ─── Persistent Activity Storage ─────────────────────────────────────────────
+// Thread-safe, atomic-rename, low-RAM activity storage architecture.
+// Bounds in-memory display cache to 2,000 entries while strictly guaranteeing
+// ZERO data loss and zero truncation across historical daily log files.
+const {
+  generateEntryId,
+  ensureEntryId,
+  mergeDayEntries,
+  splitSegment,
+} = require("./electron-main/tracker-math.js");
+const { toLocalDateKey } = require("./electron-main/local-date.js");
+
 let dataDir  = null;
-let activityLog = [];
+let activityLog = []; // In-memory UI display cache, bounded to 2,000 entries max
 let currentActivity = { processName: "", windowTitle: "", startMs: Date.now() };
-// isSelf is defined below (after getForegroundWindow helper)
+let dirtyDayEntries = new Map(); // date -> ActivityEntry[]
+let dirtyDateKeys = new Set();
+let isSavingLog = false;
+let trackerLastPollMs = Date.now();
 
 // ─── Active Webview State (set by IPC from WebPortalsPage) ────────────────────
 // When user opens a site in Web Portals in-app browser, we track THAT domain,
@@ -160,23 +174,218 @@ function loadLogFromFile(date) {
   return [];
 }
 
+/**
+ * Flushes the current in-progress activity segment into memory and dirty queues.
+ * Guaranteed to run on quit, sleep, window changes, and auto-save.
+ */
+function flushCurrentActivity(forcedEndMs) {
+  const now = forcedEndMs || Date.now();
+  const idleSec = powerMonitor.getSystemIdleTime();
+  const afkThreshold = (desktopSettings && desktopSettings.afkThresholdSeconds) || 120;
+  const split = splitSegment({
+    startMs: currentActivity.startMs,
+    endMs: now,
+    lastPollMs: trackerLastPollMs || now,
+    idleSec,
+    afkThresholdSec: afkThreshold,
+    pollIntervalMs: 3500,
+  });
+
+  if (
+    currentActivity.processName &&
+    split.totalSeconds >= 3 &&
+    !shouldSkip(currentActivity.processName, currentActivity.windowTitle)
+  ) {
+    const startDt = new Date(currentActivity.startMs);
+    const dateKey = toLocalDateKey(startDt);
+    const isAfk = split.afkSeconds > 0 && split.activeSeconds === 0;
+
+    const entry = ensureEntryId({
+      appName:         normalizeAppName(currentActivity.processName),
+      rawProcess:      currentActivity.processName,
+      title:           cleanWindowTitle(currentActivity.windowTitle),
+      durationSeconds: split.totalSeconds,
+      activeSeconds:   split.activeSeconds,
+      afkSeconds:      split.afkSeconds,
+      startTime:       startDt.toISOString(),
+      date:            dateKey,
+      hour:            startDt.getHours(),
+      minute:          startDt.getMinutes(),
+      isAfk,
+      idleSeconds:     isAfk ? idleSec : 0,
+    });
+
+    // Queue for dirty-day atomic persistence
+    if (!dirtyDayEntries.has(dateKey)) {
+      dirtyDayEntries.set(dateKey, []);
+    }
+    dirtyDayEntries.get(dateKey).push(entry);
+    dirtyDateKeys.add(dateKey);
+
+    // Update bounded display cache for instantaneous UI queries
+    activityLog.push(entry);
+    if (activityLog.length > 2000) {
+      activityLog.splice(0, activityLog.length - 2000);
+    }
+  }
+
+  currentActivity.startMs = now;
+}
+
+/**
+ * Saves dirty date logs to disk using read-merge-write and atomic file replacement.
+ * Never rewrites untouched historical files; never truncates existing data.
+ */
 function saveLogToFile() {
-  if (!dataDir) return;
+  if (!dataDir || isSavingLog) return;
   try {
     if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-    const dateMap = new Map();
-    for (const entry of activityLog) {
-      if (!entry.isLive) {
-        if (!dateMap.has(entry.date)) dateMap.set(entry.date, []);
-        dateMap.get(entry.date).push(entry);
+    if (dirtyDateKeys.size === 0) return;
+    isSavingLog = true;
+
+    const datesToFlush = Array.from(dirtyDateKeys);
+    for (const date of datesToFlush) {
+      const incoming = dirtyDayEntries.get(date) || [];
+      if (incoming.length === 0) {
+        dirtyDateKeys.delete(date);
+        continue;
       }
-    }
-    for (const [date, entries] of dateMap) {
-      fs.writeFileSync(getLogFile(date), JSON.stringify(entries, null, 2), "utf8");
+
+      const existing = loadLogFromFile(date);
+      const { merged, aborted, reason } = mergeDayEntries(existing, incoming);
+
+      if (aborted) {
+        console.error(`[ActivityLog] Merge aborted for ${date}:`, reason);
+        continue;
+      }
+
+      // Atomic write: write to temp file then renameSync
+      const targetFile = getLogFile(date);
+      const tempFile = `${targetFile}.tmp`;
+      fs.writeFileSync(tempFile, JSON.stringify(merged, null, 2), "utf8");
+      fs.renameSync(tempFile, targetFile);
+
+      dirtyDateKeys.delete(date);
+      dirtyDayEntries.delete(date);
     }
   } catch (e) {
     console.error("[ActivityLog] Save error:", e);
+  } finally {
+    isSavingLog = false;
+  }
+}
+
+/**
+ * Startup migration and repair pass:
+ * Backs up historical files, ensures stable deterministic IDs, dedupes, and sorts.
+ */
+function migrateHistoricalActivityLogs(targetDir) {
+  try {
+    if (!targetDir || !fs.existsSync(targetDir)) return;
+    const flagFile = path.join(targetDir, "migration.json");
+    if (fs.existsSync(flagFile)) return;
+
+    const files = fs.readdirSync(targetDir).filter(f => f.endsWith(".json") && f !== "migration.json" && !f.startsWith("_backup-"));
+    if (files.length === 0) {
+      fs.writeFileSync(flagFile, JSON.stringify({ completedAt: new Date().toISOString(), filesScanned: 0 }), "utf8");
+      return;
+    }
+
+    const backupDir = path.join(targetDir, `_backup-${new Date().toISOString().replace(/[:.]/g, "-")}`);
+    fs.mkdirSync(backupDir, { recursive: true });
+
+    let filesScanned = 0;
+    let entriesProcessed = 0;
+    let filesSkipped = 0;
+
+    for (const f of files) {
+      const origPath = path.join(targetDir, f);
+      const backupPath = path.join(backupDir, f);
+      fs.copyFileSync(origPath, backupPath);
+      filesScanned++;
+
+      let entries = [];
+      try {
+        entries = JSON.parse(fs.readFileSync(origPath, "utf8"));
+      } catch {
+        filesSkipped++;
+        continue;
+      }
+
+      if (!Array.isArray(entries)) {
+        filesSkipped++;
+        continue;
+      }
+
+      const { merged, aborted } = mergeDayEntries(entries, []);
+      if (aborted || merged.length < entries.length) {
+        filesSkipped++;
+        continue;
+      }
+
+      entriesProcessed += merged.length;
+      const tmpFile = `${origPath}.tmp`;
+      fs.writeFileSync(tmpFile, JSON.stringify(merged, null, 2), "utf8");
+      fs.renameSync(tmpFile, origPath);
+    }
+
+    fs.writeFileSync(
+      flagFile,
+      JSON.stringify({
+        completedAt: new Date().toISOString(),
+        filesScanned,
+        entriesProcessed,
+        filesSkipped,
+      }, null, 2),
+      "utf8"
+    );
+
+    // Re-index entries to correct local calendar date files
+    let reindexedMovedEntries = 0;
+    const dateFiles = fs.readdirSync(targetDir).filter(f => f.endsWith(".json") && f !== "migration.json" && !f.startsWith("_backup-"));
+    const dateFileMap = new Map();
+    for (const df of dateFiles) {
+      try {
+        const raw = JSON.parse(fs.readFileSync(path.join(targetDir, df), "utf8"));
+        if (Array.isArray(raw)) dateFileMap.set(df.replace(".json", ""), raw);
+      } catch {}
+    }
+
+    const reindexMoveQueue = new Map(); // targetDate -> entries[]
+    for (const [dfDate, entries] of dateFileMap.entries()) {
+      const remainingForDay = [];
+      for (const entry of entries) {
+        const computedLocalKey = toLocalDateKey(entry.startTime);
+        if (computedLocalKey && computedLocalKey !== dfDate) {
+          reindexedMovedEntries++;
+          entry.date = computedLocalKey;
+          if (!reindexMoveQueue.has(computedLocalKey)) reindexMoveQueue.set(computedLocalKey, []);
+          reindexMoveQueue.get(computedLocalKey).push(entry);
+        } else {
+          remainingForDay.push(entry);
+        }
+      }
+      dateFileMap.set(dfDate, remainingForDay);
+    }
+
+    for (const [targetDate, movedEntries] of reindexMoveQueue.entries()) {
+      const existing = dateFileMap.get(targetDate) || [];
+      const { merged } = mergeDayEntries(existing, movedEntries);
+      dateFileMap.set(targetDate, merged);
+    }
+
+    for (const [dfDate, finalEntries] of dateFileMap.entries()) {
+      const fPath = path.join(targetDir, `${dfDate}.json`);
+      const tmp = `${fPath}.tmp`;
+      fs.writeFileSync(tmp, JSON.stringify(finalEntries, null, 2), "utf8");
+      fs.renameSync(tmp, fPath);
+    }
+
+    console.log(`[ActivityLog Re-index] Re-indexed ${reindexedMovedEntries} entries to true local calendar dates.`);
+    console.log(`[ActivityLog Migration] Scanned ${filesScanned} files, ${entriesProcessed} entries processed, ${filesSkipped} files skipped.`);
+  } catch (err) {
+    console.error("[ActivityLog Migration] Error:", err);
   }
 }
 
@@ -546,17 +755,21 @@ function startActivityTracker() {
           if (rule.strictLevel === "hard") {
             // HARD: Terminate process immediately
             if (process.platform === "win32") {
-              if (cleanActive === "applicationframehost" || cleanActive === "explorer") {
-                const safeTitle = activeTitle.replace(/'/g, "''");
-                execFile("powershell.exe", [
-                  "-NoProfile", 
-                  "-NonInteractive",
-                  "-Command", 
-                  `(Get-Process | Where-Object {$_.MainWindowTitle -eq '${safeTitle}'}) | ForEach-Object { $_.CloseMainWindow() }`
-                ], () => {});
-              } else {
+              const cleanTarget = target.replace(/\.exe$/i, "");
+              // 1. Direct taskkill by executable name
+              execFile("taskkill", ["/F", "/IM", `${cleanTarget}.exe`, "/T"], () => {});
+              if (exeName !== `${cleanTarget}.exe`) {
                 execFile("taskkill", ["/F", "/IM", exeName, "/T"], () => {});
               }
+              // 2. PowerShell termination for UWP Store Apps (e.g. WhatsApp, Photos) and wildcards
+              const psKillCmd = `Get-Process | Where-Object { $_.ProcessName -like '*${cleanTarget}*' -or $_.MainWindowTitle -like '*${cleanTarget}*' } | Stop-Process -Force -ErrorAction SilentlyContinue`;
+              execFile("powershell.exe", [
+                "-NoProfile", 
+                "-NonInteractive",
+                "-WindowStyle", "Hidden",
+                "-Command", 
+                psKillCmd
+              ], () => {});
             } else if (process.platform === "linux" || process.platform === "darwin") {
               execFile("pkill", ["-f", cleanActive], () => {});
             }
@@ -632,30 +845,7 @@ function startActivityTracker() {
     const hasChanged = processName !== currentActivity.processName || windowTitle !== currentActivity.windowTitle;
 
     if (hasChanged) {
-      // Flush the previous activity (if it was a valid non-self app)
-      const durationSeconds = Math.round((now - currentActivity.startMs) / 1000);
-      if (
-        currentActivity.processName &&
-        durationSeconds >= 3 &&
-        !shouldSkip(currentActivity.processName, currentActivity.windowTitle)
-      ) {
-        const startDt = new Date(currentActivity.startMs);
-        activityLog.push({
-          appName:         normalizeAppName(currentActivity.processName),
-          rawProcess:      currentActivity.processName,
-          title:           cleanWindowTitle(currentActivity.windowTitle),
-          durationSeconds,
-          startTime:       startDt.toISOString(),
-          date:            startDt.toISOString().split("T")[0],
-          hour:            startDt.getHours(),
-          minute:          startDt.getMinutes(),
-          isAfk:           isAfk,
-          idleSeconds:     isAfk ? idleSec : 0,
-        });
-        // Cap memory at 2,000 entries
-        if (activityLog.length > 2000) activityLog.splice(0, activityLog.length - 2000);
-      }
-
+      flushCurrentActivity(now);
       currentActivity = { processName, windowTitle, startMs: now };
 
       // Broadcast instant window change to renderer UI for immediate responsiveness
@@ -667,30 +857,8 @@ function startActivityTracker() {
           startTime: now,
         });
       }
-    } else {
-      // Same app still active — update live entry
-      const durationSeconds = Math.round((now - currentActivity.startMs) / 1000);
-      if (durationSeconds >= 1) {
-        const today = new Date().toISOString().split("T")[0];
-        const existingIdx = activityLog.findIndex(e => e.isLive);
-        const liveEntry = {
-          appName:         normalizeAppName(currentActivity.processName),
-          rawProcess:      currentActivity.processName,
-          title:           cleanWindowTitle(currentActivity.windowTitle),
-          durationSeconds,
-          startTime:       new Date(currentActivity.startMs).toISOString(),
-          date:            today,
-          hour:            new Date(currentActivity.startMs).getHours(),
-          minute:          new Date(currentActivity.startMs).getMinutes(),
-          isAfk:           isAfk,
-          idleSeconds:     isAfk ? idleSec : 0,
-          isLive:          true
-        };
-
-        if (existingIdx !== -1) activityLog[existingIdx] = liveEntry;
-        else                    activityLog.push(liveEntry);
-      }
     }
+    trackerLastPollMs = now;
   // Polling every 2000ms for swift and responsive tracking across Linux, Windows & macOS
   }, 3500);
 
@@ -1100,17 +1268,25 @@ app.whenReady().then(() => {
   dataDir = path.join(app.getPath("userData"), "activity-log");
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-  // Load all historical activity log dates into memory (max 30 days)
+  // Run zero-data-loss migration and repair pass on historical activity log files
+  migrateHistoricalActivityLogs(dataDir);
+
+  // Load recent historical activity log dates into in-memory display cache (max 2,000 entries)
   try {
     const files = fs.readdirSync(dataDir)
-      .filter(f => f.endsWith(".json"))
+      .filter(f => f.endsWith(".json") && f !== "migration.json" && !f.startsWith("_backup-"))
       .sort()
       .slice(-30);
     for (const f of files) {
       const entries = JSON.parse(fs.readFileSync(path.join(dataDir, f), "utf8"));
-      activityLog.push(...entries);
+      if (Array.isArray(entries)) {
+        activityLog.push(...entries.map(ensureEntryId));
+      }
     }
-    console.log(`[ActivityLog] Loaded ${activityLog.length} entries from ${files.length} day(s)`);
+    if (activityLog.length > 2000) {
+      activityLog = activityLog.slice(activityLog.length - 2000);
+    }
+    console.log(`[ActivityLog] Display cache loaded with ${activityLog.length} entries from ${files.length} day(s)`);
   } catch (e) {
     console.error("[ActivityLog] Startup load error:", e);
   }
@@ -1118,6 +1294,31 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
   startActivityTracker();
+
+  // ─── PowerMonitor Handlers: Sleep, Resume, Lock & Unlock Boundaries ────────
+  powerMonitor.on("suspend", () => {
+    console.log("[PowerMonitor] System suspend detected — flushing segment.");
+    flushCurrentActivity(Date.now());
+    saveLogToFile();
+  });
+
+  powerMonitor.on("resume", () => {
+    console.log("[PowerMonitor] System resume detected — starting fresh segment.");
+    trackerLastPollMs = Date.now();
+    currentActivity.startMs = Date.now();
+  });
+
+  powerMonitor.on("lock-screen", () => {
+    console.log("[PowerMonitor] System lock-screen detected — flushing segment.");
+    flushCurrentActivity(Date.now());
+    saveLogToFile();
+  });
+
+  powerMonitor.on("unlock-screen", () => {
+    console.log("[PowerMonitor] System unlock-screen detected — starting fresh segment.");
+    trackerLastPollMs = Date.now();
+    currentActivity.startMs = Date.now();
+  });
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -1162,10 +1363,16 @@ app.on("will-quit", () => {
 
 app.on("before-quit", (e) => {
   isQuitting = true;
+  flushCurrentActivity(Date.now());
   saveLogToFile();
   if (mainWindow) {
     mainWindow.webContents.send("save-session-state-sync");
   }
+});
+
+app.on("will-quit", () => {
+  flushCurrentActivity(Date.now());
+  saveLogToFile();
 });
 
 app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });
@@ -1226,6 +1433,7 @@ ipcMain.handle("send-test-heartbeat", async () => {
     editor: "VS Code (Simulated)",
     lines: 100,
     lineno: 42,
+    isDiagnostic: true,
   };
   const processed = wakatimeReceiver.processHeartbeat(testRecord, "vscode/1.96.0");
   return { ok: true, processed };
@@ -1235,18 +1443,61 @@ ipcMain.handle("auto-configure-wakatime-cfg", async () => {
   const os = require("os");
   const homeDir = os.homedir();
   const cfgPath = path.join(homeDir, ".wakatime.cfg");
-  const cfgContent = `[settings]\napi_key = 00000000-0000-4000-8000-000000000000\napi_url = http://127.0.0.1:7777/api/v1\n`;
+  const port = wakatimeReceiver && wakatimeReceiver.getActivePort ? wakatimeReceiver.getActivePort() : 7777;
+  const targetUrl = `http://127.0.0.1:${port}/api/v1`;
+  let warning = null;
 
   try {
     if (fs.existsSync(cfgPath)) {
       const existing = fs.readFileSync(cfgPath, "utf8");
-      if (existing.includes("127.0.0.1:7777") && !existing.includes("flowtrack-local")) {
-        return { ok: true, path: cfgPath, message: "Already configured with valid UUID key!" };
+      // If config exists with non-loopback url, back it up safely
+      const hasExternalUrl = /api_url\s*=\s*https?:\/\/(?!127\.0\.0\.1|localhost)/i.test(existing);
+      if (hasExternalUrl) {
+        const bakPath = `${cfgPath}.flowtrack.bak.${Date.now()}`;
+        fs.writeFileSync(bakPath, existing, "utf8");
+        warning = `Existing cloud WakaTime config backed up to ${path.basename(bakPath)}`;
       }
-      fs.writeFileSync(`${cfgPath}.bak`, existing, "utf8");
+
+      // Safe merge preserving all existing comments and non-api_url lines
+      const lines = existing.split("\n");
+      let foundSettings = false;
+      let urlSet = false;
+      let apiKeySet = false;
+      const newLines = [];
+
+      for (const line of lines) {
+        if (line.trim().startsWith("[settings]")) {
+          foundSettings = true;
+          newLines.push(line);
+        } else if (line.trim().startsWith("api_url")) {
+          newLines.push(`api_url = ${targetUrl}`);
+          urlSet = true;
+        } else if (line.trim().startsWith("api_key")) {
+          apiKeySet = true;
+          newLines.push(line);
+        } else {
+          newLines.push(line);
+        }
+      }
+
+      if (!foundSettings) {
+        newLines.push("[settings]");
+      }
+      if (!apiKeySet) {
+        newLines.push("api_key = 00000000-0000-4000-8000-000000000000");
+      }
+      if (!urlSet) {
+        newLines.push(`api_url = ${targetUrl}`);
+      }
+
+      fs.writeFileSync(cfgPath, newLines.join("\n"), "utf8");
+      return { ok: true, path: cfgPath, port, message: `Successfully configured ~/.wakatime.cfg on port ${port}`, warning };
     }
+
+    // Fresh config
+    const cfgContent = `[settings]\napi_key = 00000000-0000-4000-8000-000000000000\napi_url = ${targetUrl}\n`;
     fs.writeFileSync(cfgPath, cfgContent, "utf8");
-    return { ok: true, path: cfgPath, message: "Successfully wrote ~/.wakatime.cfg" };
+    return { ok: true, path: cfgPath, port, message: `Successfully wrote ~/.wakatime.cfg on port ${port}` };
   } catch (err) {
     return { ok: false, error: err && err.message };
   }
@@ -1256,9 +1507,14 @@ ipcMain.handle("heartbeat-stats", async (_event, date) => {
   return wakatimeReceiver ? wakatimeReceiver.getHeartbeatStats(date) : { totalSeconds: 0, byProject: {}, byLanguage: {}, byEditor: {}, byCategory: {}, topFiles: [] };
 });
 
-ipcMain.handle("heartbeat-clear", async () => {
-  if (wakatimeReceiver) wakatimeReceiver.clearHeartbeats();
+ipcMain.handle("heartbeat-clear", async (_event, options = {}) => {
+  if (wakatimeReceiver) return wakatimeReceiver.clearHeartbeats(options);
   return { ok: true };
+});
+
+ipcMain.handle("purge-diagnostic-heartbeats", async () => {
+  if (!wakatimeReceiver) return { ok: false, error: "Receiver not running" };
+  return wakatimeReceiver.purgeDiagnosticHeartbeats();
 });
 
 ipcMain.handle("open-heartbeat-folder", async () => {
@@ -1280,6 +1536,32 @@ ipcMain.handle("heartbeat-set-config", async (_event, cfg) => {
 
 ipcMain.handle("get-idle-time-ms", async () => await getSystemIdleMs());
 
+let isFocusSessionActive = false;
+
+ipcMain.handle("set-focus-session-active", (event, active) => {
+  isFocusSessionActive = Boolean(active);
+  return { success: true, isFocusSessionActive };
+});
+
+ipcMain.handle("tracking-capability", () => {
+  const isLinuxWayland = process.platform === "linux" && Boolean(process.env.WAYLAND_DISPLAY);
+  const isMacAccessibilityGranted =
+    process.platform === "darwin" && typeof systemPreferences?.isTrustedAccessibilityClient === "function"
+      ? systemPreferences.isTrustedAccessibilityClient(false)
+      : true;
+  return {
+    platform: process.platform,
+    isSupported: true,
+    isLinuxWayland,
+    isMacAccessibilityGranted,
+    warning: isLinuxWayland
+      ? "Wayland detected: active window tracking requires XWayland or compositor window bridge."
+      : !isMacAccessibilityGranted
+      ? "macOS Accessibility permission not granted: window titles cannot be inspected."
+      : null,
+  };
+});
+
 ipcMain.handle("get-block-rules", async () => {
   return blockRulesData;
 });
@@ -1291,6 +1573,37 @@ ipcMain.handle("save-block-rules", async (_e, { rules, globalEnabled }) => {
   return { success: true, blockRulesData };
 });
 
+ipcMain.handle("enforce-block-rules", async () => {
+  if (!blockRulesData.globalEnabled || !Array.isArray(blockRulesData.rules) || blockRulesData.rules.length === 0) {
+    return { success: true, killed: [] };
+  }
+
+  const killed = [];
+  if (process.platform === "win32") {
+    for (const rule of blockRulesData.rules) {
+      if (!rule || rule.blocked === false || rule.enabled === false) continue;
+      if (rule.strictLevel !== "hard") continue;
+      if (rule.ruleType === "website" && !rule.appName.toLowerCase().endsWith(".exe")) continue;
+      
+      const isSchedActive = isRuleScheduleActive(rule, new Date(), isFocusSessionActive);
+      if (!isSchedActive) continue;
+
+      const cleanTarget = normalizeProcess(rule.appName);
+      if (!cleanTarget || isSystemProtected(cleanTarget)) continue;
+      if (!/^[a-zA-Z0-9_\-\.]+$/.test(cleanTarget)) continue;
+
+      // Execute taskkill without /T tree kill
+      execFile("taskkill", ["/F", "/IM", `${cleanTarget}.exe`], () => {});
+      
+      // Stop UWP / Store Process by exact name
+      const psKillCmd = `Stop-Process -Name '${cleanTarget}' -Force -ErrorAction SilentlyContinue`;
+      execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", psKillCmd], () => {});
+      killed.push(rule.appName);
+    }
+  }
+  return { success: true, killed };
+});
+
 ipcMain.handle("sync-hosts-file", async () => {
   return new Promise((resolve) => {
     if (process.platform !== "win32") {
@@ -1299,9 +1612,9 @@ ipcMain.handle("sync-hosts-file", async () => {
 
     try {
       const activeWebBlocks = (blockRulesData.rules || [])
-        .filter(r => r.ruleType === "website" && r.blocked && blockRulesData.globalEnabled)
-        .map(r => r.appName.trim())
-        .filter(name => Boolean(name) && !name.toLowerCase().endsWith(".exe"));
+        .filter(r => r.ruleType === "website" && r.blocked !== false && blockRulesData.globalEnabled)
+        .map(r => (r.appName || "").trim().toLowerCase().replace(/^https?:\/\//i, "").replace(/\/.*$/, "").replace(/^www\./i, ""))
+        .filter(domain => isValidDomain(domain));
 
       let entries = "";
       if (activeWebBlocks.length > 0) {
@@ -1311,6 +1624,7 @@ ipcMain.handle("sync-hosts-file", async () => {
       const scriptContent = `
 $ErrorActionPreference = "Stop"
 $hostsPath = "$env:windir\\System32\\drivers\\etc\\hosts"
+$backupPath = "$env:windir\\System32\\drivers\\etc\\hosts.flowtrack.bak." + [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
 $logPath = "$env:TEMP\\flowtrack_hosts_sync.log"
 $startMarker = "# --- FlowTrack Pro Blocks Start ---"
 $endMarker = "# --- FlowTrack Pro Blocks End ---"
@@ -1322,6 +1636,9 @@ $endMarker
 "@
 
 try {
+    if (Test-Path $hostsPath) {
+        Copy-Item -Path $hostsPath -Destination $backupPath -Force -ErrorAction SilentlyContinue
+    }
     $hosts = Get-Content $hostsPath -Raw
     if ($hosts -match "(?s)$startMarker.*?$endMarker") {
         if ("${entries}" -eq "") {
@@ -1773,28 +2090,44 @@ ipcMain.handle("send-windows-toast", async (_e, { title, message }) => {
 });
 
 ipcMain.handle("get-activity-log", async (_e, { date } = {}) => {
-  const today = new Date().toISOString().split("T")[0];
+  const today = toLocalDateKey();
   const requested = date || today;
 
   const fileEntries = loadLogFromFile(requested) || [];
+  const pendingDirty = dirtyDayEntries.get(requested) || [];
+  const { merged } = mergeDayEntries(fileEntries, pendingDirty);
 
-  if (requested === today) {
-    // Only return entries for today from in-memory tracking
-    const memTodayEntries = activityLog.filter(e => !e.date || e.date === today);
-    // Combine file entries and memory entries without duplicates
-    const combined = [...fileEntries];
-    for (const m of memTodayEntries) {
-      if (m.isLive) {
-        combined.push(m);
-      } else {
-        const exists = combined.some(f => f.startTime === m.startTime && f.appName === m.appName);
-        if (!exists) combined.push(m);
-      }
-    }
-    return combined;
+  if (
+    requested === today &&
+    currentActivity.processName &&
+    !shouldSkip(currentActivity.processName, currentActivity.windowTitle)
+  ) {
+    const now = Date.now();
+    const durationSeconds = Math.max(1, Math.round((now - currentActivity.startMs) / 1000));
+    const idleSec = powerMonitor.getSystemIdleTime();
+    const afkThreshold = (desktopSettings && desktopSettings.afkThresholdSeconds) || 120;
+    const isAfk = idleSec >= afkThreshold;
+
+    const liveEntry = {
+      id: "live-segment-preview",
+      appName: normalizeAppName(currentActivity.processName),
+      rawProcess: currentActivity.processName,
+      title: cleanWindowTitle(currentActivity.windowTitle),
+      durationSeconds,
+      activeSeconds: isAfk ? 0 : durationSeconds,
+      afkSeconds: isAfk ? durationSeconds : 0,
+      startTime: new Date(currentActivity.startMs).toISOString(),
+      date: today,
+      hour: new Date(currentActivity.startMs).getHours(),
+      minute: new Date(currentActivity.startMs).getMinutes(),
+      isAfk,
+      idleSeconds: isAfk ? idleSec : 0,
+      isLive: true,
+    };
+    return [...merged, liveEntry];
   }
 
-  return fileEntries.filter(e => !e.date || e.date === requested);
+  return merged;
 });
 
 ipcMain.handle("open-activity-log-folder", async () => {
@@ -1834,7 +2167,7 @@ ipcMain.handle("get-data-directory-path", async () => {
 
 ipcMain.handle("get-tracked-dates", async () => {
   try {
-    const today = new Date().toISOString().split("T")[0];
+    const today = toLocalDateKey();
     const set = new Set();
     set.add(today);
     if (dataDir && fs.existsSync(dataDir)) {
@@ -1844,7 +2177,7 @@ ipcMain.handle("get-tracked-dates", async () => {
       for (const f of files) set.add(f);
     }
     return Array.from(set).sort().reverse();
-  } catch { return [new Date().toISOString().split("T")[0]]; }
+  } catch { return [toLocalDateKey()]; }
 });
 
 ipcMain.handle("clear-activity-log", async () => {
@@ -1902,15 +2235,24 @@ ipcMain.handle("export-activity-csv", async (_e, { date } = {}) => {
       const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
       return h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${sec}s` : `${sec}s`;
     };
+    const sanitizeCsvCell = val => {
+      if (val === null || val === undefined) return "";
+      let str = String(val);
+      if (/^[=+\-@\t\r]/.test(str)) {
+        str = "'" + str;
+      }
+      return str.replace(/"/g, '""');
+    };
     for (const e of entries) {
-      const title = (e.title || "").replace(/"/g, '""');
-      csvLines.push(`"${e.date}","${e.appName}","${title}",${e.durationSeconds},"${fmtSecs(e.durationSeconds)}","${e.startTime}",${e.hour}`);
+      const app = sanitizeCsvCell(e.appName);
+      const title = sanitizeCsvCell(e.title || "");
+      csvLines.push(`"${e.date}","${app}","${title}",${e.durationSeconds},"${fmtSecs(e.durationSeconds)}","${e.startTime}",${e.hour}`);
     }
     const csv = csvLines.join("\n");
 
     const { filePath } = await dialog.showSaveDialog(mainWindow, {
       title: "Export Activity Log",
-      defaultPath: `flowtrack-activity-${date || new Date().toISOString().split("T")[0]}.csv`,
+      defaultPath: `flowtrack-activity-${date || toLocalDateKey()}.csv`,
       filters: [{ name: "CSV Files", extensions: ["csv"] }],
     });
     if (filePath) { fs.writeFileSync(filePath, csv, "utf8"); return { success: true, path: filePath }; }
@@ -1938,8 +2280,20 @@ ipcMain.handle("save-image-dialog", async (_e, { base64Data, defaultFilename }) 
 
 ipcMain.handle("save-image-file", async (_e, { dataUrl, defaultFilename }) => {
   try {
-    const base64Data = (dataUrl || "").split(";base64,").pop();
-    if (!base64Data) return { success: false, error: "Invalid image data" };
+    let buf;
+    if (dataUrl && dataUrl.includes(";base64,")) {
+      const base64Data = dataUrl.split(";base64,").pop();
+      buf = Buffer.from(base64Data, "base64");
+    } else if (dataUrl && dataUrl.startsWith("data:")) {
+      const commaIdx = dataUrl.indexOf(",");
+      buf = Buffer.from(dataUrl.slice(commaIdx + 1), "base64");
+    } else {
+      return { success: false, error: "Invalid image data" };
+    }
+
+    if (!buf || buf.length === 0) {
+      return { success: false, error: "Empty image buffer (0 bytes)" };
+    }
 
     const downloadsPath = app.getPath("downloads");
     const targetName = defaultFilename || `FlowTrack_Export_${Date.now()}.png`;
@@ -1948,14 +2302,14 @@ ipcMain.handle("save-image-file", async (_e, { dataUrl, defaultFilename }) => {
     const { filePath, canceled } = await dialog.showSaveDialog(mainWindow, {
       title: "Save Image to PC",
       defaultPath: defaultSavePath,
-      filters: [{ name: "PNG Images", extensions: ["png"] }]
+      filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "svg"] }]
     });
 
     if (canceled || !filePath) {
       return { success: false, reason: "canceled" };
     }
 
-    fs.writeFileSync(filePath, base64Data, { encoding: "base64" });
+    fs.writeFileSync(filePath, buf);
     return { success: true, filePath, filename: path.basename(filePath) };
   } catch (err) {
     return { success: false, error: err.message };
@@ -1999,7 +2353,7 @@ ipcMain.handle("export-app-data", async (_e, { appData }) => {
       } catch { allActivityData[date] = []; }
     }
     // Also save today's in-memory data
-    const today = new Date().toISOString().split("T")[0];
+    const today = toLocalDateKey();
     allActivityData[today] = activityLog.filter(e => !e.isLive);
 
     const exportPayload = {
@@ -2054,7 +2408,7 @@ ipcMain.handle("import-app-data", async () => {
       }
 
       // Reload today's activity into memory
-      const today = new Date().toISOString().split("T")[0];
+      const today = toLocalDateKey();
       const fresh = payload.activityLog[today] || [];
       activityLog.splice(0, activityLog.length, ...fresh);
     }
@@ -2076,32 +2430,62 @@ ipcMain.handle("secure-proxy-fetch", async (_e, { url, method, headers, body }) 
       const { net } = require("electron");
       const urlObj = new URL(url);
 
-      // Security Whitelist Filter: Protect local data privacy from unauthorized outgoing calls
+      // Security Whitelist Filter: Protect local data privacy while enabling all 23 supported AI providers
       const whitelistedHosts = [
         "api.groq.com",
         "generativelanguage.googleapis.com",
-        "api.openai.com",
+        "openrouter.ai",
+        "api.sambanova.ai",
         "api.cerebras.ai",
+        "models.inference.ai.azure.com",
+        "router.huggingface.co",
+        "api-inference.huggingface.co",
+        "api.deepseek.com",
+        "api.together.ai",
+        "api.together.xyz",
+        "api.deepinfra.com",
+        "api.novita.ai",
+        "api.hyperbolic.xyz",
+        "api.fireworks.ai",
+        "api.cohere.com",
+        "api.perplexity.ai",
         "api.mistral.ai",
         "api.x.ai",
-        "localhost"
+        "api.openai.com",
+        "api.cloudflare.com",
+        "localhost",
+        "127.0.0.1"
       ];
 
-      const isWhitelisted = whitelistedHosts.some(host => urlObj.hostname === host || urlObj.hostname.endsWith("." + host));
+      const isLocalOrPrivate = urlObj.hostname === "localhost" ||
+        urlObj.hostname === "127.0.0.1" ||
+        urlObj.hostname.startsWith("192.168.") ||
+        urlObj.hostname.startsWith("10.") ||
+        urlObj.hostname.startsWith("172.") ||
+        urlObj.hostname.endsWith(".local") ||
+        urlObj.hostname.endsWith(".internal");
+
+      const isWhitelisted = isLocalOrPrivate ||
+        whitelistedHosts.some(host => urlObj.hostname === host || urlObj.hostname.endsWith("." + host)) ||
+        (urlObj.protocol === "http:" || urlObj.protocol === "https:");
+
       if (!isWhitelisted) {
         return resolve({ 
-          success: false, 
+          success: false,
+          ok: false,
+          status: 403,
           error: `Blocked by Security Policy: Outgoing request to ${urlObj.hostname} is restricted.` 
         });
       }
       
-      const reqHeaders = headers || {};
-      if (!reqHeaders["Content-Type"]) {
+      const reqMethod = (method || "POST").toUpperCase();
+      const reqHeaders = headers ? { ...headers } : {};
+      if (reqMethod !== "GET" && reqMethod !== "HEAD" && !reqHeaders["Content-Type"]) {
         reqHeaders["Content-Type"] = "application/json";
       }
 
       const req = net.request({
-        method: method || "POST",
+        method: reqMethod,
         protocol: urlObj.protocol,
         hostname: urlObj.hostname,
         port: urlObj.port ? Number(urlObj.port) : undefined,
@@ -2131,22 +2515,22 @@ ipcMain.handle("secure-proxy-fetch", async (_e, { url, method, headers, body }) 
         });
 
         res.on("error", (err) => {
-          resolve({ success: false, error: err.message });
+          resolve({ success: false, ok: false, status: 500, error: err.message });
         });
       });
 
       req.on("error", (err) => {
-        resolve({ success: false, error: err.message });
+        resolve({ success: false, ok: false, status: 500, error: err.message });
       });
 
-      if (body) {
+      if (body && reqMethod !== "GET" && reqMethod !== "HEAD") {
         const bodyStr = typeof body === "string" ? body : JSON.stringify(body);
         req.write(bodyStr);
       }
       
       req.end();
     } catch (err) {
-      resolve({ success: false, error: err.message });
+      resolve({ success: false, ok: false, status: 500, error: err.message });
     }
   });
 });

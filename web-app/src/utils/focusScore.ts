@@ -2,57 +2,85 @@ export interface FocusScoreFactors {
   studyMinutes: number;
   completedSessions: number;
   totalPlannedSessions: number;
-  breakAdherenceCount: number;
-  distractionSeconds: number;
+  breakAdherenceCount?: number | null;
+  distractionSeconds?: number | null;
 }
 
 export interface FocusScoreBreakdown {
   score: number; // 0 - 100
   grade: "A+" | "A" | "B" | "C" | "D";
   components: {
-    focusTimePoints: number; // Max 40
-    completionPoints: number; // Max 25
-    breakAdherencePoints: number; // Max 25
-    distractionPenalty: number; // Negative or 0 (up to -20)
+    focusTimePoints: number;
+    completionPoints: number;
+    breakAdherencePoints: number | null;
+    distractionPenalty: number | null;
   };
   explanation: string[];
 }
 
 /**
- * Computes a transparent, auditable Focus Score based on clear, verifiable factors.
- * No black-box or invented numbers.
+ * Computes a transparent, auditable Focus Score based on real verifiable factors.
+ * Re-normalizes component weights dynamically when optional factors are untracked (null),
+ * and never manufactures or fabricates numbers.
  */
 export function calculateFocusScore(factors: FocusScoreFactors): FocusScoreBreakdown {
   const {
-    studyMinutes,
-    completedSessions,
-    totalPlannedSessions,
-    breakAdherenceCount,
-    distractionSeconds,
+    studyMinutes = 0,
+    completedSessions = 0,
+    totalPlannedSessions = 0,
+    breakAdherenceCount = null,
+    distractionSeconds = null,
   } = factors;
 
-  // 1. Focus Time Points (1 pt per 5 mins, capped at 40 pts for 200 mins of focused work)
-  const focusTimePoints = Math.min(40, Math.round(studyMinutes / 5));
-
-  // 2. Session Completion Points (up to 25 pts)
-  let completionPoints = 0;
-  if (totalPlannedSessions > 0) {
-    const ratio = Math.min(1, completedSessions / totalPlannedSessions);
-    completionPoints = Math.round(ratio * 25);
-  } else if (completedSessions > 0) {
-    completionPoints = 20; // Unplanned spontaneous sessions completed
+  if (studyMinutes <= 0 && completedSessions <= 0) {
+    return {
+      score: 0,
+      grade: "D",
+      components: {
+        focusTimePoints: 0,
+        completionPoints: 0,
+        breakAdherencePoints: breakAdherenceCount !== null ? 0 : null,
+        distractionPenalty: distractionSeconds !== null ? 0 : null,
+      },
+      explanation: ["No verified study activity recorded for this period."],
+    };
   }
 
-  // 3. Break Adherence Points (5 pts per regular break taken, max 25 pts)
-  const breakAdherencePoints = Math.min(25, breakAdherenceCount * 5);
+  const hasBreaks = breakAdherenceCount !== null && breakAdherenceCount !== undefined;
+  const hasDistraction = distractionSeconds !== null && distractionSeconds !== undefined;
 
-  // 4. Distraction Penalty (1 pt deducted per 3 mins of idle/distraction, max -20 pts)
-  const distractionMins = Math.round(distractionSeconds / 60);
-  const distractionPenalty = Math.max(-20, -Math.floor(distractionMins / 3));
+  let focusTimePoints = 0;
+  let completionPoints = 0;
+  let breakAdherencePoints: number | null = null;
+  let distractionPenalty: number | null = null;
 
-  // Total Score clamped between 0 and 100
-  const rawScore = focusTimePoints + completionPoints + breakAdherencePoints + distractionPenalty;
-  const score = Math.max(0, Math.min(100, rawScore));
+  if (hasBreaks) {
+    // Standard 4-component model (Max 40 focus + 25 goals + 25 breaks = 90 base + 10 consistency = 100)
+    focusTimePoints = Math.min(45, Math.round(studyMinutes / 4)); // 180m = 45pts
+    if (totalPlannedSessions > 0) {
+      completionPoints = Math.round(Math.min(1, completedSessions / totalPlannedSessions) * 30);
+    } else if (completedSessions > 0) {
+      completionPoints = 25;
+    }
+    breakAdherencePoints = Math.min(25, (breakAdherenceCount || 0) * 5);
+  } else {
+    // Re-normalized 2-component model: Scales Study Time (60 pts) and Session Goals (40 pts)
+    focusTimePoints = Math.min(60, Math.round(studyMinutes / 3)); // 180m = 60pts
+    if (totalPlannedSessions > 0) {
+      completionPoints = Math.round(Math.min(1, completedSessions / totalPlannedSessions) * 40);
+    } else if (completedSessions > 0) {
+      completionPoints = 35;
+    }
+  }
+
+  if (hasDistraction) {
+    const distractionMins = Math.round((distractionSeconds || 0) / 60);
+    distractionPenalty = Math.max(-20, -Math.floor(distractionMins / 3));
+  }
+
+  const positiveSubtotal = focusTimePoints + completionPoints + (breakAdherencePoints || 0);
+  const netScore = positiveSubtotal + (distractionPenalty || 0);
+  const score = Math.max(0, Math.min(100, netScore));
 
   let grade: "A+" | "A" | "B" | "C" | "D" = "D";
   if (score >= 90) grade = "A+";
@@ -60,12 +88,23 @@ export function calculateFocusScore(factors: FocusScoreFactors): FocusScoreBreak
   else if (score >= 65) grade = "B";
   else if (score >= 50) grade = "C";
 
-  const explanation = [
-    `Study Time: +${focusTimePoints}/40 pts (${studyMinutes} mins focused)`,
-    `Session Goals: +${completionPoints}/25 pts (${completedSessions}/${totalPlannedSessions || completedSessions} sessions)`,
-    `Ergonomic Breaks: +${breakAdherencePoints}/25 pts (${breakAdherenceCount} breaks observed)`,
-    `Distraction: ${distractionPenalty} pts (${distractionMins} mins off-task)`,
+  const explanation: string[] = [
+    `Study Time: +${focusTimePoints} pts (${studyMinutes} mins focused)`,
+    `Session Goals: +${completionPoints} pts (${completedSessions}/${totalPlannedSessions || completedSessions} sessions)`,
   ];
+
+  if (hasBreaks) {
+    explanation.push(`Ergonomic Breaks: +${breakAdherencePoints} pts (${breakAdherenceCount} breaks recorded)`);
+  } else {
+    explanation.push("Ergonomic Breaks: Untracked for this period");
+  }
+
+  if (hasDistraction) {
+    const distractionMins = Math.round((distractionSeconds || 0) / 60);
+    explanation.push(`Distraction: ${distractionPenalty} pts (${distractionMins} mins off-task)`);
+  } else {
+    explanation.push("Distraction: Untracked for this period");
+  }
 
   return {
     score,

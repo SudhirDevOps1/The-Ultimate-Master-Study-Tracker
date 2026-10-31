@@ -100,12 +100,13 @@ export function exportAllDataToCSV(sessions: StudySession[], subjects: Subject[]
 function downloadCSV(content: string, filename: string): void {
   const element = document.createElement("a");
   const file = new Blob([content], { type: "text/csv;charset=utf-8" });
-  element.href = URL.createObjectURL(file);
+  const objectUrl = URL.createObjectURL(file);
+  element.href = objectUrl;
   element.download = filename;
   document.body.appendChild(element);
   element.click();
   document.body.removeChild(element);
-  URL.revokeObjectURL(element.href);
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
 }
 
 /**
@@ -135,14 +136,40 @@ export async function saveImageSafely(
     }
   }
 
-  // Web Browser / DOM Fallback
+  // Web Browser / DOM Fallback with Blob ObjectURL to prevent Chrome 0KB data URI truncation
   try {
+    let objectUrl = dataUrl;
+    let needsRevoke = false;
+
+    if (dataUrl.startsWith("data:")) {
+      try {
+        const parts = dataUrl.split(";base64,");
+        const contentType = parts[0].replace("data:", "") || "image/png";
+        const byteCharacters = atob(parts[1] || "");
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: contentType });
+        objectUrl = URL.createObjectURL(blob);
+        needsRevoke = true;
+      } catch (blobErr) {
+        console.warn("Failed to convert dataUrl to Blob, falling back to raw dataUrl:", blobErr);
+      }
+    }
+
     const link = document.createElement("a");
-    link.href = dataUrl;
+    link.href = objectUrl;
     link.download = defaultFilename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+
+    if (needsRevoke) {
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+    }
+
     return { success: true, filename: defaultFilename };
   } catch (err: any) {
     console.error("DOM image download failed:", err);

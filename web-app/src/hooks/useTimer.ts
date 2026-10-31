@@ -1,3 +1,4 @@
+import { sendNotification } from '@/utils/notification';
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -18,8 +19,11 @@ function playCompletionSound() {
 
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 0.4);
+    setTimeout(() => {
+      void ctx.close();
+    }, 500);
   } catch (e) {
-    console.error("Audio beep failed", e);
+    /* ignore audio error */
   }
 }
 
@@ -56,12 +60,36 @@ export function useTimer() {
         if (inactiveMs >= 10 * 60 * 1000) { // 10 minutes
           void state.pauseSession();
           if (state.notificationsEnabled && typeof Notification !== "undefined" && Notification.permission === "granted") {
-            new Notification("FlowTrack - Inactivity Auto-Pause", {
+            sendNotification("FlowTrack - Inactivity Auto-Pause", {
               body: "Your study session was auto-paused due to 10 minutes of inactivity. Stay focused! 🔒",
               icon: "/icon-192.png",
             });
           }
         }
+      }
+
+      // ActivityWatch-Style AFK Idle Guard (OS-level mouse/keyboard idle detection)
+      if (
+        typeof window !== "undefined" &&
+        Boolean((window as any).electron?.ipcRenderer) &&
+        currentTimer.activeSessionId &&
+        !currentTimer.isPaused
+      ) {
+        (window as any).electron.ipcRenderer
+          .invoke("get-idle-time-ms")
+          .then((idleMs: number) => {
+            // If user has been away from computer for >= 5 minutes (300,000 ms)
+            if (idleMs >= 5 * 60 * 1000) {
+              void state.pauseSession();
+              if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+                sendNotification("FlowTrack - AFK Idle Auto-Pause 💤", {
+                  body: "Timer paused: You were away from your desk for over 5 minutes. Resume whenever you are back to study!",
+                  icon: "/icon-192.png",
+                });
+              }
+            }
+          })
+          .catch(() => {});
       }
 
       // Study Target Over Notification Check
@@ -89,12 +117,12 @@ export function useTimer() {
                     } as any);
                   });
                 } else {
-                  new Notification(title, { body, icon: "/icon-192.png" });
+                  sendNotification(title, { body, icon: "/icon-192.png" });
                 }
               } else if (Notification.permission === "default") {
                 Notification.requestPermission().then(permission => {
                   if (permission === "granted") {
-                    new Notification(title, { body, icon: "/icon-192.png" });
+                    sendNotification(title, { body, icon: "/icon-192.png" });
                   }
                 });
               }
@@ -114,6 +142,27 @@ export function useTimer() {
       }
 
       void syncActiveSession(now);
+
+      if (typeof window !== "undefined" && (window as any).electron) {
+        const isPipWindow = window.location.hash.includes("pip-widget") || window.location.pathname.includes("pip-widget");
+        if (!isPipWindow && state.isPipActive) {
+          const activeSession = state.sessions.find(s => s.id === currentTimer.activeSessionId);
+          const subjectName = state.subjects.find(s => s.id === activeSession?.subjectId)?.name || (activeSession as any)?.title || (activeSession as any)?.subjectName || "Focus Session";
+          const elapsed = state.getActiveElapsed(now);
+          const plannedSeconds = (activeSession?.plannedMinutes ?? 0) * 60;
+          const remaining = Math.max(0, plannedSeconds - elapsed);
+          const progress = plannedSeconds > 0 ? Math.min(100, (elapsed / plannedSeconds) * 100) : 0;
+
+          (window as any).electron.ipcRenderer.send("sync-timer-state", {
+            subjectName,
+            elapsed,
+            remaining,
+            progress,
+            isPaused: currentTimer.isPaused,
+            isRunning: !!currentTimer.activeSessionId,
+          });
+        }
+      }
     };
 
     tick();
@@ -190,40 +239,52 @@ export function useTimer() {
     };
   }, [markTimerInteraction, pauseSession, setHiddenAt, strictFocusMode, syncActiveSession]);
 
-  // ─── App-tracking: Poll active window via local Python backend ───────────
+  // ─── App-tracking: poll active window via backend / Electron IPC ─────────
   useEffect(() => {
     let activeInterval: number | undefined;
 
     const pollActiveWindow = async () => {
       const state = useAppStore.getState();
-      
-      // Always fetch latest stats and activity logs from Python backend
-      void state.fetchBackendData();
 
-      const url = state.backendUrl || "http://localhost:5001";
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000);
-        const res = await fetch(`${url}/active-window`, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        const data = await res.json();
-        if (data && data.title) {
-          const displayStr = data.process && data.process !== "unknown" ? `${data.process} — ${data.title}` : data.title;
-          state.setActiveWindow(displayStr);
-        } else {
-          state.setActiveWindow("Desktop / Idle");
+      // Fetch backend stats/activities if connected or explicitly customized
+      const hasCustomBackend = Boolean(state.backendUrl && state.backendUrl !== "http://localhost:5001");
+      if (hasCustomBackend || state.isBackendConnected) {
+        void state.fetchBackendData();
+      }
+
+      if (state.timer.activeSessionId && !state.timer.isPaused) {
+        const url = state.backendUrl || "http://localhost:5001";
+        if (!hasCustomBackend && !state.isBackendConnected) {
+          state.setActiveWindow("");
+          return;
         }
-      } catch {
-        state.setActiveWindow("Desktop / Idle");
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 1500);
+          const res = await fetch(`${url}/active-window`, { signal: controller.signal });
+          clearTimeout(timeoutId);
+          const data = await res.json();
+          if (data && typeof data.title === "string") {
+            const displayStr = data.process && data.process !== "unknown" ? `${data.process} — ${data.title}` : data.title;
+            state.setActiveWindow(displayStr);
+          }
+        } catch {
+          state.setActiveWindow("");
+        }
+      } else {
+        state.setActiveWindow("");
       }
     };
 
-    activeInterval = window.setInterval(pollActiveWindow, 3000);
+    activeInterval = window.setInterval(pollActiveWindow, 5000);
     void pollActiveWindow();
 
-    return () => { if (activeInterval) window.clearInterval(activeInterval); };
+    return () => {
+      if (activeInterval) {
+        window.clearInterval(activeInterval);
+      }
+    };
   }, []);
-
 
   const activeSession = useMemo(
     () => sessions.find((session) => session.id === timer.activeSessionId) ?? null,

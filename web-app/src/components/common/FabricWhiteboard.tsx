@@ -17,16 +17,19 @@ import { useNavigate } from "react-router-dom";
 import * as fabric from "fabric";
 import {
   Undo2, Redo2, ZoomIn, ZoomOut, Maximize2, Minimize2, Menu, Download,
-  Upload, Trash2, Grid3x3, Magnet, ChevronDown, Scan, Palette, FileImage,
+  Upload, Trash2, Edit3, Grid3x3, Magnet, ChevronDown, Scan, Palette, FileImage,
   FileJson, FileCode2, Keyboard, MousePointer2, LassoSelect, Hand, Pencil, Highlighter,
   Zap, Eraser, Square, Circle, Diamond, Triangle, Cloud, Minus, ArrowRight, Type, StickyNote,
   ImagePlus, Lock, Unlock, BringToFront, SendToBack, Copy, Ban, X, Sparkles,
   GitFork, FileText, AlignLeft, AlignCenter, AlignRight, AlignJustify, ArrowUpDown, Check,
   ChevronLeft, ChevronRight, Plus, Home, ArrowLeft,
+  LayoutTemplate, Layers, Group as GroupIcon, Ungroup as UngroupIcon,
+  Eye, EyeOff, ChevronsUp, ChevronsDown,
 } from "lucide-react";
 import { useToast } from "@/components/common/Toast";
+import { MarkdownRenderer } from "@/components/common/MarkdownRenderer";
 import { saveImageSafely } from "@/utils/dataExport";
-import { renderMermaidToSvg, MERMAID_PRESETS } from "@/utils/mermaidHelper";
+import { renderMermaidToSvg, renderMermaidToPngDataUrl, MERMAID_PRESETS, extractMermaidCode, sanitizeMermaidLabels, buildFallbackMermaid } from "@/utils/mermaidHelper";
 import { callUnifiedAI } from "@/utils/aiClient";
 import { calculateAlignment, calculateDistribution, isPointInPolygon } from "@/utils/boardMath";
 
@@ -48,7 +51,7 @@ interface Theme {
 
 const SHAPE_TOOLS = new Set<Tool>(["rect", "ellipse", "diamond", "triangle", "cloud", "line", "arrow"]);
 const DRAW_TOOLS  = new Set<Tool>(["pen", "marker"]);
-const TEXT_TYPES  = new Set(["i-text", "text", "textbox"]);
+const TEXT_TYPES  = new Set(["i-text", "text", "textbox", "stickynotebox"]);
 
 const GRID = 20;
 const LASER_MS = 900;
@@ -109,10 +112,15 @@ export class StickyNoteBox extends fabric.Textbox {
   noteBorderColor: string = "#facc15";
 
   constructor(text: string, options: any = {}) {
-    super(text, {
-      ...options,
-      type: "StickyNoteBox",
-    });
+    // Fabric 7 exposes `type` as a getter-only accessor, so passing it through
+    // options throws "Cannot set property type ... which has only a getter".
+    // The instance type is derived from the static `type` field instead.
+    const { minHeight, ...rest } = options;
+    super(text, rest);
+    if (typeof minHeight === "number" && Number.isFinite(minHeight)) {
+      this.minHeight = minHeight;
+    }
+    this.initDimensions();
   }
 
   override initDimensions() {
@@ -180,8 +188,461 @@ export const isNoteObj = (o: fabric.Object | null | undefined): boolean => {
   return o instanceof StickyNoteBox || (o as any).customData?.type === "note" || Boolean((o as any).noteColorId);
 };
 
+/* -------------------------------------------------------------------------- */
+/*  Markdown → canvas study card                                              */
+/* -------------------------------------------------------------------------- */
+
+const CARD_FONT_SANS = "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
+const CARD_FONT_MONO = "'JetBrains Mono', 'Cascadia Code', Consolas, monospace";
+
+interface InlineStyle {
+  bold?: boolean;
+  italic?: boolean;
+  code?: boolean;
+  strike?: boolean;
+  link?: boolean;
+}
+
+interface InlineAtom {
+  text: string;
+  style: InlineStyle;
+  space: boolean;
+}
+
+type BlockKind =
+  | "heading" | "para" | "bullet" | "number" | "task"
+  | "quote" | "code" | "rule" | "space" | "table";
+
+interface MdBlock {
+  kind: BlockKind;
+  level?: number;
+  marker?: string;
+  checked?: boolean;
+  atoms?: InlineAtom[];
+  codeLines?: string[];
+  rows?: string[][];
+  indent: number;
+}
+
+interface MdLine {
+  kind: BlockKind;
+  level?: number;
+  marker?: string;
+  checked?: boolean;
+  atoms?: InlineAtom[];
+  codeLines?: string[];
+  tableLines?: string[][][];
+  indent: number;
+  height: number;
+  gapBefore: number;
+  first: boolean;
+}
+
+const CARD_HEADING_SIZE: Record<number, number> = { 1: 19, 2: 16.5, 3: 15, 4: 14, 5: 13.5, 6: 13 };
+
+function inlineFont(style: InlineStyle, size: number): string {
+  const weight = style.bold ? "bold " : "";
+  const slant = style.italic ? "italic " : "";
+  const px = style.code ? Math.max(10, size - 1) : size;
+  return `${weight}${slant}${px}px ${style.code ? CARD_FONT_MONO : CARD_FONT_SANS}`;
+}
+
+/**
+ * Tokenises inline Markdown (`**bold**`, `*italic*`, `` `code` ``, `~~strike~~`,
+ * `[label](url)`) into style-tagged atoms while keeping whitespace separate so
+ * the layout pass can wrap text cleanly.
+ */
+function parseInlineMarkdown(text: string): InlineAtom[] {
+  const atoms: InlineAtom[] = [];
+
+  const push = (chunk: string, style: InlineStyle) => {
+    if (!chunk) return;
+    for (const part of chunk.split(/(\s+)/)) {
+      if (part) atoms.push({ text: part, style, space: /^\s+$/.test(part) });
+    }
+  };
+
+  const pattern = /(\*\*[^*\n]+\*\*|__[^_\n]+__|~~[^~\n]+~~|`[^`\n]+`|\[[^\]\n]+\]\([^)\n]+\)|\*[^*\n]+\*|_[^_\n]+_)/g;
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text)) !== null) {
+    push(text.slice(cursor, match.index), {});
+    const raw = match[0];
+    if (raw.startsWith("**") || raw.startsWith("__")) {
+      push(raw.slice(2, -2), { bold: true });
+    } else if (raw.startsWith("~~")) {
+      push(raw.slice(2, -2), { strike: true });
+    } else if (raw.startsWith("`")) {
+      push(raw.slice(1, -1), { code: true });
+    } else if (raw.startsWith("[")) {
+      const link = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(raw);
+      push(link ? link[1] : raw, { link: true });
+    } else {
+      push(raw.slice(1, -1), { italic: true });
+    }
+    cursor = match.index + raw.length;
+  }
+
+  push(text.slice(cursor), {});
+  return atoms;
+}
+
+/** Splits Markdown source into block-level constructs (headings, lists, code…). */
+function parseMarkdownBlocks(content: string): MdBlock[] {
+  const lines = content.replace(/\r\n?/g, "\n").split("\n");
+  const blocks: MdBlock[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const raw = lines[i];
+    const trimmed = raw.trim();
+    const leading = raw.length - raw.trimStart().length;
+    const indent = Math.min(3, Math.floor(leading / 2)) * 12;
+
+    if (!trimmed) {
+      blocks.push({ kind: "space", indent: 0 });
+      i++;
+      continue;
+    }
+
+    // Fenced code block (```lang … ```)
+    if (/^```/.test(trimmed)) {
+      i++;
+      const code: string[] = [];
+      while (i < lines.length && !/^```/.test(lines[i].trim())) {
+        code.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) i++;
+      blocks.push({ kind: "code", codeLines: code.length ? code : [""], indent: 0 });
+      continue;
+    }
+
+    // Horizontal rule
+    if (/^(?:-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+      blocks.push({ kind: "rule", indent: 0 });
+      i++;
+      continue;
+    }
+
+    // Heading
+    const heading = /^(#{1,6})\s+(.*)$/.exec(trimmed);
+    if (heading) {
+      blocks.push({ kind: "heading", level: heading[1].length, atoms: parseInlineMarkdown(heading[2]), indent: 0 });
+      i++;
+      continue;
+    }
+
+    // Task list
+    const task = /^[-*+]\s+\[([ xX])\]\s+(.*)$/.exec(trimmed);
+    if (task) {
+      blocks.push({
+        kind: "task",
+        checked: task[1].toLowerCase() === "x",
+        atoms: parseInlineMarkdown(task[2]),
+        indent,
+      });
+      i++;
+      continue;
+    }
+
+    // Bullet list
+    const bullet = /^[-*+]\s+(.*)$/.exec(trimmed);
+    if (bullet) {
+      blocks.push({ kind: "bullet", atoms: parseInlineMarkdown(bullet[1]), indent });
+      i++;
+      continue;
+    }
+
+    // Numbered list
+    const numbered = /^(\d+)[.)]\s+(.*)$/.exec(trimmed);
+    if (numbered) {
+      blocks.push({ kind: "number", marker: `${numbered[1]}.`, atoms: parseInlineMarkdown(numbered[2]), indent });
+      i++;
+      continue;
+    }
+
+    // Block quote (GitHub alert markers such as [!NOTE] are stripped)
+    const quote = /^>\s?(.*)$/.exec(trimmed);
+    if (quote) {
+      blocks.push({
+        kind: "quote",
+        atoms: parseInlineMarkdown(quote[1].replace(/^\[![A-Za-z]+\]\s*/, "")),
+        indent,
+      });
+      i++;
+      continue;
+    }
+
+    // Pipe table
+    if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
+      const rows: string[][] = [];
+      while (i < lines.length && lines[i].trim().startsWith("|")) {
+        const row = lines[i].trim();
+        const isSeparator = /^\|?[\s:|-]+\|?$/.test(row) && row.includes("-");
+        if (!isSeparator) {
+          rows.push(row.replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim()));
+        }
+        i++;
+      }
+      if (rows.length) blocks.push({ kind: "table", rows, indent: 0 });
+      continue;
+    }
+
+    blocks.push({ kind: "para", atoms: parseInlineMarkdown(trimmed), indent });
+    i++;
+  }
+
+  return blocks;
+}
+
+function measureInline(ctx: CanvasRenderingContext2D, atom: InlineAtom, size: number): number {
+  ctx.font = inlineFont(atom.style, size);
+  return ctx.measureText(atom.text).width;
+}
+
+/** Word-wraps inline atoms, breaking over-long single tokens by character. */
+function wrapInline(ctx: CanvasRenderingContext2D, atoms: InlineAtom[], maxWidth: number, size: number): InlineAtom[][] {
+  const lines: InlineAtom[][] = [];
+  let current: InlineAtom[] = [];
+  let width = 0;
+
+  const flush = () => {
+    while (current.length && current[current.length - 1].space) current.pop();
+    if (current.length) lines.push(current);
+    current = [];
+    width = 0;
+  };
+
+  for (const atom of atoms) {
+    const atomWidth = measureInline(ctx, atom, size);
+
+    if (atomWidth > maxWidth && !atom.space && atom.text.length > 1) {
+      let buffer = "";
+      for (const ch of atom.text) {
+        const test = buffer + ch;
+        const testWidth = measureInline(ctx, { ...atom, text: test }, size);
+        if (testWidth > maxWidth - width && buffer) {
+          current.push({ ...atom, text: buffer });
+          flush();
+          buffer = ch;
+        } else {
+          buffer = test;
+        }
+      }
+      if (buffer) {
+        current.push({ ...atom, text: buffer });
+        width += measureInline(ctx, { ...atom, text: buffer }, size);
+      }
+      continue;
+    }
+
+    if (width + atomWidth > maxWidth && current.length && !atom.space) flush();
+    if (!current.length && atom.space) continue;
+    current.push(atom);
+    width += atomWidth;
+  }
+
+  flush();
+  return lines;
+}
+
+function layoutMarkdown(ctx: CanvasRenderingContext2D, blocks: MdBlock[], innerWidth: number): MdLine[] {
+  const lines: MdLine[] = [];
+
+  for (const block of blocks) {
+    if (block.kind === "space") {
+      lines.push({ kind: "space", indent: 0, height: 10, gapBefore: 0, first: false });
+      continue;
+    }
+    if (block.kind === "rule") {
+      lines.push({ kind: "rule", indent: 0, height: 1, gapBefore: 8, first: false });
+      continue;
+    }
+
+    if (block.kind === "code") {
+      const source = block.codeLines ?? [""];
+      const wrapped: string[] = [];
+      ctx.font = `11.5px ${CARD_FONT_MONO}`;
+      for (const rawLine of source) {
+        const text = rawLine.replace(/\t/g, "  ");
+        if (!text) {
+          wrapped.push("");
+          continue;
+        }
+        let buffer = "";
+        for (const ch of text) {
+          if (ctx.measureText(buffer + ch).width > innerWidth - 22 && buffer) {
+            wrapped.push(buffer);
+            buffer = ch;
+          } else {
+            buffer += ch;
+          }
+        }
+        wrapped.push(buffer);
+      }
+      lines.push({
+        kind: "code",
+        indent: 0,
+        height: Math.max(1, wrapped.length) * 15 + 16,
+        gapBefore: 6,
+        first: false,
+        codeLines: wrapped,
+      });
+      continue;
+    }
+
+    if (block.kind === "table") {
+      const rows = block.rows ?? [];
+      if (!rows.length) continue;
+      const cols = Math.max(1, ...rows.map((row) => row.length));
+      const colWidth = innerWidth / cols;
+      ctx.font = `12px ${CARD_FONT_SANS}`;
+
+      const tableLines: string[][][] = rows.map((row) =>
+        Array.from({ length: cols }, (_, ci) => {
+          const cell = row[ci] ?? "";
+          const wrapped: string[] = [];
+          let buffer = "";
+          for (const word of cell.split(/\s+/).filter(Boolean)) {
+            const test = buffer ? `${buffer} ${word}` : word;
+            if (ctx.measureText(test).width > colWidth - 14 && buffer) {
+              wrapped.push(buffer);
+              buffer = word;
+            } else {
+              buffer = test;
+            }
+          }
+          wrapped.push(buffer);
+          return wrapped;
+        })
+      );
+
+      const height = tableLines.reduce(
+        (sum, cells) => sum + Math.max(1, ...cells.map((cell) => cell.length)) * 15 + 10,
+        4
+      );
+      lines.push({ kind: "table", indent: 0, height, gapBefore: 6, first: false, tableLines });
+      continue;
+    }
+
+    // Text-like blocks
+    const size = block.kind === "heading" ? CARD_HEADING_SIZE[block.level || 3] || 14 : 13;
+    const textIndent =
+      block.indent +
+      (block.kind === "bullet" || block.kind === "task" ? 16 : block.kind === "number" ? 22 : block.kind === "quote" ? 14 : 0);
+    const available = Math.max(60, innerWidth - textIndent);
+    const wrapped = wrapInline(ctx, block.atoms ?? [], available, size);
+    const lineHeight = block.kind === "heading" ? Math.round(size * 1.35) + 4 : 20;
+    const gapBefore =
+      block.kind === "heading" ? ((block.level || 3) <= 2 ? 12 : 8) : block.kind === "quote" ? 4 : 2;
+
+    if (!wrapped.length) {
+      lines.push({ kind: "space", indent: 0, height: 6, gapBefore: 0, first: false });
+      continue;
+    }
+
+    wrapped.forEach((atoms, index) => {
+      lines.push({
+        kind: block.kind,
+        level: block.level,
+        marker: block.marker,
+        checked: block.checked,
+        atoms,
+        indent: textIndent,
+        height: lineHeight,
+        gapBefore: index === 0 ? gapBefore : 0,
+        first: index === 0,
+      });
+    });
+  }
+
+  return lines;
+}
+
+function fillRoundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+  fill: string,
+  stroke?: string
+) {
+  ctx.beginPath();
+  if (typeof ctx.roundRect === "function") ctx.roundRect(x, y, w, h, r);
+  else ctx.rect(x, y, w, h);
+  ctx.fillStyle = fill;
+  ctx.fill();
+  if (stroke) {
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+}
+
+function ellipsize(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let out = text;
+  while (out.length > 1 && ctx.measureText(`${out}…`).width > maxWidth) out = out.slice(0, -1);
+  return `${out}…`;
+}
+
+/** Draws inline atoms and returns the width consumed. */
+function drawInline(
+  ctx: CanvasRenderingContext2D,
+  atoms: InlineAtom[],
+  x: number,
+  y: number,
+  color: string,
+  size: number,
+  accent: string,
+  base: InlineStyle = {}
+): number {
+  let cursor = x;
+  for (const atom of atoms) {
+    const style = { ...base, ...atom.style };
+    ctx.font = inlineFont(style, size);
+    const width = ctx.measureText(atom.text).width;
+
+    if (!atom.space) {
+      if (style.code) {
+        const h = Math.max(12, size - 1);
+        ctx.fillStyle = "rgba(56,189,248,0.14)";
+        ctx.fillRect(cursor - 2, y - h + 1, width + 4, h + 4);
+      }
+      ctx.fillStyle = style.code ? "#7dd3fc" : style.link ? accent : color;
+      ctx.fillText(atom.text, cursor, y);
+
+      if (style.strike) {
+        ctx.strokeStyle = ctx.fillStyle as string;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(cursor, y - size * 0.32);
+        ctx.lineTo(cursor + width, y - size * 0.32);
+        ctx.stroke();
+      }
+      if (style.link) {
+        ctx.strokeStyle = accent;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(cursor, y + 2);
+        ctx.lineTo(cursor + width, y + 2);
+        ctx.stroke();
+      }
+    }
+
+    cursor += width;
+  }
+  return cursor - x;
+}
+
 /**
  * High-definition 2D canvas card renderer for structured Markdown study notes.
+ * Parses headings, lists, tasks, quotes, tables, code fences and inline styling
+ * so AI output looks like a designed card instead of raw Markdown text.
  */
 export function renderMarkdownCardCanvas(
   title: string,
@@ -196,109 +657,38 @@ export function renderMarkdownCardCanvas(
   const padding = 24;
   const headerHeight = 60;
   const innerWidth = cardWidth - padding * 2;
+  const scale = 2;
 
-  const rawLines = content.split("\n");
-  const parsedLines: { type: "header" | "bullet" | "code" | "text" | "task"; text: string; checked?: boolean }[] = [];
-
-  for (const raw of rawLines) {
-    const trimmed = raw.trim();
-    if (!trimmed) {
-      parsedLines.push({ type: "text", text: "" });
-      continue;
-    }
-    if (trimmed.startsWith("#")) {
-      parsedLines.push({ type: "header", text: trimmed.replace(/^#+\s*/, "") });
-    } else if (trimmed.startsWith("- [x]") || trimmed.startsWith("- [X]")) {
-      parsedLines.push({ type: "task", text: trimmed.slice(5).trim(), checked: true });
-    } else if (trimmed.startsWith("- [ ]")) {
-      parsedLines.push({ type: "task", text: trimmed.slice(5).trim(), checked: false });
-    } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
-      parsedLines.push({ type: "bullet", text: trimmed.slice(2).trim() });
-    } else if (trimmed.startsWith("```")) {
-      // fence marker skip
-    } else if (trimmed.startsWith("`") && trimmed.endsWith("`")) {
-      parsedLines.push({ type: "code", text: trimmed.slice(1, -1) });
-    } else {
-      parsedLines.push({ type: "text", text: trimmed });
-    }
-  }
-
-  ctx.font = "14px system-ui, -apple-system, sans-serif";
-  let contentHeight = 0;
-  const wrappedLines: { type: string; text: string; checked?: boolean }[] = [];
-
-  for (const line of parsedLines) {
-    if (!line.text) {
-      contentHeight += 12;
-      wrappedLines.push({ type: "space", text: "" });
-      continue;
-    }
-    if (line.type === "header") {
-      contentHeight += 28;
-      wrappedLines.push(line);
-      continue;
-    }
-
-    const words = line.text.split(" ");
-    let currentLine = "";
-    for (const w of words) {
-      const test = currentLine ? `${currentLine} ${w}` : w;
-      if (ctx.measureText(test).width > innerWidth - (line.type === "bullet" || line.type === "task" ? 24 : 0)) {
-        wrappedLines.push({ ...line, text: currentLine });
-        currentLine = w;
-        contentHeight += 22;
-      } else {
-        currentLine = test;
-      }
-    }
-    if (currentLine) {
-      wrappedLines.push({ ...line, text: currentLine });
-      contentHeight += 22;
-    }
-  }
-
-  const totalHeight = Math.max(160, padding + headerHeight + contentHeight + padding);
-  const scale = 2; // Crisp 2x pixel ratio
+  const blocks = parseMarkdownBlocks(content);
+  const lines = layoutMarkdown(ctx, blocks, innerWidth);
+  const contentHeight = lines.reduce((sum, line) => sum + line.gapBefore + line.height, 0);
+  const totalHeight = Math.max(180, padding + headerHeight + 10 + contentHeight + padding);
 
   canvas.width = cardWidth * scale;
   canvas.height = totalHeight * scale;
   ctx.scale(scale, scale);
 
-  // Background
-  ctx.fillStyle = "#0f172a";
-  ctx.strokeStyle = "#334155";
-  ctx.lineWidth = 1.5;
-  if (typeof ctx.roundRect === "function") {
-    ctx.beginPath();
-    ctx.roundRect(0, 0, cardWidth, totalHeight, 16);
-    ctx.fill();
-    ctx.stroke();
-  } else {
-    ctx.fillRect(0, 0, cardWidth, totalHeight);
-    ctx.strokeRect(0, 0, cardWidth, totalHeight);
-  }
+  // Card background
+  fillRoundRect(ctx, 0, 0, cardWidth, totalHeight, 16, "#0f172a", "#334155");
 
   // Accent bar on top
+  ctx.beginPath();
+  if (typeof ctx.roundRect === "function") ctx.roundRect(0, 0, cardWidth, 6, [16, 16, 0, 0]);
+  else ctx.rect(0, 0, cardWidth, 6);
   ctx.fillStyle = accentColor;
-  if (typeof ctx.roundRect === "function") {
-    ctx.beginPath();
-    ctx.roundRect(0, 0, cardWidth, 6, [16, 16, 0, 0]);
-    ctx.fill();
-  } else {
-    ctx.fillRect(0, 0, cardWidth, 6);
-  }
+  ctx.fill();
 
-  // Header Title
+  // Header title
   ctx.fillStyle = "#f8fafc";
-  ctx.font = "bold 16px system-ui, -apple-system, sans-serif";
-  ctx.fillText(title || "Study Note", padding, padding + 22);
+  ctx.font = `bold 16px ${CARD_FONT_SANS}`;
+  ctx.fillText(ellipsize(ctx, title || "Study Note", innerWidth), padding, padding + 22);
 
-  // Header Subtitle / Date
+  // Header subtitle
   ctx.fillStyle = "#64748b";
-  ctx.font = "11px system-ui, -apple-system, sans-serif";
-  ctx.fillText("FlowTrack Academic Note • " + new Date().toLocaleDateString(), padding, padding + 40);
+  ctx.font = `11px ${CARD_FONT_SANS}`;
+  ctx.fillText(`FlowTrack Study Card • ${new Date().toLocaleDateString()}`, padding, padding + 40);
 
-  // Divider line
+  // Divider
   ctx.strokeStyle = "#1e293b";
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -306,55 +696,159 @@ export function renderMarkdownCardCanvas(
   ctx.lineTo(cardWidth - padding, padding + 48);
   ctx.stroke();
 
-  // Render lines
   let y = padding + headerHeight + 10;
-  for (const line of wrappedLines) {
-    if (line.type === "space") {
-      y += 12;
+
+  for (const line of lines) {
+    y += line.gapBefore;
+    const x = padding + line.indent;
+    const baseline = y + line.height - 6;
+
+    if (line.kind === "space") {
+      y += line.height;
       continue;
     }
-    if (line.type === "header") {
-      ctx.fillStyle = accentColor;
-      ctx.font = "bold 14px system-ui, -apple-system, sans-serif";
-      ctx.fillText(line.text, padding, y);
-      y += 24;
-    } else if (line.type === "task") {
-      ctx.fillStyle = line.checked ? "#10b981" : "#64748b";
-      ctx.font = "13px system-ui, -apple-system, sans-serif";
-      ctx.fillText(line.checked ? "☑" : "☐", padding, y);
-      ctx.fillStyle = line.checked ? "#94a3b8" : "#cbd5e1";
-      ctx.fillText(line.text, padding + 20, y);
-      y += 22;
-    } else if (line.type === "bullet") {
-      ctx.fillStyle = accentColor;
-      ctx.font = "bold 14px system-ui, -apple-system, sans-serif";
-      ctx.fillText("•", padding + 2, y);
-      ctx.fillStyle = "#cbd5e1";
-      ctx.font = "13px system-ui, -apple-system, sans-serif";
-      ctx.fillText(line.text, padding + 18, y);
-      y += 22;
-    } else if (line.type === "code") {
-      ctx.fillStyle = "#1e293b";
-      ctx.fillRect(padding - 4, y - 14, innerWidth + 8, 20);
-      ctx.fillStyle = "#38bdf8";
-      ctx.font = "12px monospace";
-      ctx.fillText(line.text, padding, y);
-      y += 22;
-    } else {
-      ctx.fillStyle = "#cbd5e1";
-      ctx.font = "13px system-ui, -apple-system, sans-serif";
-      ctx.fillText(line.text, padding, y);
-      y += 22;
+
+    if (line.kind === "rule") {
+      ctx.strokeStyle = "#334155";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padding, y);
+      ctx.lineTo(cardWidth - padding, y);
+      ctx.stroke();
+      y += line.height + 8;
+      continue;
     }
+
+    if (line.kind === "code") {
+      const codeLines = line.codeLines ?? [""];
+      const boxHeight = Math.max(1, codeLines.length) * 15 + 16;
+      fillRoundRect(ctx, padding, y, innerWidth, boxHeight, 8, "#0b1220", "#1e293b");
+      ctx.font = `11.5px ${CARD_FONT_MONO}`;
+      ctx.fillStyle = "#7dd3fc";
+      codeLines.forEach((codeLine, index) => ctx.fillText(codeLine, padding + 10, y + 15 + index * 15));
+      y += boxHeight;
+      continue;
+    }
+
+    if (line.kind === "table") {
+      const rows = line.tableLines ?? [];
+      if (!rows.length) {
+        y += line.height;
+        continue;
+      }
+      const cols = rows[0].length;
+      const colWidth = innerWidth / cols;
+      let tableY = y;
+
+      rows.forEach((cells, rowIndex) => {
+        const rowHeight = Math.max(1, ...cells.map((cell) => cell.length)) * 15 + 10;
+        if (rowIndex === 0) {
+          ctx.fillStyle = "rgba(139,92,246,0.16)";
+          ctx.fillRect(padding, tableY, innerWidth, rowHeight);
+        }
+        ctx.strokeStyle = "#1e293b";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(padding, tableY + rowHeight);
+        ctx.lineTo(cardWidth - padding, tableY + rowHeight);
+        ctx.stroke();
+
+        ctx.font = `${rowIndex === 0 ? "bold " : ""}12px ${CARD_FONT_SANS}`;
+        cells.forEach((cellLines, colIndex) => {
+          ctx.fillStyle = rowIndex === 0 ? "#e2e8f0" : "#cbd5e1";
+          cellLines.forEach((cellLine, lineIndex) => {
+            ctx.fillText(cellLine, padding + colIndex * colWidth + 6, tableY + 15 + lineIndex * 15);
+          });
+        });
+
+        tableY += rowHeight;
+      });
+
+      y += line.height;
+      continue;
+    }
+
+    if (line.kind === "heading") {
+      const size = CARD_HEADING_SIZE[line.level || 3] || 14;
+      const color = (line.level || 3) <= 2 ? accentColor : "#e2e8f0";
+      const width = drawInline(ctx, line.atoms ?? [], x, baseline, color, size, accentColor, { bold: true });
+      if (line.first && (line.level || 3) <= 2) {
+        ctx.strokeStyle = accentColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x, baseline + 5);
+        ctx.lineTo(x + Math.min(width, innerWidth - line.indent), baseline + 5);
+        ctx.stroke();
+      }
+      y += line.height;
+      continue;
+    }
+
+    if (line.kind === "bullet") {
+      ctx.fillStyle = accentColor;
+      ctx.font = `bold 14px ${CARD_FONT_SANS}`;
+      ctx.fillText("•", x - 12, baseline);
+      drawInline(ctx, line.atoms ?? [], x, baseline, "#cbd5e1", 13, accentColor);
+      y += line.height;
+      continue;
+    }
+
+    if (line.kind === "number") {
+      ctx.fillStyle = accentColor;
+      ctx.font = `bold 12px ${CARD_FONT_SANS}`;
+      ctx.textAlign = "right";
+      ctx.fillText(line.marker ?? "1.", x - 6, baseline);
+      ctx.textAlign = "left";
+      drawInline(ctx, line.atoms ?? [], x, baseline, "#cbd5e1", 13, accentColor);
+      y += line.height;
+      continue;
+    }
+
+    if (line.kind === "task") {
+      const checked = Boolean(line.checked);
+      ctx.fillStyle = checked ? "#10b981" : "#64748b";
+      ctx.font = `13px ${CARD_FONT_SANS}`;
+      ctx.fillText(checked ? "☑" : "☐", x - 17, baseline);
+      drawInline(ctx, line.atoms ?? [], x, baseline, checked ? "#94a3b8" : "#cbd5e1", 13, accentColor);
+      y += line.height;
+      continue;
+    }
+
+    if (line.kind === "quote") {
+      ctx.fillStyle = accentColor;
+      ctx.globalAlpha = 0.5;
+      ctx.fillRect(x - 10, y + 1, 3, Math.max(4, line.height - 4));
+      ctx.globalAlpha = 1;
+      drawInline(ctx, line.atoms ?? [], x, baseline, "#94a3b8", 13, accentColor);
+      y += line.height;
+      continue;
+    }
+
+    drawInline(ctx, line.atoms ?? [], x, baseline, "#cbd5e1", 13, accentColor);
+    y += line.height;
   }
 
   return canvas;
 }
 
+/** Removes a wrapping ```markdown fence and leading chat preamble from AI notes. */
+function normalizeMarkdownResponse(raw: string): string {
+  let text = (raw || "").replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").trim();
+  const fence = /^```(?:markdown|md)?[ \t]*\n([\s\S]*?)```\s*$/i.exec(text);
+  if (fence && fence[1].trim()) text = fence[1].trim();
+
+  const lines = text.split("\n");
+  const first = lines[0]?.trim() ?? "";
+  if (lines.length > 1 && /^(?:here|sure|certainly|below|these are|of course)\b/i.test(first) && first.endsWith(":")) {
+    lines.shift();
+    while (lines.length && !lines[0].trim()) lines.shift();
+  }
+  return lines.join("\n").trim();
+}
+
 const DASHES: Record<string, number[] | undefined> = {
   solid: undefined, dashed: [12, 9], dotted: [1, 7],
 };
-
 const KEYS: Record<string, Tool> = {
   v: "select", q: "lasso", h: "pan", p: "pen", m: "marker", x: "laser", e: "eraser",
   r: "rect", o: "ellipse", d: "diamond", g: "triangle", k: "cloud", l: "line", a: "arrow", t: "text", n: "note",
@@ -387,6 +881,8 @@ const SHORTCUTS: [string, string][] = [
   ["Ctrl+Z","Undo"],["Ctrl+Shift+Z","Redo"],["Ctrl+D","Duplicate"],
   ["Ctrl+C / V","Copy / paste"],["Ctrl+A","Select all"],["Delete","Delete"],
   ["Ctrl+0","Reset zoom"],["Ctrl+1","Zoom to fit"],
+  ["Ctrl+G","Group selection"],["Ctrl+Shift+G","Ungroup"],
+  ["Ctrl+L","Lock / unlock"],["Ctrl+Shift+L","Unlock everything"],
   ["Shift+drag","Constrain"],["Alt+drag","Pan canvas"],
 ];
 
@@ -622,6 +1118,7 @@ export function FabricWhiteboard({
   /* --- DOM refs --------------------------------------------------------- */
   const hostRef = useRef<HTMLDivElement | null>(null);
   const canvasElRef = useRef<HTMLCanvasElement | null>(null);
+  const topBarRef = useRef<HTMLDivElement | null>(null);
   const fcRef = useRef<fabric.Canvas | null>(null);
   const imgFileRef = useRef<HTMLInputElement | null>(null);
   const jsonFileRef = useRef<HTMLInputElement | null>(null);
@@ -652,6 +1149,8 @@ export function FabricWhiteboard({
   const [isMultiSel, setIsMultiSel] = useState(false);
   const [selIsText, setSelIsText] = useState(false);
   const [selIsNote, setSelIsNote] = useState(false);
+  const [selIsMermaid, setSelIsMermaid] = useState(false);
+  const [selIsMarkdown, setSelIsMarkdown] = useState(false);
 
   const [internalFullscreen, setInternalFullscreen] = useState(false);
   const fullscreen = isFullscreenProp !== undefined ? isFullscreenProp : internalFullscreen;
@@ -665,10 +1164,17 @@ export function FabricWhiteboard({
   const [menuOpen, setMenuOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [layersOpen, setLayersOpen] = useState(false);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [layersTick, setLayersTick] = useState(0);
+  /** Measured height of the top bar — panels below it follow wrapping. */
+  const [barH, setBarH] = useState(66);
   const [ready, setReady] = useState(false);
 
   // Mermaid Modal & AI state
   const [mermaidModalOpen, setMermaidModalOpen] = useState(false);
+  const [editingMermaidTarget, setEditingMermaidTarget] = useState<fabric.FabricObject | null>(null);
+  const [editingMarkdownTarget, setEditingMarkdownTarget] = useState<fabric.FabricObject | null>(null);
   const [mermaidCode, setMermaidCode] = useState(MERMAID_PRESETS[0]?.code || "flowchart TD\n  A[Start] --> B(Process)\n  B --> C{Decision}\n  C -->|Yes| D[Done]\n  C -->|No| B");
   const [mermaidPreviewSvg, setMermaidPreviewSvg] = useState("");
   const [mermaidAiPrompt, setMermaidAiPrompt] = useState("");
@@ -727,6 +1233,23 @@ export function FabricWhiteboard({
     }, AUTOSAVE_MS);
   }, [storageKey]);
 
+  const layersOpenRef = useRef(false);
+  /** Cheap re-sync trigger for the Layers panel — only does work while it is open. */
+  const bumpLayers = useCallback(() => {
+    if (layersOpenRef.current) setLayersTick((t) => (t + 1) % 100000);
+  }, []);
+
+  /* Track the top bar's real height so overlay panels always start below it,
+     even when the toolbar wraps onto two rows on a narrow window. */
+  useEffect(() => {
+    const el = topBarRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setBarH(el.getBoundingClientRect().height + 6));
+    ro.observe(el);
+    setBarH(el.getBoundingClientRect().height + 6);
+    return () => ro.disconnect();
+  }, []);
+
   const pushHistory = useCallback(() => {
     const c = fcRef.current;
     if (!c || suspendRef.current) return;
@@ -739,7 +1262,8 @@ export function FabricWhiteboard({
     setCanUndo(idxRef.current > 0);
     setCanRedo(false);
     persist(json);
-  }, [persist]);
+    bumpLayers();
+  }, [persist, bumpLayers]);
 
   const loadJSON = useCallback(async (json: string) => {
     const c = fcRef.current;
@@ -791,6 +1315,10 @@ export function FabricWhiteboard({
     resetView:  () => { /* set below */ },
     fitView:    () => { /* set below */ },
     selectAll:  () => { /* set below */ },
+    group:      () => { /* set below */ },
+    ungroup:    () => { /* set below */ },
+    lockSel:    () => { /* set below */ },
+    unlockAll:  () => { /* set below */ },
   });
 
   /* ============================================================ ENGINE == */
@@ -1335,6 +1863,14 @@ export function FabricWhiteboard({
 
     /* Double-click empty canvas → drop a text object. */
     c.on("mouse:dblclick", (opt) => {
+      if (opt.target && (opt.target as any).customData?.type === "mermaid") {
+        handleEditSelectedMermaid(opt.target);
+        return;
+      }
+      if (opt.target && (opt.target as any).customData?.type === "markdown") {
+        handleEditSelectedMarkdown(opt.target);
+        return;
+      }
       if (live.current.tool !== "select" || opt.target) return;
       const sp = c.getScenePoint(opt.e);
       addText(sp.x, sp.y);
@@ -1433,6 +1969,8 @@ export function FabricWhiteboard({
       setSelIsText(objs.some(isTextObj));
       const hasNote = objs.some(isNoteObj);
       setSelIsNote(hasNote);
+      setSelIsMermaid(objs.some((o) => (o as any).customData?.type === "mermaid"));
+      setSelIsMarkdown(objs.some((o) => (o as any).customData?.type === "markdown"));
       const o = objs[0];
       if (!o) return;
       if (hasNote) {
@@ -1458,6 +1996,8 @@ export function FabricWhiteboard({
       setIsMultiSel(false);
       setSelIsText(false);
       setSelIsNote(false);
+      setSelIsMermaid(false);
+      setSelIsMarkdown(false);
     });
 
     /* ---- Restore or seed history ---------------------------------- */
@@ -1513,6 +2053,16 @@ export function FabricWhiteboard({
       if (meta && k === "a") { e.preventDefault(); cbs.current.selectAll(); return; }
       if (meta && k === "0") { e.preventDefault(); cbs.current.resetView(); return; }
       if (meta && k === "1") { e.preventDefault(); cbs.current.fitView(); return; }
+      if (meta && k === "g") {
+        e.preventDefault();
+        e.shiftKey ? cbs.current.ungroup() : cbs.current.group();
+        return;
+      }
+      if (meta && k === "l") {
+        e.preventDefault();
+        e.shiftKey ? cbs.current.unlockAll() : cbs.current.lockSel();
+        return;
+      }
       if (meta) return;
 
       if (e.key === "Delete" || e.key === "Backspace") {
@@ -1722,6 +2272,285 @@ export function FabricWhiteboard({
     if (c && a) { c.sendObjectToBack(a); c.requestRenderAll(); pushHistory(); }
   }, [pushHistory]);
 
+  /* --- Grouping & locking (Excalidraw / tldraw parity) ---------------- */
+  const groupSelection = useCallback(() => {
+    const c = fcRef.current;
+    const act = c?.getActiveObject();
+    if (!c) return;
+    if (!(act instanceof fabric.ActiveSelection) || act.size() < 2) {
+      showToast("Select at least 2 objects to group", "warning");
+      return;
+    }
+    // Fabric 7 dropped ActiveSelection#toGroup(), so build the group explicitly.
+    const objects = c.getActiveObjects();
+    c.discardActiveObject();
+    c.remove(...objects);
+    const group = new fabric.Group(objects);
+    c.add(group);
+    c.setActiveObject(group);
+    c.requestRenderAll();
+    pushHistory();
+    showToast(`Grouped ${group.size()} objects`, "success");
+  }, [pushHistory, showToast]);
+
+  const ungroupSelection = useCallback(() => {
+    const c = fcRef.current;
+    const act = c?.getActiveObject();
+    if (!c) return;
+    if (!(act instanceof fabric.Group) || act instanceof fabric.ActiveSelection) {
+      showToast("Select a group first", "warning");
+      return;
+    }
+    // Fabric 7 dropped Group#toActiveSelection(), so unpack manually.
+    const objects = act.getObjects().slice();
+    const count = objects.length;
+    act.removeAll();
+    c.remove(act);
+    c.add(...objects);
+    const sel = new fabric.ActiveSelection(objects, { canvas: c });
+    c.setActiveObject(sel);
+    c.requestRenderAll();
+    pushHistory();
+    showToast(`Ungrouped ${count} objects`, "success");
+  }, [pushHistory, showToast]);
+
+  const lockSelection = useCallback(() => {
+    const c = fcRef.current;
+    if (!c) return;
+    const objs = c.getActiveObjects();
+    if (!objs.length) { showToast("Select something to lock", "warning"); return; }
+    const shouldLock = objs.some((o) => !(o as any).__locked);
+    objs.forEach((o) => {
+      (o as any).__locked = shouldLock;
+      o.set({
+        selectable: !shouldLock,
+        evented: !shouldLock,
+        lockMovementX: shouldLock,
+        lockMovementY: shouldLock,
+        lockRotation: shouldLock,
+        lockScalingX: shouldLock,
+        lockScalingY: shouldLock,
+        hoverCursor: shouldLock ? "not-allowed" : "move",
+      });
+    });
+    c.discardActiveObject();
+    c.requestRenderAll();
+    pushHistory();
+    showToast(shouldLock ? `Locked ${objs.length} object(s)` : `Unlocked ${objs.length} object(s)`, "success");
+  }, [pushHistory, showToast]);
+
+  const unlockAll = useCallback(() => {
+    const c = fcRef.current;
+    if (!c) return;
+    let n = 0;
+    c.getObjects().forEach((o) => {
+      if (!(o as any).__locked) return;
+      (o as any).__locked = false;
+      o.set({
+        selectable: true, evented: true,
+        lockMovementX: false, lockMovementY: false, lockRotation: false,
+        lockScalingX: false, lockScalingY: false, hoverCursor: "move",
+      });
+      n += 1;
+    });
+    c.requestRenderAll();
+    if (n) { pushHistory(); showToast(`Unlocked ${n} object(s)`, "success"); }
+    else showToast("Nothing is locked", "info");
+  }, [pushHistory, showToast]);
+
+  /* --- Layers panel --------------------------------------------------- */
+  const [layerRows, setLayerRows] = useState<
+    { index: number; type: string; label: string; locked: boolean; hidden: boolean; active: boolean }[]
+  >([]);
+
+  useEffect(() => {
+    if (!layersOpen) return;
+    const c = fcRef.current;
+    if (!c) return;
+    const activeSet = new Set<fabric.Object>(c.getActiveObjects());
+    const rows = c.getObjects().map((o, index) => {
+      const type = String((o as any).type ?? "object");
+      let label = type.charAt(0).toUpperCase() + type.slice(1);
+      if (isNoteObj(o)) label = "Sticky note";
+      else if (isTextObj(o)) label = String((o as any).text ?? "Text").replace(/\s+/g, " ").slice(0, 34) || "Text";
+      else if (type === "image") label = "Image";
+      else if (type === "path") label = "Drawing";
+      else if (type === "group") label = `Group · ${(o as any).size?.() ?? 0} items`;
+      return {
+        index,
+        type,
+        label,
+        locked: !!(o as any).__locked,
+        hidden: o.visible === false,
+        active: activeSet.has(o),
+      };
+    });
+    setLayerRows(rows.reverse());
+  }, [layersOpen, layersTick]);
+
+  const layerObjectAt = (index: number) => fcRef.current?.getObjects()[index];
+
+  const selectLayer = useCallback((index: number) => {
+    const c = fcRef.current;
+    const o = layerObjectAt(index);
+    if (!c || !o) return;
+    if (o.selectable === false) { showToast("Object is locked — unlock it first", "warning"); return; }
+    c.discardActiveObject();
+    c.setActiveObject(o);
+    c.requestRenderAll();
+  }, [showToast]);
+
+  const toggleLayerLock = useCallback((index: number) => {
+    const c = fcRef.current;
+    const o = layerObjectAt(index);
+    if (!c || !o) return;
+    const locked = !(o as any).__locked;
+    (o as any).__locked = locked;
+    o.set({ selectable: !locked, evented: !locked, lockMovementX: locked, lockMovementY: locked, hoverCursor: locked ? "not-allowed" : "move" });
+    if (locked) c.discardActiveObject();
+    c.requestRenderAll();
+    pushHistory();
+  }, [pushHistory]);
+
+  const toggleLayerVisible = useCallback((index: number) => {
+    const c = fcRef.current;
+    const o = layerObjectAt(index);
+    if (!c || !o) return;
+    o.set({ visible: o.visible === false });
+    c.requestRenderAll();
+    pushHistory();
+  }, [pushHistory]);
+
+  const moveLayer = useCallback((index: number, dir: 1 | -1) => {
+    const c = fcRef.current;
+    const o = layerObjectAt(index);
+    if (!c || !o) return;
+    if (dir > 0) c.bringObjectForward(o); else c.sendObjectBackwards(o);
+    c.requestRenderAll();
+    pushHistory();
+  }, [pushHistory]);
+
+  const deleteLayer = useCallback((index: number) => {
+    const c = fcRef.current;
+    const o = layerObjectAt(index);
+    if (!c || !o) return;
+    c.remove(o);
+    c.discardActiveObject();
+    c.requestRenderAll();
+    pushHistory();
+  }, [pushHistory]);
+
+  /* --- Miro-style starter templates ----------------------------------- */
+  const applyTemplate = useCallback((id: string) => {
+    const c = fcRef.current;
+    if (!c) return;
+    const cp = c.getVpCenter();
+    const ink = theme.ink;
+    const add = (o: fabric.Object) => { c.add(o); return o; };
+
+    const box = (x: number, y: number, w: number, h: number, text: string, accent: string) => {
+      const rect = new fabric.Rect({
+        left: x, top: y, width: w, height: h, rx: 14, ry: 14,
+        fill: `${accent}1f`, stroke: accent, strokeWidth: 2, strokeUniform: true,
+      });
+      const label = new fabric.Textbox(text, {
+        left: x + 14, top: y + 14, width: Math.max(40, w - 28),
+        fontSize: 16, fontFamily: FONTS[0].family, fill: ink, lineHeight: 1.25,
+      });
+      return add(new fabric.Group([rect, label]));
+    };
+    const link = (x1: number, y1: number, x2: number, y2: number, color: string) =>
+      add(new fabric.Path(arrowPathD(x1, y1, x2, y2, 2, false), {
+        stroke: color, strokeWidth: 2, fill: "", strokeUniform: true, strokeLineCap: "round",
+      }));
+    const text = (s: string, x: number, y: number, size = 18, color = ink, w = 320) =>
+      add(new fabric.Textbox(s, { left: x, top: y, width: w, fontSize: size, fontFamily: FONTS[0].family, fill: color, lineHeight: 1.25 }));
+
+    switch (id) {
+      case "mindmap": {
+        const cx = cp.x - 110, cy = cp.y - 44;
+        box(cx, cy, 220, 88, "Central idea", "#8b5cf6");
+        const branches = [
+          { dx: -320, dy: -190, t: "Branch 1" },
+          { dx: 200, dy: -190, t: "Branch 2" },
+          { dx: -320, dy: 150, t: "Branch 3" },
+          { dx: 200, dy: 150, t: "Branch 4" },
+        ];
+        branches.forEach((b) => {
+          box(cx + b.dx, cy + b.dy, 180, 80, b.t, "#22d3ee");
+          const sx = b.dx < 0 ? cx : cx + 220;
+          const sy = cy + 44;
+          const ex = b.dx < 0 ? cx + b.dx + 180 : cx + b.dx;
+          const ey = cy + b.dy + 40;
+          link(sx, sy, ex, ey, "#64748b");
+        });
+        break;
+      }
+      case "kanban": {
+        const cols = ["To do", "In progress", "Done"];
+        const colors = ["#f59e0b", "#3b82f6", "#10b981"];
+        const startX = cp.x - 390;
+        cols.forEach((title, i) => {
+          const x = startX + i * 264;
+          box(x, cp.y - 200, 240, 56, title, colors[i]);
+          box(x, cp.y - 128, 240, 84, "Card title\nAdd details…", "#64748b");
+          box(x, cp.y - 32, 240, 84, "Card title\nAdd details…", "#64748b");
+        });
+        break;
+      }
+      case "flow": {
+        const x = cp.x - 110;
+        box(x, cp.y - 240, 220, 80, "Start", "#10b981");
+        box(x, cp.y - 100, 220, 80, "Process step", "#3b82f6");
+        box(x, cp.y + 40, 220, 80, "Decision?", "#f59e0b");
+        box(x, cp.y + 180, 220, 80, "Done", "#8b5cf6");
+        link(x + 110, cp.y - 160, x + 110, cp.y - 100, "#64748b");
+        link(x + 110, cp.y - 20, x + 110, cp.y + 40, "#64748b");
+        link(x + 110, cp.y + 120, x + 110, cp.y + 180, "#64748b");
+        break;
+      }
+      case "swot": {
+        const cells = [
+          { t: "Strengths", c: "#10b981", dx: -280, dy: -220 },
+          { t: "Weaknesses", c: "#f59e0b", dx: 0, dy: -220 },
+          { t: "Opportunities", c: "#3b82f6", dx: -280, dy: 0 },
+          { t: "Threats", c: "#ef4444", dx: 0, dy: 0 },
+        ];
+        cells.forEach((cell) => box(cp.x + cell.dx, cp.y + cell.dy, 260, 200, `${cell.t}\n\n`, cell.c));
+        break;
+      }
+      case "cornell": {
+        const w = 720, h = 480;
+        const x = cp.x - w / 2, y = cp.y - h / 2;
+        add(new fabric.Rect({ left: x, top: y, width: w, height: h, fill: "transparent", stroke: "#94a3b8", strokeWidth: 2 }));
+        add(new fabric.Line([x + 200, y, x + 200, y + h], { stroke: "#94a3b8", strokeWidth: 2 }));
+        add(new fabric.Line([x, y + h - 140, x + w, y + h - 140], { stroke: "#94a3b8", strokeWidth: 2 }));
+        text("Cues / questions", x + 12, y + 12, 16, "#94a3b8", 176);
+        text("Notes", x + 216, y + 12, 16, "#94a3b8", w - 236);
+        text("Summary", x + 12, y + h - 128, 16, "#94a3b8", w - 24);
+        break;
+      }
+      case "timeline": {
+        const y = cp.y;
+        const x0 = cp.x - 360;
+        add(new fabric.Line([x0, y, x0 + 720, y], { stroke: "#64748b", strokeWidth: 3 }));
+        for (let i = 0; i < 5; i += 1) {
+          const px = x0 + i * 180;
+          add(new fabric.Circle({ left: px - 9, top: y - 9, radius: 9, fill: "#22d3ee", stroke: "#0ea5e9", strokeWidth: 2 }));
+          text(`Milestone ${i + 1}`, px - 70, y + 24, 14, ink, 160);
+        }
+        break;
+      }
+      default:
+        break;
+    }
+
+    c.requestRenderAll();
+    pushHistory();
+    setTemplatesOpen(false);
+    showToast("Template added to the board", "success");
+  }, [theme.ink, pushHistory, showToast]);
+
   /* --- Slide Deck Operations ----------------------------------------- */
   const persistSlides = useCallback((updatedSlides: { id: string; title: string; json: string }[]) => {
     setSlides(updatedSlides);
@@ -1870,15 +2699,151 @@ export function FabricWhiteboard({
     return () => { cancelled = true; };
   }, [mermaidModalOpen, mermaidCode]);
 
+  const handleEditSelectedMermaid = (target?: fabric.FabricObject) => {
+    const c = fcRef.current;
+    if (!c) return;
+    const obj = target || c.getActiveObject();
+    if (!obj) return;
+    const code = (obj as any).customData?.code;
+    if (code) {
+      setMermaidCode(code);
+      setEditingMermaidTarget(obj);
+      setMermaidModalOpen(true);
+    }
+  };
+
+  const handleEditSelectedMarkdown = (target?: fabric.FabricObject) => {
+    const c = fcRef.current;
+    if (!c) return;
+    const obj = target || c.getActiveObject();
+    if (!obj) return;
+    const data = (obj as any).customData;
+    if (data && data.type === "markdown") {
+      if (data.title) setMarkdownTitle(data.title);
+      if (data.content) setMarkdownContent(data.content);
+      if (data.accent) setMarkdownAccent(data.accent);
+      setEditingMarkdownTarget(obj);
+      setMarkdownModalOpen(true);
+    }
+  };
+
+  const handleUnpackSelectedMermaid = (target?: fabric.FabricObject) => {
+    const c = fcRef.current;
+    if (!c) return;
+    const obj = target || c.getActiveObject();
+    if (!obj) return;
+    const code = (obj as any).customData?.code;
+    if (!code) return;
+
+    const nodeRegex = /([A-Za-z0-9_]+)\s*(\[\[|\[\(|\{|\(|\[)\s*["']?([^"'\n\]\}]+)["']?\s*(\]\]|\)\]|\}|\)|\])/g;
+    const foundNodes: { id: string; label: string; kind: string }[] = [];
+    const seen = new Set<string>();
+
+    let m: RegExpExecArray | null;
+    while ((m = nodeRegex.exec(code)) !== null) {
+      const id = m[1];
+      const kind = m[2];
+      const label = m[3].trim();
+      if (!seen.has(id)) {
+        seen.add(id);
+        foundNodes.push({ id, label, kind });
+      }
+    }
+
+    if (foundNodes.length === 0) {
+      showToast("Could not extract nodes to unpack", "warning");
+      return;
+    }
+
+    const startX = obj.left || 100;
+    const startY = obj.top || 100;
+    const createdObjects: fabric.FabricObject[] = [];
+
+    foundNodes.forEach((node, i) => {
+      const col = i % 3;
+      const row = Math.floor(i / 3);
+      const x = startX + col * 200;
+      const y = startY + row * 110;
+
+      const note = new StickyNoteBox(node.label, {
+        left: x,
+        top: y,
+        width: 170,
+        minHeight: 70,
+        backgroundColor: "#1e293b",
+        fill: "#f8fafc",
+        fontSize: 13,
+        fontFamily: "Inter, sans-serif",
+        textAlign: "center",
+        noteBorderColor: node.kind.includes("{") ? "#38bdf8" : node.kind.includes("(") ? "#10b981" : "#a855f7",
+        noteColorId: node.kind.includes("{") ? "cyan" : node.kind.includes("(") ? "green" : "purple",
+      });
+      (note as any).customData = { type: "note", label: node.label, nodeId: node.id };
+      c.add(note);
+      createdObjects.push(note);
+    });
+
+    c.remove(obj);
+    if (createdObjects.length > 0) {
+      const sel = new fabric.ActiveSelection(createdObjects, { canvas: c });
+      c.setActiveObject(sel);
+    }
+    c.requestRenderAll();
+    pushHistory();
+    showToast(`Unpacked ${foundNodes.length} nodes into editable canvas shapes`, "success");
+  };
+
+  const appendMermaidSyntax = (snippet: string) => {
+    setMermaidCode((prev) => {
+      const trimmed = prev.trimEnd();
+      return trimmed + snippet;
+    });
+  };
+
+  const toggleMermaidDirection = () => {
+    setMermaidCode((prev) => {
+      if (prev.includes("graph TD")) return prev.replace("graph TD", "graph LR");
+      if (prev.includes("graph LR")) return prev.replace("graph LR", "graph TD");
+      if (prev.includes("flowchart TD")) return prev.replace("flowchart TD", "flowchart LR");
+      if (prev.includes("flowchart LR")) return prev.replace("flowchart LR", "flowchart TD");
+      return "flowchart TD\n" + prev;
+    });
+  };
+
   const insertMermaidDiagram = async () => {
     const c = fcRef.current;
     if (!c) return;
     try {
-      const svg = await renderMermaidToSvg(mermaidCode);
-      const dataUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+      const { dataUrl, width, height } = await renderMermaidToPngDataUrl(mermaidCode);
       const img = await fabric.FabricImage.fromURL(dataUrl);
+
+      if (editingMermaidTarget && c.contains(editingMermaidTarget)) {
+        img.set({
+          left: editingMermaidTarget.left,
+          top: editingMermaidTarget.top,
+          scaleX: editingMermaidTarget.scaleX || 1,
+          scaleY: editingMermaidTarget.scaleY || 1,
+          angle: editingMermaidTarget.angle || 0,
+        });
+        (img as any).customData = { type: "mermaid", code: mermaidCode };
+        const idx = c.getObjects().indexOf(editingMermaidTarget);
+        c.remove(editingMermaidTarget);
+        if (idx >= 0) {
+          c.insertAt(idx, img);
+        } else {
+          c.add(img);
+        }
+        c.setActiveObject(img);
+        c.requestRenderAll();
+        pushHistory();
+        setEditingMermaidTarget(null);
+        setMermaidModalOpen(false);
+        showToast("Updated Mermaid diagram in-place", "success");
+        return;
+      }
+
       const maxW = c.getWidth() * 0.7;
-      if ((img.width ?? 0) > maxW) img.scaleToWidth(maxW);
+      if ((img.width ?? width ?? 0) > maxW) img.scaleToWidth(maxW);
       const cp = c.getVpCenter();
       img.set({
         left: cp.x - img.getScaledWidth() / 2,
@@ -1889,6 +2854,7 @@ export function FabricWhiteboard({
       c.setActiveObject(img);
       c.requestRenderAll();
       pushHistory();
+      setEditingMermaidTarget(null);
       setMermaidModalOpen(false);
       showToast("Inserted Mermaid diagram onto canvas", "success");
     } catch (err: any) {
@@ -1906,17 +2872,43 @@ export function FabricWhiteboard({
     setIsGeneratingDiagram(true);
     setMermaidError(null);
     try {
-      const sysPrompt = "You are an expert system architect and diagrammer. Generate ONLY valid, clean Mermaid diagram syntax. Output raw Mermaid code only, with no markdown fences, no backticks, and no introductory or concluding text.";
-      const prompt = `Create a detailed, beautiful Mermaid diagram for: ${mermaidAiPrompt.trim()}`;
-      const res = await callUnifiedAI(prompt, sysPrompt);
-      if (res.text) {
-        let clean = res.text.replace(/```mermaid\n?|```/g, "").trim();
-        if (!clean.startsWith("flowchart") && !clean.startsWith("graph") && !clean.startsWith("sequenceDiagram") && !clean.startsWith("classDiagram") && !clean.startsWith("stateDiagram")) {
-          clean = `flowchart TD\n${clean}`;
-        }
-        setMermaidCode(clean);
-        showToast("Generated Mermaid diagram with AI!", "success");
+      const sysPrompt = "You are an expert system architect and diagrammer. Reply with a single valid Mermaid diagram only. Start with the diagram keyword (flowchart, graph, sequenceDiagram, classDiagram, stateDiagram-v2, erDiagram, mindmap, timeline, gantt, pie). Wrap any node label that contains parentheses, brackets, colons or punctuation in double quotes. Do not use markdown fences and do not add commentary before or after the code.";
+      const prompt = `Create a detailed, professional Mermaid diagram for: ${mermaidAiPrompt.trim()}`;
+      const res = await callUnifiedAI(prompt, sysPrompt, "mermaid");
+
+      if (!res.text || !res.text.trim()) {
+        showToast("AI returned an empty diagram. Try rephrasing the topic.", "warning");
+        return;
       }
+
+      // Never paste raw model output: extract only the diagram body, repair
+      // unquoted labels, then prove it renders before replacing the editor.
+      let finalCode = sanitizeMermaidLabels(extractMermaidCode(res.text));
+      let normalised = false;
+
+      try {
+        if (!finalCode) throw new Error("No Mermaid source found in the AI response");
+        await renderMermaidToSvg(finalCode);
+      } catch {
+        // Prose answer, unsupported syntax or broken labels → guaranteed-valid
+        // structured diagram built from the user's own topic.
+        finalCode = buildFallbackMermaid(mermaidAiPrompt);
+        normalised = true;
+        try {
+          await renderMermaidToSvg(finalCode);
+        } catch {
+          showToast("Could not build a valid Mermaid diagram. Try a simpler topic.", "warning");
+          return;
+        }
+      }
+
+      setMermaidCode(finalCode);
+      showToast(
+        normalised
+          ? "AI output normalised into a valid diagram"
+          : "Generated Mermaid diagram with AI!",
+        "success"
+      );
     } catch (err: any) {
       console.error(err);
       showToast("AI diagram generation failed", "warning");
@@ -1933,6 +2925,37 @@ export function FabricWhiteboard({
       const canvas = renderMarkdownCardCanvas(markdownTitle, markdownContent, markdownAccent);
       const dataUrl = canvas.toDataURL("image/png");
       const img = await fabric.FabricImage.fromURL(dataUrl);
+
+      if (editingMarkdownTarget && c.contains(editingMarkdownTarget)) {
+        img.set({
+          left: editingMarkdownTarget.left,
+          top: editingMarkdownTarget.top,
+          scaleX: editingMarkdownTarget.scaleX || 1,
+          scaleY: editingMarkdownTarget.scaleY || 1,
+          angle: editingMarkdownTarget.angle || 0,
+        });
+        (img as any).customData = {
+          type: "markdown",
+          title: markdownTitle,
+          content: markdownContent,
+          accent: markdownAccent,
+        };
+        const idx = c.getObjects().indexOf(editingMarkdownTarget);
+        c.remove(editingMarkdownTarget);
+        if (idx >= 0) {
+          c.insertAt(idx, img);
+        } else {
+          c.add(img);
+        }
+        c.setActiveObject(img);
+        c.requestRenderAll();
+        pushHistory();
+        setEditingMarkdownTarget(null);
+        setMarkdownModalOpen(false);
+        showToast("Updated Markdown card in-place", "success");
+        return;
+      }
+
       const maxW = c.getWidth() * 0.55;
       if ((img.width ?? 0) > maxW) img.scaleToWidth(maxW);
       const cp = c.getVpCenter();
@@ -1945,11 +2968,12 @@ export function FabricWhiteboard({
       c.setActiveObject(img);
       c.requestRenderAll();
       pushHistory();
+      setEditingMarkdownTarget(null);
       setMarkdownModalOpen(false);
       showToast("Inserted Markdown study card onto whiteboard", "success");
     } catch (err: any) {
       console.error(err);
-      showToast("Failed to create study note card", "error");
+      showToast("Failed to render Markdown study card", "warning");
     }
   };
 
@@ -1960,14 +2984,21 @@ export function FabricWhiteboard({
     }
     setIsGeneratingMarkdown(true);
     try {
-      const sysPrompt = "You are an elite academic tutor. Generate structured, highly readable Markdown notes for this concept. Use headings (#, ##), bullet points (-), code blocks if technical, and a checklist (- [ ]) of must-remember points. Do not include chat commentary.";
+      const sysPrompt = "You are an elite academic tutor writing a revision card. Return well-structured GitHub-flavoured Markdown only: a # title, ## sections, bullet lists, numbered steps, a pipe table when comparing items, fenced code blocks for technical examples, and a - [ ] checklist of must-remember points. Use inline **bold**, *italic* and `code`. Do not wrap the whole answer in a code fence and do not add chat commentary.";
       const prompt = `Produce structured revision study notes on: ${markdownAiPrompt.trim()}`;
-      const res = await callUnifiedAI(prompt, sysPrompt);
-      if (res.text) {
-        setMarkdownTitle(markdownAiPrompt.trim().slice(0, 40));
-        setMarkdownContent(res.text.trim());
-        showToast("Generated study notes with AI!", "success");
+      const res = await callUnifiedAI(prompt, sysPrompt, "markdown");
+      const clean = normalizeMarkdownResponse(res.text || "");
+
+      if (!clean) {
+        showToast("AI returned empty notes. Try rephrasing the topic.", "warning");
+        return;
       }
+
+      const heading = /^#{1,6}\s+(.+)$/m.exec(clean);
+      const derivedTitle = (heading?.[1] || markdownAiPrompt.trim()).replace(/[*_`#]/g, "").trim();
+      setMarkdownTitle(derivedTitle.slice(0, 60) || markdownAiPrompt.trim().slice(0, 60));
+      setMarkdownContent(clean);
+      showToast("Generated study notes with AI!", "success");
     } catch (err: any) {
       console.error(err);
       showToast("AI note generation failed", "warning");
@@ -2021,6 +3052,8 @@ export function FabricWhiteboard({
     cbs.current = {
       undo, redo, duplicate, copy: copySel, paste, deleteSel,
       resetView, fitView, selectAll,
+      group: groupSelection, ungroup: ungroupSelection,
+      lockSel: lockSelection, unlockAll,
     };
   });
 
@@ -2154,7 +3187,7 @@ export function FabricWhiteboard({
   const downloadURL = async (href: string, name: string, revoke = false) => {
     if (href.startsWith("data:image/")) {
       const res = await saveImageSafely(href, name);
-      if (revoke) window.setTimeout(() => URL.revokeObjectURL(href), 4000);
+      if (revoke) window.setTimeout(() => URL.revokeObjectURL(href), 60000);
       if (res.success) {
         showToast(`💾 Saved: ${res.filename || name}`, "success");
       }
@@ -2165,7 +3198,7 @@ export function FabricWhiteboard({
     document.body.appendChild(a);
     a.click();
     a.remove();
-    if (revoke) window.setTimeout(() => URL.revokeObjectURL(href), 4000);
+    if (revoke) window.setTimeout(() => URL.revokeObjectURL(href), 60000);
     showToast(`💾 Downloaded: ${name}`, "success");
   };
 
@@ -2227,11 +3260,15 @@ export function FabricWhiteboard({
     if (!c) return;
     setExportOpen(false);
 
-    // Calculate content-aware bounding box of all objects to avoid giant empty voids
+    // Save current viewport transform to prevent zoom/pan offset bugs
+    const originalVpt = [...c.viewportTransform];
+
+    // Calculate content-aware bounding box in absolute canvas space
     const objects = c.getObjects();
     let cropOpts: Record<string, number> = {};
 
     if (objects.length > 0) {
+      c.setViewportTransform([1, 0, 0, 1, 0, 0]);
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       objects.forEach(obj => {
         const bound = obj.getBoundingRect();
@@ -2241,8 +3278,8 @@ export function FabricWhiteboard({
         maxY = Math.max(maxY, bound.top + bound.height);
       });
 
-      if (isFinite(minX) && isFinite(minY) && isFinite(maxX) && isFinite(maxY)) {
-        const padding = 60;
+      if (isFinite(minX) && isFinite(minY) && isFinite(maxX) && isFinite(maxY) && maxX > minX && maxY > minY) {
+        const padding = 40;
         const left = Math.max(0, Math.floor(minX - padding));
         const top = Math.max(0, Math.floor(minY - padding));
         const width = Math.ceil((maxX - minX) + padding * 2);
@@ -2252,9 +3289,27 @@ export function FabricWhiteboard({
     }
 
     const url = withBackground(
-      () => c.toDataURL({ format: "png", quality: 1, multiplier, enableRetinaScaling: false, ...cropOpts }),
+      () => {
+        const res = c.toDataURL({ format: "png", quality: 1, multiplier: Math.max(1, multiplier), enableRetinaScaling: false, ...cropOpts });
+        c.setViewportTransform(originalVpt as any);
+        return res;
+      },
       transparent,
     );
+
+    c.setViewportTransform(originalVpt as any);
+    c.requestRenderAll();
+
+    if (!url || url === "data:," || url.length < 100) {
+      const fullUrl = withBackground(
+        () => c.toDataURL({ format: "png", quality: 1, multiplier: 1, enableRetinaScaling: false }),
+        transparent
+      );
+      const filename = getDescriptiveFilename("png", multiplier > 1 ? `${multiplier}x` : "");
+      downloadURL(fullUrl, filename);
+      return;
+    }
+
     const filename = getDescriptiveFilename("png", multiplier > 1 ? `${multiplier}x` : "");
     downloadURL(url, filename);
   };
@@ -2395,8 +3450,17 @@ export function FabricWhiteboard({
           <canvas ref={canvasElRef} />
         </div>
 
-        {/* ============================================ TOP-LEFT: menu === */}
-        <div className="pointer-events-none absolute left-3 top-3 z-30 flex gap-2">
+        {/* ============================================================
+            TOP BAR — one flex row: menu | tools | history+export.
+            Previously each cluster was absolutely positioned, so the
+            centred toolbar slid underneath "Exit Fullscreen"/"Export"
+            at any window narrower than ~1400px (the Mermaid and Markdown
+            buttons became invisible). Flex guarantees no overlap: the
+            toolbar shrinks and scrolls instead.
+           ============================================================ */}
+        <div ref={topBarRef} className="pointer-events-none absolute inset-x-0 top-0 z-30 flex flex-wrap items-start gap-2 p-3">
+        {/* LEFT: menu */}
+        <div className="pointer-events-none order-1 flex shrink-0 gap-2">
           <div className={`${island} relative p-1`}>
             <button
               onClick={() => { setMenuOpen(v => !v); setExportOpen(false); }}
@@ -2489,13 +3553,48 @@ export function FabricWhiteboard({
           </div>
         </div>
 
-{/* ============================================ CONTEXTUAL FLOATING SELECTION BAR */}
+{/* CONTEXTUAL SELECTION BAR — own full-width row (order-4) so it can never
+            sit on top of the toolbar, whatever the window width. */}
         {hasSel && (
-          <div className="pointer-events-none absolute left-1/2 top-16 z-30 flex -translate-x-1/2">
+          <div className="pointer-events-none order-4 flex w-full justify-center">
             <div className={`${island} flex items-center gap-1.5 p-1 shadow-2xl border border-cyan-500/30 bg-slate-900/95 backdrop-blur-xl`}>
+              {selIsMermaid && (
+                <>
+                  <button
+                    onClick={() => handleEditSelectedMermaid()}
+                    title="Edit Mermaid Diagram Code"
+                    className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold text-cyan-300 bg-cyan-500/20 border border-cyan-500/30 hover:bg-cyan-500/30"
+                  >
+                    <Edit3 className="h-3.5 w-3.5 text-cyan-400" />
+                    <span>Edit Diagram</span>
+                  </button>
+                  <button
+                    onClick={() => handleUnpackSelectedMermaid()}
+                    title="Unpack Diagram into Drag-and-Drop Canvas Shapes"
+                    className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-indigo-300 hover:bg-indigo-500/20"
+                  >
+                    <LayoutTemplate className="h-3.5 w-3.5 text-indigo-400" />
+                    <span className="hidden sm:inline">Unpack to Shapes</span>
+                  </button>
+                  <div className="h-4 w-px bg-white/15" />
+                </>
+              )}
+              {selIsMarkdown && (
+                <>
+                  <button
+                    onClick={() => handleEditSelectedMarkdown()}
+                    title="Edit Markdown Study Card"
+                    className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold text-purple-300 bg-purple-500/20 border border-purple-500/30 hover:bg-purple-500/30"
+                  >
+                    <Edit3 className="h-3.5 w-3.5 text-purple-400" />
+                    <span>Edit Card</span>
+                  </button>
+                  <div className="h-4 w-px bg-white/15" />
+                </>
+              )}
               <button
                 onClick={bringFront}
-                title="Bring to Front (Ctrl+])"
+                title="Bring to Front (Ctrl+])" 
                 className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/10 hover:text-white"
               >
                 <BringToFront className="h-3.5 w-3.5 text-cyan-400" />
@@ -2549,9 +3648,10 @@ export function FabricWhiteboard({
           </div>
         )}
 
-                {/* ============================================ TOP-CENTER: tools == */}
-        <div className="pointer-events-none absolute left-1/2 top-3 z-30 flex -translate-x-1/2">
-          <div className={`${island} scrollbar-none flex max-w-[calc(100vw-24px)] items-center gap-0.5 overflow-x-auto p-1`}>
+        {/* CENTER: tools — wraps onto extra rows on narrow windows so every
+            button stays reachable instead of scrolling out of sight. */}
+        <div className="pointer-events-none order-2 flex min-w-0 flex-1 justify-center">
+          <div className={`${island} flex w-fit max-w-full flex-wrap items-center justify-center gap-0.5 p-1`}>
             {TOOLS.map(({ id, icon: Icon, label, key, accent }, i) => {
               const active = tool === id;
               return (
@@ -2598,6 +3698,53 @@ export function FabricWhiteboard({
             >
               <FileText className="h-[17px] w-[17px]" />
             </button>
+            <div className="mx-1 h-6 w-px bg-white/10" />
+            <button
+              onClick={() => { setTemplatesOpen(true); setLayersOpen(false); }}
+              title="Templates — mind map, kanban, flow, SWOT, Cornell, timeline"
+              className={`${iconBtn} shrink-0 ${templatesOpen ? "bg-indigo-500 text-white" : "text-slate-400 hover:bg-white/10 hover:text-indigo-300"}`}
+            >
+              <LayoutTemplate className="h-[17px] w-[17px]" />
+            </button>
+            <button
+              onClick={() => {
+                setLayersOpen((v) => {
+                  const next = !v;
+                  layersOpenRef.current = next;
+                  if (next) setLayersTick((t) => (t + 1) % 100000);
+                  return next;
+                });
+                setTemplatesOpen(false);
+              }}
+              title="Layers panel"
+              className={`${iconBtn} shrink-0 ${layersOpen ? "bg-cyan-500 text-slate-950" : "text-slate-400 hover:bg-white/10 hover:text-cyan-300"}`}
+            >
+              <Layers className="h-[17px] w-[17px]" />
+            </button>
+            <div className="mx-1 h-6 w-px bg-white/10" />
+            <button
+              onClick={groupSelection}
+              disabled={!isMultiSel}
+              title="Group selection (Ctrl+G)"
+              className={`${iconBtn} shrink-0 ${isMultiSel ? "text-slate-400 hover:bg-white/10 hover:text-white" : "text-slate-600"}`}
+            >
+              <GroupIcon className="h-[17px] w-[17px]" />
+            </button>
+            <button
+              onClick={ungroupSelection}
+              title="Ungroup selection (Ctrl+Shift+G)"
+              className={`${iconBtn} shrink-0 text-slate-400 hover:bg-white/10 hover:text-white`}
+            >
+              <UngroupIcon className="h-[17px] w-[17px]" />
+            </button>
+            <button
+              onClick={lockSelection}
+              disabled={!hasSel}
+              title="Lock / unlock selection (Ctrl+L)"
+              className={`${iconBtn} shrink-0 ${hasSel ? "text-slate-400 hover:bg-white/10 hover:text-amber-300" : "text-slate-600"}`}
+            >
+              <Lock className="h-[17px] w-[17px]" />
+            </button>
             <button
               onClick={() => imgFileRef.current?.click()}
               title="Insert image"
@@ -2615,8 +3762,8 @@ export function FabricWhiteboard({
           </div>
         </div>
 
-        {/* ============================================ TOP-RIGHT: history / export */}
-        <div className="pointer-events-none absolute right-3 top-3 z-30 flex gap-2">
+        {/* RIGHT: history / fullscreen / export */}
+        <div className="pointer-events-none order-3 flex shrink-0 flex-wrap justify-end gap-2">
           <div className={`${island} flex items-center gap-0.5 p-1`}>
             <button
               onClick={undo}
@@ -2716,10 +3863,15 @@ export function FabricWhiteboard({
             )}
           </div>
         </div>
+        </div>{/* /TOP BAR */}
 
-        {/* ============================================ LEFT: properties (contextual) */}
+        {/* LEFT: properties (contextual) — starts below the bar; pushed further
+            down when the selection row is visible so the two never collide. */}
         {showProps && (
-          <div className="pointer-events-none absolute bottom-16 left-3 top-16 z-20 flex items-start">
+          <div
+            className="pointer-events-none absolute bottom-16 left-3 z-20 flex items-start transition-[top] duration-150"
+            style={{ top: barH }}
+          >
             <div className={`${island} scrollbar-none w-[214px] max-h-full space-y-3 overflow-y-auto p-3`}>
               {(tool === "note" || selIsNote) ? (
                 <>
@@ -3052,7 +4204,101 @@ export function FabricWhiteboard({
           </div>
         )}
 
-        {/* ============================================ BOTTOM-CENTER: Slide Deck Controller */}
+        {/* ============================================ RIGHT: Layers panel */}
+        {layersOpen && (
+          <div className="pointer-events-none absolute bottom-16 right-3 z-20 flex w-[250px] items-start" style={{ top: barH }}>
+            <div className={`${island} flex max-h-full w-full flex-col overflow-hidden`}>
+              <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-3 py-2">
+                <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-cyan-300">
+                  <Layers className="h-3.5 w-3.5" /> Layers
+                </span>
+                <div className="flex items-center gap-0.5">
+                  <button
+                    onClick={unlockAll}
+                    title="Unlock everything"
+                    className="rounded-md px-1.5 py-1 text-[10px] font-semibold text-slate-400 hover:bg-white/10 hover:text-amber-300"
+                  >
+                    Unlock all
+                  </button>
+                  <button
+                    onClick={() => { setLayersOpen(false); layersOpenRef.current = false; }}
+                    className="rounded-md p-1 text-slate-400 hover:bg-white/10 hover:text-white"
+                    title="Close layers"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto p-1.5">
+                {layerRows.length === 0 ? (
+                  <p className="px-2 py-6 text-center text-[11px] text-slate-500">
+                    Board is empty — draw something and it will appear here.
+                  </p>
+                ) : (
+                  layerRows.map((row) => (
+                    <div
+                      key={row.index}
+                      className={`group flex items-center gap-1 rounded-lg px-1.5 py-1 ${
+                        row.active ? "bg-cyan-500/15 ring-1 ring-cyan-500/40" : "hover:bg-white/5"
+                      }`}
+                    >
+                      <button
+                        onClick={() => selectLayer(row.index)}
+                        className={`min-w-0 flex-1 truncate text-left text-[11px] ${
+                          row.locked ? "text-slate-500" : "text-slate-200"
+                        }`}
+                        title={row.label}
+                      >
+                        {row.label}
+                      </button>
+                      <button
+                        onClick={() => moveLayer(row.index, 1)}
+                        title="Move up (forward)"
+                        className="rounded p-0.5 text-slate-500 opacity-0 transition group-hover:opacity-100 hover:bg-white/10 hover:text-white"
+                      >
+                        <ChevronsUp className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => moveLayer(row.index, -1)}
+                        title="Move down (backward)"
+                        className="rounded p-0.5 text-slate-500 opacity-0 transition group-hover:opacity-100 hover:bg-white/10 hover:text-white"
+                      >
+                        <ChevronsDown className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => toggleLayerVisible(row.index)}
+                        title={row.hidden ? "Show" : "Hide"}
+                        className={`rounded p-0.5 hover:bg-white/10 ${row.hidden ? "text-slate-600" : "text-slate-400 hover:text-white"}`}
+                      >
+                        {row.hidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                      </button>
+                      <button
+                        onClick={() => toggleLayerLock(row.index)}
+                        title={row.locked ? "Unlock" : "Lock"}
+                        className={`rounded p-0.5 hover:bg-white/10 ${row.locked ? "text-amber-300" : "text-slate-400 hover:text-amber-300"}`}
+                      >
+                        <Lock className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => deleteLayer(row.index)}
+                        title="Delete"
+                        className="rounded p-0.5 text-slate-500 hover:bg-rose-500/20 hover:text-rose-300"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="shrink-0 border-t border-white/10 px-3 py-1.5 text-[10px] text-slate-500">
+                {layerRows.length} object{layerRows.length === 1 ? "" : "s"} · top of list = front
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center">
           <div className={`${island} flex items-center gap-1.5 px-3 py-1.5 shadow-xl`}>
             <button
@@ -3119,6 +4365,71 @@ export function FabricWhiteboard({
           {hint}
         </div>
 
+        {/* ============================================ BOTTOM-RIGHT: hint */}
+        <div className="pointer-events-none absolute bottom-3 right-3 z-20 hidden rounded-xl border border-white/10 bg-slate-950/70 px-3 py-1.5 text-[11px] font-medium text-slate-400 backdrop-blur-xl md:block">
+          {hint}
+        </div>
+
+        {/* ============================================ Templates gallery (Miro-style) */}
+        {templatesOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-md"
+            onClick={() => setTemplatesOpen(false)}
+          >
+            <div
+              className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-950/40 px-5 py-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-indigo-500/30 bg-indigo-500/20 text-indigo-300">
+                    <LayoutTemplate className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">Templates</h3>
+                    <p className="text-[11px] text-slate-400">Drop a ready-made board layout, then edit anything on it</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setTemplatesOpen(false)}
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto p-5">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+                  {[
+                    { id: "mindmap",  name: "Mind map",        desc: "Central idea + 4 branches",      icon: GitFork,        tint: "from-violet-500/20 to-violet-500/5 border-violet-500/30 text-violet-300" },
+                    { id: "kanban",   name: "Kanban board",    desc: "To do · In progress · Done",     icon: Layers,         tint: "from-blue-500/20 to-blue-500/5 border-blue-500/30 text-blue-300" },
+                    { id: "flow",     name: "Flowchart",       desc: "Start → process → decision → done", icon: GitFork,     tint: "from-emerald-500/20 to-emerald-500/5 border-emerald-500/30 text-emerald-300" },
+                    { id: "swot",     name: "SWOT analysis",   desc: "Strengths, weaknesses, opportunities, threats", icon: LayoutTemplate, tint: "from-amber-500/20 to-amber-500/5 border-amber-500/30 text-amber-300" },
+                    { id: "cornell",  name: "Cornell notes",   desc: "Cues · notes · summary layout",  icon: FileText,       tint: "from-cyan-500/20 to-cyan-500/5 border-cyan-500/30 text-cyan-300" },
+                    { id: "timeline", name: "Timeline",        desc: "5 milestones on a horizontal line", icon: Scan,        tint: "from-rose-500/20 to-rose-500/5 border-rose-500/30 text-rose-300" },
+                  ].map((tpl) => {
+                    const TplIcon = tpl.icon;
+                    return (
+                      <button
+                        key={tpl.id}
+                        onClick={() => applyTemplate(tpl.id)}
+                        className={`group flex flex-col items-start gap-2 rounded-xl border bg-gradient-to-br p-3 text-left transition hover:scale-[1.02] hover:shadow-lg ${tpl.tint}`}
+                      >
+                        <TplIcon className="h-5 w-5" />
+                        <span className="text-xs font-bold text-white">{tpl.name}</span>
+                        <span className="text-[11px] leading-snug text-slate-400">{tpl.desc}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-4 text-[11px] text-slate-500">
+                  Templates are inserted at the centre of your current view and can be moved, restyled or deleted like any other object.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ============================================ Mermaid Diagram Studio Modal */}
         {mermaidModalOpen && (
           <div
@@ -3130,13 +4441,13 @@ export function FabricWhiteboard({
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 bg-slate-950/40">
+              <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-5 py-4 bg-slate-950/40">
                 <div className="flex items-center gap-2.5">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
                     <GitFork className="h-4 w-4" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-white">Mermaid Diagram Studio</h3>
+                    <h3 className="text-sm font-bold text-white">{editingMermaidTarget ? "Edit Mermaid Diagram" : "Mermaid Diagram Studio"}</h3>
                     <p className="text-[11px] text-slate-400">Insert code-rendered architectures, flowcharts & sequence diagrams</p>
                   </div>
                 </div>
@@ -3207,14 +4518,58 @@ export function FabricWhiteboard({
                 {/* Editor & Preview Split */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                      Mermaid Syntax
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                        Mermaid Syntax
+                      </label>
+                      <div className="flex items-center gap-1 text-[10px]">
+                        <button
+                          type="button"
+                          onClick={() => appendMermaidSyntax(`\n  step${Date.now() % 1000}["New Step"]`)}
+                          className="px-1.5 py-0.5 rounded bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/25 font-semibold"
+                          title="Add a rectangular step box"
+                        >
+                          + Box
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => appendMermaidSyntax(`\n  cond${Date.now() % 1000}{"Condition?"}`)}
+                          className="px-1.5 py-0.5 rounded bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/25 font-semibold"
+                          title="Add a decision diamond"
+                        >
+                          + Decision
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => appendMermaidSyntax(`\n  db${Date.now() % 1000}[("Database")]`)}
+                          className="px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 font-semibold"
+                          title="Add a database cylinder"
+                        >
+                          + DB
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => appendMermaidSyntax(` --> `)}
+                          className="px-1.5 py-0.5 rounded bg-white/10 border border-white/20 text-slate-300 hover:bg-white/20 font-semibold"
+                          title="Add arrow connection"
+                        >
+                          {"-->"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={toggleMermaidDirection}
+                          className="px-1.5 py-0.5 rounded bg-purple-500/15 border border-purple-500/30 text-purple-300 hover:bg-purple-500/25 font-semibold"
+                          title="Toggle Top-Down vs Left-to-Right"
+                        >
+                          TD ⇄ LR
+                        </button>
+                      </div>
+                    </div>
                     <textarea
                       value={mermaidCode}
                       onChange={(e) => setMermaidCode(e.target.value)}
-                      rows={10}
-                      className="w-full font-mono text-xs rounded-xl border border-white/10 bg-slate-950/80 p-3 text-slate-200 focus:border-cyan-500 focus:outline-none resize-none"
+                      rows={12}
+                      className="w-full h-[240px] font-mono text-xs rounded-xl border border-white/10 bg-slate-950/80 p-3 text-slate-200 focus:border-cyan-500 focus:outline-none resize-none"
                       spellCheck={false}
                     />
                     {mermaidError && (
@@ -3225,10 +4580,13 @@ export function FabricWhiteboard({
                     <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
                       Live Preview
                     </label>
-                    <div className="flex items-center justify-center min-h-[220px] max-h-[260px] overflow-auto rounded-xl border border-white/10 bg-slate-950/40 p-4">
+                    {/* Fixed viewport; the SVG is forced to fit. Mermaid emits
+                        width="100%" with no height, so overriding width with
+                        w-auto collapsed it to 0x0 — never do that. */}
+                    <div className="flex h-[240px] items-center justify-center overflow-auto rounded-xl border border-white/10 bg-slate-950/40 p-3">
                       {mermaidPreviewSvg ? (
                         <div
-                          className="max-w-full"
+                          className="w-full [&>svg]:h-[208px] [&>svg]:w-full"
                           dangerouslySetInnerHTML={{ __html: mermaidPreviewSvg }}
                         />
                       ) : (
@@ -3242,7 +4600,7 @@ export function FabricWhiteboard({
               </div>
 
               {/* Footer */}
-              <div className="flex items-center justify-end gap-2 border-t border-white/10 px-5 py-3 bg-slate-950/40">
+              <div className="flex shrink-0 items-center justify-end gap-2 border-t border-white/10 px-5 py-3 bg-slate-950/40">
                 <button
                   onClick={() => setMermaidModalOpen(false)}
                   className="rounded-lg border border-white/10 px-3.5 py-1.5 text-xs font-semibold text-slate-300 hover:bg-white/10"
@@ -3254,7 +4612,7 @@ export function FabricWhiteboard({
                   className="flex items-center gap-1.5 rounded-lg bg-cyan-500 px-4 py-1.5 text-xs font-bold text-slate-950 shadow-md hover:bg-cyan-400"
                 >
                   <Check className="h-3.5 w-3.5" />
-                  Insert onto Whiteboard
+                  {editingMermaidTarget ? "Update on Whiteboard" : "Insert onto Whiteboard"}
                 </button>
               </div>
             </div>
@@ -3272,13 +4630,13 @@ export function FabricWhiteboard({
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 bg-slate-950/40">
+              <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-5 py-4 bg-slate-950/40">
                 <div className="flex items-center gap-2.5">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/30">
                     <FileText className="h-4 w-4" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-white">Markdown Study Card</h3>
+                    <h3 className="text-sm font-bold text-white">{editingMarkdownTarget ? "Edit Markdown Study Card" : "Markdown Study Card"}</h3>
                     <p className="text-[11px] text-slate-400">Generate or draft structured revision notes to pin onto canvas</p>
                   </div>
                 </div>
@@ -3365,21 +4723,27 @@ export function FabricWhiteboard({
 
                   <div>
                     <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Visual Preview</label>
-                    <div className="rounded-xl border border-white/10 bg-slate-950/80 p-4 h-[280px] overflow-y-auto space-y-2">
-                      <div className="flex items-center gap-2 pb-2 border-b border-white/10">
+                    <div className="rounded-xl border border-white/10 bg-slate-950/80 p-4 h-[300px] overflow-y-auto">
+                      <div className="flex items-center gap-2 pb-2 mb-2 border-b border-white/10">
                         <div className="h-3 w-3 rounded-full" style={{ backgroundColor: markdownAccent }} />
                         <h4 className="text-xs font-bold text-white">{markdownTitle || "Untitled Card"}</h4>
                       </div>
-                      <div className="text-[11px] text-slate-300 whitespace-pre-wrap font-sans leading-relaxed">
-                        {markdownContent}
-                      </div>
+                      {/* Real Markdown rendering (headings, lists, code, tables,
+                          math, mermaid) instead of raw pre-wrapped text. */}
+                      {markdownContent.trim() ? (
+                        <div className="text-[11px]">
+                          <MarkdownRenderer content={markdownContent} />
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-slate-500 italic">Nothing to preview yet — start typing Markdown on the left.</p>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="flex items-center justify-end gap-2 border-t border-white/10 px-5 py-3 bg-slate-950/40">
+              <div className="flex shrink-0 items-center justify-end gap-2 border-t border-white/10 px-5 py-3 bg-slate-950/40">
                 <button
                   onClick={() => setMarkdownModalOpen(false)}
                   className="rounded-lg border border-white/10 px-3.5 py-1.5 text-xs font-semibold text-slate-300 hover:bg-white/10"
@@ -3391,7 +4755,7 @@ export function FabricWhiteboard({
                   className="flex items-center gap-1.5 rounded-lg bg-purple-500 px-4 py-1.5 text-xs font-bold text-white shadow-md hover:bg-purple-400"
                 >
                   <Check className="h-3.5 w-3.5" />
-                  Insert onto Whiteboard
+                  {editingMarkdownTarget ? "Update Card" : "Insert onto Whiteboard"}
                 </button>
               </div>
             </div>

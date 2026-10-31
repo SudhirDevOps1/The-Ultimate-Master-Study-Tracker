@@ -119,6 +119,15 @@ const STRICT_INACTIVITY_LIMIT_MS = 10 * 60 * 1000; // 10 minutes
 // Simple operation lock to prevent race conditions between concurrent session operations
 let sessionOperationInProgress = false;
 
+function notifyFocusSessionActive(isActive: boolean): void {
+  if (typeof window !== "undefined") {
+    const win = window as any;
+    if (win.electron?.invoke) {
+      win.electron.invoke("set-focus-session-active", isActive).catch(() => {});
+    }
+  }
+}
+
 async function withSessionLock<T>(operation: () => Promise<T>): Promise<T> {
   // Timeout guard prevents permanent deadlock if DB stalls
   const timeoutMs = 5000;

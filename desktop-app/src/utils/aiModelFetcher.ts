@@ -1,4 +1,5 @@
 import type { AiConfig } from "@/types/models";
+import { universalAiFetch } from "@/utils/aiClient";
 
 export interface FetchedModel {
   id: string;
@@ -6,41 +7,129 @@ export interface FetchedModel {
 }
 
 export const FALLBACK_MODELS: Record<string, FetchedModel[]> = {
-  gemini: [
-    { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash (Fast & Balanced)" },
-    { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro (Complex Reasoning)" },
-    { id: "gemini-2.0-flash-exp", name: "Gemini 2.0 Flash (Experimental)" },
+  // ── 100% Free / Generous Free Tiers ──
+  local_rules: [
+    { id: "local-rules", name: "FlowTrack Offline Academic Engine (100% Free & Private)" },
   ],
   groq: [
-    { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B Versatile" },
-    { id: "llama-3.1-8b-instant", name: "Llama 3.1 8B Instant" },
-    { id: "mixtral-8x7b-32768", name: "Mixtral 8x7B (32k Context)" },
-    { id: "gemma2-9b-it", name: "Gemma 2 9B IT" },
+    { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B Versatile (100% Free Ultra-Fast)" },
+    { id: "llama-3.1-8b-instant", name: "Llama 3.1 8B Instant (Ultra-Fast Free)" },
+    { id: "qwen/qwen3.8-27b", name: "Qwen 3.8 27B (Free High-Performance)" },
+    { id: "allam-2-7b", name: "ALLaM 2 7B (Free Fast)" },
+    { id: "openai/gpt-oss-120b", name: "GPT OSS 120B (Free Reasoning)" },
+    { id: "gemma2-9b-it", name: "Gemma 2 9B IT (Free)" },
+    { id: "qwen-2.5-32b", name: "Qwen 2.5 32B (Free)" },
   ],
-  mistral: [
-    { id: "mistral-small-latest", name: "Mistral Small (Fast)" },
-    { id: "mistral-large-latest", name: "Mistral Large (High Accuracy)" },
-    { id: "codestral-latest", name: "Codestral (Code & Architecture)" },
-    { id: "open-mistral-nemo", name: "Mistral Nemo 12B" },
+  openrouter: [
+    { id: "openrouter/free", name: "🌟 OpenRouter Free Auto-Router (100% Free)" },
+    { id: "meta-llama/llama-3.3-70b-instruct:free", name: "Llama 3.3 70B (100% Free)" },
+    { id: "google/gemini-2.0-flash-exp:free", name: "Gemini 2.0 Flash Exp (100% Free)" },
+    { id: "deepseek/deepseek-r1:free", name: "DeepSeek R1 Reasoner (100% Free)" },
+    { id: "qwen/qwen-2.5-coder-32b-instruct:free", name: "Qwen 2.5 Coder 32B (100% Free)" },
+    { id: "mistralai/mistral-7b-instruct:free", name: "Mistral 7B Instruct (100% Free)" },
   ],
+  sambanova: [
+    { id: "Meta-Llama-3.1-70B-Instruct", name: "Llama 3.1 70B Instruct (100% Free Fast)" },
+    { id: "Meta-Llama-3.1-8B-Instruct", name: "Llama 3.1 8B Instruct (100% Free Ultra-Fast)" },
+    { id: "Qwen2.5-72B-Instruct", name: "Qwen 2.5 72B Instruct (100% Free)" },
+    { id: "Meta-Llama-3.3-70B-Instruct", name: "Llama 3.3 70B Instruct (100% Free)" },
+  ],
+  gemini: [
+    { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash (Free Tier 15 RPM)" },
+    { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro (Complex Reasoning)" },
+    { id: "gemini-2.0-flash-exp", name: "Gemini 2.0 Flash (Experimental Free)" },
+  ],
+  github_models: [
+    { id: "gpt-4o-mini", name: "GPT-4o Mini (GitHub Developer Free)" },
+    { id: "Phi-3.5-mini-instruct", name: "Phi-3.5 Mini Instruct (Free)" },
+    { id: "Meta-Llama-3.1-70B-Instruct", name: "Llama 3.1 70B (GitHub Free)" },
+    { id: "AI21-Jamba-1.5-Mini", name: "Jamba 1.5 Mini (GitHub Free)" },
+  ],
+  cerebras: [
+    { id: "llama3.1-8b", name: "Llama 3.1 8B (Free Ultra-Fast 1800 T/s)" },
+    { id: "llama3.1-70b", name: "Llama 3.1 70B (Free High-Speed)" },
+  ],
+  huggingface: [
+    { id: "mistralai/Mistral-7B-Instruct-v0.3", name: "Mistral 7B Instruct v0.3 (Free)" },
+    { id: "Qwen/Qwen2.5-72B-Instruct", name: "Qwen 2.5 72B Instruct (Free)" },
+    { id: "meta-llama/Meta-Llama-3-8B-Instruct", name: "Llama 3 8B Instruct (Free)" },
+  ],
+
+  // ── High Performance / Low Cost / Trial Credits ──
+  deepseek: [
+    { id: "deepseek-chat", name: "DeepSeek V3 (Chat & Coding)" },
+    { id: "deepseek-reasoner", name: "DeepSeek R1 (Deep Chain-of-Thought)" },
+  ],
+  together: [
+    { id: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", name: "Llama 3.1 8B Turbo (Fast)" },
+    { id: "mistralai/Mixtral-8x7B-Instruct-v0.1", name: "Mixtral 8x7B (High Quality)" },
+    { id: "Qwen/Qwen2.5-72B-Instruct-Turbo", name: "Qwen 2.5 72B Turbo" },
+  ],
+  deepinfra: [
+    { id: "meta-llama/Meta-Llama-3.1-8B-Instruct", name: "Llama 3.1 8B Instruct" },
+    { id: "deepseek-ai/DeepSeek-V3", name: "DeepSeek V3" },
+    { id: "Qwen/Qwen2.5-72B-Instruct", name: "Qwen 2.5 72B Instruct" },
+  ],
+  novita: [
+    { id: "meta-llama/llama-3.1-8b-instruct", name: "Llama 3.1 8B Instruct" },
+    { id: "deepseek/deepseek-r1", name: "DeepSeek R1" },
+    { id: "meta-llama/llama-3.3-70b-instruct", name: "Llama 3.3 70B Instruct" },
+  ],
+  hyperbolic: [
+    { id: "meta-llama/Meta-Llama-3.1-70B-Instruct", name: "Llama 3.1 70B Instruct" },
+    { id: "deepseek-ai/DeepSeek-V3", name: "DeepSeek V3" },
+    { id: "Qwen/Qwen2.5-72B-Instruct", name: "Qwen 2.5 72B Instruct" },
+  ],
+  fireworks: [
+    { id: "accounts/fireworks/models/llama-v3p1-70b-instruct", name: "Llama 3.1 70B Instruct" },
+    { id: "accounts/fireworks/models/qwen2p5-72b-instruct", name: "Qwen 2.5 72B Instruct" },
+  ],
+  cohere: [
+    { id: "command-r", name: "Command R (Conversational & RAG)" },
+    { id: "command-r-plus", name: "Command R+ (Enterprise Reasoning)" },
+  ],
+  perplexity: [
+    { id: "sonar", name: "Sonar (Live Search Augmented)" },
+    { id: "sonar-pro", name: "Sonar Pro (Deep Web Search)" },
+    { id: "sonar-reasoning", name: "Sonar Reasoning (Search + Chain-of-Thought)" },
+  ],
+
+  // ── Commercial Flagships ──
   openai: [
-    { id: "gpt-4o", name: "GPT-4o (Omni Multimodal)" },
     { id: "gpt-4o-mini", name: "GPT-4o Mini (Fast & Efficient)" },
+    { id: "gpt-4o", name: "GPT-4o (Omni Multimodal)" },
     { id: "gpt-4-turbo", name: "GPT-4 Turbo" },
     { id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo" },
   ],
-  cerebras: [
-    { id: "llama3.1-70b", name: "Llama 3.1 70B (Fast Inference)" },
-    { id: "llama3.1-8b", name: "Llama 3.1 8B (Ultra Fast)" },
+  mistral: [
+    { id: "mistral-small-latest", name: "Mistral Small (Fast)" },
+    { id: "codestral-latest", name: "Codestral (Code & Architecture)" },
+    { id: "mistral-large-latest", name: "Mistral Large (High Accuracy)" },
+    { id: "open-mistral-nemo", name: "Mistral Nemo 12B" },
   ],
+  grok: [
+    { id: "grok-beta", name: "Grok Beta (Fast Real-Time)" },
+    { id: "grok-2-vision-1212", name: "Grok 2 Vision" },
+  ],
+
+  // ── 100% Offline Local Inference ──
   ollama: [
-    { id: "llama3:latest", name: "Llama 3 (Local)" },
-    { id: "mistral:latest", name: "Mistral (Local)" },
-    { id: "deepseek-r1:latest", name: "DeepSeek R1 (Local)" },
-    { id: "phi3:latest", name: "Phi-3 Mini (Local)" },
+    { id: "llama3:latest", name: "Llama 3 (Local Offline)" },
+    { id: "deepseek-r1:latest", name: "DeepSeek R1 (Local Offline)" },
+    { id: "mistral:latest", name: "Mistral (Local Offline)" },
+    { id: "phi3:latest", name: "Phi-3 Mini (Local Offline)" },
   ],
-  local_rules: [
-    { id: "local-rules", name: "FlowTrack Offline Academic Engine" },
+  lmstudio: [
+    { id: "local-model", name: "LM Studio Active Model (Port 1234)" },
+  ],
+
+  // ── Cloudflare / Custom ──
+  cloudflare: [
+    { id: "@cf/meta/llama-3.1-8b-instruct", name: "Llama 3.1 8B Instruct (10k Neurons/Day Free)" },
+    { id: "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b", name: "DeepSeek R1 Distill 32B" },
+  ],
+  custom: [
+    { id: "custom-model", name: "Custom Configured Model" },
   ],
 };
 
@@ -62,12 +151,12 @@ export async function fetchLiveModels(
   try {
     if (provider === "gemini") {
       if (!apiKey.trim()) return { success: false, models: fallback, error: "API key is required" };
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey.trim()}`);
+      const res = await universalAiFetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey.trim()}`);
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err?.error?.message || `HTTP ${res.status}`);
+        const err = res.data;
+        throw new Error(err?.error?.message || res.error || `Google Gemini API returned HTTP ${res.status}`);
       }
-      const data = await res.json();
+      const data = res.data;
       const rawList = Array.isArray(data?.models) ? data.models : [];
       const models: FetchedModel[] = rawList
         .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
@@ -80,35 +169,98 @@ export async function fetchLiveModels(
 
     if (provider === "groq") {
       if (!apiKey.trim()) return { success: false, models: fallback, error: "API key is required" };
-      const res = await fetch("https://api.groq.com/openai/v1/models", {
+      const res = await universalAiFetch("https://api.groq.com/openai/v1/models", {
         headers: { Authorization: `Bearer ${apiKey.trim()}` },
       });
-      if (!res.ok) throw new Error(`Groq API returned HTTP ${res.status}`);
-      const data = await res.json();
+      if (!res.ok) {
+        const errJson = res.data;
+        throw new Error(errJson?.error?.message || errJson?.message || res.error || `Groq API returned HTTP ${res.status}`);
+      }
+      const data = res.data;
       const raw = Array.isArray(data?.data) ? data.data : [];
-      const models = raw.map((m: any) => ({ id: m.id, name: m.id }));
-      return { success: true, models: models.length > 0 ? models : fallback };
+      // Filter out inactive models, audio models (whisper), guardrails, embeddings
+      const filtered = raw
+        .filter((m: any) => {
+          if (m.active === false) return false;
+          const id = (m.id || "").toLowerCase();
+          if (id.includes("whisper") || id.includes("tts") || id.includes("guard") || id.includes("bge") || id.includes("embed")) return false;
+          return true;
+        })
+        .map((m: any) => ({ id: m.id, name: m.id }));
+
+      // Prioritize fast, high-quality production chat models at top of list
+      const priorityOrder = [
+        "qwen/qwen3.8-27b",
+        "allam-2-7b",
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant",
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
+        "gemma2-9b-it",
+        "qwen-2.5-32b",
+        "deepseek-r1-distill-llama-70b",
+      ];
+      filtered.sort((a, b) => {
+        const idxA = priorityOrder.indexOf(a.id);
+        const idxB = priorityOrder.indexOf(b.id);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      return { success: true, models: filtered.length > 0 ? filtered : fallback };
     }
 
     if (provider === "mistral") {
       if (!apiKey.trim()) return { success: false, models: fallback, error: "API key is required" };
-      const res = await fetch("https://api.mistral.ai/v1/models", {
+      const res = await universalAiFetch("https://api.mistral.ai/v1/models", {
         headers: { Authorization: `Bearer ${apiKey.trim()}` },
       });
-      if (!res.ok) throw new Error(`Mistral API returned HTTP ${res.status}`);
-      const data = await res.json();
+      if (!res.ok) {
+        const errJson = res.data;
+        const msg = errJson?.message || errJson?.error?.message;
+        if (res.status === 429) {
+          throw new Error("Mistral Free Tier limit reached. Requires phone/billing verification on console.mistral.ai for chat tokens.");
+        }
+        throw new Error(msg || res.error || `Mistral API returned HTTP ${res.status}`);
+      }
+      const data = res.data;
       const raw = Array.isArray(data?.data) ? data.data : [];
-      const models = raw.map((m: any) => ({ id: m.id, name: m.id }));
-      return { success: true, models: models.length > 0 ? models : fallback };
+      const filtered = raw
+        .filter((m: any) => {
+          const id = (m.id || "").toLowerCase();
+          if (id.includes("embed") || id.includes("moderation")) return false;
+          return true;
+        })
+        .map((m: any) => ({ id: m.id, name: m.id }));
+
+      const priorityOrder = [
+        "mistral-small-latest",
+        "codestral-latest",
+        "mistral-large-latest",
+        "open-mistral-nemo",
+        "open-codestral-mamba",
+      ];
+      filtered.sort((a, b) => {
+        const idxA = priorityOrder.indexOf(a.id);
+        const idxB = priorityOrder.indexOf(b.id);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      return { success: true, models: filtered.length > 0 ? filtered : fallback };
     }
 
     if (provider === "openai") {
       if (!apiKey.trim()) return { success: false, models: fallback, error: "API key is required" };
-      const res = await fetch("https://api.openai.com/v1/models", {
+      const res = await universalAiFetch("https://api.openai.com/v1/models", {
         headers: { Authorization: `Bearer ${apiKey.trim()}` },
       });
       if (!res.ok) throw new Error(`OpenAI API returned HTTP ${res.status}`);
-      const data = await res.json();
+      const data = res.data;
       const raw = Array.isArray(data?.data) ? data.data : [];
       const chatModels = raw
         .filter((m: any) => m.id.includes("gpt") || m.id.includes("o1") || m.id.includes("o3"))
@@ -118,11 +270,13 @@ export async function fetchLiveModels(
 
     if (provider === "cerebras") {
       if (!apiKey.trim()) return { success: false, models: fallback, error: "API key is required" };
-      const res = await fetch("https://api.cerebras.ai/v1/models", {
+      const res = await universalAiFetch("https://api.cerebras.ai/v1/models", {
         headers: { Authorization: `Bearer ${apiKey.trim()}` },
       });
-      if (!res.ok) throw new Error(`Cerebras API returned HTTP ${res.status}`);
-      const data = await res.json();
+      if (!res.ok) {
+        throw new Error("Cerebras API requires adding a payment method on cloud.cerebras.ai to activate the $5 free trial credits.");
+      }
+      const data = res.data;
       const raw = Array.isArray(data?.data) ? data.data : [];
       const models = raw.map((m: any) => ({ id: m.id, name: m.id }));
       return { success: true, models: models.length > 0 ? models : fallback };
@@ -130,11 +284,81 @@ export async function fetchLiveModels(
 
     if (provider === "ollama") {
       const url = (ollamaUrl.trim() || "http://localhost:11434").replace(/\/$/, "");
-      const res = await fetch(`${url}/api/tags`);
+      const res = await universalAiFetch(`${url}/api/tags`);
       if (!res.ok) throw new Error(`Ollama returned HTTP ${res.status}`);
-      const data = await res.json();
+      const data = res.data;
       const raw = Array.isArray(data?.models) ? data.models : [];
       const models = raw.map((m: any) => ({ id: m.name, name: `${m.name} (${Math.round((m.size || 0) / (1024 * 1024))}MB)` }));
+      return { success: true, models: models.length > 0 ? models : fallback };
+    }
+
+    // Universal OpenAI-compatible models discovery
+    const openAiModelsEndpoints: Partial<Record<AiConfig["provider"], string>> = {
+      openrouter: "https://openrouter.ai/api/v1/models",
+      sambanova: "https://api.sambanova.ai/v1/models",
+      deepseek: "https://api.deepseek.com/models",
+      together: "https://api.together.ai/v1/models",
+      deepinfra: "https://api.deepinfra.com/v1/openai/models",
+      novita: "https://api.novita.ai/v3/openai/models",
+      hyperbolic: "https://api.hyperbolic.xyz/v1/models",
+      fireworks: "https://api.fireworks.ai/inference/v1/models",
+      perplexity: "https://api.perplexity.ai/models",
+      huggingface: "https://router.huggingface.co/v1/models",
+      github_models: "https://models.inference.ai.azure.com/models",
+      lmstudio: "http://localhost:1234/v1/models",
+    };
+
+    const targetEndpoint = openAiModelsEndpoints[provider];
+    if (targetEndpoint) {
+      if (provider !== "lmstudio" && !apiKey.trim()) {
+        return { success: false, models: fallback, error: "API key is required" };
+      }
+      const headers: Record<string, string> = {};
+      if (apiKey.trim()) {
+        headers["Authorization"] = `Bearer ${apiKey.trim()}`;
+      }
+      if (provider === "openrouter") {
+        headers["HTTP-Referer"] = "https://flowtrack.pro";
+        headers["X-Title"] = "FlowTrack Pro";
+      }
+
+      const res = await universalAiFetch(targetEndpoint, { headers });
+      if (!res.ok) {
+        const errJson = res.data;
+        throw new Error(errJson?.error?.message || errJson?.message || `${provider} returned HTTP ${res.status}`);
+      }
+      const data = res.data;
+      const raw = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+      let models = raw
+        .filter((m: any) => m.active !== false)
+        .map((m: any) => {
+          const isFree = provider === "openrouter" && (
+            (m.id || "").endsWith(":free") ||
+            m.id === "openrouter/free" ||
+            m.pricing?.prompt === 0 ||
+            m.pricing?.prompt === "0"
+          );
+          return {
+            id: m.id,
+            name: isFree ? `🌟 [Free] ${m.name || m.id}` : (m.name || m.id)
+          };
+        });
+
+      if (provider === "openrouter") {
+        // Ensure openrouter/free meta model is present at top
+        if (!models.some((m: any) => m.id === "openrouter/free")) {
+          models.unshift({ id: "openrouter/free", name: "🌟 [Free] OpenRouter Auto-Router" });
+        }
+        // Put all free models first
+        models.sort((a: any, b: any) => {
+          const aFree = a.name.includes("🌟");
+          const bFree = b.name.includes("🌟");
+          if (aFree && !bFree) return -1;
+          if (!aFree && bFree) return 1;
+          return a.name.localeCompare(b.name);
+        });
+      }
+
       return { success: true, models: models.length > 0 ? models : fallback };
     }
 

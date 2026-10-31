@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fetchLiveModels, FALLBACK_MODELS } from "../aiModelFetcher";
+import { decodeAiProviderError } from "../aiClient";
 
 describe("aiModelFetcher", () => {
   beforeEach(() => {
@@ -51,6 +52,32 @@ describe("aiModelFetcher", () => {
     expect(res.models.map((m) => m.id)).toEqual(["llama-3.3-70b-versatile", "mixtral-8x7b-32768"]);
   });
 
+  it("filters out inactive models and audio models from Groq", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        data: [
+          { id: "whisper-large-v3", active: true },
+          { id: "allam-2-7b", active: false },
+          { id: "llama-3.1-8b-instant", active: true },
+          { id: "llama-guard-3-8b", active: true },
+          { id: "llama-3.3-70b-versatile", active: true },
+        ],
+      }),
+    } as any);
+
+    const res = await fetchLiveModels("groq", "mock-groq-key");
+    expect(res.success).toBe(true);
+    // whisper, allam-2-7b (inactive), and guard must be excluded
+    const ids = res.models.map((m) => m.id);
+    expect(ids).not.toContain("whisper-large-v3");
+    expect(ids).not.toContain("allam-2-7b");
+    expect(ids).not.toContain("llama-guard-3-8b");
+    // llama-3.3-70b-versatile must be prioritized first
+    expect(ids[0]).toBe("llama-3.3-70b-versatile");
+    expect(ids[1]).toBe("llama-3.1-8b-instant");
+  });
+
   it("falls back gracefully when network throws an error", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("Network connection lost"));
 
@@ -58,5 +85,25 @@ describe("aiModelFetcher", () => {
     expect(res.success).toBe(false);
     expect(res.models).toEqual(FALLBACK_MODELS.mistral);
     expect(res.error).toBe("Network connection lost");
+  });
+
+  describe("decodeAiProviderError", () => {
+    it("decodes Mistral 429 quota exhaustion with guidance", () => {
+      const err = decodeAiProviderError(429, { message: "Rate limit exceeded: You have reached your monthly spending limit." }, "mistral");
+      expect(err).toContain("HTTP 429 (Quota / Rate Limit)");
+      expect(err).toContain("Mistral Free Tier");
+      expect(err).toContain("Groq Cloud");
+    });
+
+    it("decodes 404 model not found error with suggestion to pick verified model", () => {
+      const err = decodeAiProviderError(404, { error: { message: "The model 'allam-2-7b' does not exist." } }, "groq");
+      expect(err).toContain("HTTP 404 (Model Not Found)");
+      expect(err).toContain("llama-3.3-70b-versatile");
+    });
+
+    it("decodes 401 unauthorized key errors", () => {
+      const err = decodeAiProviderError(401, { message: "Unauthorized" }, "mistral");
+      expect(err).toContain("HTTP 401 (Authentication Failed)");
+    });
   });
 });

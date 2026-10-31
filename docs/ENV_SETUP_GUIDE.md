@@ -52,3 +52,54 @@ Keep this tab open, you will need these keys for Vercel.
 
 ## Done! 🎉
 Once your app is redeployed, the **Sign In** button in the Settings page will work, and all your IndexedDB data will automatically sync to Firestore securely!
+
+---
+
+# Local Development & Full-Stack Environment Setup 💻
+
+FlowTrack Pro can be developed and run entirely on your local machine with zero mandatory cloud dependencies.
+
+## Prerequisites
+- **Node.js**: v20 or v22 LTS
+- **npm**: v10+ (use `npm install --legacy-peer-deps`, **never `npm ci`**)
+- **Python**: 3.10+ (optional, for passive OS window tracking via `web-app/backend.py`)
+
+## 1. Web Application (`web-app/`)
+```bash
+cd web-app
+npm install --legacy-peer-deps
+npm run dev
+```
+Runs at `http://localhost:5173`.
+
+## 2. Desktop Application (`desktop-app/`)
+```bash
+cd desktop-app
+npm install --legacy-peer-deps
+npm run electron:dev
+```
+Launches Electron 43 + React 19 with hot module replacement and native Win32 window poller (`win-tracker.exe`).
+
+## 3. Optional Local Python Backend (`backend.py`)
+```bash
+python web-app/backend.py 5001 --poll 2 --idle 300
+```
+- Listens on `http://localhost:5001`.
+- Automatically detected by both web and desktop apps.
+- Captures active window transitions, calculates idle times, and mirrors IDE heartbeats.
+
+## 4. Verification & Testing Quality Gate
+```bash
+# Typecheck
+npm --prefix desktop-app run typecheck
+npm --prefix web-app run typecheck
+
+# Lint (Zero Warnings Required)
+npm --prefix desktop-app run lint
+
+# Vitest Test Suite (21 suites, 114 tests)
+npm --prefix desktop-app run test
+
+# Python Compilation
+python -m py_compile web-app/backend.py
+```

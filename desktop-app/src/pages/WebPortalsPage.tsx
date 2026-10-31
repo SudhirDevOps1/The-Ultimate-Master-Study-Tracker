@@ -1395,7 +1395,7 @@ export function WebPortalsPage() {
                     </span>
                   </h1>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    1-Click access to Sigma Batch, LeetCode, GitHub, Documentation & Localhost
+                    1-Click access to your course portals, LeetCode, GitHub, Documentation & Localhost
                   </p>
                 </div>
               </div>

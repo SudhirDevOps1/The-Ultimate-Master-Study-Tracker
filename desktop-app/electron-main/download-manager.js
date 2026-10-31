@@ -47,6 +47,13 @@ function setupDownloadManager(session, getMainWindow) {
       }
     }
 
+    // Ensure item has a concrete save path so downloads (including blob URLs) are never cancelled or 0 bytes
+    if (!item.getSavePath()) {
+      const downloadsFolder = app.getPath('downloads');
+      const safeFilename = filename || `FlowTrack_Download_${Date.now()}${ext || ''}`;
+      item.setSavePath(path.join(downloadsFolder, safeFilename));
+    }
+
     const downloadId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
     item.on('updated', (updateEvent, state) => {

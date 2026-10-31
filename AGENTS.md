@@ -12,8 +12,8 @@ FlowTrack Pro — local-first study/productivity tracker. Electron desktop app, 
 
 `desktop-app/src` and `web-app/src` share 85 files: 53 byte-identical, 32 drifted. Nothing links them — no shared package, no workspace import. Before editing anything under `src/`, decide whether both apps need the change and copy it deliberately; a fix in one app does **not** reach the other. Compare with `git diff --no-index desktop-app/src web-app/src`.
 
-Desktop-only: `PipStandalonePage`, `PipOverlayWidget`, `EnterpriseUpdateModal`, `FocusAudioMixer`, `VirtualStudyCompanion`, `lib/neonSync.ts`, `utils/notification.ts`.
-Web-only: `BackendActivityPanel`, `PerformanceScorecardModal`, `WeeklyReviewModal`, `WeeklySummary`.
+Desktop-only: `PipStandalonePage`, `PipOverlayWidget`, `EnterpriseUpdateModal`, `lib/neonSync.ts`.
+Harmonized across both: `FocusAudioMixer`, `VirtualStudyCompanion`, `notification.ts`, `DashboardPage`, `WeeklySummary`, `WeeklyReviewModal`, `PerformanceScorecardModal`, `BackendActivityPanel`.
 
 ## Commands (run inside the app directory)
 
@@ -29,7 +29,7 @@ Web-only: `BackendActivityPanel`, `PerformanceScorecardModal`, `WeeklyReviewModa
 
 ## Testing reality
 
-- **21 test suites, 113 unit tests** in `desktop-app/src/utils/__tests__/` (covering `security.ts`, `afkTracking.ts`, `breakEngine.ts`, `downloadManager.ts`, `editorInfo.ts`, `heartbeatReceiver.ts`, `localQueryApi.ts`, `ocrEngine.ts`, `reviewGenerator.ts`, `taskModel.ts`, `mermaidHelper.ts`, `latexToMathML.ts`, `boardMath.ts`, `mindmapGraph.ts`, `aiModelFetcher.ts`, `storageMigration.ts`, `focusScore.ts`, `backupEngine.ts`, `securityContract.ts`, and E2E flows).
+- **25 test suites, 169 unit tests** in `desktop-app/src/utils/__tests__/` (covering `security.ts`, `afkTracking.ts`, `breakEngine.ts`, `downloadManager.ts`, `editorInfo.ts`, `heartbeatReceiver.ts`, `localQueryApi.ts`, `ocrEngine.ts`, `reviewGenerator.ts`, `taskModel.ts`, `mermaidHelper.ts`, `latexToMathML.ts`, `boardMath.ts`, `mindmapGraph.ts`, `aiModelFetcher.ts`, `storageMigration.ts`, `focusScore.ts`, `backupEngine.ts`, `securityContract.ts`, and E2E flows).
 - Coverage `include` is configured for tested utility surfaces. Never quote single-file coverage as overall repo coverage.
 - CI order: typecheck → lint → `py_compile`/`ruff` → test → build. Match it locally before every push.
 

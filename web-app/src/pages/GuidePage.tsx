@@ -1,3 +1,4 @@
+import { APP_VERSION } from "@/config/version";
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Panel } from "@/components/common/Panel";
@@ -117,7 +118,7 @@ export function GuidePage() {
 
   const appInfo = {
     name: "FlowTrack Pro – Smart Study & Productivity Tracker",
-    version: "v0.2.4 (Production Release)",
+    version: `v${APP_VERSION} (Production Release)`,
     developer: "Sudhir DevOps (FlowTrack Engineering Team)",
     repo: "SudhirDevOps1/The-Ultimate-Master-Study-Tracker",
     techStack: [
@@ -133,7 +134,7 @@ export function GuidePage() {
     { id: "overview", label: "🌟 App Overview", icon: <Sparkles className="w-4 h-4" /> },
     { id: "features", label: "🚀 All Features Matrix", icon: <Zap className="w-4 h-4 text-amber-400" /> },
     { id: "shortcuts", label: "⌨️ Keyboard Shortcuts & Tips", icon: <Keyboard className="w-4 h-4 text-indigo-400" /> },
-    { id: "fixes", label: "✨ New in v0.2.4", icon: <CheckCircle2 className="w-4 h-4 text-emerald-400" /> },
+    { id: "fixes", label: `✨ New in v${APP_VERSION}`, icon: <CheckCircle2 className="w-4 h-4 text-emerald-400" /> },
     { id: "storage", label: "📂 Data Storage & Privacy", icon: <HardDrive className="w-4 h-4 text-purple-400" /> },
     { id: "tech", label: "🛠️ Tech Architecture", icon: <Cpu className="w-4 h-4" /> },
     { id: "credits", label: "🎁 Open-Source Credits", icon: <Heart className="w-4 h-4 text-rose-400 animate-pulse" /> },
@@ -726,12 +727,12 @@ export function GuidePage() {
         </Panel>
       )}
 
-      {/* TAB 5: FIXES IN V0.2.4 */}
+      {/* TAB 5: LATEST AUDIT & FIXES */}
       {activeTab === "fixes" && (
         <Panel className="space-y-6 p-6 border-l-4 border-emerald-500">
           <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-sm">
             <CheckCircle2 className="w-5 h-5 shrink-0" />
-            <span className="font-bold">v0.2.4 Production Release Audit & Fixes — 100% Tested & Verified!</span>
+            <span className="font-bold">v{APP_VERSION} Production Release Audit & Fixes — 100% Tested & Verified!</span>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 text-xs">

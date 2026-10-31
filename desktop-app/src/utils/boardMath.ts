@@ -1,3 +1,4 @@
+import { toLocalDateKey } from "@/utils/localDate";
 import type { StickyNote, BoardFrame, BoardConnector } from "../types/notes";
 
 /**
@@ -98,7 +99,7 @@ export function generateBoardTemplate(
   templateKey: "cornell" | "feynman" | "lectureSummary" | "examRevision",
   subjectName = "Study Subject"
 ): { notes: StickyNote[]; frames: BoardFrame[]; connectors: BoardConnector[] } {
-  const dateStr = new Date().toISOString().split("T")[0];
+  const dateStr = toLocalDateKey();
   const timeStr = "12:00";
   const baseId = `tmpl-${Date.now()}`;
 

@@ -32,7 +32,7 @@ export function checkSessionOverlap(
     const hasOverlap = newStart < existingEnd && newEnd > existingStart;
 
     // If subject is same, overlap is more likely to be a duplicate
-    const isSameSubject = !newSession.subjectId || session.subjectId === newSession.subjectId;
+    const isSameSubject = Boolean((newSession.subjectId && session.subjectId && newSession.subjectId === session.subjectId) || (!newSession.subjectId && !session.subjectId));
 
     return hasOverlap && isSameSubject;
   });

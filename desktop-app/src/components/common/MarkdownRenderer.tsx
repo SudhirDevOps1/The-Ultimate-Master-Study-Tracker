@@ -1,8 +1,28 @@
+import Prism from "prismjs";
+import "prismjs/components/prism-javascript";
+import "prismjs/components/prism-typescript";
+import "prismjs/components/prism-jsx";
+import "prismjs/components/prism-tsx";
+import "prismjs/components/prism-python";
+import "prismjs/components/prism-java";
+import "prismjs/components/prism-sql";
+import "prismjs/components/prism-bash";
+import "prismjs/components/prism-c";
+import "prismjs/components/prism-cpp";
+import "prismjs/components/prism-csharp";
+import "prismjs/components/prism-go";
+import "prismjs/components/prism-rust";
+import "prismjs/components/prism-json";
+import "prismjs/components/prism-yaml";
+import "prismjs/components/prism-css";
+import "prismjs/components/prism-markdown";
+import "prismjs/components/prism-markup";
 import React, { useState, Component, type ReactNode } from "react";
 import DOMPurify from "dompurify";
 import { MermaidChart } from "./MermaidChart";
 import { Copy, Check, Terminal, ExternalLink, AlertTriangle } from "lucide-react";
 import { latexToMathML } from "@/utils/latexToMathML";
+import { isMermaidStartLine } from "@/utils/mermaidHelper";
 
 interface MarkdownRendererProps {
   content: string;
@@ -188,7 +208,14 @@ function MarkdownRendererInner({ content, className = "" }: MarkdownRendererProp
 
       if (inCodeBlock) {
         const fullCode = codeBlockBuffer.join("\n");
-        if (codeBlockLang.toLowerCase() === "mermaid") {
+        const cleanLang = codeBlockLang.trim().toLowerCase();
+        const isMermaid =
+          cleanLang === "mermaid" ||
+          cleanLang === "mmd" ||
+          cleanLang === "mermaidjs" ||
+          (!cleanLang && isMermaidStartLine(fullCode));
+
+        if (isMermaid) {
           blocks.push({ type: "mermaid", content: fullCode, lang: "mermaid" });
         } else {
           blocks.push({ type: "code", content: fullCode, lang: codeBlockLang });
@@ -325,7 +352,14 @@ function MarkdownRendererInner({ content, className = "" }: MarkdownRendererProp
   }
   if (inCodeBlock && codeBlockBuffer.length > 0) {
     const fullCode = codeBlockBuffer.join("\n");
-    if (codeBlockLang.toLowerCase() === "mermaid") {
+    const cleanLang = codeBlockLang.trim().toLowerCase();
+    const isMermaid =
+      cleanLang === "mermaid" ||
+      cleanLang === "mmd" ||
+      cleanLang === "mermaidjs" ||
+      (!cleanLang && isMermaidStartLine(fullCode));
+
+    if (isMermaid) {
       blocks.push({ type: "mermaid", content: fullCode, lang: "mermaid" });
     } else {
       blocks.push({ type: "code", content: fullCode, lang: codeBlockLang });
@@ -480,6 +514,71 @@ function MarkdownRendererInner({ content, className = "" }: MarkdownRendererProp
   );
 }
 
+const LANGUAGE_ALIASES: Record<string, string> = {
+  js: "javascript",
+  ts: "typescript",
+  jsx: "jsx",
+  tsx: "tsx",
+  py: "python",
+  python: "python",
+  java: "java",
+  sql: "sql",
+  bash: "bash",
+  sh: "bash",
+  shell: "bash",
+  zsh: "bash",
+  c: "c",
+  cpp: "cpp",
+  "c++": "cpp",
+  cs: "csharp",
+  csharp: "csharp",
+  go: "go",
+  golang: "go",
+  rs: "rust",
+  rust: "rust",
+  json: "json",
+  yml: "yaml",
+  yaml: "yaml",
+  css: "css",
+  md: "markdown",
+  markdown: "markdown",
+  html: "markup",
+  xml: "markup",
+  markup: "markup",
+};
+
+function highlightCodeWithPrism(code: string, lang?: string): { html: string; resolvedLang: string } {
+  if (!lang) {
+    return {
+      html: code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"),
+      resolvedLang: "text"
+    };
+  }
+
+  const rawLang = lang.trim().toLowerCase();
+  const resolved = LANGUAGE_ALIASES[rawLang] || rawLang;
+  const grammar = (Prism.languages as any)[resolved];
+
+  if (!grammar) {
+    return {
+      html: code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"),
+      resolvedLang: rawLang
+    };
+  }
+
+  try {
+    return {
+      html: Prism.highlight(code, grammar, resolved),
+      resolvedLang: resolved
+    };
+  } catch {
+    return {
+      html: code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"),
+      resolvedLang: rawLang
+    };
+  }
+}
+
 function CodeBlock({ code, lang }: { code: string; lang?: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -493,24 +592,45 @@ function CodeBlock({ code, lang }: { code: string; lang?: string }) {
     }
   };
 
+  const lines = React.useMemo(() => code.split("\n"), [code]);
+  const { html, resolvedLang } = React.useMemo(() => highlightCodeWithPrism(code, lang), [code, lang]);
+
   return (
-    <div className="my-3 rounded-2xl border border-white/10 bg-slate-950/90 overflow-hidden shadow-md">
-      <div className="flex items-center justify-between px-3.5 py-1.5 border-b border-white/10 bg-white/[0.02]">
-        <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono">
+    <div className="my-3 rounded-2xl border border-white/10 bg-slate-950/95 overflow-hidden shadow-xl group">
+      {/* Code Header Bar */}
+      <div className="flex items-center justify-between px-3.5 py-1.5 border-b border-white/10 bg-white/[0.03]">
+        <div className="flex items-center gap-2 text-xs text-slate-400 font-mono">
           <Terminal className="w-3.5 h-3.5 text-cyan-400" />
-          <span>{lang || "code"}</span>
+          <span className="font-semibold text-slate-300 uppercase text-[11px] tracking-wide">{resolvedLang || lang || "code"}</span>
+          <span className="text-[10px] text-slate-500 font-normal">({lines.length} lines)</span>
         </div>
         <button
           onClick={handleCopy}
-          className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white/5 hover:bg-white/10 text-[10px] text-slate-300 font-semibold transition-colors"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[10px] text-slate-300 hover:text-white font-semibold transition"
+          title="Copy code to clipboard"
         >
-          {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-          <span>{copied ? "Copied" : "Copy"}</span>
+          {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+          <span>{copied ? "Copied!" : "Copy"}</span>
         </button>
       </div>
-      <pre className="p-3.5 overflow-x-auto pretty-scrollbar font-mono text-xs text-cyan-200 leading-relaxed">
-        <code>{code}</code>
-      </pre>
+
+      {/* Code Body with Line Numbers & Syntax Highlighting */}
+      <div className="p-3.5 overflow-x-auto pretty-scrollbar flex text-xs font-mono leading-relaxed bg-[#090d16]/90">
+        {/* Line Numbers */}
+        <div className="select-none pr-3 text-right text-slate-600 font-mono border-r border-white/10 shrink-0 min-w-[2.2rem]">
+          {lines.map((_, i) => (
+            <div key={i} className="leading-relaxed">{i + 1}</div>
+          ))}
+        </div>
+
+        {/* Highlighted Code */}
+        <pre className="pl-3.5 overflow-x-visible font-mono leading-relaxed flex-1 text-slate-200">
+          <code
+            className={`language-${resolvedLang} font-mono`}
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        </pre>
+      </div>
     </div>
   );
 }

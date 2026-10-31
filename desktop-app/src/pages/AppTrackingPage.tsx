@@ -1,3 +1,6 @@
+import { toLocalDateKey } from "@/utils/localDate";
+import { classifyApplication } from "@/utils/appCategorizer";
+import { normalizeEntryDuration } from "@/utils/trackerMath";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -73,27 +76,7 @@ const ENTERT  = [
 ];
 
 function classifyApp(app: string, title: string = ""): string {
-  const n = app.toLowerCase();
-  const t = (title || "").toLowerCase();
-  const isBrowserProcess = BROWSER.some(b => n.includes(b));
-  
-  if (isBrowserProcess || n.includes("chrome") || n.includes("firefox") || n.includes("edge") || n.includes("brave") || n.includes("opera") || n.includes("safari")) {
-    if (t.includes("youtube") || t.includes("netflix") || t.includes("spotify") || t.includes("twitch") || t.includes("prime video") || t.includes("hotstar") || t.includes("vimeo") || t.includes("mxplayer") || t.includes("music.youtube")) {
-      return "entertainment";
-    }
-    if (t.includes("instagram") || t.includes("linkedin") || t.includes("facebook") || t.includes("twitter") || t.includes(" x ") || t.includes("reddit") || t.includes("whatsapp") || t.includes("discord") || t.includes("telegram") || t.includes("slack")) {
-      return "social";
-    }
-    if (t.includes("github") || t.includes("stackoverflow") || t.includes("leetcode") || t.includes("chatgpt") || t.includes("openai") || t.includes("coursera") || t.includes("udemy") || t.includes("w3schools") || t.includes("wikipedia") || t.includes("mdn") || t.includes("geeksforgeeks") || t.includes("gfg") || t.includes("apna college") || t.includes("freecodecamp") || t.includes("codewithharry") || t.includes("overleaf")) {
-      return "study";
-    }
-  }
-
-  if (STUDY.some(k   => n.includes(k))) return "study";
-  if (isBrowserProcess) return "browser";
-  if (SOCIAL.some(k  => n.includes(k))) return "social";
-  if (ENTERT.some(k  => n.includes(k))) return "entertainment";
-  return "system";
+  return classifyApplication(app, title);
 }
 
 function extractDevMetadata(appName: string, title: string = ""): { isDev: boolean; language?: string; project?: string } {
@@ -238,25 +221,28 @@ function Timeline({ rawLog }: { rawLog: ActivityEntry[] }) {
   const processedRows = useMemo(() => {
     if (!rawLog || rawLog.length === 0) return [];
 
-    const map = new Map<string, { totalSec: number; entries: ActivityEntry[] }>();
+    const map = new Map<string, { totalActiveSec: number; totalAfkSec: number; entries: ActivityEntry[] }>();
     for (let i = 0; i < rawLog.length; i++) {
       const entry = rawLog[i];
-      if (!entry.appName) continue;
+      if (!entry.appName || entry.isLive) continue;
       let item = map.get(entry.appName);
       if (!item) {
-        item = { totalSec: 0, entries: [] };
+        item = { totalActiveSec: 0, totalAfkSec: 0, entries: [] };
         map.set(entry.appName, item);
       }
-      item.totalSec += entry.durationSeconds;
+      const { activeSeconds, afkSeconds } = normalizeEntryDuration(entry);
+      item.totalActiveSec += activeSeconds;
+      item.totalAfkSec += afkSeconds;
       item.entries.push(entry);
     }
 
     return Array.from(map.entries())
-      .sort((a, b) => b[1].totalSec - a[1].totalSec)
+      .sort((a, b) => b[1].totalActiveSec - a[1].totalActiveSec)
       .slice(0, 15)
       .map(([appName, item]) => ({
         appName,
-        totalSec: item.totalSec,
+        totalActiveSec: item.totalActiveSec,
+        totalAfkSec: item.totalAfkSec,
         appEntries: item.entries,
       }));
   }, [rawLog]);
@@ -280,33 +266,45 @@ function Timeline({ rawLog }: { rawLog: ActivityEntry[] }) {
       </div>
 
       {/* One row per app that was active */}
-      {processedRows.map(({ appName, totalSec, appEntries }) => (
+      {processedRows.map(({ appName, totalActiveSec, appEntries }) => (
         <div key={appName} className="flex items-center gap-2 group">
           {/* Label */}
           <span className="w-24 shrink-0 text-[10px] text-slate-400 truncate text-right font-semibold">
             {appName}
           </span>
 
-          {/* 24-hour track */}
+          {/* 24-hour track with active and AFK away segments */}
           <div className="relative flex-1 h-5 bg-white/[0.03] rounded overflow-hidden border border-white/5">
             {appEntries.map((entry, i) => {
               const startMin = entry.hour * 60 + (entry.minute ?? 0);
               const leftPct  = (startMin / 1440) * 100;
-              const widthPct = Math.max(0.5, (entry.durationSeconds / 86400) * 100);
+              const { activeSeconds, afkSeconds, totalSeconds } = normalizeEntryDuration(entry);
+              const totalWidthPct = Math.max(0.5, (totalSeconds / 86400) * 100);
               const cat = classifyApp(entry.appName, entry.title);
+              
               return (
-                <div
-                  key={i}
-                  className={`absolute top-0 h-full rounded-sm ${CAT_SOLID[cat] ?? "bg-slate-500"} ${entry.isLive ? "animate-pulse" : ""}`}
-                  style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                  title={`${appName} @ ${String(entry.hour).padStart(2,"0")}:${String(entry.minute ?? 0).padStart(2,"0")} — ${fmt(entry.durationSeconds)}`}
-                />
+                <div key={i} className="absolute top-0 h-full flex" style={{ left: `${leftPct}%`, width: `${totalWidthPct}%` }}>
+                  {activeSeconds > 0 && (
+                    <div
+                      className={`h-full rounded-sm ${CAT_SOLID[cat] ?? "bg-slate-500"}`}
+                      style={{ width: afkSeconds > 0 ? `${(activeSeconds / totalSeconds) * 100}%` : "100%" }}
+                      title={`${appName} (active) @ ${String(entry.hour).padStart(2,"0")}:${String(entry.minute ?? 0).padStart(2,"0")} — ${fmt(activeSeconds)}`}
+                    />
+                  )}
+                  {afkSeconds > 0 && (
+                    <div
+                      className="h-full rounded-sm bg-slate-700/80 border-l border-slate-900/60"
+                      style={{ width: activeSeconds > 0 ? `${(afkSeconds / totalSeconds) * 100}%` : "100%" }}
+                      title={`${appName} (away) @ ${String(entry.hour).padStart(2,"0")}:${String(entry.minute ?? 0).padStart(2,"0")} — ${fmt(afkSeconds)} (away)`}
+                    />
+                  )}
+                </div>
               );
             })}
           </div>
 
-          {/* Duration */}
-          <span className="w-12 shrink-0 text-[10px] text-slate-400 font-mono text-right">{fmt(totalSec)}</span>
+          {/* Active Duration */}
+          <span className="w-16 shrink-0 text-[10px] text-slate-400 font-mono text-right">{fmt(totalActiveSec)}</span>
         </div>
       ))}
 
@@ -318,6 +316,10 @@ function Timeline({ rawLog }: { rawLog: ActivityEntry[] }) {
             {cat}
           </span>
         ))}
+        <span className="flex items-center gap-1 text-[10px] text-slate-400">
+          <span className="w-2.5 h-2.5 rounded-sm bg-slate-700 border border-slate-600" />
+          Away / AFK
+        </span>
       </div>
     </div>
   );
@@ -421,7 +423,7 @@ function AppIcon({ appName, category }: { appName: string; category: string }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export function AppTrackingPage() {
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [selectedDate, setSelectedDate] = useState(() => toLocalDateKey());
   const [timeScope, setTimeScope]       = useState<"day" | "week" | "month" | "all">("day");
   const [rawLog, setRawLog]             = useState<ActivityEntry[]>([]);
   const [trackedDates, setTrackedDates] = useState<string[]>([]);
@@ -480,11 +482,38 @@ export function AppTrackingPage() {
   };
 
   const handleClearHeartbeats = async () => {
-    if (!window.confirm("Are you sure you want to clear all heartbeat pulses? This will remove all test and recorded pulses.")) return;
     const ipc = getIpc();
-    if (ipc) {
-      await ipc.invoke("heartbeat-clear");
+    if (!ipc) return;
+    const pulseCount = heartbeats.length;
+    const dayCount = trackedDates.length;
+
+    const choice = window.confirm(
+      `Clear Heartbeats Scope:\n\nClick [OK] to clear ONLY TODAY's heartbeats (${pulseCount} pulses).\nClick [Cancel] if you wish to clear all days or abort.`
+    );
+
+    if (choice) {
+      await ipc.invoke("heartbeat-clear", { scope: "today" });
       setHeartbeats([]);
+      return;
+    }
+
+    const clearAllConfirm = window.confirm(
+      `⚠️ PERMANENT CLEAR: Are you sure you want to clear ALL ${dayCount} days of recorded IDE heartbeats? This cannot be undone.`
+    );
+    if (clearAllConfirm) {
+      await ipc.invoke("heartbeat-clear", { scope: "all" });
+      setHeartbeats([]);
+    }
+  };
+
+  const handlePurgeDiagnosticPulses = async () => {
+    const ipc = getIpc();
+    if (!ipc) return;
+    const res = await ipc.invoke("purge-diagnostic-heartbeats");
+    if (res && res.purgedCount !== undefined) {
+      alert(`Cleaned up ${res.purgedCount} simulated/diagnostic test pulse(s). Real coding statistics updated!`);
+      const updated = await ipc.invoke("heartbeat-get-day", selectedDate);
+      if (Array.isArray(updated)) setHeartbeats(updated);
     }
   };
   const [heartbeatSearch, setHeartbeatSearch] = useState("");
@@ -498,7 +527,7 @@ export function AppTrackingPage() {
     allTime: 0,
   });
   const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
-  const today   = new Date().toISOString().split("T")[0];
+  const today = toLocalDateKey();
   const initApp = useAppStore(s => s.initApp);
   const importAll = useAppStore(s => s.importAll);
 
@@ -513,7 +542,7 @@ export function AppTrackingPage() {
         const totals = await Promise.all(
           datesToFetch.map(async (d) => {
             const entries: ActivityEntry[] = await ipc.invoke("get-activity-log", { date: d });
-            const total = entries.reduce((sum, e) => sum + e.durationSeconds, 0);
+            const total = entries.reduce((sum, e) => sum + normalizeEntryDuration(e).activeSeconds, 0);
             return { date: d, seconds: total };
           })
         );
@@ -531,18 +560,18 @@ export function AppTrackingPage() {
     if (!ipc || trackedDates.length === 0) return;
     try {
       const todayEntries: ActivityEntry[] = await ipc.invoke("get-activity-log", { date: today });
-      const todaySec = (todayEntries || []).reduce((sum, e) => sum + e.durationSeconds, 0);
+      const todaySec = (todayEntries || []).reduce((sum, e) => sum + normalizeEntryDuration(e).activeSeconds, 0);
 
       const weekDates = trackedDates.slice(0, 7);
       const weekLogs: ActivityEntry[][] = await Promise.all(weekDates.map(d => ipc.invoke("get-activity-log", { date: d })));
-      const weekSec = weekLogs.flat().reduce((sum, e) => sum + e.durationSeconds, 0);
+      const weekSec = weekLogs.flat().reduce((sum, e) => sum + normalizeEntryDuration(e).activeSeconds, 0);
 
       const monthDates = trackedDates.slice(0, 30);
       const monthLogs: ActivityEntry[][] = await Promise.all(monthDates.map(d => ipc.invoke("get-activity-log", { date: d })));
-      const monthSec = monthLogs.flat().reduce((sum, e) => sum + e.durationSeconds, 0);
+      const monthSec = monthLogs.flat().reduce((sum, e) => sum + normalizeEntryDuration(e).activeSeconds, 0);
 
       const allLogs: ActivityEntry[][] = await Promise.all(trackedDates.map(d => ipc.invoke("get-activity-log", { date: d })));
-      const allSec = allLogs.flat().reduce((sum, e) => sum + e.durationSeconds, 0);
+      const allSec = allLogs.flat().reduce((sum, e) => sum + normalizeEntryDuration(e).activeSeconds, 0);
 
       setPeriodTotals({
         today: todaySec,
@@ -653,7 +682,8 @@ export function AppTrackingPage() {
       const key = e.appName.toLowerCase();
       if (!map.has(key)) map.set(key, { appName: e.appName, totalSeconds: 0, sessions: 0, category: classifyApp(e.appName, e.title), isLive: false });
       const r = map.get(key)!;
-      r.totalSeconds += e.durationSeconds;
+      const { activeSeconds } = normalizeEntryDuration(e);
+      r.totalSeconds += activeSeconds;
       r.sessions++;
       if (e.isLive) r.isLive = true;
     }
@@ -678,13 +708,15 @@ export function AppTrackingPage() {
         });
       }
       const r = map.get(key)!;
-      r.totalSeconds += e.durationSeconds;
+      const { activeSeconds } = normalizeEntryDuration(e);
+      r.totalSeconds += activeSeconds;
       r.visitCount++;
     }
     return [...map.values()].sort((a, b) => b.totalSeconds - a.totalSeconds);
   }, [dailyLog]);
 
   const totalSeconds = useMemo(() => appSummaries.reduce((s, a) => s + a.totalSeconds, 0), [appSummaries]);
+  const totalAfkSeconds = useMemo(() => dailyLog.reduce((s, e) => s + normalizeEntryDuration(e).afkSeconds, 0), [dailyLog]);
 
   const categoryTotals = useMemo(() => {
     const m: Record<string, number> = {};
@@ -1015,6 +1047,16 @@ export function AppTrackingPage() {
               className={`h-full rounded-full ${liveIdleMs >= 10 * 60 * 1000 ? "bg-rose-500" : liveIdleMs >= 5 * 60 * 1000 ? "bg-amber-400" : "bg-emerald-400"}`} />
           </div>
           <p className="text-[9px] text-slate-500 mt-1">{liveIdleMs >= 10 * 60 * 1000 ? "⏸ Paused" : "✅ Active"}</p>
+        </div>
+
+        {/* Active vs Away Summary Chip */}
+        <div className="col-span-full flex items-center justify-between py-1">
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-800/80 border border-slate-700/60 text-slate-300 shadow-sm flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+              Active <strong className="text-white">{fmt(totalSeconds)}</strong> · Away <strong className="text-slate-400">{fmt(totalAfkSeconds)}</strong>
+            </span>
+          </div>
         </div>
 
         {/* Today Total */}
@@ -1520,9 +1562,9 @@ export function AppTrackingPage() {
                             }
                           }}
                           className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/5 text-slate-400 border border-white/10 text-xs font-medium hover:bg-white/10 transition-all cursor-pointer"
-                          title="Generate a demo pulse for testing UI visualization"
+                          title="Generate a diagnostic test pulse to verify local loopback (127.0.0.1:7777) receiver"
                         >
-                          <span>🧪 Generate Demo Pulse</span>
+                          <span>🧪 Diagnostic Pulse Probe</span>
                         </button>
                       </div>
                     </div>
@@ -1765,9 +1807,17 @@ export function AppTrackingPage() {
                       </button>
 
                       <button
+                        onClick={handlePurgeDiagnosticPulses}
+                        className="px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-300 text-[11px] font-semibold transition-colors cursor-pointer flex items-center gap-1.5"
+                        title="Purge simulated/diagnostic test heartbeats"
+                      >
+                        🧹 Remove Diagnostic Pulses
+                      </button>
+
+                      <button
                         onClick={handleClearHeartbeats}
                         className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 transition-colors cursor-pointer"
-                        title="Clear all recorded pulses (remove test data)"
+                        title="Clear recorded pulses (scoped: today or all)"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -1799,7 +1849,7 @@ export function AppTrackingPage() {
                               </span>
                               {isSimulated && (
                                 <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-extrabold uppercase shrink-0">
-                                  Demo
+                                  Test Probe
                                 </span>
                               )}
                               <div className="min-w-0 flex-1">

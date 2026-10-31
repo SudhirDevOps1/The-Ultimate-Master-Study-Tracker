@@ -246,17 +246,15 @@ export function useTimer() {
     const pollActiveWindow = async () => {
       const state = useAppStore.getState();
 
-      // FIX P6: Only fetch backend data if user has explicitly configured a backend URL
-      // (not the default localhost:5001 which is almost never running).
-      // This eliminates constant failed network requests that slow down the app.
-      const hasCustomBackend = state.backendUrl && state.backendUrl !== "http://localhost:5001";
+      // Fetch backend stats/activities if connected or explicitly customized
+      const hasCustomBackend = Boolean(state.backendUrl && state.backendUrl !== "http://localhost:5001");
       if (hasCustomBackend || state.isBackendConnected) {
         void state.fetchBackendData();
       }
 
       if (state.timer.activeSessionId && !state.timer.isPaused) {
-        const url = state.backendUrl;
-        if (!url || !hasCustomBackend) {
+        const url = state.backendUrl || "http://localhost:5001";
+        if (!hasCustomBackend && !state.isBackendConnected) {
           state.setActiveWindow("");
           return;
         }
@@ -267,7 +265,8 @@ export function useTimer() {
           clearTimeout(timeoutId);
           const data = await res.json();
           if (data && typeof data.title === "string") {
-            state.setActiveWindow(data.title);
+            const displayStr = data.process && data.process !== "unknown" ? `${data.process} — ${data.title}` : data.title;
+            state.setActiveWindow(displayStr);
           }
         } catch {
           state.setActiveWindow("");

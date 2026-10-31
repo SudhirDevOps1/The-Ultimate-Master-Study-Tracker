@@ -1,12 +1,18 @@
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { AnalyticsCharts } from "@/components/charts/AnalyticsCharts";
 import { Panel } from "@/components/common/Panel";
-import { AppActivityList } from "@/components/analytics/AppActivityList";
+import { Link } from "react-router-dom";
+import { 
+  Monitor, BarChart3, Flame, Calendar, BookOpen, 
+  Download, FileText, Award, ShieldCheck, Zap, 
+  TrendingUp, TrendingDown, Layers, Clock, ArrowUpRight, ArrowDownRight
+} from "lucide-react";
 import { SubjectRanking } from "@/components/dashboard/SubjectRanking";
 import { DownloadModal } from "@/components/analytics/DownloadModal";
 import { StudyReportModal } from "@/components/analytics/StudyReportModal";
+import { AppActivityList } from "@/components/analytics/AppActivityList";
 import { useAppStore, type AppState } from "@/store/useAppStore";
 import { calculateFocusScore } from "@/utils/focusScore";
 import { generateMarkdownReview } from "@/utils/reviewGenerator";
@@ -25,28 +31,170 @@ const ranges: { key: ExtendedRange; label: string; icon: string }[] = [
   { key: "alltime", label: "All Time", icon: "♾️" },
 ];
 
+// ─── Subcomponent: Studied vs Skipped Days Panel (Unconditional Hooks) ───────────
+function StudiedVsSkippedDaysPanel({ sessions }: { sessions: any[] }) {
+  const { dates, dayMap, studiedCount, skippedCount, todayStr } = useMemo(() => {
+    const datesList: string[] = [];
+    const map = new Map<string, number>();
+    sessions.forEach(s => {
+      if (s.actualSeconds > 0) {
+        const dKey = format(new Date(s.startTime), "yyyy-MM-dd");
+        map.set(dKey, (map.get(dKey) ?? 0) + s.actualSeconds);
+      }
+    });
+
+    const studyDates = sessions
+      .filter(s => s.actualSeconds > 0)
+      .map(s => new Date(s.startTime).getTime())
+      .sort((a, b) => a - b);
+      
+    const minDate = studyDates.length > 0 ? new Date(studyDates[0]) : new Date();
+    minDate.setHours(0, 0, 0, 0);
+
+    const cursor = new Date();
+    cursor.setHours(0, 0, 0, 0);
+    
+    for (let i = 0; i < 30; i++) {
+      if (cursor.getTime() >= minDate.getTime()) {
+        datesList.push(format(cursor, "yyyy-MM-dd"));
+      }
+      cursor.setDate(cursor.getDate() - 1);
+    }
+
+    const today = format(new Date(), "yyyy-MM-dd");
+    const studied = datesList.filter(d => map.has(d)).length;
+    const skipped = datesList.filter(d => d !== today && !map.has(d)).length;
+
+    return { dates: datesList, dayMap: map, studiedCount: studied, skippedCount: skipped, todayStr: today };
+  }, [sessions]);
+
+  return (
+    <Panel className="space-y-4">
+      <div>
+        <h3 className="text-base font-bold text-white flex items-center justify-between">
+          <span>📅 Active vs Skipped Days</span>
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-slate-400 font-mono">Last 30 Days</span>
+        </h3>
+        <div className="mt-2 grid grid-cols-2 gap-2 text-center text-xs">
+          <div className="rounded-xl border border-emerald-500/10 bg-emerald-950/20 p-2.5">
+            <p className="font-bold text-emerald-400 text-lg">{studiedCount} Days</p>
+            <p className="text-[10px] text-slate-400">Studied ✅</p>
+          </div>
+          <div className="rounded-xl border border-rose-500/10 bg-rose-950/20 p-2.5">
+            <p className="font-bold text-rose-400 text-lg">{skippedCount} Days</p>
+            <p className="text-[10px] text-slate-400">Missed ❌</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="pretty-scrollbar max-h-64 overflow-y-auto space-y-1.5 pr-1">
+        {dates.map(dateStr => {
+          const isToday = dateStr === todayStr;
+          const hasStudied = dayMap.has(dateStr);
+          const totalSec = dayMap.get(dateStr) ?? 0;
+          const hoursVal = (totalSec / 3600).toFixed(1);
+          const parsedDate = new Date(dateStr + "T12:00:00");
+
+          let statusBadge = <span className="font-mono font-bold text-rose-400">❌ Missed</span>;
+          let rowClasses = "bg-rose-950/10 border-rose-500/10 text-rose-300";
+
+          if (hasStudied) {
+            statusBadge = <span className="font-mono font-bold text-emerald-400">✅ {hoursVal}h</span>;
+            rowClasses = "bg-emerald-950/10 border-emerald-500/10 text-emerald-300";
+          } else if (isToday) {
+            statusBadge = <span className="font-mono font-bold text-amber-400">⏳ In Progress</span>;
+            rowClasses = "bg-amber-950/10 border-amber-500/10 text-amber-300";
+          }
+
+          return (
+            <div 
+              key={dateStr}
+              className={`flex items-center justify-between rounded-xl p-2.5 text-xs border ${rowClasses}`}
+            >
+              <span className="font-medium flex items-center gap-1.5">
+                {format(parsedDate, "EEE, MMM dd, yyyy")}
+                {isToday && (
+                  <span className="text-[9px] uppercase font-bold text-cyan-300 px-1.5 py-0.5 rounded bg-cyan-500/15 border border-cyan-500/25">
+                    Today
+                  </span>
+                )}
+              </span>
+              {statusBadge}
+            </div>
+          );
+        })}
+      </div>
+    </Panel>
+  );
+}
+
 export function AnalyticsPage() {
   const sessions = useAppStore((state: AppState) => state.sessions);
-  const focusScoreBreakdown = useMemo(() => {
-    const totalMins = Math.round((sessions?.reduce((sum, s) => sum + (s.actualSeconds || 0), 0) || 0) / 60);
-    const completed = (sessions || []).filter(s => s.status === "completed").length;
-    const planned = (sessions || []).length;
-    return calculateFocusScore({
-      studyMinutes: totalMins,
-      completedSessions: completed,
-      totalPlannedSessions: planned,
-      breakAdherenceCount: Math.min(8, Math.floor(totalMins / 30)),
-      distractionSeconds: 0,
-    });
-  }, [sessions]);
   const subjects = useAppStore((state: AppState) => state.subjects);
   const theme = useAppStore((state: AppState) => state.theme);
+
+  const [activeTab, setActiveTab] = useState<"overview" | "consistency" | "subjects" | "activity">("overview");
   const [range, setRange] = useState<ExtendedRange>("last30days");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
+    // Focus Score breakdown: derived strictly from real sessions and tracked metrics without fabrication
+  const focusScoreBreakdown = useMemo(() => {
+    const totalMins = Math.round((sessions?.reduce((sum, s) => sum + (s.actualSeconds || 0), 0) || 0) / 60);
+    const completed = (sessions || []).filter(s => s.status === "completed").length;
+    const planned = (sessions || []).length;
+
+    // Read real break count from break log if present, else null (untracked)
+    let realBreakCount: number | null = null;
+    try {
+      const storedBreaks = localStorage.getItem("flowtrack_break_history");
+      if (storedBreaks) {
+        const parsed = JSON.parse(storedBreaks);
+        if (Array.isArray(parsed)) realBreakCount = parsed.length;
+      }
+    } catch {}
+
+    return calculateFocusScore({
+      studyMinutes: totalMins,
+      completedSessions: completed,
+      totalPlannedSessions: planned,
+      breakAdherenceCount: realBreakCount,
+      distractionSeconds: null,
+    });
+  }, [sessions]);
+
+  // Range metrics for chart
   const data = useMemo(() => getRangeMetrics(sessions, range), [range, sessions]);
+
+  // Streak & Heatmap hooks
+  const streakData = useStreak();
+  const yearHeatmap = useYearHeatmap(selectedYear);
+
+  // Available years for heatmap
+  const availableYears = useMemo(() => {
+    const years = new Set<number>();
+    years.add(new Date().getFullYear());
+    sessions.forEach((s: StudySession) => years.add(new Date(s.startTime).getFullYear()));
+    return Array.from(years).sort((a, b) => b - a);
+  }, [sessions]);
+
+  // Subject performance stats
+  const subjectStats = useMemo(() => {
+    return subjects.map((subject: Subject) => {
+      const subjectSessions = sessions.filter((s: StudySession) => s.subjectId === subject.id);
+      const totalHours = subjectSessions.reduce((sum: number, s: StudySession) => sum + s.actualSeconds / 3600, 0);
+      const totalPlanned = subjectSessions.reduce((sum: number, s: StudySession) => sum + s.plannedMinutes / 60, 0);
+      const completion = totalPlanned > 0 ? (totalHours / totalPlanned) * 100 : 0;
+      return {
+        ...subject,
+        totalHours: Number(totalHours.toFixed(1)),
+        sessionCount: subjectSessions.length,
+        completion: Math.min(100, Number(completion.toFixed(1))),
+      };
+    }).sort((a: Subject & { totalHours: number }, b: Subject & { totalHours: number }) => b.totalHours - a.totalHours);
+  }, [sessions, subjects]);
+
   const handleDownloadMarkdownReport = () => {
     const md = generateMarkdownReview({
       dateRange: range,
@@ -67,32 +215,6 @@ export function AnalyticsPage() {
     a.click();
     URL.revokeObjectURL(url);
   };
-  const streakData = useStreak();
-  const yearHeatmap = useYearHeatmap(selectedYear);
-
-  // Available years
-  const availableYears = useMemo(() => {
-    const years = new Set<number>();
-    years.add(new Date().getFullYear());
-    sessions.forEach((s: StudySession) => years.add(new Date(s.startTime).getFullYear()));
-    return Array.from(years).sort((a, b) => b - a);
-  }, [sessions]);
-
-  // Subject stats
-  const subjectStats = useMemo(() => {
-    return subjects.map((subject: Subject) => {
-      const subjectSessions = sessions.filter((s: StudySession) => s.subjectId === subject.id);
-      const totalHours = subjectSessions.reduce((sum: number, s: StudySession) => sum + s.actualSeconds / 3600, 0);
-      const totalPlanned = subjectSessions.reduce((sum: number, s: StudySession) => sum + s.plannedMinutes / 60, 0);
-      const completion = totalPlanned > 0 ? (totalHours / totalPlanned) * 100 : 0;
-      return {
-        ...subject,
-        totalHours: Number(totalHours.toFixed(1)),
-        sessionCount: subjectSessions.length,
-        completion: Math.min(100, Number(completion.toFixed(1))),
-      };
-    }).sort((a: Subject & { totalHours: number }, b: Subject & { totalHours: number }) => b.totalHours - a.totalHours);
-  }, [sessions, subjects]);
 
   const getThemeGradient = () => {
     switch (theme) {
@@ -109,477 +231,517 @@ export function AnalyticsPage() {
   const weekComparison = streakData.currentWeekHours - streakData.lastWeekHours;
   const weekComparisonPct = streakData.lastWeekHours > 0
     ? ((weekComparison / streakData.lastWeekHours) * 100).toFixed(0)
-    : "∞";
+    : "0";
 
   // Month comparison
   const monthComparison = streakData.currentMonthHours - streakData.lastMonthHours;
   const monthComparisonPct = streakData.lastMonthHours > 0
     ? ((monthComparison / streakData.lastMonthHours) * 100).toFixed(0)
-    : "∞";
+    : "0";
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <Panel>
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-cyan-200/80">📊 Analytics</p>
-            <h2 className="mt-1 text-2xl font-semibold text-white md:text-3xl">Study Analytics Dashboard</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Track your progress over time • View streaks • Compare periods
-            </p>
+    <div className="space-y-6 max-w-6xl mx-auto pb-12">
+      {/* ─── Executive Top Header ─────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+              <BarChart3 className="h-5 w-5" />
+            </span>
+            <h1 className="text-2xl font-black text-white tracking-tight">
+              Study Analytics & Telemetry Hub
+            </h1>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setIsPdfModalOpen(true)}
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 px-5 py-3 text-sm font-bold text-slate-950 shadow-lg shadow-cyan-500/20 hover:from-cyan-400 hover:to-teal-400 transition-all"
-            >
-              <span>📄</span> Executive PDF Report
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setIsDownloadModalOpen(true)}
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/30 hover:from-blue-500 hover:to-blue-400 transition-all"
-            >
-              <span>📥</span> Export CSV/JSON
-            </motion.button>
+          <p className="text-slate-400 text-xs sm:text-sm mt-1">
+            Quantified productivity, transparent focus scores, active streaks, and cognitive workload breakdown.
+          </p>
+        </div>
+
+        {/* Export Hub Buttons */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setIsPdfModalOpen(true)}
+            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 px-3.5 py-2 text-xs font-bold text-white shadow-lg shadow-cyan-600/20 transition-all active:scale-95"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Executive PDF</span>
+          </button>
+
+          <button
+            onClick={() => setIsDownloadModalOpen(true)}
+            className="flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-white/10 px-3.5 py-2 text-xs font-bold text-white transition-all active:scale-95"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export CSV/JSON</span>
+          </button>
+
+          <button
+            onClick={handleDownloadMarkdownReport}
+            className="flex items-center gap-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-white/10 px-3 py-2 text-xs font-semibold text-slate-300 hover:text-white transition-all"
+            title="Download clean Markdown summary"
+          >
+            <span>📝</span>
+            <span className="hidden sm:inline">Markdown</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ─── Top Macro KPI Metrics Row ────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="p-4 rounded-2xl bg-slate-900/60 border border-white/5 backdrop-blur-md">
+          <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+            <span>Total Study Time</span>
+            <Clock className="w-3.5 h-3.5 text-cyan-400" />
+          </div>
+          <div className="text-2xl font-black text-white">{streakData.allTimeHours} <span className="text-xs font-normal text-slate-400">hours</span></div>
+          <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+            {weekComparison >= 0 ? (
+              <span className="text-emerald-400 font-bold flex items-center">
+                <ArrowUpRight className="w-3 h-3" /> +{weekComparison.toFixed(1)}h
+              </span>
+            ) : (
+              <span className="text-rose-400 font-bold flex items-center">
+                <ArrowDownRight className="w-3 h-3" /> {weekComparison.toFixed(1)}h
+              </span>
+            )}
+            <span>vs previous week</span>
           </div>
         </div>
 
-        {/* Range Selector */}
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="p-4 rounded-2xl bg-slate-900/60 border border-white/5 backdrop-blur-md">
+          <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+            <span>Focus Score</span>
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+          </div>
+          <div className="text-2xl font-black text-emerald-400 flex items-center gap-2">
+            <span>{focusScoreBreakdown.score}</span>
+            <span className="text-xs px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-mono font-bold">
+              Grade {focusScoreBreakdown.grade}
+            </span>
+          </div>
+          <div className="text-[10px] text-slate-400 mt-1">Verified study & break adherence</div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-slate-900/60 border border-white/5 backdrop-blur-md">
+          <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+            <span>Current Streak</span>
+            <Flame className="w-3.5 h-3.5 text-amber-400" />
+          </div>
+          <div className="text-2xl font-black text-amber-400">{streakData.daily} <span className="text-xs font-normal text-slate-400">days</span></div>
+          <div className="text-[10px] text-slate-400 mt-1">Personal Best: <strong>{streakData.longestStreak} days</strong></div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-slate-900/60 border border-white/5 backdrop-blur-md">
+          <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+            <span>Study Velocity</span>
+            <Zap className="w-3.5 h-3.5 text-indigo-400" />
+          </div>
+          <div className="text-2xl font-black text-indigo-400">{streakData.avgHoursPerDay} <span className="text-xs font-normal text-slate-400">h / day</span></div>
+          <div className="text-[10px] text-slate-400 mt-1">{streakData.totalDaysStudied} active study days logged</div>
+        </div>
+      </div>
+
+      {/* ─── Navigation Tabs & Range Selector ──────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-950/60 p-2 rounded-2xl border border-white/10">
+        {/* Navigation Tabs */}
+        <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
+          <button
+            onClick={() => setActiveTab("overview")}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
+              activeTab === "overview"
+                ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+            <span>Overview & Trends</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("consistency")}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
+              activeTab === "consistency"
+                ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <Flame className="w-3.5 h-3.5" />
+            <span>Consistency & Streaks</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("subjects")}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
+              activeTab === "subjects"
+                ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>Subject Deep Work</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("activity")}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
+              activeTab === "activity"
+                ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <Monitor className="w-3.5 h-3.5" />
+            <span>Activity Telemetry</span>
+          </button>
+        </div>
+
+        {/* Time Range Pills */}
+        <div className="flex items-center gap-1 overflow-x-auto">
           {ranges.map((item) => (
-            <motion.button
+            <button
               key={item.key}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
               onClick={() => setRange(item.key)}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${range === item.key
-                  ? "bg-cyan-500 text-white shadow-lg shadow-cyan-500/30"
-                  : "bg-white/5 text-slate-300 hover:bg-white/10"
-                }`}
+              className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-all shrink-0 ${
+                range === item.key
+                  ? "bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20"
+                  : "bg-white/5 text-slate-400 hover:text-slate-200 hover:bg-white/10"
+              }`}
             >
-              <span className="mr-2">{item.icon}</span>
               {item.label}
-            </motion.button>
+            </button>
           ))}
         </div>
-      </Panel>
+      </div>
 
-            {/* Transparent Focus Score Card */}
-      <Panel className="p-6 bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-500/30">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-cyan-500 flex items-center justify-center text-slate-950 font-black text-2xl shadow-lg shadow-indigo-500/20 shrink-0">
-              {focusScoreBreakdown.grade}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-lg font-bold text-white">Transparent Focus Score</h3>
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono font-bold">
-                  {focusScoreBreakdown.score} / 100 pts
-                </span>
+      {/* ─── TAB 1: OVERVIEW & TRENDS ──────────────────────────────── */}
+      {activeTab === "overview" && (
+        <div className="space-y-5">
+          {/* Main Chart Section */}
+          <Panel className="space-y-4">
+            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-cyan-400" />
+                  Study Hours & Cognitive Trends ({ranges.find(r => r.key === range)?.label})
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Interactive distribution of verified focus sessions across the selected timeframe.
+                </p>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Auditable formula based on verified study duration, session goals, and ergonomic break intervals.
-              </p>
             </div>
-          </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {focusScoreBreakdown.explanation.map((item, idx) => (
-              <div key={idx} className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-[11px] text-slate-300 flex flex-col justify-center">
-                <span className="font-semibold text-white">{item.split(":")[0]}</span>
-                <span className="text-slate-400 text-[10px]">{item.split(":")[1]}</span>
+            <AnalyticsCharts data={data} />
+          </Panel>
+
+          {/* Transparent Focus Score Card */}
+          <Panel className="p-6 bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-500/30">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-cyan-500 flex items-center justify-center text-slate-950 font-black text-2xl shadow-lg shadow-indigo-500/20 shrink-0">
+                  {focusScoreBreakdown.grade}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-bold text-white">Transparent Focus Score</h3>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono font-bold">
+                      {focusScoreBreakdown.score} / 100 pts
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Auditable formula based on verified study duration, session goals, and ergonomic break intervals.
+                  </p>
+                </div>
               </div>
-            ))}
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {focusScoreBreakdown.explanation.map((item, idx) => (
+                  <div key={idx} className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-[11px] text-slate-300 flex flex-col justify-center">
+                    <span className="font-semibold text-white">{item.split(":")[0]}</span>
+                    <span className="text-slate-400 text-[10px]">{item.split(":")[1]}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Panel>
+
+          {/* Period Comparisons */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Panel className="!p-0 overflow-hidden">
+              <div className={`bg-gradient-to-br ${getThemeGradient()} p-4`}>
+                <p className="text-sm font-medium text-white/80">🔥 Current Streak</p>
+                <p className="mt-2 text-3xl font-bold text-white">{streakData.daily} days</p>
+                <p className="mt-1 text-xs text-white/70">
+                  Longest: {streakData.longestStreak} days
+                </p>
+              </div>
+            </Panel>
+
+            <Panel className="!p-0 overflow-hidden">
+              <div className="bg-gradient-to-br from-emerald-500 to-teal-500 p-4">
+                <p className="text-sm font-medium text-white/80">📅 Weekly Streak</p>
+                <p className="mt-2 text-3xl font-bold text-white">{streakData.weekly} weeks</p>
+                <p className="mt-1 text-xs text-white/70">
+                  {streakData.totalDaysStudied} total days studied
+                </p>
+              </div>
+            </Panel>
+
+            <Panel className="!p-0 overflow-hidden">
+              <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-4">
+                <p className="text-sm font-medium text-white/80">📆 This Week</p>
+                <p className="mt-2 text-3xl font-bold text-white">{streakData.currentWeekHours}h</p>
+                <p className={`mt-1 text-xs ${weekComparison >= 0 ? "text-emerald-200" : "text-rose-200"}`}>
+                  {weekComparison >= 0 ? "↑" : "↓"} {Math.abs(weekComparison).toFixed(1)}h ({weekComparisonPct}%) vs last week
+                </p>
+              </div>
+            </Panel>
+
+            <Panel className="!p-0 overflow-hidden">
+              <div className="bg-gradient-to-br from-yellow-500 to-orange-500 p-4">
+                <p className="text-sm font-medium text-white/80">📊 This Month</p>
+                <p className="mt-2 text-3xl font-bold text-white">{streakData.currentMonthHours}h</p>
+                <p className={`mt-1 text-xs ${monthComparison >= 0 ? "text-emerald-200" : "text-rose-200"}`}>
+                  {monthComparison >= 0 ? "↑" : "↓"} {Math.abs(monthComparison).toFixed(1)}h ({monthComparisonPct}%) vs last month
+                </p>
+              </div>
+            </Panel>
           </div>
         </div>
-      </Panel>
+      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Left Column: Charts and Heatmap */}
-        <div className="lg:col-span-2 space-y-5">
-          <AnalyticsCharts data={data} />
-
+      {/* ─── TAB 2: CONSISTENCY & STREAKS ─────────────────────────── */}
+      {activeTab === "consistency" && (
+        <div className="space-y-5">
+          {/* Yearly Activity Heatmap */}
           <Panel>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Yearly Activity Heatmap</h3>
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-white/5 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Flame className="w-4 h-4 text-amber-400" />
+                  {selectedYear} Annual Study Heatmap
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">365-day active study consistency tracker</p>
+              </div>
               <select
                 value={selectedYear}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedYear(Number(e.target.value))}
-                className="bg-white/5 border border-white/10 rounded-lg px-3 py-1 text-sm text-white"
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="rounded-xl border border-white/10 bg-slate-900 px-3.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-400"
               >
-                {availableYears.map((y: number) => (
-                  <option key={y} value={y}>{y}</option>
+                {availableYears.map((year) => (
+                  <option key={year} value={year}>{year}</option>
                 ))}
               </select>
             </div>
 
             <div className="overflow-x-auto pb-2">
               <div className="min-w-[700px]">
-                {/* Heatmap implementation... (omitted for brevity in replacement) */}
                 <div className="grid grid-cols-[repeat(53,1fr)] gap-1">
                   {yearHeatmap.map((day: { day: string; minutes: number }, i: number) => (
                     <div
                       key={i}
                       title={`${format(new Date(day.day), 'MMM d, yyyy')}: ${Math.round(day.minutes)} mins`}
-                      className={`aspect-square rounded-[2px] ${day.minutes === 0 ? 'bg-white/5' :
-                          day.minutes < 60 ? 'bg-cyan-900' :
-                            day.minutes < 120 ? 'bg-cyan-700' :
-                              day.minutes < 240 ? 'bg-cyan-500' :
-                                'bg-cyan-300'
-                        }`}
+                      className={`aspect-square rounded-[2px] transition-all hover:ring-2 hover:ring-cyan-400 ${
+                        day.minutes === 0 ? 'bg-white/5' :
+                        day.minutes < 60 ? 'bg-cyan-900' :
+                        day.minutes < 120 ? 'bg-cyan-700' :
+                        day.minutes < 240 ? 'bg-cyan-500' :
+                        'bg-cyan-300'
+                      }`}
                     />
                   ))}
                 </div>
               </div>
             </div>
-          </Panel>
-        </div>
-
-        {/* Right Column: Insights & Summaries */}
-        <div className="space-y-5">
-          {/* Studied vs Skipped Days Log */}
-          {useMemo(() => {
-            const dates: string[] = [];
-            const dayMap = new Map<string, number>();
-            sessions.forEach(s => {
-              if (s.actualSeconds > 0) {
-                const dKey = format(new Date(s.startTime), "yyyy-MM-dd");
-                dayMap.set(dKey, (dayMap.get(dKey) ?? 0) + s.actualSeconds);
-              }
-            });
-
-            const studyDates = sessions
-              .filter(s => s.actualSeconds > 0)
-              .map(s => new Date(s.startTime).getTime())
-              .sort((a, b) => a - b);
-              
-            const minDate = studyDates.length > 0 ? new Date(studyDates[0]) : new Date();
-            minDate.setHours(0,0,0,0);
-
-            const cursor = new Date();
-            cursor.setHours(0,0,0,0);
             
-            for (let i = 0; i < 30; i++) {
-              if (cursor.getTime() >= minDate.getTime()) {
-                dates.push(format(cursor, "yyyy-MM-dd"));
-              }
-              cursor.setDate(cursor.getDate() - 1);
-            }
+            <div className="flex items-center justify-end gap-2 text-[10px] text-slate-500 mt-3">
+              <span>Less</span>
+              <div className="flex gap-1">
+                <span className="w-2.5 h-2.5 rounded-sm bg-white/5"></span>
+                <span className="w-2.5 h-2.5 rounded-sm bg-cyan-900"></span>
+                <span className="w-2.5 h-2.5 rounded-sm bg-cyan-700"></span>
+                <span className="w-2.5 h-2.5 rounded-sm bg-cyan-500"></span>
+                <span className="w-2.5 h-2.5 rounded-sm bg-cyan-300"></span>
+              </div>
+              <span>More</span>
+            </div>
+          </Panel>
 
-            const todayStr = format(new Date(), "yyyy-MM-dd");
-            const studiedCount = dates.filter(d => dayMap.has(d)).length;
-            const skippedCount = dates.filter(d => d !== todayStr && !dayMap.has(d)).length;
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            {/* Studied vs Skipped Days Log */}
+            <div className="lg:col-span-2">
+              <StudiedVsSkippedDaysPanel sessions={sessions} />
+            </div>
 
-            return (
-              <Panel className="space-y-4">
-                <div>
-                  <h3 className="text-base font-bold text-white flex items-center justify-between">
-                    <span>📅 Active vs Skipped Days</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-slate-400 font-mono">Last 30 Days</span>
-                  </h3>
-                  <div className="mt-2 grid grid-cols-2 gap-2 text-center text-xs">
-                    <div className="rounded-xl border border-emerald-500/10 bg-emerald-950/5 p-2">
-                      <p className="font-bold text-emerald-400">{studiedCount} Days</p>
-                      <p className="text-[10px] text-slate-500">Studied ✅</p>
-                    </div>
-                    <div className="rounded-xl border border-rose-500/10 bg-rose-950/5 p-2">
-                      <p className="font-bold text-rose-400">{skippedCount} Days</p>
-                      <p className="text-[10px] text-slate-500">Missed ❌</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pretty-scrollbar max-h-56 overflow-y-auto space-y-1.5 pr-1">
-                  {dates.map(dateStr => {
-                    const isToday = dateStr === todayStr;
-                    const hasStudied = dayMap.has(dateStr);
-                    const totalSec = dayMap.get(dateStr) ?? 0;
-                    const hoursVal = (totalSec / 3600).toFixed(1);
-                    const parsedDate = new Date(dateStr + "T12:00:00");
-
-                    let statusBadge = <span className="font-mono font-bold text-rose-400">❌ Missed</span>;
-                    let rowClasses = "bg-rose-950/10 border-rose-500/10 text-rose-300";
-
-                    if (hasStudied) {
-                      statusBadge = <span className="font-mono font-bold text-emerald-400">✅ {hoursVal}h</span>;
-                      rowClasses = "bg-emerald-950/10 border-emerald-500/10 text-emerald-300";
-                    } else if (isToday) {
-                      statusBadge = <span className="font-mono font-bold text-amber-400">⏳ In Progress</span>;
-                      rowClasses = "bg-amber-950/10 border-amber-500/10 text-amber-300";
-                    }
-
-                    return (
-                      <div 
-                        key={dateStr}
-                        className={`flex items-center justify-between rounded-lg p-2 text-xs border ${rowClasses}`}
-                      >
-                        <span className="font-medium flex items-center gap-1.5">
-                          {format(parsedDate, "EEE, MMM dd, yyyy")}
-                          {isToday && (
-                            <span className="text-[9px] uppercase font-bold text-cyan-300 px-1.5 py-0.5 rounded bg-cyan-500/15 border border-cyan-500/25">
-                              Today
-                            </span>
-                          )}
-                        </span>
-                        {statusBadge}
+            {/* Personal Bests */}
+            <div className="space-y-4">
+              <Panel className="space-y-3">
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Award className="w-4 h-4 text-yellow-400" />
+                  🏆 Personal Bests
+                </h3>
+                
+                <div className="space-y-2.5">
+                  <div className="rounded-xl bg-white/5 border border-white/5 p-3">
+                    <p className="text-xs text-slate-400">Best Day</p>
+                    {streakData.bestDay ? (
+                      <div className="mt-1 flex items-baseline justify-between">
+                        <span className="text-xl font-bold text-white">{streakData.bestDay.hours.toFixed(1)}h</span>
+                        <span className="text-[10px] text-slate-400">{format(new Date(streakData.bestDay.date), "MMM d, yyyy")}</span>
                       </div>
-                    );
-                  })}
+                    ) : (
+                      <p className="mt-1 text-xs text-slate-500">No data yet</p>
+                    )}
+                  </div>
+
+                  <div className="rounded-xl bg-white/5 border border-white/5 p-3">
+                    <p className="text-xs text-slate-400">Best Week</p>
+                    {streakData.bestWeek ? (
+                      <div className="mt-1 flex items-baseline justify-between">
+                        <span className="text-xl font-bold text-white">{streakData.bestWeek.hours.toFixed(1)}h</span>
+                        <span className="text-[10px] text-slate-400">Week of {format(new Date(streakData.bestWeek.weekStart), "MMM d")}</span>
+                      </div>
+                    ) : (
+                      <p className="mt-1 text-xs text-slate-500">No data yet</p>
+                    )}
+                  </div>
+
+                  <div className="rounded-xl bg-white/5 border border-white/5 p-3">
+                    <p className="text-xs text-slate-400">Best Month</p>
+                    {streakData.bestMonth ? (
+                      <div className="mt-1 flex items-baseline justify-between">
+                        <span className="text-xl font-bold text-white">{streakData.bestMonth.hours.toFixed(1)}h</span>
+                        <span className="text-[10px] text-slate-400">{format(new Date(streakData.bestMonth.month + "-01"), "MMMM yyyy")}</span>
+                      </div>
+                    ) : (
+                      <p className="mt-1 text-xs text-slate-500">No data yet</p>
+                    )}
+                  </div>
                 </div>
               </Panel>
-            );
-          }, [sessions])}
+            </div>
+          </div>
+        </div>
+      )}
 
-          {/* Quick Stats */}
-          <Panel>
-            <h3 className="text-lg font-semibold text-white mb-4">Quick Stats</h3>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center p-3 rounded-lg bg-white/5">
-                <span className="text-slate-400">Total Study Time</span>
-                <span className="text-white font-bold">{streakData.allTimeHours}h</span>
+      {/* ─── TAB 3: SUBJECT DEEP WORK ──────────────────────────────── */}
+      {activeTab === "subjects" && (
+        <div className="space-y-5">
+          {/* Subject Performance Ranking */}
+          <Panel className="space-y-4">
+            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-cyan-400" />
+                  Subject Performance Ranking
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">Time distribution and focus completion across subjects.</p>
               </div>
-              <div className="flex justify-between items-center p-3 rounded-lg bg-white/5">
-                <span className="text-slate-400">Current Streak</span>
-                <span className="text-emerald-400 font-bold">{streakData.daily} Days</span>
-              </div>
-              <div className="flex justify-between items-center p-3 rounded-lg bg-white/5">
-                <span className="text-slate-400">Avg per Study Day</span>
-                <span className="text-cyan-400 font-bold">{streakData.avgHoursPerDay}h</span>
-              </div>
+            </div>
+            
+            <SubjectRanking 
+              sessions={sessions} 
+              subjects={subjects} 
+              timeRange={range === "last7days" ? "week" : range === "last30days" || range === "last90days" || range === "last6months" ? "month" : "all"}
+            />
+          </Panel>
+
+          {/* Detailed Subject Syllabus Breakdown */}
+          <Panel className="space-y-4">
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <Layers className="w-4 h-4 text-purple-400" />
+              Syllabus Completion & Target Breakdown
+            </h3>
+            <div className="space-y-3">
+              {subjectStats.map((subject: Subject & { totalHours: number; sessionCount: number; completion: number }, i: number) => {
+                const maxHours = Math.max(...subjectStats.map((s: Subject & { totalHours: number }) => s.totalHours), 1);
+                const barWidth = (subject.totalHours / maxHours) * 100;
+
+                return (
+                  <motion.div
+                    key={subject.id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.04 }}
+                    className="rounded-2xl bg-white/5 border border-white/5 p-4 hover:border-cyan-500/30 transition-all"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="h-4 w-4 rounded-full"
+                          style={{ backgroundColor: subject.color }}
+                        />
+                        <span className="font-bold text-white text-sm">{subject.name}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-base font-black text-cyan-400">{subject.totalHours}h</span>
+                        <span className="ml-2 text-xs text-slate-400">({subject.sessionCount} sessions)</span>
+                      </div>
+                    </div>
+                    <div className="h-2 rounded-full bg-slate-950 overflow-hidden border border-white/5">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${barWidth}%` }}
+                        transition={{ duration: 0.8, delay: i * 0.05 }}
+                        className="h-full rounded-full"
+                        style={{ backgroundColor: subject.color }}
+                      />
+                    </div>
+                    <div className="mt-2 flex justify-between text-xs text-slate-400">
+                      <span>{subject.completion}% target completion</span>
+                      <span>{((subject.totalHours / Math.max(streakData.allTimeHours, 1)) * 100).toFixed(0)}% of total volume</span>
+                    </div>
+                  </motion.div>
+                );
+              })}
+
+              {subjectStats.length === 0 && (
+                <div className="rounded-xl bg-white/5 p-8 text-center text-xs text-slate-500">
+                  No subjects created yet.
+                </div>
+              )}
+            </div>
+          </Panel>
+
+          {/* Subject Heatmap Matrix */}
+          <Panel className="space-y-4">
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-emerald-400" />
+              Multi-Subject Timeline Heatmap
+            </h3>
+            <div className="overflow-x-auto">
+              <SubjectHeatmap />
             </div>
           </Panel>
         </div>
-      </div>
+      )}
 
-      {/* Subject Performance Ranking */}
-      <Panel>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-cyan-200/80">Performance</p>
-              <h3 className="text-xl font-semibold text-white">Subject Rankings</h3>
+      {/* ─── TAB 4: ACTIVITY TELEMETRY ─────────────────────────────── */}
+      {activeTab === "activity" && (
+        <div className="space-y-5">
+          {/* Quick link banner to deep App Tracking Suite */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-slate-900/90 to-indigo-950/40 border border-white/10 shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
+                <Monitor className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-white">Dedicated App & Browser Tracking Suite</h4>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  View detailed 24h Gantt timelines, domain categorizations, and distraction heatmaps in the full tracking suite.
+                </p>
+              </div>
             </div>
-            <select
-              value={range}
-              onChange={(e) => setRange(e.target.value as ExtendedRange)}
-              className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white"
+            <Link
+              to="/app-tracking"
+              className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold transition-all shadow-md shrink-0"
             >
-              {ranges.map((item) => (
-                <option key={item.key} value={item.key}>{item.label}</option>
-              ))}
-            </select>
+              Open App Tracking →
+            </Link>
           </div>
-          <SubjectRanking 
-            sessions={sessions} 
-            subjects={subjects} 
-            timeRange={range === "last7days" ? "week" : range === "last30days" || range === "last90days" || range === "last6months" ? "month" : "all"}
-          />
+
+          {/* App & Browser Active Windows Tracking Breakdown */}
+          <AppActivityList />
         </div>
-      </Panel>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Current Streaks */}
-        <Panel className="!p-0 overflow-hidden">
-          <div className={`bg-gradient-to-br ${getThemeGradient()} p-4`}>
-            <p className="text-sm font-medium text-white/80">🔥 Current Streak</p>
-            <p className="mt-2 text-4xl font-bold text-white">{streakData.daily} days</p>
-            <p className="mt-1 text-sm text-white/70">
-              Longest: {streakData.longestStreak} days
-            </p>
-          </div>
-        </Panel>
-
-        <Panel className="!p-0 overflow-hidden">
-          <div className="bg-gradient-to-br from-emerald-500 to-teal-500 p-4">
-            <p className="text-sm font-medium text-white/80">📅 Weekly Streak</p>
-            <p className="mt-2 text-4xl font-bold text-white">{streakData.weekly} weeks</p>
-            <p className="mt-1 text-sm text-white/70">
-              {streakData.totalDaysStudied} total days
-            </p>
-          </div>
-        </Panel>
-
-        <Panel className="!p-0 overflow-hidden">
-          <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-4">
-            <p className="text-sm font-medium text-white/80">📆 This Week</p>
-            <p className="mt-2 text-4xl font-bold text-white">{streakData.currentWeekHours}h</p>
-            <p className={`mt-1 text-sm ${weekComparison >= 0 ? "text-emerald-200" : "text-rose-200"}`}>
-              {weekComparison >= 0 ? "↑" : "↓"} {Math.abs(weekComparison).toFixed(1)}h ({weekComparisonPct}%)
-            </p>
-          </div>
-        </Panel>
-
-        <Panel className="!p-0 overflow-hidden">
-          <div className="bg-gradient-to-br from-yellow-500 to-orange-500 p-4">
-            <p className="text-sm font-medium text-white/80">📊 This Month</p>
-            <p className="mt-2 text-4xl font-bold text-white">{streakData.currentMonthHours}h</p>
-            <p className={`mt-1 text-sm ${monthComparison >= 0 ? "text-emerald-200" : "text-rose-200"}`}>
-              {monthComparison >= 0 ? "↑" : "↓"} {Math.abs(monthComparison).toFixed(1)}h ({monthComparisonPct}%)
-            </p>
-          </div>
-        </Panel>
-      </div>
-
-      {/* Detailed Stats Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Panel>
-          <p className="text-sm text-slate-400">This Year</p>
-          <p className="mt-1 text-3xl font-bold text-cyan-400">{streakData.thisYearHours}h</p>
-        </Panel>
-        <Panel>
-          <p className="text-sm text-slate-400">All Time</p>
-          <p className="mt-1 text-3xl font-bold text-emerald-400">{streakData.allTimeHours}h</p>
-        </Panel>
-        <Panel>
-          <p className="text-sm text-slate-400">Avg per Study Day</p>
-          <p className="mt-1 text-3xl font-bold text-purple-400">{streakData.avgHoursPerDay}h</p>
-        </Panel>
-        <Panel>
-          <p className="text-sm text-slate-400">Total Study Days</p>
-          <p className="mt-1 text-3xl font-bold text-yellow-400">{streakData.totalDaysStudied}</p>
-        </Panel>
-      </div>
-
-      {/* Best Records */}
-      <Panel>
-        <h3 className="mb-4 text-lg font-semibold text-white">🏆 Personal Bests</h3>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className={`rounded-xl bg-gradient-to-br ${getThemeGradient()} p-[2px]`}>
-            <div className="rounded-xl bg-slate-900/95 p-4">
-              <p className="text-sm text-slate-400">Best Day</p>
-              {streakData.bestDay ? (
-                <>
-                  <p className="mt-1 text-2xl font-bold text-white">{streakData.bestDay.hours.toFixed(1)}h</p>
-                  <p className="text-xs text-slate-400">{format(new Date(streakData.bestDay.date), "MMM d, yyyy")}</p>
-                </>
-              ) : (
-                <p className="mt-1 text-lg text-slate-500">No data yet</p>
-              )}
-            </div>
-          </div>
-          <div className="rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 p-[2px]">
-            <div className="rounded-xl bg-slate-900/95 p-4">
-              <p className="text-sm text-slate-400">Best Week</p>
-              {streakData.bestWeek ? (
-                <>
-                  <p className="mt-1 text-2xl font-bold text-white">{streakData.bestWeek.hours.toFixed(1)}h</p>
-                  <p className="text-xs text-slate-400">Week of {format(new Date(streakData.bestWeek.weekStart), "MMM d, yyyy")}</p>
-                </>
-              ) : (
-                <p className="mt-1 text-lg text-slate-500">No data yet</p>
-              )}
-            </div>
-          </div>
-          <div className="rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 p-[2px]">
-            <div className="rounded-xl bg-slate-900/95 p-4">
-              <p className="text-sm text-slate-400">Best Month</p>
-              {streakData.bestMonth ? (
-                <>
-                  <p className="mt-1 text-2xl font-bold text-white">{streakData.bestMonth.hours.toFixed(1)}h</p>
-                  <p className="text-xs text-slate-400">{format(new Date(streakData.bestMonth.month + "-01"), "MMMM yyyy")}</p>
-                </>
-              ) : (
-                <p className="mt-1 text-lg text-slate-500">No data yet</p>
-              )}
-            </div>
-          </div>
-        </div>
-      </Panel>
-
-      {/* Charts */}
-      <Panel>
-        <h3 className="mb-4 text-lg font-semibold text-white">
-          📈 Study Hours - {ranges.find(r => r.key === range)?.label}
-        </h3>
-        <AnalyticsCharts data={data} />
-      </Panel>
-
-      {/* Year Heatmap */}
-      <Panel>
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-white">🔥 {selectedYear} Study Heatmap</h3>
-            <p className="text-sm text-slate-400">Your study activity throughout the year</p>
-          </div>
-          <select
-            value={selectedYear}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedYear(Number(e.target.value))}
-            className="rounded-xl border border-white/10 bg-slate-900/70 px-4 py-2 text-sm text-white focus:border-cyan-400 focus:outline-none"
-          >
-            {availableYears.map((year: number) => (
-              <option key={year} value={year}>{year}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="overflow-x-auto">
-          <SubjectHeatmap />
-        </div>
-      </Panel>
-
-      {/* Subject Breakdown */}
-      <Panel>
-        <h3 className="mb-4 text-lg font-semibold text-white">📚 Subject Breakdown</h3>
-        <div className="space-y-3">
-          {subjectStats.map((subject: Subject & { totalHours: number; sessionCount: number; completion: number }, i: number) => {
-            const maxHours = Math.max(...subjectStats.map((s: Subject & { totalHours: number }) => s.totalHours), 1);
-            const barWidth = (subject.totalHours / maxHours) * 100;
-
-            return (
-              <motion.div
-                key={subject.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className="rounded-xl bg-white/5 p-4"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="h-4 w-4 rounded-full"
-                      style={{ backgroundColor: subject.color }}
-                    />
-                    <span className="font-medium text-white">{subject.name}</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-lg font-bold text-cyan-400">{subject.totalHours}h</span>
-                    <span className="ml-2 text-sm text-slate-400">({subject.sessionCount} sessions)</span>
-                  </div>
-                </div>
-                <div className="h-2 rounded-full bg-white/10 overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${barWidth}%` }}
-                    transition={{ duration: 0.8, delay: i * 0.05 }}
-                    className="h-full rounded-full"
-                    style={{ backgroundColor: subject.color }}
-                  />
-                </div>
-                <div className="mt-2 flex justify-between text-xs text-slate-400">
-                  <span>{subject.completion}% completion</span>
-                  <span>{((subject.totalHours / Math.max(streakData.allTimeHours, 1)) * 100).toFixed(0)}% of total</span>
-                </div>
-              </motion.div>
-            );
-          })}
-
-          {subjectStats.length === 0 && (
-            <div className="rounded-xl bg-white/5 p-6 text-center">
-              <p className="text-3xl">📚</p>
-              <p className="mt-2 text-sm text-slate-400">No subjects yet</p>
-            </div>
-          )}
-        </div>
-      </Panel>
-
-      {/* App & Browser Active Windows Tracking Breakdown */}
-      <AppActivityList />
+      )}
 
       {/* Download Modal */}
       <DownloadModal

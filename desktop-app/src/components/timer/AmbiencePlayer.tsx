@@ -6,6 +6,8 @@ import { db } from "@/lib/db";
 import { audioEngine } from "@/utils/audioSynthesizer";
 import { sanitizeSafeUrl, getSafeYoutubeId, getSafeYoutubeEmbedUrl } from "@/utils/security";
 
+const getYoutubeId = (url: string) => getSafeYoutubeId(url);
+
 const SOUNDS = [
   { 
     id: "rain", 
@@ -223,12 +225,6 @@ export function AmbiencePlayer() {
     }
   };
 
-  const getYoutubeId = (url: string) => {
-    if (!url) return null;
-    const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-    const match = url.match(regExp);
-    return getSafeYoutubeId(url);
-  };
 
   const videoId = getYoutubeId(activeUrl);
 

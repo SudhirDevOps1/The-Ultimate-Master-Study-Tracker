@@ -510,3 +510,54 @@ button:focus-visible {
   box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
 }
 
+
+
+/* ─── Prism.js Syntax Highlighting Theme (FlowTrack Cyberpunk / Dark) ─── */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: #64748b !important;
+  font-style: italic;
+}
+.token.punctuation {
+  color: #94a3b8 !important;
+}
+.token.property,
+.token.tag,
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol,
+.token.deleted {
+  color: #f43f5e !important;
+}
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.inserted {
+  color: #34d399 !important;
+}
+.token.operator,
+.token.entity,
+.token.url {
+  color: #38bdf8 !important;
+}
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+  color: #c084fc !important;
+  font-weight: 600;
+}
+.token.function,
+.token.class-name {
+  color: #38bdf8 !important;
+  font-weight: 600;
+}
+.token.regex,
+.token.important,
+.token.variable {
+  color: #fbbf24 !important;
+}

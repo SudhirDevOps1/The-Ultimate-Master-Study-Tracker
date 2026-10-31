@@ -207,3 +207,79 @@ npm run electron:build
 
 ---
 *© 2026 FlowTrack Pro Ecosystem · MIT License.*
+
+---
+
+## 9. 2026 Production-Grade UI/UX & Architecture Overhaul
+
+All core modules across both Desktop and Web editions have been hardened for high performance, accessibility, and zero-distraction focus:
+
+### 1. Modernized Study Timer & Ambience Studio
+- **SVG Circular Dial**: High-precision SVG ring with animated gradient stroke, reactive pulse states, and fluid progress mapping.
+- **Speed Presets**: 1-click duration dials (15m, 25m, 45m, 60m, 90m) with automatic mode transitions (Pomodoro, Short Break, Long Break, Flowtime).
+- **Ambience & Audio Synthesizer**: Web Audio API harmonic binaural/alpha chime synth with automated context suspension upon pause/unmount.
+- **Strict Inactivity Guard & AFK Poller**: Monitors OS and user input events, auto-pausing after 5m AFK or 10m tab inactivity.
+
+### 2. AI Smart Scheduler & Timeblocking Matrix
+- **Visual Hourly Timeline**: 24-hour visual schedule blocks with instant drag-and-drop reordering.
+- **Predictive Reminders**: Persistent multi-milestone alerts (5-minute pre-alert and exact start-time notification) with sessionStorage deduplication preventing alert storms.
+- **1-Click Timer Launcher**: Deep link from scheduled task directly into the active focus timer.
+
+### 3. SRS Flashcard Studio (SM-2 Algorithm)
+- **Spaced Repetition Algorithm**: True SuperMemo SM-2 interval calculations ($I_n = I_{n-1} 	imes EF$) with dynamic ease factor adaptation.
+- **Zen Review Mode**: High-contrast, keyboard-driven flip cards with LaTeX KaTeX formula rendering and syntax-highlighted code snippets.
+- **Leech Detection**: Flags troublesome cards needing review restructuring.
+
+### 4. Deep Analytics & Diagnostics Hub
+- **Zero Mock Telemetry**: Replaced fake pulse simulations with genuine telemetry data streams and an explicit `🧪 Diagnostic Pulse Probe`.
+- **Focus Efficiency Breakdown**: Dynamic ratio of targeted study sessions vs distraction incursions with trend analysis.
+- **Subject Heatmap Matrix**: Multi-week study density heatmaps with interactive day inspections.
+
+### 5. App & Website Distraction Blocker
+- **Multi-Level Enforcement**: Configurable Soft (toast reminder), Medium (window minimization), and Hard (process termination) modes.
+- **Zero Process Leaks**: Polling routines utilize compiled Win32 binaries (`win-tracker.exe`) with strict process handle disposal.
+
+### 6. Unified Calendar & Exam Countdown Vault
+- **High-Density Month/Week Grid**: Heatmap-shaded session clusters with direct day inspection and filterable subject tags.
+- **Syllabus Readiness Vault**: Real-time readiness gauge calculated from completed topics, flashcard retention, and target exam deadlines.
+
+
+---
+
+## 🤖 Multi-Provider AI Study Coach & Code Studio
+
+FlowTrack Pro integrates an enterprise-grade academic AI mentor and coding architect with transparent, verified provider tiering, live model discovery, and syntax highlighting:
+
+```mermaid
+graph TD
+    Root["AI Setup & Models"] --> G1["🟢 100% Free Tier (No Card Needed)"]
+    Root --> G2["🟡 Free Trial / Promo (Card/Setup Required)"]
+    Root --> G3["🔴 Paid / Commercial APIs"]
+
+    G1 --> P1["⚡ Groq Cloud (Ultra-Fast LPU, Llama 3.3 70B & 8B)"]
+    G1 --> P2["🌐 OpenRouter (:free models like openrouter/free, R1)"]
+    G1 --> P3["🌟 Google Gemini (15 RPM Free Tier, Gemini 2.0 Flash)"]
+    G1 --> P4["🐙 GitHub Models (Free with Personal Access Token)"]
+    G1 --> P5["🤗 Hugging Face (Serverless router.huggingface.co)"]
+    G1 --> P6["🛡️ Offline Local Rules (Zero-latency academic mentor)"]
+    G1 --> P7["🦙 Ollama & LM Studio (100% Offline Local Inference)"]
+
+    G2 --> T1["🏎️ Cerebras API ($5 trial, card required to activate)"]
+    G2 --> T2["🚀 SambaNova Cloud (Developer tier setup)"]
+    G2 --> T3["🤝 Together AI ($5 trial credits)"]
+    G2 --> T4["⚡ DeepInfra & Novita AI (Trial balance)"]
+
+    G3 --> C1["🇫🇷 Mistral AI (Pay-as-you-go, billing required)"]
+    G3 --> C2["🤖 OpenAI ChatGPT (GPT-4o, 4o-mini)"]
+    G3 --> C3["🧠 DeepSeek Direct (V3 & R1 Reasoner)"]
+    G3 --> C4["☁️ Cloudflare Workers AI (Dedicated Account ID & Token)"]
+    G3 --> C5["🔌 Custom OpenAI-Compatible (vLLM, Ollama Proxy, Local)"]
+```
+
+### 💎 Key AI & Code Capabilities:
+1. **Isolated Per-Provider API Keys & Models**: Every provider retains its own distinct API key and active model in encrypted local storage. Switching between Groq, Gemini, OpenRouter, Cloudflare, and Custom never overwrites or clears your keys.
+2. **Live Dynamic Model Fetching**: Queries the provider's `/models` endpoint dynamically over a secure IPC proxy in Electron (bypassing CORS restrictions) to list all models available to your specific account.
+3. **Prism.js Syntax Highlighting & Line Numbers**: Markdown code blocks feature PrismJS syntax highlighting across 20+ programming languages (`Java`, `Python`, `TypeScript`, `JavaScript`, `JSX/TSX`, `C/C++`, `C#`, `SQL`, `Bash`, `Go`, `Rust`, `JSON`, `YAML`, `CSS`, `Markdown`, `HTML`) with left-hand line numbers and 1-click clipboard copy.
+4. **Cloudflare Workers AI**: Dedicated inputs for Cloudflare Account ID and API Token, routing dynamically to `https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1/chat/completions`.
+5. **Custom OpenAI-Compatible Server**: Connects to self-hosted LLMs, vLLM, FastChat, or local proxies with custom names, custom endpoint URLs, and custom model identifiers.
+6. **Mermaid 12.2.0 Syntax Normalizer**: Automatically corrects syntax anomalies in AI-generated class diagrams (e.g. notes syntax normalisation) and suppresses unstyled bomb error SVGs.

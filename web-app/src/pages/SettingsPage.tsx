@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from "react";
+import { APP_VERSION } from "@/config/version";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
@@ -339,6 +340,21 @@ export function SettingsPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [showLicensesModal, setShowLicensesModal] = useState(false);
   const [backupPassInput, setBackupPassInput] = useState("");
+  const [afkThreshold, setAfkThreshold] = useState<number>(() => {
+    return Number(localStorage.getItem("flowtrack_afk_threshold")) || 120;
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && (window as any).electron) {
+      (window as any).electron.ipcRenderer?.invoke?.("get-desktop-settings")
+        .then((res: any) => {
+          if (res?.settings?.afkThresholdSeconds) {
+            setAfkThreshold(res.settings.afkThresholdSeconds);
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
   const [isExportingDb, setIsExportingDb] = useState(false);
   const [isImportingDb, setIsImportingDb] = useState(false);
   const fullBackupFileRef = useRef<HTMLInputElement>(null);
@@ -419,6 +435,35 @@ export function SettingsPage() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
+          {/* AFK / Idle Detection Threshold */}
+          <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-semibold text-white flex items-center gap-2">
+                <span>⏱️ AFK & Idle Detection Threshold</span>
+              </label>
+              <select
+                value={afkThreshold}
+                onChange={async (e) => {
+                  const val = Number(e.target.value);
+                  setAfkThreshold(val);
+                  localStorage.setItem("flowtrack_afk_threshold", String(val));
+                  if (typeof window !== "undefined" && (window as any).electron) {
+                    await (window as any).electron.ipcRenderer?.invoke?.("save-desktop-settings", { afkThresholdSeconds: val });
+                  }
+                  showMessage(`⏱️ AFK Idle Threshold set to ${val}s (${val / 60}m)`);
+                }}
+                className="bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-cyan-400 cursor-pointer"
+              >
+                <option value={60}>60s (1 min)</option>
+                <option value={120}>120s (2 mins - Default)</option>
+                <option value={300}>300s (5 mins)</option>
+                <option value={600}>600s (10 mins)</option>
+              </select>
+            </div>
+            <p className="text-xs text-slate-400">
+              System idle duration before the tracker marks you as away, saving active focus time accurately.
+            </p>
+          </div>
           <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
             <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-white">
               <input
@@ -1216,7 +1261,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
               <p className="text-xs text-slate-400">Subjects</p>
             </div>
             <div className="rounded-xl bg-white/5 px-4 py-2 text-center">
-              <p className="text-lg font-bold text-purple-400">v0.2.4</p>
+              <p className="text-lg font-bold text-purple-400">v{APP_VERSION}</p>
               <p className="text-xs text-slate-400">Version</p>
             </div>
           </div>

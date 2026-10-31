@@ -161,7 +161,31 @@ export interface Achievement {
 
 export type AchievementType = string;
 
-export type AIProvider = "gemini" | "ollama" | "custom" | "openai" | "groq" | "cerebras" | "mistral" | "grok" | "local_rules" | "none";
+export type AIProvider =
+  | "gemini"
+  | "ollama"
+  | "custom"
+  | "openai"
+  | "groq"
+  | "cerebras"
+  | "mistral"
+  | "grok"
+  | "local_rules"
+  | "openrouter"
+  | "sambanova"
+  | "deepseek"
+  | "github_models"
+  | "huggingface"
+  | "together"
+  | "deepinfra"
+  | "novita"
+  | "hyperbolic"
+  | "fireworks"
+  | "cohere"
+  | "perplexity"
+  | "lmstudio"
+  | "cloudflare"
+  | "none";
 
 export interface CustomAIProvider {
   id: string;
@@ -178,8 +202,10 @@ export interface AiConfig {
   ollamaUrl?: string;
   apiKey?: string;
   model?: string;
+  cloudflareAccountId?: string;
   customProviderEndpoint?: string;
   apiKeys?: Record<string, string>;
+  models?: Record<string, string>;
   customProvider?: {
     name: string;
     endpoint: string;
@@ -318,6 +344,7 @@ export interface OcrEntry {
   extractedText: string;
   confidence?: number;
 }
+
 
 // ========== Mind Map & Sticky Board Models ==========
 export type NodeStatus = "todo" | "in-progress" | "done";
