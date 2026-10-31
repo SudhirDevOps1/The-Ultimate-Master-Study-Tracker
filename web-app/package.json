@@ -12,6 +12,7 @@
     "test": "vitest run --coverage"
   },
   "dependencies": {
+    "@types/prismjs": "^1.26.6",
     "clsx": "2.1.1",
     "cmdk": "^1.0.4",
     "date-fns": "^4.4.0",
@@ -25,6 +26,7 @@
     "mermaid": "^12.2.0",
     "minisearch": "^7.1.2",
     "pdfjs-dist": "^6.4.299",
+    "prismjs": "^1.30.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-is": "^19.3.1",

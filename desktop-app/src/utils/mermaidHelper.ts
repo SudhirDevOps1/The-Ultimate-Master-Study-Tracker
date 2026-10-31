@@ -144,6 +144,22 @@ export function sanitizeMermaidLabels(code: string): string {
     .map((line) => {
       if (/^\s*%%/.test(line)) return line; // comment
       let out = line;
+
+      // Class Diagram Notes:
+      // note right of Dog: makeSomeSound() -> note for Dog "makeSomeSound()"
+      // note left of Dog: makeSomeSound() -> note for Dog "makeSomeSound()"
+      // note for Dog: makeSomeSound() -> note for Dog "makeSomeSound()"
+      out = out.replace(/^\s*note\s+(?:for|right\s+of|left\s+of)\s+([A-Za-z0-9_]+)\s*:\s*(.+)$/i, (_m, cls, text) => {
+        const cleanText = text.trim().replace(/^["']|["']$/g, "").replace(/"/g, "'");
+        return `    note for ${cls} "${cleanText}"`;
+      });
+
+      // note for Dog makeSomeSound() (unquoted without colon)
+      out = out.replace(/^\s*note\s+for\s+([A-Za-z0-9_]+)\s+([^":\n]+)$/i, (_m, cls, text) => {
+        const cleanText = text.trim().replace(/^["']|["']$/g, "").replace(/"/g, "'");
+        return `    note for ${cls} "${cleanText}"`;
+      });
+
       // A[Label] / A[Label with (parens)]
       out = out.replace(/([A-Za-z0-9_]+)\[([^"\]]+)\]/g, (match, id: string, label: string) =>
         LABEL_NEEDS_QUOTES.test(label) ? `${id}[${quoteLabel(label)}]` : match
@@ -242,6 +258,7 @@ export async function renderMermaidToSvg(code: string): Promise<string> {
   if (!mermaidInitialized) {
     mermaid.initialize({
       startOnLoad: false,
+      suppressErrorRendering: true,
       theme: "dark",
       themeVariables: {
         darkMode: true,

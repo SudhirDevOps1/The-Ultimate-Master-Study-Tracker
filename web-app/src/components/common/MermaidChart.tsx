@@ -32,6 +32,7 @@ export function MermaidChart({ chart, className = "" }: MermaidChartProps) {
 
         mermaid.initialize({
           startOnLoad: false,
+          suppressErrorRendering: true,
           theme: "dark",
           themeVariables: {
             darkMode: true,
@@ -66,6 +67,8 @@ export function MermaidChart({ chart, className = "" }: MermaidChartProps) {
       } catch (err: any) {
         if (isMounted) {
           console.warn("[MermaidChart] Render error:", err);
+          const errEl = document.getElementById("d" + componentId) || document.getElementById(componentId);
+          if (errEl) errEl.remove();
           setError(err?.message || "Diagram syntax could not be rendered.");
         }
       }
@@ -77,6 +80,8 @@ export function MermaidChart({ chart, className = "" }: MermaidChartProps) {
       isMounted = false;
       const el = document.getElementById(componentId);
       if (el) el.remove();
+      const errEl = document.getElementById("d" + componentId);
+      if (errEl) errEl.remove();
     };
   }, [chart, componentId]);
 

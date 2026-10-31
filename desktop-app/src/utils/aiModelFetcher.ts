@@ -14,7 +14,9 @@ export const FALLBACK_MODELS: Record<string, FetchedModel[]> = {
   groq: [
     { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B Versatile (100% Free Ultra-Fast)" },
     { id: "llama-3.1-8b-instant", name: "Llama 3.1 8B Instant (Ultra-Fast Free)" },
-    { id: "mixtral-8x7b-32768", name: "Mixtral 8x7B (32k Context Free)" },
+    { id: "qwen/qwen3.8-27b", name: "Qwen 3.8 27B (Free High-Performance)" },
+    { id: "allam-2-7b", name: "ALLaM 2 7B (Free Fast)" },
+    { id: "openai/gpt-oss-120b", name: "GPT OSS 120B (Free Reasoning)" },
     { id: "gemma2-9b-it", name: "Gemma 2 9B IT (Free)" },
     { id: "qwen-2.5-32b", name: "Qwen 2.5 32B (Free)" },
   ],
@@ -188,9 +190,12 @@ export async function fetchLiveModels(
 
       // Prioritize fast, high-quality production chat models at top of list
       const priorityOrder = [
+        "qwen/qwen3.8-27b",
+        "allam-2-7b",
         "llama-3.3-70b-versatile",
         "llama-3.1-8b-instant",
-        "mixtral-8x7b-32768",
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
         "gemma2-9b-it",
         "qwen-2.5-32b",
         "deepseek-r1-distill-llama-70b",

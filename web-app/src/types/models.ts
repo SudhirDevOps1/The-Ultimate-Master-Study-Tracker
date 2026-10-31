@@ -202,8 +202,10 @@ export interface AiConfig {
   ollamaUrl?: string;
   apiKey?: string;
   model?: string;
+  cloudflareAccountId?: string;
   customProviderEndpoint?: string;
   apiKeys?: Record<string, string>;
+  models?: Record<string, string>;
   customProvider?: {
     name: string;
     endpoint: string;

@@ -132,7 +132,7 @@ export const PROVIDERS: ProviderItem[] = [
   { id: "custom", name: "🔌 Custom OpenAI-Compatible Provider", needsKey: true, defaultModel: "", isFree: false, tier: "paid", badge: "Custom", desc: "Custom self-hosted or proxy endpoint.", keyUrl: "" }
 ];
 
-function getProviderEndpoint(provider: AiConfig["provider"], _model: string, ollamaUrl: string, customEndpoint?: string) {
+function getProviderEndpoint(provider: AiConfig["provider"], _model: string, ollamaUrl: string, customEndpoint?: string, cloudflareAccountId?: string) {
   switch (provider) {
     case "groq":          return "https://api.groq.com/openai/v1/chat/completions";
     case "openrouter":    return "https://openrouter.ai/api/v1/chat/completions";
@@ -151,7 +151,10 @@ function getProviderEndpoint(provider: AiConfig["provider"], _model: string, oll
     case "mistral":       return "https://api.mistral.ai/v1/chat/completions";
     case "grok":          return "https://api.x.ai/v1/chat/completions";
     case "openai":        return "https://api.openai.com/v1/chat/completions";
-    case "cloudflare":    return "https://api.cloudflare.com/client/v4/accounts/ai/v1/chat/completions";
+    case "cloudflare": {
+      const acc = (cloudflareAccountId || "").trim() || "ai";
+      return `https://api.cloudflare.com/client/v4/accounts/${acc}/ai/v1/chat/completions`;
+    }
     case "ollama":        return `${ollamaUrl}/v1/chat/completions`;
     case "lmstudio":      return "http://localhost:1234/v1/chat/completions";
     case "custom":        return customEndpoint || "";
@@ -171,13 +174,12 @@ function getProviderHeaders(provider: AiConfig["provider"], apiKey: string): Rec
 }
 
 export function getValidModelForProvider(targetProv: AiConfig["provider"], currentModel?: string): string {
+  if (currentModel && currentModel.trim()) {
+    return currentModel.trim();
+  }
   const matched = PROVIDERS.find(p => p.id === targetProv);
   const fallbacks = FALLBACK_MODELS[targetProv] || [];
-  const validIds = fallbacks.map(m => m.id);
-  if (currentModel && validIds.includes(currentModel)) {
-    return currentModel;
-  }
-  return matched?.defaultModel || validIds[0] || "";
+  return matched?.defaultModel || fallbacks[0]?.id || "";
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -202,11 +204,12 @@ export function AIAssistantPage() {
   const [apiKey, setApiKey]         = useState(aiConfig?.apiKey ?? "");
   const [model, setModel]           = useState(aiConfig?.model ?? "local-rules");
   const [ollamaUrl, setOllamaUrl]   = useState(aiConfig?.ollamaUrl ?? "http://localhost:11434");
+  const [cloudflareAccountId, setCloudflareAccountId] = useState(aiConfig?.cloudflareAccountId ?? "");
   const [customProviderName, setCustomProviderName] = useState(aiConfig?.customProvider?.name ?? "");
-  const [customProviderEndpoint, setCustomProviderEndpoint] = useState(aiConfig?.customProvider?.endpoint ?? "");
+  const [customProviderEndpoint, setCustomProviderEndpoint] = useState(aiConfig?.customProvider?.endpoint ?? aiConfig?.customProviderEndpoint ?? "");
   const [groqStreaming, setGroqStreaming] = useState(true);
 
-  // Keep separate API keys for each provider
+  // Keep separate API keys and models for each provider
   const [apiKeys, setApiKeys] = useState<Record<string, string>>(() => {
     const initialKeys: Record<string, string> = {
       gemini: "", cerebras: "", openai: "", mistral: "", grok: "", groq: "", ollama: "", local_rules: "",
@@ -216,14 +219,25 @@ export function AIAssistantPage() {
     return initialKeys;
   });
 
+  const [providerModels, setProviderModels] = useState<Record<string, string>>(() => {
+    return aiConfig?.models ? { ...aiConfig.models } : {};
+  });
+
   // Synchronize with centralized Zustand store when loaded
   useEffect(() => {
     if (aiConfig?.provider) {
       setProvider(aiConfig.provider);
-      setModel(getValidModelForProvider(aiConfig.provider, aiConfig.model));
+      const savedModel = (aiConfig.models && aiConfig.models[aiConfig.provider]) || aiConfig.model || "";
+      setModel(getValidModelForProvider(aiConfig.provider, savedModel));
     }
-    if (aiConfig?.apiKey !== undefined) setApiKey(aiConfig.apiKey);
+    const currentKey = (aiConfig?.apiKeys && aiConfig.apiKeys[aiConfig.provider || "local_rules"]) || aiConfig?.apiKey || "";
+    setApiKey(currentKey);
     if (aiConfig?.apiKeys) setApiKeys(prev => ({ ...prev, ...aiConfig.apiKeys }));
+    if (aiConfig?.models) setProviderModels(prev => ({ ...prev, ...aiConfig.models }));
+    if (aiConfig?.cloudflareAccountId) setCloudflareAccountId(aiConfig.cloudflareAccountId);
+    if (aiConfig?.customProvider?.name) setCustomProviderName(aiConfig.customProvider.name);
+    if (aiConfig?.customProvider?.endpoint) setCustomProviderEndpoint(aiConfig.customProvider.endpoint);
+    else if (aiConfig?.customProviderEndpoint) setCustomProviderEndpoint(aiConfig.customProviderEndpoint);
   }, [aiConfig]);
 
   // UI state
@@ -291,11 +305,23 @@ export function AIAssistantPage() {
 
   // Fetch live models from provider
   const refreshLiveModels = useCallback(async (targetProv = provider, targetKey = apiKey) => {
+    const keyToUse = targetKey.trim() || apiKeys[targetProv]?.trim() || "";
+    if (targetProv !== "local_rules" && targetProv !== "ollama" && targetProv !== "lmstudio" && !keyToUse) {
+      setAvailableModels(FALLBACK_MODELS[targetProv] || []);
+      setFetchError(null);
+      return;
+    }
     setFetchingModels(true);
     setFetchError(null);
     try {
-      const res = await fetchLiveModels(targetProv, targetKey, ollamaUrl);
-      setAvailableModels(res.models);
+      const res = await fetchLiveModels(targetProv, keyToUse, ollamaUrl);
+      if (res.models && res.models.length > 0) {
+        setAvailableModels(res.models);
+        setModel(prev => {
+          const exists = res.models.some(m => m.id === prev);
+          return exists ? prev : res.models[0].id;
+        });
+      }
       if (!res.success && res.error) {
         setFetchError(res.error);
       }
@@ -304,7 +330,7 @@ export function AIAssistantPage() {
     } finally {
       setFetchingModels(false);
     }
-  }, [provider, apiKey, ollamaUrl]);
+  }, [provider, apiKey, apiKeys, ollamaUrl]);
 
   // Initial models refresh
   useEffect(() => {
@@ -544,7 +570,7 @@ ${studyContext.recentActivity}`;
 
   // ─── Non-Streaming Fetch ───────────────────────────────────────────
   const fetchNonStreaming = async (userMessage: string, activeModel?: string): Promise<string> => {
-    const endpoint = getProviderEndpoint(provider, activeModel || model, ollamaUrl, customProviderEndpoint);
+    const endpoint = getProviderEndpoint(provider, activeModel || model, ollamaUrl, customProviderEndpoint, cloudflareAccountId);
     const headers = getProviderHeaders(provider, apiKey);
     const allMessages = [
       ...messages.filter(m => m.role === "user" || m.role === "assistant").slice(-10),
@@ -654,7 +680,11 @@ ${studyContext.recentActivity}`;
         await new Promise(r => setTimeout(r, 800));
         reply = getLocalRuleResponse(messageToSend);
       } else if (provider === "groq" && groqStreaming) {
-        reply = await fetchGroqStreaming(messageToSend, activeModel) || "";
+        try {
+          reply = await fetchGroqStreaming(messageToSend, activeModel) || "";
+        } catch {
+          reply = await fetchNonStreaming(messageToSend, activeModel);
+        }
       } else if (provider === "gemini") {
         reply = await fetchGemini(messageToSend, activeModel);
       } else {
@@ -712,7 +742,8 @@ ${studyContext.recentActivity}`;
       }
 
       if (provider === "gemini") {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        const activeModel = getValidModelForProvider(provider, model) || "gemini-2.0-flash";
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${apiKey}`;
         const res = await universalAiFetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -722,9 +753,61 @@ ${studyContext.recentActivity}`;
           throw new Error(decodeAiProviderError(res.status, res.data, "gemini"));
         }
         setConnectionResult({ success: true, message: "✅ Gemini API connection successful!" });
+      } else if (provider === "cloudflare") {
+        if (!cloudflareAccountId.trim()) {
+          throw new Error("Please enter your Cloudflare Account ID before testing connection.");
+        }
+        if (!apiKey.trim()) {
+          throw new Error("Please enter your Cloudflare Workers AI API Token before testing connection.");
+        }
+        const activeModel = getValidModelForProvider(provider, model) || "@cf/meta/llama-3.1-8b-instruct";
+        const endpoint = `https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId.trim()}/ai/v1/chat/completions`;
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey.trim()}`
+        };
+        const res = await universalAiFetch(endpoint, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            model: activeModel,
+            messages: [{ role: "user", content: "ping" }],
+            max_tokens: 5
+          })
+        });
+        if (!res.ok) {
+          throw new Error(decodeAiProviderError(res.status, res.data, "cloudflare"));
+        }
+        setConnectionResult({
+          success: true,
+          message: `✅ Successfully connected to Cloudflare Workers AI (${activeModel})!`
+        });
+      } else if (provider === "custom") {
+        if (!customProviderEndpoint.trim()) {
+          throw new Error("Please enter a valid API Endpoint URL (e.g. http://localhost:8000/v1/chat/completions)");
+        }
+        const activeModel = model.trim() || "custom-model";
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (apiKey.trim()) headers["Authorization"] = `Bearer ${apiKey.trim()}`;
+        const res = await universalAiFetch(customProviderEndpoint.trim(), {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            model: activeModel,
+            messages: [{ role: "user", content: "ping" }],
+            max_tokens: 5
+          })
+        });
+        if (!res.ok) {
+          throw new Error(decodeAiProviderError(res.status, res.data, "custom"));
+        }
+        setConnectionResult({
+          success: true,
+          message: `✅ Successfully connected to ${customProviderName.trim() || "Custom Provider"} (${activeModel})!`
+        });
       } else {
         const activeModel = getValidModelForProvider(provider, model);
-        const endpoint = getProviderEndpoint(provider, activeModel, ollamaUrl, customProviderEndpoint);
+        const endpoint = getProviderEndpoint(provider, activeModel, ollamaUrl, customProviderEndpoint, cloudflareAccountId);
         const headers = getProviderHeaders(provider, apiKey);
         const res = await universalAiFetch(endpoint, {
           method: "POST",
@@ -748,16 +831,25 @@ ${studyContext.recentActivity}`;
   };
 
   const saveSettings = () => {
+    const updatedKeys = { ...apiKeys, [provider]: apiKey.trim() };
+    const updatedModels = { ...providerModels, [provider]: model };
     setAiConfig({
       provider,
-      apiKey,
+      apiKey: apiKey.trim(),
       model,
       ollamaUrl,
-      apiKeys: { ...apiKeys, [provider]: apiKey },
-      customProvider: { name: customProviderName, endpoint: customProviderEndpoint, apiKey: "" }
+      cloudflareAccountId: cloudflareAccountId.trim(),
+      apiKeys: updatedKeys,
+      models: updatedModels,
+      customProviderEndpoint: customProviderEndpoint.trim(),
+      customProvider: {
+        name: customProviderName.trim() || "Custom Provider",
+        endpoint: customProviderEndpoint.trim(),
+        apiKey: apiKey.trim()
+      }
     });
-    setStatusMessage("✅ AI Settings saved successfully!");
-    setTimeout(() => setStatusMessage(""), 2500);
+    setStatusMessage("✅ AI Settings saved! Every provider retains its own API key & model.");
+    setTimeout(() => setStatusMessage(""), 3000);
   };
 
   return (
@@ -1109,13 +1201,30 @@ ${studyContext.recentActivity}`;
                   <select
                     value={provider}
                     onChange={(e) => {
-                      const prov = e.target.value as AiConfig["provider"];
-                      setProvider(prov);
-                      const validModel = getValidModelForProvider(prov, "");
-                      setModel(validModel);
-                      setApiKey(apiKeys[prov] || "");
+                      const newProv = e.target.value as AiConfig["provider"];
+                      const currentKey = apiKey.trim();
+                      const nextKeys = { ...apiKeys, [provider]: currentKey };
+                      const nextModels = { ...providerModels, [provider]: model };
+                      setApiKeys(nextKeys);
+                      setProviderModels(nextModels);
+
+                      const targetKey = nextKeys[newProv] || "";
+                      const targetModel = nextModels[newProv] || getValidModelForProvider(newProv, "");
+                      setProvider(newProv);
+                      setApiKey(targetKey);
+                      setModel(targetModel);
                       setConnectionResult(null);
-                      refreshLiveModels(prov, apiKeys[prov] || "");
+
+                      setAiConfig({
+                        ...aiConfig,
+                        provider: newProv,
+                        apiKey: targetKey,
+                        model: targetModel,
+                        apiKeys: nextKeys,
+                        models: nextModels
+                      });
+
+                      refreshLiveModels(newProv, targetKey);
                     }}
                     className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400"
                   >
@@ -1184,6 +1293,22 @@ ${studyContext.recentActivity}`;
                         const val = e.target.value;
                         setApiKey(val);
                         setApiKeys(prev => ({ ...prev, [provider]: val }));
+                        if (val.trim().length >= 8) {
+                          refreshLiveModels(provider, val.trim());
+                        }
+                      }}
+                      onPaste={(e) => {
+                        const pasted = e.clipboardData.getData("text");
+                        if (pasted && pasted.trim().length >= 8) {
+                          setApiKey(pasted.trim());
+                          setApiKeys(prev => ({ ...prev, [provider]: pasted.trim() }));
+                          refreshLiveModels(provider, pasted.trim());
+                        }
+                      }}
+                      onBlur={() => {
+                        if (apiKey.trim()) {
+                          refreshLiveModels(provider, apiKey.trim());
+                        }
                       }}
                       placeholder={`Paste your ${provider} API Key here...`}
                       className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400"
@@ -1222,6 +1347,48 @@ ${studyContext.recentActivity}`;
                   </div>
                 )}
 
+                {/* Cloudflare Account ID & Token UI */}
+                {provider === "cloudflare" && (
+                  <div className="space-y-3 p-3 rounded-xl bg-orange-950/20 border border-orange-500/30">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-orange-300">
+                      <span>☁️</span> Cloudflare Workers AI Configuration
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-bold text-slate-300">Cloudflare Account ID</label>
+                        <span className="text-[10px] text-slate-500">From Cloudflare Dashboard</span>
+                      </div>
+                      <input
+                        type="text"
+                        value={cloudflareAccountId}
+                        onChange={(e) => {
+                          const val = e.target.value.trim();
+                          setCloudflareAccountId(val);
+                          setAiConfig({
+                            ...aiConfig,
+                            cloudflareAccountId: val
+                          });
+                        }}
+                        placeholder="e.g. 8f9b2c3d4e5f6a7b8c9d0e1f2a3b4c5d"
+                        className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-400"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
+                      <span>Where to find this?</span>
+                      <a
+                        href="https://dash.cloudflare.com/?to=/:account/workers-and-pages"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-orange-400 hover:text-orange-300 underline font-medium"
+                      >
+                        Cloudflare Dashboard Account ID ↗
+                      </a>
+                    </div>
+                  </div>
+                )}
+
                 {/* Ollama URL */}
                 {provider === "ollama" && (
                   <div className="space-y-1.5">
@@ -1236,7 +1403,87 @@ ${studyContext.recentActivity}`;
                   </div>
                 )}
 
-                {/* Live Model Selector with Real-Time Fetch Button */}
+                {/* Custom OpenAI-Compatible Provider Inputs */}
+                {provider === "custom" && (
+                  <div className="space-y-3 p-3 rounded-xl bg-purple-950/20 border border-purple-500/30">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-purple-300">
+                      <SlidersHorizontal className="w-4 h-4 text-purple-400" />
+                      <span>Custom Endpoint & Server Details</span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-300">Custom Provider Name / Alias</label>
+                      <input
+                        type="text"
+                        value={customProviderName}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCustomProviderName(val);
+                          setAiConfig({
+                            ...aiConfig,
+                            customProvider: {
+                              name: val,
+                              endpoint: customProviderEndpoint,
+                              apiKey
+                            }
+                          });
+                        }}
+                        placeholder="e.g. My Local vLLM, FastChat, or Proxy"
+                        className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-bold text-slate-300">Endpoint URL (/chat/completions)</label>
+                        <span className="text-[10px] text-slate-500">Full endpoint URL</span>
+                      </div>
+                      <input
+                        type="text"
+                        value={customProviderEndpoint}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCustomProviderEndpoint(val);
+                          setAiConfig({
+                            ...aiConfig,
+                            customProviderEndpoint: val,
+                            customProvider: {
+                              name: customProviderName,
+                              endpoint: val,
+                              apiKey
+                            }
+                          });
+                        }}
+                        placeholder="http://localhost:8000/v1/chat/completions"
+                        className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-400"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-300">Model Name / Identifier</label>
+                      <input
+                        type="text"
+                        value={model}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setModel(val);
+                          const nextModels = { ...providerModels, custom: val };
+                          setProviderModels(nextModels);
+                          setAiConfig({
+                            ...aiConfig,
+                            model: val,
+                            models: nextModels
+                          });
+                        }}
+                        placeholder="e.g. llama-3, qwen2.5, mistral-large"
+                        className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-400"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Live Model Selector with Real-Time Fetch Button (Hidden when custom provider has its own model input) */}
+                {provider !== "custom" && (
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-slate-300">Model Selection</label>
@@ -1257,7 +1504,18 @@ ${studyContext.recentActivity}`;
 
                   <select
                     value={model}
-                    onChange={(e) => setModel(e.target.value)}
+                    onChange={(e) => {
+                      const newM = e.target.value;
+                      setModel(newM);
+                      const nextModels = { ...providerModels, [provider]: newM };
+                      setProviderModels(nextModels);
+                      setAiConfig({
+                        ...aiConfig,
+                        provider,
+                        model: newM,
+                        models: nextModels
+                      });
+                    }}
                     className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400"
                   >
                     {availableModels.map((m) => (
@@ -1267,6 +1525,7 @@ ${studyContext.recentActivity}`;
                     ))}
                   </select>
                 </div>
+                )}
 
                 {/* Groq Streaming Toggle */}
                 {provider === "groq" && (

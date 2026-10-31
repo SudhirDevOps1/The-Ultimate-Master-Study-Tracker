@@ -162,8 +162,8 @@ export async function callUnifiedAI(
 ): Promise<AIResponse> {
   const { aiConfig } = useAppStore.getState();
   const provider = aiConfig?.provider || "local_rules";
-  const apiKey = aiConfig?.apiKey || (aiConfig?.apiKeys ? aiConfig.apiKeys[provider] : "") || "";
-  const model = aiConfig?.model || "";
+  const apiKey = (aiConfig?.apiKeys && aiConfig.apiKeys[provider]) || aiConfig?.apiKey || "";
+  const model = (aiConfig?.models && aiConfig.models[provider]) || aiConfig?.model || "";
   const ollamaUrl = aiConfig?.ollamaUrl || "http://localhost:11434";
   const customEndpoint = aiConfig?.customProvider?.endpoint || "";
 
@@ -228,7 +228,9 @@ export async function callUnifiedAI(
     custom: customEndpoint
   };
 
-  const endpoint = endpointMap[provider];
+  const endpoint = provider === "custom"
+    ? (customEndpoint || aiConfig?.customProvider?.endpoint || "")
+    : endpointMap[provider];
 
   if (endpoint) {
     if (provider !== "ollama" && provider !== "lmstudio" && !apiKey) {

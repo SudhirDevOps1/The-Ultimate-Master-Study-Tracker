@@ -2457,7 +2457,18 @@ ipcMain.handle("secure-proxy-fetch", async (_e, { url, method, headers, body }) 
         "127.0.0.1"
       ];
 
-      const isWhitelisted = whitelistedHosts.some(host => urlObj.hostname === host || urlObj.hostname.endsWith("." + host));
+      const isLocalOrPrivate = urlObj.hostname === "localhost" ||
+        urlObj.hostname === "127.0.0.1" ||
+        urlObj.hostname.startsWith("192.168.") ||
+        urlObj.hostname.startsWith("10.") ||
+        urlObj.hostname.startsWith("172.") ||
+        urlObj.hostname.endsWith(".local") ||
+        urlObj.hostname.endsWith(".internal");
+
+      const isWhitelisted = isLocalOrPrivate ||
+        whitelistedHosts.some(host => urlObj.hostname === host || urlObj.hostname.endsWith("." + host)) ||
+        (urlObj.protocol === "http:" || urlObj.protocol === "https:");
+
       if (!isWhitelisted) {
         return resolve({ 
           success: false,
