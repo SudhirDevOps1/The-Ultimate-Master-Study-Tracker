@@ -1348,7 +1348,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
                 const file = event.target.files?.[0];
                 if (!file) return;
                 void importBackup(file).then((payload: any) => {
-                  void importAll(payload.subjects, payload.sessions, payload.settings, (payload as any).activities).then(() => {
+                  void importAll(payload.subjects, payload.sessions, payload.settings, (payload as any).activities, (payload as any).tasks).then(() => {
                     // Restore Local Wellbeing, App Activity logs and App Blocking Rules (Legacy support in case localStorageData is missing)
                     if (payload.wellbeingData && !payload.localStorageData) {
                       try {

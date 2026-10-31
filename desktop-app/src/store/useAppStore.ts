@@ -70,7 +70,7 @@ export interface AppState {
   createSession: (input: CreateSessionInput) => Promise<void>;
   updateSession: (session: StudySession) => Promise<void>;
   deleteSession: (id: string) => Promise<void>;
-  importAll: (subjects: Subject[], sessions: StudySession[], settings?: AppSettings[], activities?: any[]) => Promise<void>;
+  importAll: (subjects: Subject[], sessions: StudySession[], settings?: AppSettings[], activities?: any[], tasks?: any[]) => Promise<void>;
   addManualEntry: (input: {
     subjectId: string;
     date: string;
@@ -655,11 +655,16 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
     scheduleSync(get);
   },
 
-  importAll: async (subjects: Subject[], sessions: StudySession[], settings?: { key: string; value: string }[], activities?: any[]) => {
-    await (db as any).transaction("rw", [db.subjects, db.sessions, db.settings], async () => {
+  importAll: async (subjects: Subject[], sessions: StudySession[], settings?: { key: string; value: string }[], activities?: any[], tasks?: any[]) => {
+    const tables: any[] = [db.subjects, db.sessions, db.settings];
+    if ((db as any).tasks) tables.push((db as any).tasks);
+    await (db as any).transaction("rw", tables, async () => {
       // Safe merge (Upsert): Do not clear existing data
       await db.subjects.bulkPut(subjects);
       await db.sessions.bulkPut(sessions);
+      if (tasks && Array.isArray(tasks) && tasks.length > 0 && (db as any).tasks) {
+        await (db as any).tasks.bulkPut(tasks);
+      }
       if (settings && settings.length > 0) {
         for (const setting of settings) {
           if (setting.key === "ai_config") {

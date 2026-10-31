@@ -7,6 +7,7 @@ export interface BackupPayload {
   sessions: StudySession[];
   settings?: { key: string; value: string }[];
   activities?: any[];
+  tasks?: any[];
   wellbeingData?: {
     app_block_rules?: any[];
     [key: string]: any;
