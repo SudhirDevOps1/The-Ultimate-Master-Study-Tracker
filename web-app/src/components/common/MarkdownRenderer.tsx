@@ -3,6 +3,7 @@ import DOMPurify from "dompurify";
 import { MermaidChart } from "./MermaidChart";
 import { Copy, Check, Terminal, ExternalLink, AlertTriangle } from "lucide-react";
 import { latexToMathML } from "@/utils/latexToMathML";
+import { isMermaidStartLine } from "@/utils/mermaidHelper";
 
 interface MarkdownRendererProps {
   content: string;
@@ -188,7 +189,14 @@ function MarkdownRendererInner({ content, className = "" }: MarkdownRendererProp
 
       if (inCodeBlock) {
         const fullCode = codeBlockBuffer.join("\n");
-        if (codeBlockLang.toLowerCase() === "mermaid") {
+        const cleanLang = codeBlockLang.trim().toLowerCase();
+        const isMermaid =
+          cleanLang === "mermaid" ||
+          cleanLang === "mmd" ||
+          cleanLang === "mermaidjs" ||
+          (!cleanLang && isMermaidStartLine(fullCode));
+
+        if (isMermaid) {
           blocks.push({ type: "mermaid", content: fullCode, lang: "mermaid" });
         } else {
           blocks.push({ type: "code", content: fullCode, lang: codeBlockLang });
@@ -325,7 +333,14 @@ function MarkdownRendererInner({ content, className = "" }: MarkdownRendererProp
   }
   if (inCodeBlock && codeBlockBuffer.length > 0) {
     const fullCode = codeBlockBuffer.join("\n");
-    if (codeBlockLang.toLowerCase() === "mermaid") {
+    const cleanLang = codeBlockLang.trim().toLowerCase();
+    const isMermaid =
+      cleanLang === "mermaid" ||
+      cleanLang === "mmd" ||
+      cleanLang === "mermaidjs" ||
+      (!cleanLang && isMermaidStartLine(fullCode));
+
+    if (isMermaid) {
       blocks.push({ type: "mermaid", content: fullCode, lang: "mermaid" });
     } else {
       blocks.push({ type: "code", content: fullCode, lang: codeBlockLang });

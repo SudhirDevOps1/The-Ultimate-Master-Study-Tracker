@@ -29,7 +29,7 @@ import {
 import { useToast } from "@/components/common/Toast";
 import { MarkdownRenderer } from "@/components/common/MarkdownRenderer";
 import { saveImageSafely } from "@/utils/dataExport";
-import { renderMermaidToSvg, MERMAID_PRESETS } from "@/utils/mermaidHelper";
+import { renderMermaidToSvg, renderMermaidToPngDataUrl, MERMAID_PRESETS, extractMermaidCode, sanitizeMermaidLabels, buildFallbackMermaid } from "@/utils/mermaidHelper";
 import { callUnifiedAI } from "@/utils/aiClient";
 import { calculateAlignment, calculateDistribution, isPointInPolygon } from "@/utils/boardMath";
 
@@ -51,7 +51,7 @@ interface Theme {
 
 const SHAPE_TOOLS = new Set<Tool>(["rect", "ellipse", "diamond", "triangle", "cloud", "line", "arrow"]);
 const DRAW_TOOLS  = new Set<Tool>(["pen", "marker"]);
-const TEXT_TYPES  = new Set(["i-text", "text", "textbox"]);
+const TEXT_TYPES  = new Set(["i-text", "text", "textbox", "stickynotebox"]);
 
 const GRID = 20;
 const LASER_MS = 900;
@@ -112,10 +112,15 @@ export class StickyNoteBox extends fabric.Textbox {
   noteBorderColor: string = "#facc15";
 
   constructor(text: string, options: any = {}) {
-    super(text, {
-      ...options,
-      type: "StickyNoteBox",
-    });
+    // Fabric 7 exposes `type` as a getter-only accessor, so passing it through
+    // options throws "Cannot set property type ... which has only a getter".
+    // The instance type is derived from the static `type` field instead.
+    const { minHeight, ...rest } = options;
+    super(text, rest);
+    if (typeof minHeight === "number" && Number.isFinite(minHeight)) {
+      this.minHeight = minHeight;
+    }
+    this.initDimensions();
   }
 
   override initDimensions() {
@@ -183,8 +188,461 @@ export const isNoteObj = (o: fabric.Object | null | undefined): boolean => {
   return o instanceof StickyNoteBox || (o as any).customData?.type === "note" || Boolean((o as any).noteColorId);
 };
 
+/* -------------------------------------------------------------------------- */
+/*  Markdown → canvas study card                                              */
+/* -------------------------------------------------------------------------- */
+
+const CARD_FONT_SANS = "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
+const CARD_FONT_MONO = "'JetBrains Mono', 'Cascadia Code', Consolas, monospace";
+
+interface InlineStyle {
+  bold?: boolean;
+  italic?: boolean;
+  code?: boolean;
+  strike?: boolean;
+  link?: boolean;
+}
+
+interface InlineAtom {
+  text: string;
+  style: InlineStyle;
+  space: boolean;
+}
+
+type BlockKind =
+  | "heading" | "para" | "bullet" | "number" | "task"
+  | "quote" | "code" | "rule" | "space" | "table";
+
+interface MdBlock {
+  kind: BlockKind;
+  level?: number;
+  marker?: string;
+  checked?: boolean;
+  atoms?: InlineAtom[];
+  codeLines?: string[];
+  rows?: string[][];
+  indent: number;
+}
+
+interface MdLine {
+  kind: BlockKind;
+  level?: number;
+  marker?: string;
+  checked?: boolean;
+  atoms?: InlineAtom[];
+  codeLines?: string[];
+  tableLines?: string[][][];
+  indent: number;
+  height: number;
+  gapBefore: number;
+  first: boolean;
+}
+
+const CARD_HEADING_SIZE: Record<number, number> = { 1: 19, 2: 16.5, 3: 15, 4: 14, 5: 13.5, 6: 13 };
+
+function inlineFont(style: InlineStyle, size: number): string {
+  const weight = style.bold ? "bold " : "";
+  const slant = style.italic ? "italic " : "";
+  const px = style.code ? Math.max(10, size - 1) : size;
+  return `${weight}${slant}${px}px ${style.code ? CARD_FONT_MONO : CARD_FONT_SANS}`;
+}
+
+/**
+ * Tokenises inline Markdown (`**bold**`, `*italic*`, `` `code` ``, `~~strike~~`,
+ * `[label](url)`) into style-tagged atoms while keeping whitespace separate so
+ * the layout pass can wrap text cleanly.
+ */
+function parseInlineMarkdown(text: string): InlineAtom[] {
+  const atoms: InlineAtom[] = [];
+
+  const push = (chunk: string, style: InlineStyle) => {
+    if (!chunk) return;
+    for (const part of chunk.split(/(\s+)/)) {
+      if (part) atoms.push({ text: part, style, space: /^\s+$/.test(part) });
+    }
+  };
+
+  const pattern = /(\*\*[^*\n]+\*\*|__[^_\n]+__|~~[^~\n]+~~|`[^`\n]+`|\[[^\]\n]+\]\([^)\n]+\)|\*[^*\n]+\*|_[^_\n]+_)/g;
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text)) !== null) {
+    push(text.slice(cursor, match.index), {});
+    const raw = match[0];
+    if (raw.startsWith("**") || raw.startsWith("__")) {
+      push(raw.slice(2, -2), { bold: true });
+    } else if (raw.startsWith("~~")) {
+      push(raw.slice(2, -2), { strike: true });
+    } else if (raw.startsWith("`")) {
+      push(raw.slice(1, -1), { code: true });
+    } else if (raw.startsWith("[")) {
+      const link = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(raw);
+      push(link ? link[1] : raw, { link: true });
+    } else {
+      push(raw.slice(1, -1), { italic: true });
+    }
+    cursor = match.index + raw.length;
+  }
+
+  push(text.slice(cursor), {});
+  return atoms;
+}
+
+/** Splits Markdown source into block-level constructs (headings, lists, code…). */
+function parseMarkdownBlocks(content: string): MdBlock[] {
+  const lines = content.replace(/\r\n?/g, "\n").split("\n");
+  const blocks: MdBlock[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const raw = lines[i];
+    const trimmed = raw.trim();
+    const leading = raw.length - raw.trimStart().length;
+    const indent = Math.min(3, Math.floor(leading / 2)) * 12;
+
+    if (!trimmed) {
+      blocks.push({ kind: "space", indent: 0 });
+      i++;
+      continue;
+    }
+
+    // Fenced code block (```lang … ```)
+    if (/^```/.test(trimmed)) {
+      i++;
+      const code: string[] = [];
+      while (i < lines.length && !/^```/.test(lines[i].trim())) {
+        code.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) i++;
+      blocks.push({ kind: "code", codeLines: code.length ? code : [""], indent: 0 });
+      continue;
+    }
+
+    // Horizontal rule
+    if (/^(?:-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+      blocks.push({ kind: "rule", indent: 0 });
+      i++;
+      continue;
+    }
+
+    // Heading
+    const heading = /^(#{1,6})\s+(.*)$/.exec(trimmed);
+    if (heading) {
+      blocks.push({ kind: "heading", level: heading[1].length, atoms: parseInlineMarkdown(heading[2]), indent: 0 });
+      i++;
+      continue;
+    }
+
+    // Task list
+    const task = /^[-*+]\s+\[([ xX])\]\s+(.*)$/.exec(trimmed);
+    if (task) {
+      blocks.push({
+        kind: "task",
+        checked: task[1].toLowerCase() === "x",
+        atoms: parseInlineMarkdown(task[2]),
+        indent,
+      });
+      i++;
+      continue;
+    }
+
+    // Bullet list
+    const bullet = /^[-*+]\s+(.*)$/.exec(trimmed);
+    if (bullet) {
+      blocks.push({ kind: "bullet", atoms: parseInlineMarkdown(bullet[1]), indent });
+      i++;
+      continue;
+    }
+
+    // Numbered list
+    const numbered = /^(\d+)[.)]\s+(.*)$/.exec(trimmed);
+    if (numbered) {
+      blocks.push({ kind: "number", marker: `${numbered[1]}.`, atoms: parseInlineMarkdown(numbered[2]), indent });
+      i++;
+      continue;
+    }
+
+    // Block quote (GitHub alert markers such as [!NOTE] are stripped)
+    const quote = /^>\s?(.*)$/.exec(trimmed);
+    if (quote) {
+      blocks.push({
+        kind: "quote",
+        atoms: parseInlineMarkdown(quote[1].replace(/^\[![A-Za-z]+\]\s*/, "")),
+        indent,
+      });
+      i++;
+      continue;
+    }
+
+    // Pipe table
+    if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
+      const rows: string[][] = [];
+      while (i < lines.length && lines[i].trim().startsWith("|")) {
+        const row = lines[i].trim();
+        const isSeparator = /^\|?[\s:|-]+\|?$/.test(row) && row.includes("-");
+        if (!isSeparator) {
+          rows.push(row.replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim()));
+        }
+        i++;
+      }
+      if (rows.length) blocks.push({ kind: "table", rows, indent: 0 });
+      continue;
+    }
+
+    blocks.push({ kind: "para", atoms: parseInlineMarkdown(trimmed), indent });
+    i++;
+  }
+
+  return blocks;
+}
+
+function measureInline(ctx: CanvasRenderingContext2D, atom: InlineAtom, size: number): number {
+  ctx.font = inlineFont(atom.style, size);
+  return ctx.measureText(atom.text).width;
+}
+
+/** Word-wraps inline atoms, breaking over-long single tokens by character. */
+function wrapInline(ctx: CanvasRenderingContext2D, atoms: InlineAtom[], maxWidth: number, size: number): InlineAtom[][] {
+  const lines: InlineAtom[][] = [];
+  let current: InlineAtom[] = [];
+  let width = 0;
+
+  const flush = () => {
+    while (current.length && current[current.length - 1].space) current.pop();
+    if (current.length) lines.push(current);
+    current = [];
+    width = 0;
+  };
+
+  for (const atom of atoms) {
+    const atomWidth = measureInline(ctx, atom, size);
+
+    if (atomWidth > maxWidth && !atom.space && atom.text.length > 1) {
+      let buffer = "";
+      for (const ch of atom.text) {
+        const test = buffer + ch;
+        const testWidth = measureInline(ctx, { ...atom, text: test }, size);
+        if (testWidth > maxWidth - width && buffer) {
+          current.push({ ...atom, text: buffer });
+          flush();
+          buffer = ch;
+        } else {
+          buffer = test;
+        }
+      }
+      if (buffer) {
+        current.push({ ...atom, text: buffer });
+        width += measureInline(ctx, { ...atom, text: buffer }, size);
+      }
+      continue;
+    }
+
+    if (width + atomWidth > maxWidth && current.length && !atom.space) flush();
+    if (!current.length && atom.space) continue;
+    current.push(atom);
+    width += atomWidth;
+  }
+
+  flush();
+  return lines;
+}
+
+function layoutMarkdown(ctx: CanvasRenderingContext2D, blocks: MdBlock[], innerWidth: number): MdLine[] {
+  const lines: MdLine[] = [];
+
+  for (const block of blocks) {
+    if (block.kind === "space") {
+      lines.push({ kind: "space", indent: 0, height: 10, gapBefore: 0, first: false });
+      continue;
+    }
+    if (block.kind === "rule") {
+      lines.push({ kind: "rule", indent: 0, height: 1, gapBefore: 8, first: false });
+      continue;
+    }
+
+    if (block.kind === "code") {
+      const source = block.codeLines ?? [""];
+      const wrapped: string[] = [];
+      ctx.font = `11.5px ${CARD_FONT_MONO}`;
+      for (const rawLine of source) {
+        const text = rawLine.replace(/\t/g, "  ");
+        if (!text) {
+          wrapped.push("");
+          continue;
+        }
+        let buffer = "";
+        for (const ch of text) {
+          if (ctx.measureText(buffer + ch).width > innerWidth - 22 && buffer) {
+            wrapped.push(buffer);
+            buffer = ch;
+          } else {
+            buffer += ch;
+          }
+        }
+        wrapped.push(buffer);
+      }
+      lines.push({
+        kind: "code",
+        indent: 0,
+        height: Math.max(1, wrapped.length) * 15 + 16,
+        gapBefore: 6,
+        first: false,
+        codeLines: wrapped,
+      });
+      continue;
+    }
+
+    if (block.kind === "table") {
+      const rows = block.rows ?? [];
+      if (!rows.length) continue;
+      const cols = Math.max(1, ...rows.map((row) => row.length));
+      const colWidth = innerWidth / cols;
+      ctx.font = `12px ${CARD_FONT_SANS}`;
+
+      const tableLines: string[][][] = rows.map((row) =>
+        Array.from({ length: cols }, (_, ci) => {
+          const cell = row[ci] ?? "";
+          const wrapped: string[] = [];
+          let buffer = "";
+          for (const word of cell.split(/\s+/).filter(Boolean)) {
+            const test = buffer ? `${buffer} ${word}` : word;
+            if (ctx.measureText(test).width > colWidth - 14 && buffer) {
+              wrapped.push(buffer);
+              buffer = word;
+            } else {
+              buffer = test;
+            }
+          }
+          wrapped.push(buffer);
+          return wrapped;
+        })
+      );
+
+      const height = tableLines.reduce(
+        (sum, cells) => sum + Math.max(1, ...cells.map((cell) => cell.length)) * 15 + 10,
+        4
+      );
+      lines.push({ kind: "table", indent: 0, height, gapBefore: 6, first: false, tableLines });
+      continue;
+    }
+
+    // Text-like blocks
+    const size = block.kind === "heading" ? CARD_HEADING_SIZE[block.level || 3] || 14 : 13;
+    const textIndent =
+      block.indent +
+      (block.kind === "bullet" || block.kind === "task" ? 16 : block.kind === "number" ? 22 : block.kind === "quote" ? 14 : 0);
+    const available = Math.max(60, innerWidth - textIndent);
+    const wrapped = wrapInline(ctx, block.atoms ?? [], available, size);
+    const lineHeight = block.kind === "heading" ? Math.round(size * 1.35) + 4 : 20;
+    const gapBefore =
+      block.kind === "heading" ? ((block.level || 3) <= 2 ? 12 : 8) : block.kind === "quote" ? 4 : 2;
+
+    if (!wrapped.length) {
+      lines.push({ kind: "space", indent: 0, height: 6, gapBefore: 0, first: false });
+      continue;
+    }
+
+    wrapped.forEach((atoms, index) => {
+      lines.push({
+        kind: block.kind,
+        level: block.level,
+        marker: block.marker,
+        checked: block.checked,
+        atoms,
+        indent: textIndent,
+        height: lineHeight,
+        gapBefore: index === 0 ? gapBefore : 0,
+        first: index === 0,
+      });
+    });
+  }
+
+  return lines;
+}
+
+function fillRoundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+  fill: string,
+  stroke?: string
+) {
+  ctx.beginPath();
+  if (typeof ctx.roundRect === "function") ctx.roundRect(x, y, w, h, r);
+  else ctx.rect(x, y, w, h);
+  ctx.fillStyle = fill;
+  ctx.fill();
+  if (stroke) {
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+}
+
+function ellipsize(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let out = text;
+  while (out.length > 1 && ctx.measureText(`${out}…`).width > maxWidth) out = out.slice(0, -1);
+  return `${out}…`;
+}
+
+/** Draws inline atoms and returns the width consumed. */
+function drawInline(
+  ctx: CanvasRenderingContext2D,
+  atoms: InlineAtom[],
+  x: number,
+  y: number,
+  color: string,
+  size: number,
+  accent: string,
+  base: InlineStyle = {}
+): number {
+  let cursor = x;
+  for (const atom of atoms) {
+    const style = { ...base, ...atom.style };
+    ctx.font = inlineFont(style, size);
+    const width = ctx.measureText(atom.text).width;
+
+    if (!atom.space) {
+      if (style.code) {
+        const h = Math.max(12, size - 1);
+        ctx.fillStyle = "rgba(56,189,248,0.14)";
+        ctx.fillRect(cursor - 2, y - h + 1, width + 4, h + 4);
+      }
+      ctx.fillStyle = style.code ? "#7dd3fc" : style.link ? accent : color;
+      ctx.fillText(atom.text, cursor, y);
+
+      if (style.strike) {
+        ctx.strokeStyle = ctx.fillStyle as string;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(cursor, y - size * 0.32);
+        ctx.lineTo(cursor + width, y - size * 0.32);
+        ctx.stroke();
+      }
+      if (style.link) {
+        ctx.strokeStyle = accent;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(cursor, y + 2);
+        ctx.lineTo(cursor + width, y + 2);
+        ctx.stroke();
+      }
+    }
+
+    cursor += width;
+  }
+  return cursor - x;
+}
+
 /**
  * High-definition 2D canvas card renderer for structured Markdown study notes.
+ * Parses headings, lists, tasks, quotes, tables, code fences and inline styling
+ * so AI output looks like a designed card instead of raw Markdown text.
  */
 export function renderMarkdownCardCanvas(
   title: string,
@@ -199,109 +657,38 @@ export function renderMarkdownCardCanvas(
   const padding = 24;
   const headerHeight = 60;
   const innerWidth = cardWidth - padding * 2;
+  const scale = 2;
 
-  const rawLines = content.split("\n");
-  const parsedLines: { type: "header" | "bullet" | "code" | "text" | "task"; text: string; checked?: boolean }[] = [];
-
-  for (const raw of rawLines) {
-    const trimmed = raw.trim();
-    if (!trimmed) {
-      parsedLines.push({ type: "text", text: "" });
-      continue;
-    }
-    if (trimmed.startsWith("#")) {
-      parsedLines.push({ type: "header", text: trimmed.replace(/^#+\s*/, "") });
-    } else if (trimmed.startsWith("- [x]") || trimmed.startsWith("- [X]")) {
-      parsedLines.push({ type: "task", text: trimmed.slice(5).trim(), checked: true });
-    } else if (trimmed.startsWith("- [ ]")) {
-      parsedLines.push({ type: "task", text: trimmed.slice(5).trim(), checked: false });
-    } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
-      parsedLines.push({ type: "bullet", text: trimmed.slice(2).trim() });
-    } else if (trimmed.startsWith("```")) {
-      // fence marker skip
-    } else if (trimmed.startsWith("`") && trimmed.endsWith("`")) {
-      parsedLines.push({ type: "code", text: trimmed.slice(1, -1) });
-    } else {
-      parsedLines.push({ type: "text", text: trimmed });
-    }
-  }
-
-  ctx.font = "14px system-ui, -apple-system, sans-serif";
-  let contentHeight = 0;
-  const wrappedLines: { type: string; text: string; checked?: boolean }[] = [];
-
-  for (const line of parsedLines) {
-    if (!line.text) {
-      contentHeight += 12;
-      wrappedLines.push({ type: "space", text: "" });
-      continue;
-    }
-    if (line.type === "header") {
-      contentHeight += 28;
-      wrappedLines.push(line);
-      continue;
-    }
-
-    const words = line.text.split(" ");
-    let currentLine = "";
-    for (const w of words) {
-      const test = currentLine ? `${currentLine} ${w}` : w;
-      if (ctx.measureText(test).width > innerWidth - (line.type === "bullet" || line.type === "task" ? 24 : 0)) {
-        wrappedLines.push({ ...line, text: currentLine });
-        currentLine = w;
-        contentHeight += 22;
-      } else {
-        currentLine = test;
-      }
-    }
-    if (currentLine) {
-      wrappedLines.push({ ...line, text: currentLine });
-      contentHeight += 22;
-    }
-  }
-
-  const totalHeight = Math.max(160, padding + headerHeight + contentHeight + padding);
-  const scale = 2; // Crisp 2x pixel ratio
+  const blocks = parseMarkdownBlocks(content);
+  const lines = layoutMarkdown(ctx, blocks, innerWidth);
+  const contentHeight = lines.reduce((sum, line) => sum + line.gapBefore + line.height, 0);
+  const totalHeight = Math.max(180, padding + headerHeight + 10 + contentHeight + padding);
 
   canvas.width = cardWidth * scale;
   canvas.height = totalHeight * scale;
   ctx.scale(scale, scale);
 
-  // Background
-  ctx.fillStyle = "#0f172a";
-  ctx.strokeStyle = "#334155";
-  ctx.lineWidth = 1.5;
-  if (typeof ctx.roundRect === "function") {
-    ctx.beginPath();
-    ctx.roundRect(0, 0, cardWidth, totalHeight, 16);
-    ctx.fill();
-    ctx.stroke();
-  } else {
-    ctx.fillRect(0, 0, cardWidth, totalHeight);
-    ctx.strokeRect(0, 0, cardWidth, totalHeight);
-  }
+  // Card background
+  fillRoundRect(ctx, 0, 0, cardWidth, totalHeight, 16, "#0f172a", "#334155");
 
   // Accent bar on top
+  ctx.beginPath();
+  if (typeof ctx.roundRect === "function") ctx.roundRect(0, 0, cardWidth, 6, [16, 16, 0, 0]);
+  else ctx.rect(0, 0, cardWidth, 6);
   ctx.fillStyle = accentColor;
-  if (typeof ctx.roundRect === "function") {
-    ctx.beginPath();
-    ctx.roundRect(0, 0, cardWidth, 6, [16, 16, 0, 0]);
-    ctx.fill();
-  } else {
-    ctx.fillRect(0, 0, cardWidth, 6);
-  }
+  ctx.fill();
 
-  // Header Title
+  // Header title
   ctx.fillStyle = "#f8fafc";
-  ctx.font = "bold 16px system-ui, -apple-system, sans-serif";
-  ctx.fillText(title || "Study Note", padding, padding + 22);
+  ctx.font = `bold 16px ${CARD_FONT_SANS}`;
+  ctx.fillText(ellipsize(ctx, title || "Study Note", innerWidth), padding, padding + 22);
 
-  // Header Subtitle / Date
+  // Header subtitle
   ctx.fillStyle = "#64748b";
-  ctx.font = "11px system-ui, -apple-system, sans-serif";
-  ctx.fillText("FlowTrack Academic Note • " + new Date().toLocaleDateString(), padding, padding + 40);
+  ctx.font = `11px ${CARD_FONT_SANS}`;
+  ctx.fillText(`FlowTrack Study Card • ${new Date().toLocaleDateString()}`, padding, padding + 40);
 
-  // Divider line
+  // Divider
   ctx.strokeStyle = "#1e293b";
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -309,55 +696,159 @@ export function renderMarkdownCardCanvas(
   ctx.lineTo(cardWidth - padding, padding + 48);
   ctx.stroke();
 
-  // Render lines
   let y = padding + headerHeight + 10;
-  for (const line of wrappedLines) {
-    if (line.type === "space") {
-      y += 12;
+
+  for (const line of lines) {
+    y += line.gapBefore;
+    const x = padding + line.indent;
+    const baseline = y + line.height - 6;
+
+    if (line.kind === "space") {
+      y += line.height;
       continue;
     }
-    if (line.type === "header") {
-      ctx.fillStyle = accentColor;
-      ctx.font = "bold 14px system-ui, -apple-system, sans-serif";
-      ctx.fillText(line.text, padding, y);
-      y += 24;
-    } else if (line.type === "task") {
-      ctx.fillStyle = line.checked ? "#10b981" : "#64748b";
-      ctx.font = "13px system-ui, -apple-system, sans-serif";
-      ctx.fillText(line.checked ? "☑" : "☐", padding, y);
-      ctx.fillStyle = line.checked ? "#94a3b8" : "#cbd5e1";
-      ctx.fillText(line.text, padding + 20, y);
-      y += 22;
-    } else if (line.type === "bullet") {
-      ctx.fillStyle = accentColor;
-      ctx.font = "bold 14px system-ui, -apple-system, sans-serif";
-      ctx.fillText("•", padding + 2, y);
-      ctx.fillStyle = "#cbd5e1";
-      ctx.font = "13px system-ui, -apple-system, sans-serif";
-      ctx.fillText(line.text, padding + 18, y);
-      y += 22;
-    } else if (line.type === "code") {
-      ctx.fillStyle = "#1e293b";
-      ctx.fillRect(padding - 4, y - 14, innerWidth + 8, 20);
-      ctx.fillStyle = "#38bdf8";
-      ctx.font = "12px monospace";
-      ctx.fillText(line.text, padding, y);
-      y += 22;
-    } else {
-      ctx.fillStyle = "#cbd5e1";
-      ctx.font = "13px system-ui, -apple-system, sans-serif";
-      ctx.fillText(line.text, padding, y);
-      y += 22;
+
+    if (line.kind === "rule") {
+      ctx.strokeStyle = "#334155";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padding, y);
+      ctx.lineTo(cardWidth - padding, y);
+      ctx.stroke();
+      y += line.height + 8;
+      continue;
     }
+
+    if (line.kind === "code") {
+      const codeLines = line.codeLines ?? [""];
+      const boxHeight = Math.max(1, codeLines.length) * 15 + 16;
+      fillRoundRect(ctx, padding, y, innerWidth, boxHeight, 8, "#0b1220", "#1e293b");
+      ctx.font = `11.5px ${CARD_FONT_MONO}`;
+      ctx.fillStyle = "#7dd3fc";
+      codeLines.forEach((codeLine, index) => ctx.fillText(codeLine, padding + 10, y + 15 + index * 15));
+      y += boxHeight;
+      continue;
+    }
+
+    if (line.kind === "table") {
+      const rows = line.tableLines ?? [];
+      if (!rows.length) {
+        y += line.height;
+        continue;
+      }
+      const cols = rows[0].length;
+      const colWidth = innerWidth / cols;
+      let tableY = y;
+
+      rows.forEach((cells, rowIndex) => {
+        const rowHeight = Math.max(1, ...cells.map((cell) => cell.length)) * 15 + 10;
+        if (rowIndex === 0) {
+          ctx.fillStyle = "rgba(139,92,246,0.16)";
+          ctx.fillRect(padding, tableY, innerWidth, rowHeight);
+        }
+        ctx.strokeStyle = "#1e293b";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(padding, tableY + rowHeight);
+        ctx.lineTo(cardWidth - padding, tableY + rowHeight);
+        ctx.stroke();
+
+        ctx.font = `${rowIndex === 0 ? "bold " : ""}12px ${CARD_FONT_SANS}`;
+        cells.forEach((cellLines, colIndex) => {
+          ctx.fillStyle = rowIndex === 0 ? "#e2e8f0" : "#cbd5e1";
+          cellLines.forEach((cellLine, lineIndex) => {
+            ctx.fillText(cellLine, padding + colIndex * colWidth + 6, tableY + 15 + lineIndex * 15);
+          });
+        });
+
+        tableY += rowHeight;
+      });
+
+      y += line.height;
+      continue;
+    }
+
+    if (line.kind === "heading") {
+      const size = CARD_HEADING_SIZE[line.level || 3] || 14;
+      const color = (line.level || 3) <= 2 ? accentColor : "#e2e8f0";
+      const width = drawInline(ctx, line.atoms ?? [], x, baseline, color, size, accentColor, { bold: true });
+      if (line.first && (line.level || 3) <= 2) {
+        ctx.strokeStyle = accentColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x, baseline + 5);
+        ctx.lineTo(x + Math.min(width, innerWidth - line.indent), baseline + 5);
+        ctx.stroke();
+      }
+      y += line.height;
+      continue;
+    }
+
+    if (line.kind === "bullet") {
+      ctx.fillStyle = accentColor;
+      ctx.font = `bold 14px ${CARD_FONT_SANS}`;
+      ctx.fillText("•", x - 12, baseline);
+      drawInline(ctx, line.atoms ?? [], x, baseline, "#cbd5e1", 13, accentColor);
+      y += line.height;
+      continue;
+    }
+
+    if (line.kind === "number") {
+      ctx.fillStyle = accentColor;
+      ctx.font = `bold 12px ${CARD_FONT_SANS}`;
+      ctx.textAlign = "right";
+      ctx.fillText(line.marker ?? "1.", x - 6, baseline);
+      ctx.textAlign = "left";
+      drawInline(ctx, line.atoms ?? [], x, baseline, "#cbd5e1", 13, accentColor);
+      y += line.height;
+      continue;
+    }
+
+    if (line.kind === "task") {
+      const checked = Boolean(line.checked);
+      ctx.fillStyle = checked ? "#10b981" : "#64748b";
+      ctx.font = `13px ${CARD_FONT_SANS}`;
+      ctx.fillText(checked ? "☑" : "☐", x - 17, baseline);
+      drawInline(ctx, line.atoms ?? [], x, baseline, checked ? "#94a3b8" : "#cbd5e1", 13, accentColor);
+      y += line.height;
+      continue;
+    }
+
+    if (line.kind === "quote") {
+      ctx.fillStyle = accentColor;
+      ctx.globalAlpha = 0.5;
+      ctx.fillRect(x - 10, y + 1, 3, Math.max(4, line.height - 4));
+      ctx.globalAlpha = 1;
+      drawInline(ctx, line.atoms ?? [], x, baseline, "#94a3b8", 13, accentColor);
+      y += line.height;
+      continue;
+    }
+
+    drawInline(ctx, line.atoms ?? [], x, baseline, "#cbd5e1", 13, accentColor);
+    y += line.height;
   }
 
   return canvas;
 }
 
+/** Removes a wrapping ```markdown fence and leading chat preamble from AI notes. */
+function normalizeMarkdownResponse(raw: string): string {
+  let text = (raw || "").replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").trim();
+  const fence = /^```(?:markdown|md)?[ \t]*\n([\s\S]*?)```\s*$/i.exec(text);
+  if (fence && fence[1].trim()) text = fence[1].trim();
+
+  const lines = text.split("\n");
+  const first = lines[0]?.trim() ?? "";
+  if (lines.length > 1 && /^(?:here|sure|certainly|below|these are|of course)\b/i.test(first) && first.endsWith(":")) {
+    lines.shift();
+    while (lines.length && !lines[0].trim()) lines.shift();
+  }
+  return lines.join("\n").trim();
+}
+
 const DASHES: Record<string, number[] | undefined> = {
   solid: undefined, dashed: [12, 9], dotted: [1, 7],
 };
-
 const KEYS: Record<string, Tool> = {
   v: "select", q: "lasso", h: "pan", p: "pen", m: "marker", x: "laser", e: "eraser",
   r: "rect", o: "ellipse", d: "diamond", g: "triangle", k: "cloud", l: "line", a: "arrow", t: "text", n: "note",
@@ -1368,6 +1859,14 @@ export function FabricWhiteboard({
 
     /* Double-click empty canvas → drop a text object. */
     c.on("mouse:dblclick", (opt) => {
+      if (opt.target && (opt.target as any).customData?.type === "mermaid") {
+        const code = (opt.target as any).customData.code;
+        if (code) {
+          setMermaidCode(code);
+          setMermaidModalOpen(true);
+          return;
+        }
+      }
       if (live.current.tool !== "select" || opt.target) return;
       const sp = c.getScenePoint(opt.e);
       addText(sp.x, sp.y);
@@ -2196,11 +2695,10 @@ export function FabricWhiteboard({
     const c = fcRef.current;
     if (!c) return;
     try {
-      const svg = await renderMermaidToSvg(mermaidCode);
-      const dataUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+      const { dataUrl, width, height } = await renderMermaidToPngDataUrl(mermaidCode);
       const img = await fabric.FabricImage.fromURL(dataUrl);
       const maxW = c.getWidth() * 0.7;
-      if ((img.width ?? 0) > maxW) img.scaleToWidth(maxW);
+      if ((img.width ?? width ?? 0) > maxW) img.scaleToWidth(maxW);
       const cp = c.getVpCenter();
       img.set({
         left: cp.x - img.getScaledWidth() / 2,
@@ -2228,17 +2726,43 @@ export function FabricWhiteboard({
     setIsGeneratingDiagram(true);
     setMermaidError(null);
     try {
-      const sysPrompt = "You are an expert system architect and diagrammer. Generate ONLY valid, clean Mermaid diagram syntax. Output raw Mermaid code only, with no markdown fences, no backticks, and no introductory or concluding text.";
-      const prompt = `Create a detailed, beautiful Mermaid diagram for: ${mermaidAiPrompt.trim()}`;
-      const res = await callUnifiedAI(prompt, sysPrompt);
-      if (res.text) {
-        let clean = res.text.replace(/```mermaid\n?|```/g, "").trim();
-        if (!clean.startsWith("flowchart") && !clean.startsWith("graph") && !clean.startsWith("sequenceDiagram") && !clean.startsWith("classDiagram") && !clean.startsWith("stateDiagram")) {
-          clean = `flowchart TD\n${clean}`;
-        }
-        setMermaidCode(clean);
-        showToast("Generated Mermaid diagram with AI!", "success");
+      const sysPrompt = "You are an expert system architect and diagrammer. Reply with a single valid Mermaid diagram only. Start with the diagram keyword (flowchart, graph, sequenceDiagram, classDiagram, stateDiagram-v2, erDiagram, mindmap, timeline, gantt, pie). Wrap any node label that contains parentheses, brackets, colons or punctuation in double quotes. Do not use markdown fences and do not add commentary before or after the code.";
+      const prompt = `Create a detailed, professional Mermaid diagram for: ${mermaidAiPrompt.trim()}`;
+      const res = await callUnifiedAI(prompt, sysPrompt, "mermaid");
+
+      if (!res.text || !res.text.trim()) {
+        showToast("AI returned an empty diagram. Try rephrasing the topic.", "warning");
+        return;
       }
+
+      // Never paste raw model output: extract only the diagram body, repair
+      // unquoted labels, then prove it renders before replacing the editor.
+      let finalCode = sanitizeMermaidLabels(extractMermaidCode(res.text));
+      let normalised = false;
+
+      try {
+        if (!finalCode) throw new Error("No Mermaid source found in the AI response");
+        await renderMermaidToSvg(finalCode);
+      } catch {
+        // Prose answer, unsupported syntax or broken labels → guaranteed-valid
+        // structured diagram built from the user's own topic.
+        finalCode = buildFallbackMermaid(mermaidAiPrompt);
+        normalised = true;
+        try {
+          await renderMermaidToSvg(finalCode);
+        } catch {
+          showToast("Could not build a valid Mermaid diagram. Try a simpler topic.", "warning");
+          return;
+        }
+      }
+
+      setMermaidCode(finalCode);
+      showToast(
+        normalised
+          ? "AI output normalised into a valid diagram"
+          : "Generated Mermaid diagram with AI!",
+        "success"
+      );
     } catch (err: any) {
       console.error(err);
       showToast("AI diagram generation failed", "warning");
@@ -2282,14 +2806,21 @@ export function FabricWhiteboard({
     }
     setIsGeneratingMarkdown(true);
     try {
-      const sysPrompt = "You are an elite academic tutor. Generate structured, highly readable Markdown notes for this concept. Use headings (#, ##), bullet points (-), code blocks if technical, and a checklist (- [ ]) of must-remember points. Do not include chat commentary.";
+      const sysPrompt = "You are an elite academic tutor writing a revision card. Return well-structured GitHub-flavoured Markdown only: a # title, ## sections, bullet lists, numbered steps, a pipe table when comparing items, fenced code blocks for technical examples, and a - [ ] checklist of must-remember points. Use inline **bold**, *italic* and `code`. Do not wrap the whole answer in a code fence and do not add chat commentary.";
       const prompt = `Produce structured revision study notes on: ${markdownAiPrompt.trim()}`;
-      const res = await callUnifiedAI(prompt, sysPrompt);
-      if (res.text) {
-        setMarkdownTitle(markdownAiPrompt.trim().slice(0, 40));
-        setMarkdownContent(res.text.trim());
-        showToast("Generated study notes with AI!", "success");
+      const res = await callUnifiedAI(prompt, sysPrompt, "markdown");
+      const clean = normalizeMarkdownResponse(res.text || "");
+
+      if (!clean) {
+        showToast("AI returned empty notes. Try rephrasing the topic.", "warning");
+        return;
       }
+
+      const heading = /^#{1,6}\s+(.+)$/m.exec(clean);
+      const derivedTitle = (heading?.[1] || markdownAiPrompt.trim()).replace(/[*_`#]/g, "").trim();
+      setMarkdownTitle(derivedTitle.slice(0, 60) || markdownAiPrompt.trim().slice(0, 60));
+      setMarkdownContent(clean);
+      showToast("Generated study notes with AI!", "success");
     } catch (err: any) {
       console.error(err);
       showToast("AI note generation failed", "warning");

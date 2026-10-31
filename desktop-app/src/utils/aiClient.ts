@@ -1,5 +1,6 @@
 import { useAppStore } from "@/store/useAppStore";
 import type { AiConfig } from "@/types/models";
+import { buildFallbackMermaid } from "@/utils/mermaidHelper";
 
 export interface AIResponse {
   success: boolean;
@@ -10,12 +11,23 @@ export interface AIResponse {
 }
 
 /**
+ * What the caller intends to do with the response. The offline fallback uses
+ * this so a diagram request never receives Markdown prose (which Mermaid then
+ * fails to parse) and a notes request never receives Mermaid source.
+ */
+export type AIIntent = "text" | "markdown" | "mermaid";
+
+/**
  * Universal Unified AI Client for FlowTrack Pro.
  * Automatically utilizes the user's active API key and provider configuration
  * saved in the centralized Zustand store.
  * Supports: Gemini, Groq, Mistral, Cerebras, OpenAI, xAI Grok, Ollama, and Local Fallback.
  */
-export async function callUnifiedAI(prompt: string, systemPrompt?: string): Promise<AIResponse> {
+export async function callUnifiedAI(
+  prompt: string,
+  systemPrompt?: string,
+  intent: AIIntent = "text"
+): Promise<AIResponse> {
   const { aiConfig } = useAppStore.getState();
   const provider = aiConfig?.provider || "local_rules";
   const apiKey = aiConfig?.apiKey || (aiConfig?.apiKeys ? aiConfig.apiKeys[provider] : "") || "";
@@ -28,7 +40,7 @@ export async function callUnifiedAI(prompt: string, systemPrompt?: string): Prom
   // 1. Google Gemini API
   if (provider === "gemini") {
     if (!apiKey) {
-      return getLocalRuleFallback(prompt, "Gemini API key is missing. Using offline academic tutor:");
+      return getLocalRuleFallback(prompt, "Gemini API key is missing. Using offline academic tutor:", intent);
     }
     try {
       const activeModel = model || "gemini-1.5-flash";
@@ -56,7 +68,7 @@ export async function callUnifiedAI(prompt: string, systemPrompt?: string): Prom
       return { success: true, text: answer, provider: "gemini", model: activeModel };
     } catch (err: any) {
       console.warn("Gemini API call failed, falling back to local tutor:", err);
-      return getLocalRuleFallback(prompt, `(Gemini network error: ${err.message}) Local Offline Tutor:`);
+      return getLocalRuleFallback(prompt, `(Gemini network error: ${err.message}) Local Offline Tutor:`, intent);
     }
   }
 
@@ -75,7 +87,7 @@ export async function callUnifiedAI(prompt: string, systemPrompt?: string): Prom
 
   if (endpoint) {
     if (provider !== "ollama" && !apiKey) {
-      return getLocalRuleFallback(prompt, `${provider.toUpperCase()} API key is missing. Using offline academic tutor:`);
+      return getLocalRuleFallback(prompt, `${provider.toUpperCase()} API key is missing. Using offline academic tutor:`, intent);
     }
 
     try {
@@ -121,20 +133,30 @@ export async function callUnifiedAI(prompt: string, systemPrompt?: string): Prom
       return { success: true, text: answer, provider, model: activeModel };
     } catch (err: any) {
       console.warn(`${provider} API call failed, falling back to local tutor:`, err);
-      return getLocalRuleFallback(prompt, `(${provider} API error: ${err.message}) Local Offline Tutor:`);
+      return getLocalRuleFallback(prompt, `(${provider} API error: ${err.message}) Local Offline Tutor:`, intent);
     }
   }
 
   // 3. Default: Offline Local Academic Tutor
-  return getLocalRuleFallback(prompt);
+  return getLocalRuleFallback(prompt, undefined, intent);
 }
 
 /**
  * High-quality offline academic knowledge engine
  */
-function getLocalRuleFallback(prompt: string, prefixNotice?: string): AIResponse {
+function getLocalRuleFallback(prompt: string, prefixNotice?: string, intent: AIIntent = "text"): AIResponse {
   const lower = prompt.toLowerCase();
   let answer = "";
+
+  // Diagram requests must never receive prose: Mermaid cannot parse it.
+  if (intent === "mermaid") {
+    return {
+      success: true,
+      text: buildFallbackMermaid(prompt),
+      provider: "local_rules",
+      model: "offline-diagrammer",
+    };
+  }
 
   if (lower.includes("java")) {
     answer = `### ☕ Java Fundamentals & Architecture

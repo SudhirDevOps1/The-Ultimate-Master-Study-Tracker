@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useId, useRef } from "react";
 import { Copy, Check, Maximize2, Minimize2, Code2, AlertTriangle } from "lucide-react";
+import { sanitizeMermaidLabels, normalizeMermaidSvg } from "@/utils/mermaidHelper";
 
 interface MermaidChartProps {
   chart: string;
@@ -45,16 +46,22 @@ export function MermaidChart({ chart, className = "" }: MermaidChartProps) {
             fontSize: "13px",
           },
           securityLevel: "loose",
+          flowchart: {
+            htmlLabels: false,
+            curve: "basis",
+          },
         });
 
         // Clean any previous element with this ID if exists
         const existing = document.getElementById(componentId);
         if (existing) existing.remove();
 
-        const { svg } = await mermaid.render(componentId, chart.trim());
+        const sanitized = sanitizeMermaidLabels(chart.trim());
+        const { svg } = await mermaid.render(componentId, sanitized);
+        const { svg: normalized } = normalizeMermaidSvg(svg);
 
         if (isMounted) {
-          setSvgContent(svg);
+          setSvgContent(normalized);
         }
       } catch (err: any) {
         if (isMounted) {
