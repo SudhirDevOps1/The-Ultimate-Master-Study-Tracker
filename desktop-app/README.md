@@ -38,6 +38,9 @@ Welcome to the **Standalone Desktop Application** module of FlowTrack Pro. This 
 - 🛡️ **Anti-Cheat Clock Guard**: Validates system time deltas to prevent user system time manipulation.
 - ⚡ **Kernel Win32 Tracker (`win-tracker.exe`)**: Fast active window detection consuming < 0.5% CPU and ~40MB RAM.
 - 📦 **LZMA Compressed Build Size**: Portable installers optimized down to ~150MB using maximum ASAR compression.
+- 🤖 **Multi-Provider AI Study Coach**: 20+ AI providers organized into 3 transparent tiers (100% Free, Trial with Card, Paid) with live model discovery and per-provider key isolation.
+- 🌈 **Prism.js Syntax Highlighting with Line Numbers**: Syntax highlighting for 20+ languages (`Java`, `Python`, `C++`, `TS`, `SQL`, etc.) with line numbers in all chat & markdown blocks.
+- ☁️ **Cloudflare Workers AI & Custom Endpoints**: Dedicated Account ID and API Token support, plus custom OpenAI-compatible server proxying.
 - 🎨 **Excalidraw & Miro Multi-Slide Whiteboard**: Canvas with slide deck engine, auto-cleaning empty textboxes, anti-collision sticky notes, and quick layer controls.
 - 🧠 **MindMap Portal Engine**: 100vw × 100vh true portal display, Radar Mini-Map navigator, 5 node shapes, and 4 auto-color branch hierarchy themes.
 - ⚡ **1-Click IDE Telemetry Link**: Automated `~/.wakatime.cfg` configuration for VS Code, Cursor, and JetBrains with instant heartbeat purge controls.

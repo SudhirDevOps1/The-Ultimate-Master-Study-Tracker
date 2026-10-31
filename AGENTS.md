@@ -29,7 +29,7 @@ Harmonized across both: `FocusAudioMixer`, `VirtualStudyCompanion`, `notificatio
 
 ## Testing reality
 
-- **21 test suites, 114 unit tests** in `desktop-app/src/utils/__tests__/` (covering `security.ts`, `afkTracking.ts`, `breakEngine.ts`, `downloadManager.ts`, `editorInfo.ts`, `heartbeatReceiver.ts`, `localQueryApi.ts`, `ocrEngine.ts`, `reviewGenerator.ts`, `taskModel.ts`, `mermaidHelper.ts`, `latexToMathML.ts`, `boardMath.ts`, `mindmapGraph.ts`, `aiModelFetcher.ts`, `storageMigration.ts`, `focusScore.ts`, `backupEngine.ts`, `securityContract.ts`, and E2E flows).
+- **25 test suites, 169 unit tests** in `desktop-app/src/utils/__tests__/` (covering `security.ts`, `afkTracking.ts`, `breakEngine.ts`, `downloadManager.ts`, `editorInfo.ts`, `heartbeatReceiver.ts`, `localQueryApi.ts`, `ocrEngine.ts`, `reviewGenerator.ts`, `taskModel.ts`, `mermaidHelper.ts`, `latexToMathML.ts`, `boardMath.ts`, `mindmapGraph.ts`, `aiModelFetcher.ts`, `storageMigration.ts`, `focusScore.ts`, `backupEngine.ts`, `securityContract.ts`, and E2E flows).
 - Coverage `include` is configured for tested utility surfaces. Never quote single-file coverage as overall repo coverage.
 - CI order: typecheck → lint → `py_compile`/`ruff` → test → build. Match it locally before every push.
 
