@@ -1,4 +1,5 @@
 import type { AiConfig } from "@/types/models";
+import { universalAiFetch } from "@/utils/aiClient";
 
 export interface FetchedModel {
   id: string;
@@ -18,6 +19,7 @@ export const FALLBACK_MODELS: Record<string, FetchedModel[]> = {
     { id: "qwen-2.5-32b", name: "Qwen 2.5 32B (Free)" },
   ],
   openrouter: [
+    { id: "openrouter/free", name: "🌟 OpenRouter Free Auto-Router (100% Free)" },
     { id: "meta-llama/llama-3.3-70b-instruct:free", name: "Llama 3.3 70B (100% Free)" },
     { id: "google/gemini-2.0-flash-exp:free", name: "Gemini 2.0 Flash Exp (100% Free)" },
     { id: "deepseek/deepseek-r1:free", name: "DeepSeek R1 Reasoner (100% Free)" },
@@ -147,12 +149,12 @@ export async function fetchLiveModels(
   try {
     if (provider === "gemini") {
       if (!apiKey.trim()) return { success: false, models: fallback, error: "API key is required" };
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey.trim()}`);
+      const res = await universalAiFetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey.trim()}`);
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err?.error?.message || `HTTP ${res.status}`);
+        const err = res.data;
+        throw new Error(err?.error?.message || res.error || `Google Gemini API returned HTTP ${res.status}`);
       }
-      const data = await res.json();
+      const data = res.data;
       const rawList = Array.isArray(data?.models) ? data.models : [];
       const models: FetchedModel[] = rawList
         .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
@@ -165,14 +167,14 @@ export async function fetchLiveModels(
 
     if (provider === "groq") {
       if (!apiKey.trim()) return { success: false, models: fallback, error: "API key is required" };
-      const res = await fetch("https://api.groq.com/openai/v1/models", {
+      const res = await universalAiFetch("https://api.groq.com/openai/v1/models", {
         headers: { Authorization: `Bearer ${apiKey.trim()}` },
       });
       if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson?.error?.message || errJson?.message || `Groq API returned HTTP ${res.status}`);
+        const errJson = res.data;
+        throw new Error(errJson?.error?.message || errJson?.message || res.error || `Groq API returned HTTP ${res.status}`);
       }
-      const data = await res.json();
+      const data = res.data;
       const raw = Array.isArray(data?.data) ? data.data : [];
       // Filter out inactive models, audio models (whisper), guardrails, embeddings
       const filtered = raw
@@ -207,14 +209,18 @@ export async function fetchLiveModels(
 
     if (provider === "mistral") {
       if (!apiKey.trim()) return { success: false, models: fallback, error: "API key is required" };
-      const res = await fetch("https://api.mistral.ai/v1/models", {
+      const res = await universalAiFetch("https://api.mistral.ai/v1/models", {
         headers: { Authorization: `Bearer ${apiKey.trim()}` },
       });
       if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson?.message || errJson?.error?.message || `Mistral API returned HTTP ${res.status}`);
+        const errJson = res.data;
+        const msg = errJson?.message || errJson?.error?.message;
+        if (res.status === 429) {
+          throw new Error("Mistral Free Tier limit reached. Requires phone/billing verification on console.mistral.ai for chat tokens.");
+        }
+        throw new Error(msg || res.error || `Mistral API returned HTTP ${res.status}`);
       }
-      const data = await res.json();
+      const data = res.data;
       const raw = Array.isArray(data?.data) ? data.data : [];
       const filtered = raw
         .filter((m: any) => {
@@ -245,11 +251,11 @@ export async function fetchLiveModels(
 
     if (provider === "openai") {
       if (!apiKey.trim()) return { success: false, models: fallback, error: "API key is required" };
-      const res = await fetch("https://api.openai.com/v1/models", {
+      const res = await universalAiFetch("https://api.openai.com/v1/models", {
         headers: { Authorization: `Bearer ${apiKey.trim()}` },
       });
       if (!res.ok) throw new Error(`OpenAI API returned HTTP ${res.status}`);
-      const data = await res.json();
+      const data = res.data;
       const raw = Array.isArray(data?.data) ? data.data : [];
       const chatModels = raw
         .filter((m: any) => m.id.includes("gpt") || m.id.includes("o1") || m.id.includes("o3"))
@@ -259,11 +265,13 @@ export async function fetchLiveModels(
 
     if (provider === "cerebras") {
       if (!apiKey.trim()) return { success: false, models: fallback, error: "API key is required" };
-      const res = await fetch("https://api.cerebras.ai/v1/models", {
+      const res = await universalAiFetch("https://api.cerebras.ai/v1/models", {
         headers: { Authorization: `Bearer ${apiKey.trim()}` },
       });
-      if (!res.ok) throw new Error(`Cerebras API returned HTTP ${res.status}`);
-      const data = await res.json();
+      if (!res.ok) {
+        throw new Error("Cerebras API requires adding a payment method on cloud.cerebras.ai to activate the $5 free trial credits.");
+      }
+      const data = res.data;
       const raw = Array.isArray(data?.data) ? data.data : [];
       const models = raw.map((m: any) => ({ id: m.id, name: m.id }));
       return { success: true, models: models.length > 0 ? models : fallback };
@@ -271,9 +279,9 @@ export async function fetchLiveModels(
 
     if (provider === "ollama") {
       const url = (ollamaUrl.trim() || "http://localhost:11434").replace(/\/$/, "");
-      const res = await fetch(`${url}/api/tags`);
+      const res = await universalAiFetch(`${url}/api/tags`);
       if (!res.ok) throw new Error(`Ollama returned HTTP ${res.status}`);
-      const data = await res.json();
+      const data = res.data;
       const raw = Array.isArray(data?.models) ? data.models : [];
       const models = raw.map((m: any) => ({ id: m.name, name: `${m.name} (${Math.round((m.size || 0) / (1024 * 1024))}MB)` }));
       return { success: true, models: models.length > 0 ? models : fallback };
@@ -284,12 +292,13 @@ export async function fetchLiveModels(
       openrouter: "https://openrouter.ai/api/v1/models",
       sambanova: "https://api.sambanova.ai/v1/models",
       deepseek: "https://api.deepseek.com/models",
-      together: "https://api.together.xyz/v1/models",
+      together: "https://api.together.ai/v1/models",
       deepinfra: "https://api.deepinfra.com/v1/openai/models",
       novita: "https://api.novita.ai/v3/openai/models",
       hyperbolic: "https://api.hyperbolic.xyz/v1/models",
       fireworks: "https://api.fireworks.ai/inference/v1/models",
       perplexity: "https://api.perplexity.ai/models",
+      huggingface: "https://router.huggingface.co/v1/models",
       github_models: "https://models.inference.ai.azure.com/models",
       lmstudio: "http://localhost:1234/v1/models",
     };
@@ -308,25 +317,37 @@ export async function fetchLiveModels(
         headers["X-Title"] = "FlowTrack Pro";
       }
 
-      const res = await fetch(targetEndpoint, { headers });
+      const res = await universalAiFetch(targetEndpoint, { headers });
       if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
+        const errJson = res.data;
         throw new Error(errJson?.error?.message || errJson?.message || `${provider} returned HTTP ${res.status}`);
       }
-      const data = await res.json();
-      const raw = Array.isArray(data?.data) ? data.data : [];
+      const data = res.data;
+      const raw = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
       let models = raw
         .filter((m: any) => m.active !== false)
-        .map((m: any) => ({
-          id: m.id,
-          name: provider === "openrouter" && m.id.endsWith(":free") ? `🌟 ${m.name || m.id}` : (m.name || m.id)
-        }));
+        .map((m: any) => {
+          const isFree = provider === "openrouter" && (
+            (m.id || "").endsWith(":free") ||
+            m.id === "openrouter/free" ||
+            m.pricing?.prompt === 0 ||
+            m.pricing?.prompt === "0"
+          );
+          return {
+            id: m.id,
+            name: isFree ? `🌟 [Free] ${m.name || m.id}` : (m.name || m.id)
+          };
+        });
 
       if (provider === "openrouter") {
-        // Put free models first
+        // Ensure openrouter/free meta model is present at top
+        if (!models.some((m: any) => m.id === "openrouter/free")) {
+          models.unshift({ id: "openrouter/free", name: "🌟 [Free] OpenRouter Auto-Router" });
+        }
+        // Put all free models first
         models.sort((a: any, b: any) => {
-          const aFree = a.id.endsWith(":free");
-          const bFree = b.id.endsWith(":free");
+          const aFree = a.name.includes("🌟");
+          const bFree = b.name.includes("🌟");
           if (aFree && !bFree) return -1;
           if (!aFree && bFree) return 1;
           return a.name.localeCompare(b.name);

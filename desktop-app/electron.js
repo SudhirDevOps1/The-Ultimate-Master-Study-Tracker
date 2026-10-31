@@ -2430,32 +2430,51 @@ ipcMain.handle("secure-proxy-fetch", async (_e, { url, method, headers, body }) 
       const { net } = require("electron");
       const urlObj = new URL(url);
 
-      // Security Whitelist Filter: Protect local data privacy from unauthorized outgoing calls
+      // Security Whitelist Filter: Protect local data privacy while enabling all 23 supported AI providers
       const whitelistedHosts = [
         "api.groq.com",
         "generativelanguage.googleapis.com",
-        "api.openai.com",
+        "openrouter.ai",
+        "api.sambanova.ai",
         "api.cerebras.ai",
+        "models.inference.ai.azure.com",
+        "router.huggingface.co",
+        "api-inference.huggingface.co",
+        "api.deepseek.com",
+        "api.together.ai",
+        "api.together.xyz",
+        "api.deepinfra.com",
+        "api.novita.ai",
+        "api.hyperbolic.xyz",
+        "api.fireworks.ai",
+        "api.cohere.com",
+        "api.perplexity.ai",
         "api.mistral.ai",
         "api.x.ai",
-        "localhost"
+        "api.openai.com",
+        "api.cloudflare.com",
+        "localhost",
+        "127.0.0.1"
       ];
 
       const isWhitelisted = whitelistedHosts.some(host => urlObj.hostname === host || urlObj.hostname.endsWith("." + host));
       if (!isWhitelisted) {
         return resolve({ 
-          success: false, 
+          success: false,
+          ok: false,
+          status: 403,
           error: `Blocked by Security Policy: Outgoing request to ${urlObj.hostname} is restricted.` 
         });
       }
       
-      const reqHeaders = headers || {};
-      if (!reqHeaders["Content-Type"]) {
+      const reqMethod = (method || "POST").toUpperCase();
+      const reqHeaders = headers ? { ...headers } : {};
+      if (reqMethod !== "GET" && reqMethod !== "HEAD" && !reqHeaders["Content-Type"]) {
         reqHeaders["Content-Type"] = "application/json";
       }
 
       const req = net.request({
-        method: method || "POST",
+        method: reqMethod,
         protocol: urlObj.protocol,
         hostname: urlObj.hostname,
         port: urlObj.port ? Number(urlObj.port) : undefined,
@@ -2485,22 +2504,22 @@ ipcMain.handle("secure-proxy-fetch", async (_e, { url, method, headers, body }) 
         });
 
         res.on("error", (err) => {
-          resolve({ success: false, error: err.message });
+          resolve({ success: false, ok: false, status: 500, error: err.message });
         });
       });
 
       req.on("error", (err) => {
-        resolve({ success: false, error: err.message });
+        resolve({ success: false, ok: false, status: 500, error: err.message });
       });
 
-      if (body) {
+      if (body && reqMethod !== "GET" && reqMethod !== "HEAD") {
         const bodyStr = typeof body === "string" ? body : JSON.stringify(body);
         req.write(bodyStr);
       }
       
       req.end();
     } catch (err) {
-      resolve({ success: false, error: err.message });
+      resolve({ success: false, ok: false, status: 500, error: err.message });
     }
   });
 });

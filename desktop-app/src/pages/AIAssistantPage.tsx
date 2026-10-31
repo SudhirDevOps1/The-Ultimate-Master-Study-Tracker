@@ -13,7 +13,7 @@ import { toDurationLabel } from "@/utils/time";
 import { db } from "@/lib/db";
 import { MarkdownRenderer } from "@/components/common/MarkdownRenderer";
 import { fetchLiveModels, FALLBACK_MODELS, type FetchedModel } from "@/utils/aiModelFetcher";
-import { decodeAiProviderError } from "@/utils/aiClient";
+import { decodeAiProviderError, universalAiFetch } from "@/utils/aiClient";
 
 // --- Universal Markdown & Mermaid Renderer -----------------------------
 function Markdown({ text }: { text: string }) {
@@ -86,41 +86,51 @@ export interface ChatSession {
 
 const SESSIONS_STORAGE_KEY = "flowtrack_ai_chat_sessions_v2";
 
-// ─── Provider Configs (20+ Platforms with Free Tier Highlighting) ───
-const PROVIDERS = [
-  // ── 100% Free / Generous Free Tier ──
-  { id: "local_rules", name: "🛡️ Local AI Rules (100% Free & Offline)", needsKey: false, defaultModel: "local-rules", isFree: true, keyUrl: "" },
-  { id: "groq", name: "⚡ Groq Cloud (100% Free Ultra-Fast)", needsKey: true, defaultModel: "llama-3.3-70b-versatile", isFree: true, keyUrl: "https://console.groq.com/keys" },
-  { id: "openrouter", name: "🌐 OpenRouter (Free Llama 3.3, R1 & All Top LLMs)", needsKey: true, defaultModel: "meta-llama/llama-3.3-70b-instruct:free", isFree: true, keyUrl: "https://openrouter.ai/keys" },
-  { id: "sambanova", name: "🚀 SambaNova (100% Free Ultra-Fast Llama)", needsKey: true, defaultModel: "Meta-Llama-3.1-70B-Instruct", isFree: true, keyUrl: "https://cloud.sambanova.ai" },
-  { id: "gemini", name: "🌟 Google Gemini (Free 15 RPM Tier)", needsKey: true, defaultModel: "gemini-1.5-flash", isFree: true, keyUrl: "https://aistudio.google.com/app/apikey" },
-  { id: "github_models", name: "🐙 GitHub Models (Free for Developers)", needsKey: true, defaultModel: "gpt-4o-mini", isFree: true, keyUrl: "https://github.com/marketplace/models" },
-  { id: "cerebras", name: "🏎️ Cerebras API (Free Ultra-Fast 1800 T/s)", needsKey: true, defaultModel: "llama3.1-8b", isFree: true, keyUrl: "https://cloud.cerebras.ai" },
-  { id: "huggingface", name: "🤗 Hugging Face (Free Inference API)", needsKey: true, defaultModel: "mistralai/Mistral-7B-Instruct-v0.3", isFree: true, keyUrl: "https://huggingface.co/settings/tokens" },
+export type ProviderTier = "free" | "trial" | "paid";
 
-  // ── High Performance / Low Cost / Trial Credits ──
-  { id: "deepseek", name: "🧠 DeepSeek Direct (V3 & R1 Reasoner)", needsKey: true, defaultModel: "deepseek-chat", isFree: false, keyUrl: "https://platform.deepseek.com" },
-  { id: "together", name: "🤝 Together AI (Free Trial Credits)", needsKey: true, defaultModel: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", isFree: false, keyUrl: "https://api.together.ai" },
-  { id: "deepinfra", name: "⚡ DeepInfra (Free Trial Credits)", needsKey: true, defaultModel: "meta-llama/Meta-Llama-3.1-8B-Instruct", isFree: false, keyUrl: "https://deepinfra.com" },
-  { id: "novita", name: "💫 Novita AI (Free Trial Credits)", needsKey: true, defaultModel: "meta-llama/llama-3.1-8b-instruct", isFree: false, keyUrl: "https://novita.ai" },
-  { id: "hyperbolic", name: "🌀 Hyperbolic (Fast Open Source)", needsKey: true, defaultModel: "meta-llama/Meta-Llama-3.1-70B-Instruct", isFree: false, keyUrl: "https://hyperbolic.xyz" },
-  { id: "fireworks", name: "🎆 Fireworks AI (Fast Open Source)", needsKey: true, defaultModel: "accounts/fireworks/models/llama-v3p1-70b-instruct", isFree: false, keyUrl: "https://fireworks.ai" },
-  { id: "perplexity", name: "🔍 Perplexity AI (Live Search)", needsKey: true, defaultModel: "sonar", isFree: false, keyUrl: "https://www.perplexity.ai/settings/api" },
+export interface ProviderItem {
+  id: AiConfig["provider"];
+  name: string;
+  needsKey: boolean;
+  defaultModel: string;
+  isFree: boolean;
+  tier: ProviderTier;
+  keyUrl: string;
+  badge: string;
+  desc: string;
+}
 
-  // ── Commercial Flagships ──
-  { id: "openai", name: "🤖 OpenAI ChatGPT (GPT-4o / 4o-mini)", needsKey: true, defaultModel: "gpt-4o-mini", isFree: false, keyUrl: "https://platform.openai.com/api-keys" },
-  { id: "mistral", name: "🇫🇷 Mistral AI (La Plateforme)", needsKey: true, defaultModel: "mistral-small-latest", isFree: false, keyUrl: "https://console.mistral.ai" },
-  { id: "grok", name: "🛸 xAI Grok (Grok Beta / Vision)", needsKey: true, defaultModel: "grok-beta", isFree: false, keyUrl: "https://console.x.ai" },
-  { id: "cohere", name: "🧭 Cohere (Command R / R+)", needsKey: true, defaultModel: "command-r", isFree: false, keyUrl: "https://dashboard.cohere.com/api-keys" },
+// ─── Provider Configs Categorized by Verified Tiers (20+ Platforms) ───
+export const PROVIDERS: ProviderItem[] = [
+  // ── 🟢 100% Free (No Credit Card / Zero Deposit Needed) ──
+  { id: "local_rules", name: "🛡️ Local AI Rules (100% Free & Offline)", needsKey: false, defaultModel: "local-rules", isFree: true, tier: "free", badge: "100% Free", desc: "No internet or API key required. Built-in academic study mentor.", keyUrl: "" },
+  { id: "groq", name: "⚡ Groq Cloud (100% Free Ultra-Fast)", needsKey: true, defaultModel: "llama-3.3-70b-versatile", isFree: true, tier: "free", badge: "100% Free • No Card", desc: "Free tier with ultra-fast LPU inference (Llama 3.3 70B & 8B). Zero card needed.", keyUrl: "https://console.groq.com/keys" },
+  { id: "openrouter", name: "🌐 OpenRouter (Free :free Models)", needsKey: true, defaultModel: "openrouter/free", isFree: true, tier: "free", badge: "100% Free • No Card", desc: "Access free models like openrouter/free, Llama 3.3 :free, and DeepSeek R1 :free without credits.", keyUrl: "https://openrouter.ai/keys" },
+  { id: "gemini", name: "🌟 Google Gemini (Free 15 RPM Tier)", needsKey: true, defaultModel: "gemini-1.5-flash", isFree: true, tier: "free", badge: "100% Free • No Card", desc: "Free 15 requests/minute on Google AI Studio without credit card.", keyUrl: "https://aistudio.google.com/app/apikey" },
+  { id: "github_models", name: "🐙 GitHub Models (Free for Developers)", needsKey: true, defaultModel: "gpt-4o-mini", isFree: true, tier: "free", badge: "100% Free • GitHub Token", desc: "Free playground & inference for developers with a GitHub Personal Access Token.", keyUrl: "https://github.com/marketplace/models" },
+  { id: "huggingface", name: "🤗 Hugging Face (Free Serverless)", needsKey: true, defaultModel: "mistralai/Mistral-7B-Instruct-v0.3", isFree: true, tier: "free", badge: "100% Free • HF Token", desc: "Free serverless inference on router.huggingface.co with your HF user token.", keyUrl: "https://huggingface.co/settings/tokens" },
+  { id: "ollama", name: "🦙 Ollama Local (100% Free Offline)", needsKey: false, defaultModel: "llama3:latest", isFree: true, tier: "free", badge: "Local Offline", desc: "Runs completely locally on your hardware on localhost:11434.", keyUrl: "https://ollama.ai" },
+  { id: "lmstudio", name: "💻 LM Studio (Local Offline Port 1234)", needsKey: false, defaultModel: "local-model", isFree: true, tier: "free", badge: "Local Offline", desc: "Runs locally on your machine on localhost:1234.", keyUrl: "https://lmstudio.ai" },
 
-  // ── 100% Offline Local Inference ──
-  { id: "ollama", name: "🦙 Ollama (Local Offline)", needsKey: false, defaultModel: "llama3:latest", isFree: true, keyUrl: "https://ollama.ai" },
-  { id: "lmstudio", name: "💻 LM Studio (Local Offline Port 1234)", needsKey: false, defaultModel: "local-model", isFree: true, keyUrl: "https://lmstudio.ai" },
+  // ── 🟡 Free Trial / Promo Credits (Credit Card / Activation Required) ──
+  { id: "cerebras", name: "🏎️ Cerebras API ($5 Trial - Card Required)", needsKey: true, defaultModel: "llama3.1-8b", isFree: false, tier: "trial", badge: "Trial • Card Required", desc: "Provides $5 free credits, but requires adding a credit card / payment method in cloud.cerebras.ai to activate.", keyUrl: "https://cloud.cerebras.ai" },
+  { id: "sambanova", name: "🚀 SambaNova Cloud (Developer Tier)", needsKey: true, defaultModel: "Meta-Llama-3.1-70B-Instruct", isFree: false, tier: "trial", badge: "Trial • Setup Required", desc: "Developer tier requires verification for sustained RPM usage.", keyUrl: "https://cloud.sambanova.ai" },
+  { id: "together", name: "🤝 Together AI ($5 Trial Credits)", needsKey: true, defaultModel: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", isFree: false, tier: "trial", badge: "Trial Credits", desc: "$5 free trial credits upon account registration and phone verification.", keyUrl: "https://api.together.ai" },
+  { id: "deepinfra", name: "⚡ DeepInfra (Trial Credits)", needsKey: true, defaultModel: "meta-llama/Meta-Llama-3.1-8B-Instruct", isFree: false, tier: "trial", badge: "Trial Credits", desc: "Free trial credits for new accounts; requires active balance afterwards.", keyUrl: "https://deepinfra.com" },
+  { id: "novita", name: "💫 Novita AI (Trial Credits)", needsKey: true, defaultModel: "meta-llama/llama-3.1-8b-instruct", isFree: false, tier: "trial", badge: "Trial Credits", desc: "Free trial balance on signup; requires balance top-up for long-term use.", keyUrl: "https://novita.ai" },
 
-  // ── Cloud / Custom ──
-  { id: "cloudflare", name: "☁️ Cloudflare Workers AI", needsKey: true, defaultModel: "@cf/meta/llama-3.1-8b-instruct", isFree: false, keyUrl: "https://dash.cloudflare.com" },
-  { id: "custom", name: "🔌 Custom OpenAI-Compatible Provider", needsKey: true, defaultModel: "", isFree: false, keyUrl: "" }
-] as const;
+  // ── 🔴 Paid / Commercial Flagships (Balance / Subscription Required) ──
+  { id: "mistral", name: "🇫🇷 Mistral AI (Pay-as-you-go)", needsKey: true, defaultModel: "mistral-small-latest", isFree: false, tier: "paid", badge: "Paid • Billing Required", desc: "Tier 0 accounts have 0 compute quota. Requires adding phone or billing card on console.mistral.ai (returns 429 otherwise).", keyUrl: "https://console.mistral.ai" },
+  { id: "openai", name: "🤖 OpenAI ChatGPT (GPT-4o / 4o-mini)", needsKey: true, defaultModel: "gpt-4o-mini", isFree: false, tier: "paid", badge: "Paid • Prepaid Balance", desc: "Requires prepaid API credit balance on platform.openai.com.", keyUrl: "https://platform.openai.com/api-keys" },
+  { id: "deepseek", name: "🧠 DeepSeek Direct (V3 & R1)", needsKey: true, defaultModel: "deepseek-chat", isFree: false, tier: "paid", badge: "Paid • Prepaid Balance", desc: "Direct official API. Requires adding credit balance on platform.deepseek.com.", keyUrl: "https://platform.deepseek.com" },
+  { id: "grok", name: "🛸 xAI Grok (Grok Beta / Vision)", needsKey: true, defaultModel: "grok-beta", isFree: false, tier: "paid", badge: "Paid • X Account Billing", desc: "Requires paid credits on console.x.ai.", keyUrl: "https://console.x.ai" },
+  { id: "cohere", name: "🧭 Cohere (Command R / R+)", needsKey: true, defaultModel: "command-r", isFree: false, tier: "paid", badge: "Paid", desc: "Pay-as-you-go developer tokens.", keyUrl: "https://dashboard.cohere.com/api-keys" },
+  { id: "perplexity", name: "🔍 Perplexity AI (Sonar Search)", needsKey: true, defaultModel: "sonar", isFree: false, tier: "paid", badge: "Paid • Pro/API Balance", desc: "Requires API credit balance on perplexity.ai.", keyUrl: "https://www.perplexity.ai/settings/api" },
+  { id: "hyperbolic", name: "🌀 Hyperbolic (Fast Open Source)", needsKey: true, defaultModel: "meta-llama/Meta-Llama-3.1-70B-Instruct", isFree: false, tier: "paid", badge: "Paid", desc: "Requires account balance on hyperbolic.xyz.", keyUrl: "https://hyperbolic.xyz" },
+  { id: "fireworks", name: "🎆 Fireworks AI (Fast Open Source)", needsKey: true, defaultModel: "accounts/fireworks/models/llama-v3p1-70b-instruct", isFree: false, tier: "paid", badge: "Paid", desc: "Requires payment account on fireworks.ai.", keyUrl: "https://fireworks.ai" },
+  { id: "cloudflare", name: "☁️ Cloudflare Workers AI", needsKey: true, defaultModel: "@cf/meta/llama-3.1-8b-instruct", isFree: false, tier: "paid", badge: "Account Required", desc: "Requires Cloudflare account ID and API token.", keyUrl: "https://dash.cloudflare.com" },
+  { id: "custom", name: "🔌 Custom OpenAI-Compatible Provider", needsKey: true, defaultModel: "", isFree: false, tier: "paid", badge: "Custom", desc: "Custom self-hosted or proxy endpoint.", keyUrl: "" }
+];
 
 function getProviderEndpoint(provider: AiConfig["provider"], _model: string, ollamaUrl: string, customEndpoint?: string) {
   switch (provider) {
@@ -130,8 +140,8 @@ function getProviderEndpoint(provider: AiConfig["provider"], _model: string, oll
     case "cerebras":      return "https://api.cerebras.ai/v1/chat/completions";
     case "deepseek":      return "https://api.deepseek.com/chat/completions";
     case "github_models": return "https://models.inference.ai.azure.com/chat/completions";
-    case "huggingface":   return "https://api-inference.huggingface.co/v1/chat/completions";
-    case "together":      return "https://api.together.xyz/v1/chat/completions";
+    case "huggingface":   return "https://router.huggingface.co/v1/chat/completions";
+    case "together":      return "https://api.together.ai/v1/chat/completions";
     case "deepinfra":     return "https://api.deepinfra.com/v1/openai/chat/completions";
     case "novita":        return "https://api.novita.ai/v3/openai/chat/completions";
     case "hyperbolic":    return "https://api.hyperbolic.xyz/v1/chat/completions";
@@ -548,19 +558,18 @@ ${studyContext.recentActivity}`;
       max_tokens: 2048
     };
 
-    const res = await fetch(endpoint, {
+    const res = await universalAiFetch(endpoint, {
       method: "POST",
       headers,
       body: JSON.stringify(body)
     });
 
     if (!res.ok) {
-      const errData = await res.json().catch(() => null);
-      throw new Error(decodeAiProviderError(res.status, errData, provider));
+      throw new Error(decodeAiProviderError(res.status, res.data, provider));
     }
 
-    const data = await res.json();
-    const reply = data.choices?.[0]?.message?.content || "";
+    const data = res.data;
+    const reply = data?.choices?.[0]?.message?.content || "";
     if (data.usage) {
       void recordTokenUsage(data.usage.prompt_tokens || 0, data.usage.completion_tokens || 0, data.usage.total_tokens || 0);
     } else {
@@ -704,21 +713,20 @@ ${studyContext.recentActivity}`;
 
       if (provider === "gemini") {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-        const res = await fetch(url, {
+        const res = await universalAiFetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "ping" }] }] })
         });
         if (!res.ok) {
-          const errData = await res.json().catch(() => null);
-          throw new Error(decodeAiProviderError(res.status, errData, "gemini"));
+          throw new Error(decodeAiProviderError(res.status, res.data, "gemini"));
         }
         setConnectionResult({ success: true, message: "✅ Gemini API connection successful!" });
       } else {
         const activeModel = getValidModelForProvider(provider, model);
         const endpoint = getProviderEndpoint(provider, activeModel, ollamaUrl, customProviderEndpoint);
         const headers = getProviderHeaders(provider, apiKey);
-        const res = await fetch(endpoint, {
+        const res = await universalAiFetch(endpoint, {
           method: "POST",
           headers,
           body: JSON.stringify({
@@ -728,8 +736,7 @@ ${studyContext.recentActivity}`;
           })
         });
         if (!res.ok) {
-          const errData = await res.json().catch(() => null);
-          throw new Error(decodeAiProviderError(res.status, errData, provider));
+          throw new Error(decodeAiProviderError(res.status, res.data, provider));
         }
         setConnectionResult({ success: true, message: `✅ Successfully connected to ${provider} (${activeModel})!` });
       }
@@ -1096,7 +1103,7 @@ ${studyContext.recentActivity}`;
                   </div>
                 </Panel>
 
-                {/* Provider Selection */}
+                {/* Provider Selection (Grouped by Verified Free / Trial / Paid Tiers) */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-300">AI Provider</label>
                   <select
@@ -1112,12 +1119,55 @@ ${studyContext.recentActivity}`;
                     }}
                     className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400"
                   >
-                    {PROVIDERS.map((p) => (
-                      <option key={p.id} value={p.id} className="bg-slate-900 text-white">
-                        {p.name}
-                      </option>
-                    ))}
+                    <optgroup label="🟢 100% Free (No Credit Card / Zero Deposit Needed)">
+                      {PROVIDERS.filter(p => p.tier === "free").map((p) => (
+                        <option key={p.id} value={p.id} className="bg-slate-900 text-white">
+                          {p.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="🟡 Free Trial / Promo (Card/Setup Required)">
+                      {PROVIDERS.filter(p => p.tier === "trial").map((p) => (
+                        <option key={p.id} value={p.id} className="bg-slate-900 text-white">
+                          {p.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="🔴 Paid / Subscription APIs">
+                      {PROVIDERS.filter(p => p.tier === "paid").map((p) => (
+                        <option key={p.id} value={p.id} className="bg-slate-900 text-white">
+                          {p.name}
+                        </option>
+                      ))}
+                    </optgroup>
                   </select>
+
+                  {/* Dynamic Tier Explainer Card */}
+                  {(() => {
+                    const currentP = PROVIDERS.find(p => p.id === provider);
+                    if (!currentP) return null;
+                    const isFree = currentP.tier === "free";
+                    const isTrial = currentP.tier === "trial";
+                    return (
+                      <div className={`p-2 rounded-xl border text-[11px] space-y-1 mt-1.5 ${
+                        isFree
+                          ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                          : isTrial
+                          ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
+                          : "bg-purple-500/10 border-purple-500/30 text-purple-300"
+                      }`}>
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold flex items-center gap-1.5">
+                            {isFree ? "🟢 100% Free Tier Available" : isTrial ? "🟡 Free Trial (Setup Required)" : "🔴 Paid / Balance Required"}
+                          </span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold border bg-white/5 border-white/10">
+                            {currentP.badge}
+                          </span>
+                        </div>
+                        <p className="text-[10px] leading-relaxed opacity-90">{currentP.desc}</p>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* API Key (if needed) */}
@@ -1268,11 +1318,25 @@ ${studyContext.recentActivity}`;
                         onClick={() => {
                           setProvider("groq");
                           setModel("llama-3.3-70b-versatile");
+                          setApiKey(apiKeys["groq"] || "");
                           setConnectionResult(null);
+                          refreshLiveModels("groq", apiKeys["groq"] || "");
                         }}
-                        className="text-[10px] px-2.5 py-1 rounded-lg bg-orange-500/20 text-orange-300 hover:bg-orange-500/30 border border-orange-500/30 transition font-medium"
+                        className="text-[10px] px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30 transition font-medium"
                       >
-                        ⚡ Switch to Groq Cloud (Free)
+                        ⚡ Switch to Groq Cloud (100% Free)
+                      </button>
+                      <button
+                        onClick={() => {
+                          setProvider("openrouter");
+                          setModel("openrouter/free");
+                          setApiKey(apiKeys["openrouter"] || "");
+                          setConnectionResult(null);
+                          refreshLiveModels("openrouter", apiKeys["openrouter"] || "");
+                        }}
+                        className="text-[10px] px-2.5 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-500/30 transition font-medium"
+                      >
+                        🌐 Switch to OpenRouter (:free)
                       </button>
                       <button
                         onClick={() => {

@@ -39,6 +39,101 @@ export function decodeAiProviderError(status: number, errData: any, provider: st
   return `${provLabel} returned HTTP ${status}`;
 }
 
+export interface UniversalFetchResponse<T = any> {
+  ok: boolean;
+  status: number;
+  data: T;
+  error?: string;
+}
+
+/**
+ * Universal proxy-aware fetcher for AI requests.
+ * In Electron: routes through secure IPC proxy to bypass CORS restrictions.
+ * In Browser: falls back to native window.fetch.
+ */
+export async function universalAiFetch<T = any>(
+  url: string,
+  options?: {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: any;
+    signal?: AbortSignal;
+  }
+): Promise<UniversalFetchResponse<T>> {
+  const ipc = typeof window !== "undefined" && (window as any).electron?.ipcRenderer;
+  if (ipc) {
+    try {
+      const res = await ipc.invoke("secure-proxy-fetch", {
+        url,
+        method: options?.method || "GET",
+        headers: options?.headers,
+        body: options?.body
+      });
+      if (res && typeof res.status === "number") {
+        return {
+          ok: !!res.ok,
+          status: res.status,
+          data: res.data,
+          error: res.error
+        };
+      }
+      if (res && res.error) {
+        return {
+          ok: false,
+          status: 500,
+          data: null as any,
+          error: res.error
+        };
+      }
+    } catch (err: any) {
+      console.warn("secure-proxy-fetch IPC error, falling back to window.fetch:", err);
+    }
+  }
+
+  // Web Browser / Direct Fallback
+  try {
+    const fetchOptions: RequestInit = {
+      method: options?.method || "GET",
+      headers: options?.headers,
+      signal: options?.signal
+    };
+    if (options?.body && options?.method !== "GET" && options?.method !== "HEAD") {
+      fetchOptions.body = typeof options.body === "string" ? options.body : JSON.stringify(options.body);
+    }
+    const res = await fetch(url, fetchOptions);
+    let data: any = null;
+    let text = "";
+    if (typeof res.json === "function") {
+      try {
+        data = await res.json();
+      } catch {
+        data = null;
+      }
+    }
+    if (data === null && typeof res.text === "function") {
+      text = await res.text().catch(() => "");
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = text;
+      }
+    }
+    return {
+      ok: res.ok,
+      status: res.status,
+      data,
+      error: res.ok ? undefined : (typeof data === "object" ? JSON.stringify(data) : (text || (typeof data === "string" ? data : undefined)))
+    };
+  } catch (err: any) {
+    return {
+      ok: false,
+      status: 0,
+      data: null as any,
+      error: err?.message || "Network request failed"
+    };
+  }
+}
+
 export interface AIResponse {
   success: boolean;
   text: string;
@@ -82,26 +177,25 @@ export async function callUnifiedAI(
     try {
       const activeModel = model || "gemini-1.5-flash";
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${apiKey}`;
-      const res = await fetch(url, {
+      const res = await universalAiFetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           contents: [
             {
               role: "user",
               parts: [{ text: `${defaultSys}\n\nUser Question:\n${prompt}` }]
             }
           ]
-        })
+        }
       });
 
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(decodeAiProviderError(res.status, errData, "gemini"));
+        throw new Error(decodeAiProviderError(res.status, res.data, "gemini"));
       }
 
-      const data = await res.json();
-      const answer = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      const data = res.data;
+      const answer = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
       return { success: true, text: answer, provider: "gemini", model: activeModel };
     } catch (err: any) {
       console.warn("Gemini API call failed, falling back to local tutor:", err);
@@ -117,8 +211,8 @@ export async function callUnifiedAI(
     cerebras: "https://api.cerebras.ai/v1/chat/completions",
     deepseek: "https://api.deepseek.com/chat/completions",
     github_models: "https://models.inference.ai.azure.com/chat/completions",
-    huggingface: "https://api-inference.huggingface.co/v1/chat/completions",
-    together: "https://api.together.xyz/v1/chat/completions",
+    huggingface: "https://router.huggingface.co/v1/chat/completions",
+    together: "https://api.together.ai/v1/chat/completions",
     deepinfra: "https://api.deepinfra.com/v1/openai/chat/completions",
     novita: "https://api.novita.ai/v3/openai/chat/completions",
     hyperbolic: "https://api.hyperbolic.xyz/v1/chat/completions",
@@ -179,26 +273,25 @@ export async function callUnifiedAI(
         headers["X-Title"] = "FlowTrack Pro";
       }
 
-      const res = await fetch(endpoint, {
+      const res = await universalAiFetch(endpoint, {
         method: "POST",
         headers,
-        body: JSON.stringify({
+        body: {
           model: activeModel,
           messages: [
             { role: "system", content: defaultSys },
             { role: "user", content: prompt }
           ],
           temperature: 0.6
-        })
+        }
       });
 
       if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(decodeAiProviderError(res.status, errJson, provider));
+        throw new Error(decodeAiProviderError(res.status, res.data, provider));
       }
 
-      const data = await res.json();
-      const answer = data.choices?.[0]?.message?.content || "";
+      const data = res.data;
+      const answer = data?.choices?.[0]?.message?.content || "";
       return { success: true, text: answer, provider, model: activeModel };
     } catch (err: any) {
       console.warn(`${provider} API call failed, falling back to local tutor:`, err);
