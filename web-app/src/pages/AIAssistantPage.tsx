@@ -160,6 +160,16 @@ function getProviderHeaders(provider: AiConfig["provider"], apiKey: string): Rec
   return headers;
 }
 
+export function getValidModelForProvider(targetProv: AiConfig["provider"], currentModel?: string): string {
+  const matched = PROVIDERS.find(p => p.id === targetProv);
+  const fallbacks = FALLBACK_MODELS[targetProv] || [];
+  const validIds = fallbacks.map(m => m.id);
+  if (currentModel && validIds.includes(currentModel)) {
+    return currentModel;
+  }
+  return matched?.defaultModel || validIds[0] || "";
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 export function AIAssistantPage() {
   const sessions = useAppStore((s: AppState) => s.sessions);
@@ -195,6 +205,16 @@ export function AIAssistantPage() {
     if (aiConfig?.provider && aiConfig?.apiKey) initialKeys[aiConfig.provider] = aiConfig.apiKey;
     return initialKeys;
   });
+
+  // Synchronize with centralized Zustand store when loaded
+  useEffect(() => {
+    if (aiConfig?.provider) {
+      setProvider(aiConfig.provider);
+      setModel(getValidModelForProvider(aiConfig.provider, aiConfig.model));
+    }
+    if (aiConfig?.apiKey !== undefined) setApiKey(aiConfig.apiKey);
+    if (aiConfig?.apiKeys) setApiKeys(prev => ({ ...prev, ...aiConfig.apiKeys }));
+  }, [aiConfig]);
 
   // UI state
   const [showConfig, setShowConfig] = useState(false);
@@ -446,7 +466,7 @@ ${studyContext.recentActivity}`;
   };
 
   // ─── Groq Streaming Fetch ──────────────────────────────────────────
-  const fetchGroqStreaming = async (userMessage: string) => {
+  const fetchGroqStreaming = async (userMessage: string, activeModel?: string) => {
     const endpoint = "https://api.groq.com/openai/v1/chat/completions";
     const headers = {
       "Content-Type": "application/json",
@@ -459,7 +479,7 @@ ${studyContext.recentActivity}`;
     ];
 
     const body = JSON.stringify({
-      model: model || "llama-3.3-70b-versatile",
+      model: activeModel || model || "llama-3.3-70b-versatile",
       messages: [{ role: "system", content: buildSystemPrompt() }, ...allMessages],
       temperature: 0.5,
       stream: true,
@@ -513,8 +533,8 @@ ${studyContext.recentActivity}`;
   };
 
   // ─── Non-Streaming Fetch ───────────────────────────────────────────
-  const fetchNonStreaming = async (userMessage: string): Promise<string> => {
-    const endpoint = getProviderEndpoint(provider, model, ollamaUrl, customProviderEndpoint);
+  const fetchNonStreaming = async (userMessage: string, activeModel?: string): Promise<string> => {
+    const endpoint = getProviderEndpoint(provider, activeModel || model, ollamaUrl, customProviderEndpoint);
     const headers = getProviderHeaders(provider, apiKey);
     const allMessages = [
       ...messages.filter(m => m.role === "user" || m.role === "assistant").slice(-10),
@@ -522,7 +542,7 @@ ${studyContext.recentActivity}`;
     ];
 
     const body = {
-      model: model || "gpt-4o-mini",
+      model: activeModel || model || "gpt-4o-mini",
       messages: [{ role: "system", content: buildSystemPrompt() }, ...allMessages],
       temperature: 0.5,
       max_tokens: 2048
@@ -552,9 +572,9 @@ ${studyContext.recentActivity}`;
   };
 
   // ─── Gemini Fetch ──────────────────────────────────────────────────
-  const fetchGemini = async (userMessage: string): Promise<string> => {
+  const fetchGemini = async (userMessage: string, activeModel?: string): Promise<string> => {
     const ipc = getIpc();
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model || "gemini-1.5-flash"}:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel || model || "gemini-1.5-flash"}:generateContent?key=${apiKey}`;
     const reqBody = {
       contents: [{ role: "user", parts: [{ text: `${buildSystemPrompt()}\n\nUser Question: ${userMessage}` }] }]
     };
@@ -619,16 +639,17 @@ ${studyContext.recentActivity}`;
     setStreamingText("");
 
     try {
+      const activeModel = getValidModelForProvider(provider, model);
       let reply = "";
       if (provider === "local_rules") {
         await new Promise(r => setTimeout(r, 800));
         reply = getLocalRuleResponse(messageToSend);
       } else if (provider === "groq" && groqStreaming) {
-        reply = await fetchGroqStreaming(messageToSend) || "";
+        reply = await fetchGroqStreaming(messageToSend, activeModel) || "";
       } else if (provider === "gemini") {
-        reply = await fetchGemini(messageToSend);
+        reply = await fetchGemini(messageToSend, activeModel);
       } else {
-        reply = await fetchNonStreaming(messageToSend);
+        reply = await fetchNonStreaming(messageToSend, activeModel);
       }
 
       const finalMsgs = [...currentMsgs, { role: "assistant" as const, content: reply }];
@@ -643,16 +664,20 @@ ${studyContext.recentActivity}`;
       const errorMsg = err?.message || "Unknown error";
       const is429 = errorMsg.includes("429");
       const is404 = errorMsg.includes("404");
+      const activeModel = getValidModelForProvider(provider, model);
 
-      let guidance = "Please verify your API Key and internet connection. Switch to **Local AI Rules** for 100% offline support!";
+      let notice = `Notice (${provider.toUpperCase()}): ${errorMsg}`;
       if (is429) {
-        guidance = "Your provider account has exhausted its free usage/spending limits. **Tip**: Switch to **Groq Cloud** (100% Free Llama 3.3) or **Gemini** in AI Setup for instant free responses!";
+        notice = `Provider quota or rate limit exceeded on ${provider.toUpperCase()}. Tip: Switch to Groq Cloud (Free Llama 3.3) or OpenRouter :free models in AI Setup!`;
       } else if (is404) {
-        guidance = "The selected model is inactive or decommissioned. Open **AI Setup** and select a verified model like `llama-3.3-70b-versatile`!";
+        notice = `Model "${activeModel}" was inactive or not found on ${provider.toUpperCase()}. Switched to verified model in AI Setup.`;
       }
 
-      const errReply = `❌ **API Error**: ${errorMsg}\n\n${guidance}`;
-      const finalMsgs = [...currentMsgs, { role: "assistant" as const, content: errReply }];
+      // Generate offline smart response so user study flow is NEVER stopped
+      const offlineReply = getLocalRuleResponse(messageToSend);
+      const combinedReply = `> ⚠️ **Provider Advisory**: ${notice}\n> *Answered via FlowTrack Local AI Study Engine so your study session is uninterrupted!*\n\n${offlineReply}`;
+
+      const finalMsgs = [...currentMsgs, { role: "assistant" as const, content: combinedReply }];
       const finalSessions = sessionsList.map(s => {
         if (s.id === activeSession.id) {
           return { ...s, updatedAt: Date.now(), messages: finalMsgs };
@@ -690,13 +715,14 @@ ${studyContext.recentActivity}`;
         }
         setConnectionResult({ success: true, message: "✅ Gemini API connection successful!" });
       } else {
-        const endpoint = getProviderEndpoint(provider, model, ollamaUrl, customProviderEndpoint);
+        const activeModel = getValidModelForProvider(provider, model);
+        const endpoint = getProviderEndpoint(provider, activeModel, ollamaUrl, customProviderEndpoint);
         const headers = getProviderHeaders(provider, apiKey);
         const res = await fetch(endpoint, {
           method: "POST",
           headers,
           body: JSON.stringify({
-            model: model || "llama-3.3-70b-versatile",
+            model: activeModel || "llama-3.3-70b-versatile",
             messages: [{ role: "user", content: "ping" }],
             max_tokens: 5
           })
@@ -705,7 +731,7 @@ ${studyContext.recentActivity}`;
           const errData = await res.json().catch(() => null);
           throw new Error(decodeAiProviderError(res.status, errData, provider));
         }
-        setConnectionResult({ success: true, message: `✅ Successfully connected to ${provider} (${model})!` });
+        setConnectionResult({ success: true, message: `✅ Successfully connected to ${provider} (${activeModel})!` });
       }
     } catch (err: any) {
       setConnectionResult({ success: false, message: `❌ Connection failed: ${err.message}` });
@@ -1078,8 +1104,8 @@ ${studyContext.recentActivity}`;
                     onChange={(e) => {
                       const prov = e.target.value as AiConfig["provider"];
                       setProvider(prov);
-                      const matched = PROVIDERS.find(p => p.id === prov);
-                      if (matched) setModel(matched.defaultModel || "");
+                      const validModel = getValidModelForProvider(prov, "");
+                      setModel(validModel);
                       setApiKey(apiKeys[prov] || "");
                       setConnectionResult(null);
                       refreshLiveModels(prov, apiKeys[prov] || "");

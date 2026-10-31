@@ -2280,8 +2280,20 @@ ipcMain.handle("save-image-dialog", async (_e, { base64Data, defaultFilename }) 
 
 ipcMain.handle("save-image-file", async (_e, { dataUrl, defaultFilename }) => {
   try {
-    const base64Data = (dataUrl || "").split(";base64,").pop();
-    if (!base64Data) return { success: false, error: "Invalid image data" };
+    let buf;
+    if (dataUrl && dataUrl.includes(";base64,")) {
+      const base64Data = dataUrl.split(";base64,").pop();
+      buf = Buffer.from(base64Data, "base64");
+    } else if (dataUrl && dataUrl.startsWith("data:")) {
+      const commaIdx = dataUrl.indexOf(",");
+      buf = Buffer.from(dataUrl.slice(commaIdx + 1), "base64");
+    } else {
+      return { success: false, error: "Invalid image data" };
+    }
+
+    if (!buf || buf.length === 0) {
+      return { success: false, error: "Empty image buffer (0 bytes)" };
+    }
 
     const downloadsPath = app.getPath("downloads");
     const targetName = defaultFilename || `FlowTrack_Export_${Date.now()}.png`;
@@ -2290,14 +2302,14 @@ ipcMain.handle("save-image-file", async (_e, { dataUrl, defaultFilename }) => {
     const { filePath, canceled } = await dialog.showSaveDialog(mainWindow, {
       title: "Save Image to PC",
       defaultPath: defaultSavePath,
-      filters: [{ name: "PNG Images", extensions: ["png"] }]
+      filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "svg"] }]
     });
 
     if (canceled || !filePath) {
       return { success: false, reason: "canceled" };
     }
 
-    fs.writeFileSync(filePath, base64Data, { encoding: "base64" });
+    fs.writeFileSync(filePath, buf);
     return { success: true, filePath, filename: path.basename(filePath) };
   } catch (err) {
     return { success: false, error: err.message };

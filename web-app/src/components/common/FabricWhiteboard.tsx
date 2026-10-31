@@ -3187,7 +3187,7 @@ export function FabricWhiteboard({
   const downloadURL = async (href: string, name: string, revoke = false) => {
     if (href.startsWith("data:image/")) {
       const res = await saveImageSafely(href, name);
-      if (revoke) window.setTimeout(() => URL.revokeObjectURL(href), 4000);
+      if (revoke) window.setTimeout(() => URL.revokeObjectURL(href), 60000);
       if (res.success) {
         showToast(`💾 Saved: ${res.filename || name}`, "success");
       }
@@ -3198,7 +3198,7 @@ export function FabricWhiteboard({
     document.body.appendChild(a);
     a.click();
     a.remove();
-    if (revoke) window.setTimeout(() => URL.revokeObjectURL(href), 4000);
+    if (revoke) window.setTimeout(() => URL.revokeObjectURL(href), 60000);
     showToast(`💾 Downloaded: ${name}`, "success");
   };
 
@@ -3260,11 +3260,15 @@ export function FabricWhiteboard({
     if (!c) return;
     setExportOpen(false);
 
-    // Calculate content-aware bounding box of all objects to avoid giant empty voids
+    // Save current viewport transform to prevent zoom/pan offset bugs
+    const originalVpt = [...c.viewportTransform];
+
+    // Calculate content-aware bounding box in absolute canvas space
     const objects = c.getObjects();
     let cropOpts: Record<string, number> = {};
 
     if (objects.length > 0) {
+      c.setViewportTransform([1, 0, 0, 1, 0, 0]);
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       objects.forEach(obj => {
         const bound = obj.getBoundingRect();
@@ -3274,8 +3278,8 @@ export function FabricWhiteboard({
         maxY = Math.max(maxY, bound.top + bound.height);
       });
 
-      if (isFinite(minX) && isFinite(minY) && isFinite(maxX) && isFinite(maxY)) {
-        const padding = 60;
+      if (isFinite(minX) && isFinite(minY) && isFinite(maxX) && isFinite(maxY) && maxX > minX && maxY > minY) {
+        const padding = 40;
         const left = Math.max(0, Math.floor(minX - padding));
         const top = Math.max(0, Math.floor(minY - padding));
         const width = Math.ceil((maxX - minX) + padding * 2);
@@ -3285,9 +3289,27 @@ export function FabricWhiteboard({
     }
 
     const url = withBackground(
-      () => c.toDataURL({ format: "png", quality: 1, multiplier, enableRetinaScaling: false, ...cropOpts }),
+      () => {
+        const res = c.toDataURL({ format: "png", quality: 1, multiplier: Math.max(1, multiplier), enableRetinaScaling: false, ...cropOpts });
+        c.setViewportTransform(originalVpt as any);
+        return res;
+      },
       transparent,
     );
+
+    c.setViewportTransform(originalVpt as any);
+    c.requestRenderAll();
+
+    if (!url || url === "data:," || url.length < 100) {
+      const fullUrl = withBackground(
+        () => c.toDataURL({ format: "png", quality: 1, multiplier: 1, enableRetinaScaling: false }),
+        transparent
+      );
+      const filename = getDescriptiveFilename("png", multiplier > 1 ? `${multiplier}x` : "");
+      downloadURL(fullUrl, filename);
+      return;
+    }
+
     const filename = getDescriptiveFilename("png", multiplier > 1 ? `${multiplier}x` : "");
     downloadURL(url, filename);
   };
