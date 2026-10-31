@@ -17,7 +17,7 @@ import { useNavigate } from "react-router-dom";
 import * as fabric from "fabric";
 import {
   Undo2, Redo2, ZoomIn, ZoomOut, Maximize2, Minimize2, Menu, Download,
-  Upload, Trash2, Grid3x3, Magnet, ChevronDown, Scan, Palette, FileImage,
+  Upload, Trash2, Edit3, Grid3x3, Magnet, ChevronDown, Scan, Palette, FileImage,
   FileJson, FileCode2, Keyboard, MousePointer2, LassoSelect, Hand, Pencil, Highlighter,
   Zap, Eraser, Square, Circle, Diamond, Triangle, Cloud, Minus, ArrowRight, Type, StickyNote,
   ImagePlus, Lock, Unlock, BringToFront, SendToBack, Copy, Ban, X, Sparkles,
@@ -1149,6 +1149,8 @@ export function FabricWhiteboard({
   const [isMultiSel, setIsMultiSel] = useState(false);
   const [selIsText, setSelIsText] = useState(false);
   const [selIsNote, setSelIsNote] = useState(false);
+  const [selIsMermaid, setSelIsMermaid] = useState(false);
+  const [selIsMarkdown, setSelIsMarkdown] = useState(false);
 
   const [internalFullscreen, setInternalFullscreen] = useState(false);
   const fullscreen = isFullscreenProp !== undefined ? isFullscreenProp : internalFullscreen;
@@ -1171,6 +1173,8 @@ export function FabricWhiteboard({
 
   // Mermaid Modal & AI state
   const [mermaidModalOpen, setMermaidModalOpen] = useState(false);
+  const [editingMermaidTarget, setEditingMermaidTarget] = useState<fabric.FabricObject | null>(null);
+  const [editingMarkdownTarget, setEditingMarkdownTarget] = useState<fabric.FabricObject | null>(null);
   const [mermaidCode, setMermaidCode] = useState(MERMAID_PRESETS[0]?.code || "flowchart TD\n  A[Start] --> B(Process)\n  B --> C{Decision}\n  C -->|Yes| D[Done]\n  C -->|No| B");
   const [mermaidPreviewSvg, setMermaidPreviewSvg] = useState("");
   const [mermaidAiPrompt, setMermaidAiPrompt] = useState("");
@@ -1860,12 +1864,12 @@ export function FabricWhiteboard({
     /* Double-click empty canvas → drop a text object. */
     c.on("mouse:dblclick", (opt) => {
       if (opt.target && (opt.target as any).customData?.type === "mermaid") {
-        const code = (opt.target as any).customData.code;
-        if (code) {
-          setMermaidCode(code);
-          setMermaidModalOpen(true);
-          return;
-        }
+        handleEditSelectedMermaid(opt.target);
+        return;
+      }
+      if (opt.target && (opt.target as any).customData?.type === "markdown") {
+        handleEditSelectedMarkdown(opt.target);
+        return;
       }
       if (live.current.tool !== "select" || opt.target) return;
       const sp = c.getScenePoint(opt.e);
@@ -1965,6 +1969,8 @@ export function FabricWhiteboard({
       setSelIsText(objs.some(isTextObj));
       const hasNote = objs.some(isNoteObj);
       setSelIsNote(hasNote);
+      setSelIsMermaid(objs.some((o) => (o as any).customData?.type === "mermaid"));
+      setSelIsMarkdown(objs.some((o) => (o as any).customData?.type === "markdown"));
       const o = objs[0];
       if (!o) return;
       if (hasNote) {
@@ -1990,6 +1996,8 @@ export function FabricWhiteboard({
       setIsMultiSel(false);
       setSelIsText(false);
       setSelIsNote(false);
+      setSelIsMermaid(false);
+      setSelIsMarkdown(false);
     });
 
     /* ---- Restore or seed history ---------------------------------- */
@@ -2691,12 +2699,149 @@ export function FabricWhiteboard({
     return () => { cancelled = true; };
   }, [mermaidModalOpen, mermaidCode]);
 
+  const handleEditSelectedMermaid = (target?: fabric.FabricObject) => {
+    const c = fcRef.current;
+    if (!c) return;
+    const obj = target || c.getActiveObject();
+    if (!obj) return;
+    const code = (obj as any).customData?.code;
+    if (code) {
+      setMermaidCode(code);
+      setEditingMermaidTarget(obj);
+      setMermaidModalOpen(true);
+    }
+  };
+
+  const handleEditSelectedMarkdown = (target?: fabric.FabricObject) => {
+    const c = fcRef.current;
+    if (!c) return;
+    const obj = target || c.getActiveObject();
+    if (!obj) return;
+    const data = (obj as any).customData;
+    if (data && data.type === "markdown") {
+      if (data.title) setMarkdownTitle(data.title);
+      if (data.content) setMarkdownContent(data.content);
+      if (data.accent) setMarkdownAccent(data.accent);
+      setEditingMarkdownTarget(obj);
+      setMarkdownModalOpen(true);
+    }
+  };
+
+  const handleUnpackSelectedMermaid = (target?: fabric.FabricObject) => {
+    const c = fcRef.current;
+    if (!c) return;
+    const obj = target || c.getActiveObject();
+    if (!obj) return;
+    const code = (obj as any).customData?.code;
+    if (!code) return;
+
+    const nodeRegex = /([A-Za-z0-9_]+)\s*(\[\[|\[\(|\{|\(|\[)\s*["']?([^"'\n\]\}]+)["']?\s*(\]\]|\)\]|\}|\)|\])/g;
+    const foundNodes: { id: string; label: string; kind: string }[] = [];
+    const seen = new Set<string>();
+
+    let m: RegExpExecArray | null;
+    while ((m = nodeRegex.exec(code)) !== null) {
+      const id = m[1];
+      const kind = m[2];
+      const label = m[3].trim();
+      if (!seen.has(id)) {
+        seen.add(id);
+        foundNodes.push({ id, label, kind });
+      }
+    }
+
+    if (foundNodes.length === 0) {
+      showToast("Could not extract nodes to unpack", "warning");
+      return;
+    }
+
+    const startX = obj.left || 100;
+    const startY = obj.top || 100;
+    const createdObjects: fabric.FabricObject[] = [];
+
+    foundNodes.forEach((node, i) => {
+      const col = i % 3;
+      const row = Math.floor(i / 3);
+      const x = startX + col * 200;
+      const y = startY + row * 110;
+
+      const note = new StickyNoteBox(node.label, {
+        left: x,
+        top: y,
+        width: 170,
+        minHeight: 70,
+        backgroundColor: "#1e293b",
+        fill: "#f8fafc",
+        fontSize: 13,
+        fontFamily: "Inter, sans-serif",
+        textAlign: "center",
+        noteBorderColor: node.kind.includes("{") ? "#38bdf8" : node.kind.includes("(") ? "#10b981" : "#a855f7",
+        noteColorId: node.kind.includes("{") ? "cyan" : node.kind.includes("(") ? "green" : "purple",
+      });
+      (note as any).customData = { type: "note", label: node.label, nodeId: node.id };
+      c.add(note);
+      createdObjects.push(note);
+    });
+
+    c.remove(obj);
+    if (createdObjects.length > 0) {
+      const sel = new fabric.ActiveSelection(createdObjects, { canvas: c });
+      c.setActiveObject(sel);
+    }
+    c.requestRenderAll();
+    pushHistory();
+    showToast(`Unpacked ${foundNodes.length} nodes into editable canvas shapes`, "success");
+  };
+
+  const appendMermaidSyntax = (snippet: string) => {
+    setMermaidCode((prev) => {
+      const trimmed = prev.trimEnd();
+      return trimmed + snippet;
+    });
+  };
+
+  const toggleMermaidDirection = () => {
+    setMermaidCode((prev) => {
+      if (prev.includes("graph TD")) return prev.replace("graph TD", "graph LR");
+      if (prev.includes("graph LR")) return prev.replace("graph LR", "graph TD");
+      if (prev.includes("flowchart TD")) return prev.replace("flowchart TD", "flowchart LR");
+      if (prev.includes("flowchart LR")) return prev.replace("flowchart LR", "flowchart TD");
+      return "flowchart TD\n" + prev;
+    });
+  };
+
   const insertMermaidDiagram = async () => {
     const c = fcRef.current;
     if (!c) return;
     try {
       const { dataUrl, width, height } = await renderMermaidToPngDataUrl(mermaidCode);
       const img = await fabric.FabricImage.fromURL(dataUrl);
+
+      if (editingMermaidTarget && c.contains(editingMermaidTarget)) {
+        img.set({
+          left: editingMermaidTarget.left,
+          top: editingMermaidTarget.top,
+          scaleX: editingMermaidTarget.scaleX || 1,
+          scaleY: editingMermaidTarget.scaleY || 1,
+          angle: editingMermaidTarget.angle || 0,
+        });
+        (img as any).customData = { type: "mermaid", code: mermaidCode };
+        const idx = c.getObjects().indexOf(editingMermaidTarget);
+        c.remove(editingMermaidTarget);
+        if (idx >= 0) {
+          c.insertAt(idx, img);
+        } else {
+          c.add(img);
+        }
+        c.setActiveObject(img);
+        c.requestRenderAll();
+        pushHistory();
+        setEditingMermaidTarget(null);
+        setMermaidModalOpen(false);
+        showToast("Updated Mermaid diagram in-place", "success");
+        return;
+      }
+
       const maxW = c.getWidth() * 0.7;
       if ((img.width ?? width ?? 0) > maxW) img.scaleToWidth(maxW);
       const cp = c.getVpCenter();
@@ -2709,6 +2854,7 @@ export function FabricWhiteboard({
       c.setActiveObject(img);
       c.requestRenderAll();
       pushHistory();
+      setEditingMermaidTarget(null);
       setMermaidModalOpen(false);
       showToast("Inserted Mermaid diagram onto canvas", "success");
     } catch (err: any) {
@@ -2779,6 +2925,37 @@ export function FabricWhiteboard({
       const canvas = renderMarkdownCardCanvas(markdownTitle, markdownContent, markdownAccent);
       const dataUrl = canvas.toDataURL("image/png");
       const img = await fabric.FabricImage.fromURL(dataUrl);
+
+      if (editingMarkdownTarget && c.contains(editingMarkdownTarget)) {
+        img.set({
+          left: editingMarkdownTarget.left,
+          top: editingMarkdownTarget.top,
+          scaleX: editingMarkdownTarget.scaleX || 1,
+          scaleY: editingMarkdownTarget.scaleY || 1,
+          angle: editingMarkdownTarget.angle || 0,
+        });
+        (img as any).customData = {
+          type: "markdown",
+          title: markdownTitle,
+          content: markdownContent,
+          accent: markdownAccent,
+        };
+        const idx = c.getObjects().indexOf(editingMarkdownTarget);
+        c.remove(editingMarkdownTarget);
+        if (idx >= 0) {
+          c.insertAt(idx, img);
+        } else {
+          c.add(img);
+        }
+        c.setActiveObject(img);
+        c.requestRenderAll();
+        pushHistory();
+        setEditingMarkdownTarget(null);
+        setMarkdownModalOpen(false);
+        showToast("Updated Markdown card in-place", "success");
+        return;
+      }
+
       const maxW = c.getWidth() * 0.55;
       if ((img.width ?? 0) > maxW) img.scaleToWidth(maxW);
       const cp = c.getVpCenter();
@@ -2791,11 +2968,12 @@ export function FabricWhiteboard({
       c.setActiveObject(img);
       c.requestRenderAll();
       pushHistory();
+      setEditingMarkdownTarget(null);
       setMarkdownModalOpen(false);
       showToast("Inserted Markdown study card onto whiteboard", "success");
     } catch (err: any) {
       console.error(err);
-      showToast("Failed to create study note card", "error");
+      showToast("Failed to render Markdown study card", "warning");
     }
   };
 
@@ -3358,9 +3536,43 @@ export function FabricWhiteboard({
         {hasSel && (
           <div className="pointer-events-none order-4 flex w-full justify-center">
             <div className={`${island} flex items-center gap-1.5 p-1 shadow-2xl border border-cyan-500/30 bg-slate-900/95 backdrop-blur-xl`}>
+              {selIsMermaid && (
+                <>
+                  <button
+                    onClick={() => handleEditSelectedMermaid()}
+                    title="Edit Mermaid Diagram Code"
+                    className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold text-cyan-300 bg-cyan-500/20 border border-cyan-500/30 hover:bg-cyan-500/30"
+                  >
+                    <Edit3 className="h-3.5 w-3.5 text-cyan-400" />
+                    <span>Edit Diagram</span>
+                  </button>
+                  <button
+                    onClick={() => handleUnpackSelectedMermaid()}
+                    title="Unpack Diagram into Drag-and-Drop Canvas Shapes"
+                    className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-indigo-300 hover:bg-indigo-500/20"
+                  >
+                    <LayoutTemplate className="h-3.5 w-3.5 text-indigo-400" />
+                    <span className="hidden sm:inline">Unpack to Shapes</span>
+                  </button>
+                  <div className="h-4 w-px bg-white/15" />
+                </>
+              )}
+              {selIsMarkdown && (
+                <>
+                  <button
+                    onClick={() => handleEditSelectedMarkdown()}
+                    title="Edit Markdown Study Card"
+                    className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold text-purple-300 bg-purple-500/20 border border-purple-500/30 hover:bg-purple-500/30"
+                  >
+                    <Edit3 className="h-3.5 w-3.5 text-purple-400" />
+                    <span>Edit Card</span>
+                  </button>
+                  <div className="h-4 w-px bg-white/15" />
+                </>
+              )}
               <button
                 onClick={bringFront}
-                title="Bring to Front (Ctrl+])"
+                title="Bring to Front (Ctrl+])" 
                 className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/10 hover:text-white"
               >
                 <BringToFront className="h-3.5 w-3.5 text-cyan-400" />
@@ -4213,7 +4425,7 @@ export function FabricWhiteboard({
                     <GitFork className="h-4 w-4" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-white">Mermaid Diagram Studio</h3>
+                    <h3 className="text-sm font-bold text-white">{editingMermaidTarget ? "Edit Mermaid Diagram" : "Mermaid Diagram Studio"}</h3>
                     <p className="text-[11px] text-slate-400">Insert code-rendered architectures, flowcharts & sequence diagrams</p>
                   </div>
                 </div>
@@ -4284,9 +4496,53 @@ export function FabricWhiteboard({
                 {/* Editor & Preview Split */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                      Mermaid Syntax
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                        Mermaid Syntax
+                      </label>
+                      <div className="flex items-center gap-1 text-[10px]">
+                        <button
+                          type="button"
+                          onClick={() => appendMermaidSyntax(`\n  step${Date.now() % 1000}["New Step"]`)}
+                          className="px-1.5 py-0.5 rounded bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/25 font-semibold"
+                          title="Add a rectangular step box"
+                        >
+                          + Box
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => appendMermaidSyntax(`\n  cond${Date.now() % 1000}{"Condition?"}`)}
+                          className="px-1.5 py-0.5 rounded bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/25 font-semibold"
+                          title="Add a decision diamond"
+                        >
+                          + Decision
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => appendMermaidSyntax(`\n  db${Date.now() % 1000}[("Database")]`)}
+                          className="px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 font-semibold"
+                          title="Add a database cylinder"
+                        >
+                          + DB
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => appendMermaidSyntax(` --> `)}
+                          className="px-1.5 py-0.5 rounded bg-white/10 border border-white/20 text-slate-300 hover:bg-white/20 font-semibold"
+                          title="Add arrow connection"
+                        >
+                          {"-->"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={toggleMermaidDirection}
+                          className="px-1.5 py-0.5 rounded bg-purple-500/15 border border-purple-500/30 text-purple-300 hover:bg-purple-500/25 font-semibold"
+                          title="Toggle Top-Down vs Left-to-Right"
+                        >
+                          TD ⇄ LR
+                        </button>
+                      </div>
+                    </div>
                     <textarea
                       value={mermaidCode}
                       onChange={(e) => setMermaidCode(e.target.value)}
@@ -4334,7 +4590,7 @@ export function FabricWhiteboard({
                   className="flex items-center gap-1.5 rounded-lg bg-cyan-500 px-4 py-1.5 text-xs font-bold text-slate-950 shadow-md hover:bg-cyan-400"
                 >
                   <Check className="h-3.5 w-3.5" />
-                  Insert onto Whiteboard
+                  {editingMermaidTarget ? "Update on Whiteboard" : "Insert onto Whiteboard"}
                 </button>
               </div>
             </div>
@@ -4358,7 +4614,7 @@ export function FabricWhiteboard({
                     <FileText className="h-4 w-4" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-white">Markdown Study Card</h3>
+                    <h3 className="text-sm font-bold text-white">{editingMarkdownTarget ? "Edit Markdown Study Card" : "Markdown Study Card"}</h3>
                     <p className="text-[11px] text-slate-400">Generate or draft structured revision notes to pin onto canvas</p>
                   </div>
                 </div>
@@ -4477,7 +4733,7 @@ export function FabricWhiteboard({
                   className="flex items-center gap-1.5 rounded-lg bg-purple-500 px-4 py-1.5 text-xs font-bold text-white shadow-md hover:bg-purple-400"
                 >
                   <Check className="h-3.5 w-3.5" />
-                  Insert onto Whiteboard
+                  {editingMarkdownTarget ? "Update Card" : "Insert onto Whiteboard"}
                 </button>
               </div>
             </div>
