@@ -83,11 +83,41 @@ export async function fetchLiveModels(
       const res = await fetch("https://api.groq.com/openai/v1/models", {
         headers: { Authorization: `Bearer ${apiKey.trim()}` },
       });
-      if (!res.ok) throw new Error(`Groq API returned HTTP ${res.status}`);
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson?.error?.message || errJson?.message || `Groq API returned HTTP ${res.status}`);
+      }
       const data = await res.json();
       const raw = Array.isArray(data?.data) ? data.data : [];
-      const models = raw.map((m: any) => ({ id: m.id, name: m.id }));
-      return { success: true, models: models.length > 0 ? models : fallback };
+      // Filter out inactive models, audio models (whisper), guardrails, embeddings
+      const filtered = raw
+        .filter((m: any) => {
+          if (m.active === false) return false;
+          const id = (m.id || "").toLowerCase();
+          if (id.includes("whisper") || id.includes("tts") || id.includes("guard") || id.includes("bge") || id.includes("embed")) return false;
+          return true;
+        })
+        .map((m: any) => ({ id: m.id, name: m.id }));
+
+      // Prioritize fast, high-quality production chat models at top of list
+      const priorityOrder = [
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant",
+        "mixtral-8x7b-32768",
+        "gemma2-9b-it",
+        "qwen-2.5-32b",
+        "deepseek-r1-distill-llama-70b",
+      ];
+      filtered.sort((a, b) => {
+        const idxA = priorityOrder.indexOf(a.id);
+        const idxB = priorityOrder.indexOf(b.id);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      return { success: true, models: filtered.length > 0 ? filtered : fallback };
     }
 
     if (provider === "mistral") {
@@ -95,11 +125,37 @@ export async function fetchLiveModels(
       const res = await fetch("https://api.mistral.ai/v1/models", {
         headers: { Authorization: `Bearer ${apiKey.trim()}` },
       });
-      if (!res.ok) throw new Error(`Mistral API returned HTTP ${res.status}`);
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson?.message || errJson?.error?.message || `Mistral API returned HTTP ${res.status}`);
+      }
       const data = await res.json();
       const raw = Array.isArray(data?.data) ? data.data : [];
-      const models = raw.map((m: any) => ({ id: m.id, name: m.id }));
-      return { success: true, models: models.length > 0 ? models : fallback };
+      const filtered = raw
+        .filter((m: any) => {
+          const id = (m.id || "").toLowerCase();
+          if (id.includes("embed") || id.includes("moderation")) return false;
+          return true;
+        })
+        .map((m: any) => ({ id: m.id, name: m.id }));
+
+      const priorityOrder = [
+        "mistral-small-latest",
+        "codestral-latest",
+        "mistral-large-latest",
+        "open-mistral-nemo",
+        "open-codestral-mamba",
+      ];
+      filtered.sort((a, b) => {
+        const idxA = priorityOrder.indexOf(a.id);
+        const idxB = priorityOrder.indexOf(b.id);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      return { success: true, models: filtered.length > 0 ? filtered : fallback };
     }
 
     if (provider === "openai") {

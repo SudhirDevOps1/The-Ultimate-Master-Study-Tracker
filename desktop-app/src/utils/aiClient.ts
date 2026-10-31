@@ -2,6 +2,43 @@ import { useAppStore } from "@/store/useAppStore";
 import type { AiConfig } from "@/types/models";
 import { buildFallbackMermaid } from "@/utils/mermaidHelper";
 
+/**
+ * Decodes error payloads from various AI providers (OpenAI, Mistral, Groq, Gemini, Ollama)
+ * into human-readable messages with actionable guidance.
+ */
+export function decodeAiProviderError(status: number, errData: any, provider: string): string {
+  const rawMsg =
+    errData?.message ||
+    errData?.error?.message ||
+    errData?.error ||
+    errData?.detail?.[0]?.msg ||
+    errData?.detail ||
+    (typeof errData === "string" ? errData : "");
+
+  const provLabel = provider ? provider.toUpperCase() : "Provider";
+
+  if (status === 429) {
+    if (provider === "mistral") {
+      return `HTTP 429 (Quota / Rate Limit): Mistral Free Tier limits reached. Mistral requires billing or phone verification on console.mistral.ai for API chat access. For instant free chat without credit limits, try Groq Cloud (Ultra-Fast) or Google Gemini!`;
+    }
+    return `HTTP 429 (Rate Limit Exceeded): ${rawMsg || "Too many requests or quota exhausted."} Switch to Groq Cloud (Free Llama 3.3) or Gemini for instant response.`;
+  }
+
+  if (status === 404) {
+    return `HTTP 404 (Model Not Found): ${rawMsg || "The selected model is not available for chat on this provider."} Please select an active chat model like 'llama-3.3-70b-versatile' (Groq) or 'mistral-small-latest' (Mistral).`;
+  }
+
+  if (status === 401 || status === 403) {
+    return `HTTP ${status} (Authentication Failed): ${rawMsg || "Invalid API key or unauthorized."} Please verify the API key generated from your ${provLabel} dashboard.`;
+  }
+
+  if (rawMsg) {
+    return `${provLabel} Error (HTTP ${status}): ${rawMsg}`;
+  }
+
+  return `${provLabel} returned HTTP ${status}`;
+}
+
 export interface AIResponse {
   success: boolean;
   text: string;
@@ -60,7 +97,7 @@ export async function callUnifiedAI(
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData?.error?.message || `Gemini API error ${res.status}`);
+        throw new Error(decodeAiProviderError(res.status, errData, "gemini"));
       }
 
       const data = await res.json();
@@ -125,7 +162,7 @@ export async function callUnifiedAI(
 
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson?.error?.message || `${provider} returned HTTP ${res.status}`);
+        throw new Error(decodeAiProviderError(res.status, errJson, provider));
       }
 
       const data = await res.json();

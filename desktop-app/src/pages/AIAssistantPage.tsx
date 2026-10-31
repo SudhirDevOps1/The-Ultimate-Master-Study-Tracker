@@ -13,6 +13,7 @@ import { toDurationLabel } from "@/utils/time";
 import { db } from "@/lib/db";
 import { MarkdownRenderer } from "@/components/common/MarkdownRenderer";
 import { fetchLiveModels, FALLBACK_MODELS, type FetchedModel } from "@/utils/aiModelFetcher";
+import { decodeAiProviderError } from "@/utils/aiClient";
 
 // --- Universal Markdown & Mermaid Renderer -----------------------------
 function Markdown({ text }: { text: string }) {
@@ -435,7 +436,7 @@ ${studyContext.recentActivity}`;
 
     if (!res.ok) {
       const errData = await res.json().catch(() => null);
-      throw new Error(errData?.error?.message || `HTTP ${res.status}`);
+      throw new Error(decodeAiProviderError(res.status, errData, provider));
     }
 
     const reader = res.body?.getReader();
@@ -494,7 +495,7 @@ ${studyContext.recentActivity}`;
 
     if (!res.ok) {
       const errData = await res.json().catch(() => null);
-      throw new Error(errData?.error?.message || `HTTP ${res.status}`);
+      throw new Error(decodeAiProviderError(res.status, errData, provider));
     }
 
     const data = await res.json();
@@ -530,7 +531,7 @@ ${studyContext.recentActivity}`;
       });
       if (!res.ok) {
         const err = await res.json().catch(() => null);
-        throw new Error(err?.error?.message || `HTTP ${res.status}`);
+        throw new Error(decodeAiProviderError(res.status, err, "gemini"));
       }
       data = await res.json();
     }
@@ -599,7 +600,17 @@ ${studyContext.recentActivity}`;
       persistSessions(finalSessions);
     } catch (err: any) {
       const errorMsg = err?.message || "Unknown error";
-      const errReply = `❌ **API Error**: ${errorMsg}\n\nPlease verify your API Key and internet connection. Switch to **Local AI Rules** for 100% offline support!`;
+      const is429 = errorMsg.includes("429");
+      const is404 = errorMsg.includes("404");
+
+      let guidance = "Please verify your API Key and internet connection. Switch to **Local AI Rules** for 100% offline support!";
+      if (is429) {
+        guidance = "Your provider account has exhausted its free usage/spending limits. **Tip**: Switch to **Groq Cloud** (100% Free Llama 3.3) or **Gemini** in AI Setup for instant free responses!";
+      } else if (is404) {
+        guidance = "The selected model is inactive or decommissioned. Open **AI Setup** and select a verified model like `llama-3.3-70b-versatile`!";
+      }
+
+      const errReply = `❌ **API Error**: ${errorMsg}\n\n${guidance}`;
       const finalMsgs = [...currentMsgs, { role: "assistant" as const, content: errReply }];
       const finalSessions = sessionsList.map(s => {
         if (s.id === activeSession.id) {
@@ -632,7 +643,10 @@ ${studyContext.recentActivity}`;
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "ping" }] }] })
         });
-        if (!res.ok) throw new Error(`Gemini API error ${res.status}`);
+        if (!res.ok) {
+          const errData = await res.json().catch(() => null);
+          throw new Error(decodeAiProviderError(res.status, errData, "gemini"));
+        }
         setConnectionResult({ success: true, message: "✅ Gemini API connection successful!" });
       } else {
         const endpoint = getProviderEndpoint(provider, model, ollamaUrl, customProviderEndpoint);
@@ -646,7 +660,10 @@ ${studyContext.recentActivity}`;
             max_tokens: 5
           })
         });
-        if (!res.ok) throw new Error(`Provider returned HTTP ${res.status}`);
+        if (!res.ok) {
+          const errData = await res.json().catch(() => null);
+          throw new Error(decodeAiProviderError(res.status, errData, provider));
+        }
         setConnectionResult({ success: true, message: `✅ Successfully connected to ${provider} (${model})!` });
       }
     } catch (err: any) {
@@ -1057,6 +1074,18 @@ ${studyContext.recentActivity}`;
                   </div>
                 )}
 
+                {/* Mistral Quota Notice */}
+                {provider === "mistral" && (
+                  <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300 space-y-1">
+                    <p className="font-semibold flex items-center gap-1.5">
+                      <span>⚠️</span> Mistral Free Tier Quota Notice:
+                    </p>
+                    <p className="text-amber-300/80 leading-relaxed text-[10px]">
+                      Mistral requires phone or billing verification on <span className="text-white underline">console.mistral.ai</span> to activate chat compute tokens. If you get <strong>HTTP 429</strong>, switch to <strong>Groq Cloud ⚡</strong> (100% free & ultra-fast) or <strong>Gemini</strong>!
+                    </p>
+                  </div>
+                )}
+
                 {/* Ollama URL */}
                 {provider === "ollama" && (
                   <div className="space-y-1.5">
@@ -1144,6 +1173,31 @@ ${studyContext.recentActivity}`;
                       }`}
                     >
                       {connectionResult.message}
+                    </div>
+                  )}
+
+                  {connectionResult && !connectionResult.success && (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <button
+                        onClick={() => {
+                          setProvider("groq");
+                          setModel("llama-3.3-70b-versatile");
+                          setConnectionResult(null);
+                        }}
+                        className="text-[10px] px-2.5 py-1 rounded-lg bg-orange-500/20 text-orange-300 hover:bg-orange-500/30 border border-orange-500/30 transition font-medium"
+                      >
+                        ⚡ Switch to Groq Cloud (Free)
+                      </button>
+                      <button
+                        onClick={() => {
+                          setProvider("local_rules");
+                          setModel("local-rules");
+                          setConnectionResult(null);
+                        }}
+                        className="text-[10px] px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700 transition font-medium"
+                      >
+                        🛡️ Switch to Offline Rules
+                      </button>
                     </div>
                   )}
                 </div>
