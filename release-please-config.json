@@ -5,7 +5,7 @@
   "bump-patch-for-minor-pre-major": false,
   "include-component-in-tag": false,
   "separate-pull-requests": false,
-  "draft-pull-request": true,
+  "draft-pull-request": false,
   "changelog-notes-type": "github",
   "plugins": [
     {
