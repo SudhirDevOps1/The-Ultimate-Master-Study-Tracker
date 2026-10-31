@@ -86,36 +86,77 @@ export interface ChatSession {
 
 const SESSIONS_STORAGE_KEY = "flowtrack_ai_chat_sessions_v2";
 
-// ─── Provider Configs ──────────────────────────────────────────────────
+// ─── Provider Configs (20+ Platforms with Free Tier Highlighting) ───
 const PROVIDERS = [
-  { id: "local_rules", name: "Local AI Rules (Free & Private)", needsKey: false, defaultModel: "local-rules" },
-  { id: "gemini", name: "Google Gemini", needsKey: true, defaultModel: "gemini-1.5-flash" },
-  { id: "groq", name: "Groq Cloud ⚡ (Ultra-Fast)", needsKey: true, defaultModel: "llama-3.3-70b-versatile" },
-  { id: "cerebras", name: "Cerebras API (Ultra-Fast)", needsKey: true, defaultModel: "llama3.1-8b" },
-  { id: "openai", name: "OpenAI ChatGPT", needsKey: true, defaultModel: "gpt-4o-mini" },
-  { id: "mistral", name: "Mistral AI", needsKey: true, defaultModel: "mistral-small-latest" },
-  { id: "grok", name: "xAI Grok", needsKey: true, defaultModel: "grok-beta" },
-  { id: "ollama", name: "Ollama (Local Offline)", needsKey: false, defaultModel: "llama3:latest" },
-  { id: "custom", name: "Custom Provider", needsKey: true, defaultModel: "" }
+  // ── 100% Free / Generous Free Tier ──
+  { id: "local_rules", name: "🛡️ Local AI Rules (100% Free & Offline)", needsKey: false, defaultModel: "local-rules", isFree: true, keyUrl: "" },
+  { id: "groq", name: "⚡ Groq Cloud (100% Free Ultra-Fast)", needsKey: true, defaultModel: "llama-3.3-70b-versatile", isFree: true, keyUrl: "https://console.groq.com/keys" },
+  { id: "openrouter", name: "🌐 OpenRouter (Free Llama 3.3, R1 & All Top LLMs)", needsKey: true, defaultModel: "meta-llama/llama-3.3-70b-instruct:free", isFree: true, keyUrl: "https://openrouter.ai/keys" },
+  { id: "sambanova", name: "🚀 SambaNova (100% Free Ultra-Fast Llama)", needsKey: true, defaultModel: "Meta-Llama-3.1-70B-Instruct", isFree: true, keyUrl: "https://cloud.sambanova.ai" },
+  { id: "gemini", name: "🌟 Google Gemini (Free 15 RPM Tier)", needsKey: true, defaultModel: "gemini-1.5-flash", isFree: true, keyUrl: "https://aistudio.google.com/app/apikey" },
+  { id: "github_models", name: "🐙 GitHub Models (Free for Developers)", needsKey: true, defaultModel: "gpt-4o-mini", isFree: true, keyUrl: "https://github.com/marketplace/models" },
+  { id: "cerebras", name: "🏎️ Cerebras API (Free Ultra-Fast 1800 T/s)", needsKey: true, defaultModel: "llama3.1-8b", isFree: true, keyUrl: "https://cloud.cerebras.ai" },
+  { id: "huggingface", name: "🤗 Hugging Face (Free Inference API)", needsKey: true, defaultModel: "mistralai/Mistral-7B-Instruct-v0.3", isFree: true, keyUrl: "https://huggingface.co/settings/tokens" },
+
+  // ── High Performance / Low Cost / Trial Credits ──
+  { id: "deepseek", name: "🧠 DeepSeek Direct (V3 & R1 Reasoner)", needsKey: true, defaultModel: "deepseek-chat", isFree: false, keyUrl: "https://platform.deepseek.com" },
+  { id: "together", name: "🤝 Together AI (Free Trial Credits)", needsKey: true, defaultModel: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", isFree: false, keyUrl: "https://api.together.ai" },
+  { id: "deepinfra", name: "⚡ DeepInfra (Free Trial Credits)", needsKey: true, defaultModel: "meta-llama/Meta-Llama-3.1-8B-Instruct", isFree: false, keyUrl: "https://deepinfra.com" },
+  { id: "novita", name: "💫 Novita AI (Free Trial Credits)", needsKey: true, defaultModel: "meta-llama/llama-3.1-8b-instruct", isFree: false, keyUrl: "https://novita.ai" },
+  { id: "hyperbolic", name: "🌀 Hyperbolic (Fast Open Source)", needsKey: true, defaultModel: "meta-llama/Meta-Llama-3.1-70B-Instruct", isFree: false, keyUrl: "https://hyperbolic.xyz" },
+  { id: "fireworks", name: "🎆 Fireworks AI (Fast Open Source)", needsKey: true, defaultModel: "accounts/fireworks/models/llama-v3p1-70b-instruct", isFree: false, keyUrl: "https://fireworks.ai" },
+  { id: "perplexity", name: "🔍 Perplexity AI (Live Search)", needsKey: true, defaultModel: "sonar", isFree: false, keyUrl: "https://www.perplexity.ai/settings/api" },
+
+  // ── Commercial Flagships ──
+  { id: "openai", name: "🤖 OpenAI ChatGPT (GPT-4o / 4o-mini)", needsKey: true, defaultModel: "gpt-4o-mini", isFree: false, keyUrl: "https://platform.openai.com/api-keys" },
+  { id: "mistral", name: "🇫🇷 Mistral AI (La Plateforme)", needsKey: true, defaultModel: "mistral-small-latest", isFree: false, keyUrl: "https://console.mistral.ai" },
+  { id: "grok", name: "🛸 xAI Grok (Grok Beta / Vision)", needsKey: true, defaultModel: "grok-beta", isFree: false, keyUrl: "https://console.x.ai" },
+  { id: "cohere", name: "🧭 Cohere (Command R / R+)", needsKey: true, defaultModel: "command-r", isFree: false, keyUrl: "https://dashboard.cohere.com/api-keys" },
+
+  // ── 100% Offline Local Inference ──
+  { id: "ollama", name: "🦙 Ollama (Local Offline)", needsKey: false, defaultModel: "llama3:latest", isFree: true, keyUrl: "https://ollama.ai" },
+  { id: "lmstudio", name: "💻 LM Studio (Local Offline Port 1234)", needsKey: false, defaultModel: "local-model", isFree: true, keyUrl: "https://lmstudio.ai" },
+
+  // ── Cloud / Custom ──
+  { id: "cloudflare", name: "☁️ Cloudflare Workers AI", needsKey: true, defaultModel: "@cf/meta/llama-3.1-8b-instruct", isFree: false, keyUrl: "https://dash.cloudflare.com" },
+  { id: "custom", name: "🔌 Custom OpenAI-Compatible Provider", needsKey: true, defaultModel: "", isFree: false, keyUrl: "" }
 ] as const;
 
 function getProviderEndpoint(provider: AiConfig["provider"], _model: string, ollamaUrl: string, customEndpoint?: string) {
   switch (provider) {
-    case "openai":  return "https://api.openai.com/v1/chat/completions";
-    case "groq":    return "https://api.groq.com/openai/v1/chat/completions";
-    case "cerebras":return "https://api.cerebras.ai/v1/chat/completions";
-    case "mistral": return "https://api.mistral.ai/v1/chat/completions";
-    case "grok":    return "https://api.x.ai/v1/chat/completions";
-    case "ollama":  return `${ollamaUrl}/v1/chat/completions`;
-    case "custom":  return customEndpoint || "";
-    default:        return "";
+    case "groq":          return "https://api.groq.com/openai/v1/chat/completions";
+    case "openrouter":    return "https://openrouter.ai/api/v1/chat/completions";
+    case "sambanova":     return "https://api.sambanova.ai/v1/chat/completions";
+    case "cerebras":      return "https://api.cerebras.ai/v1/chat/completions";
+    case "deepseek":      return "https://api.deepseek.com/chat/completions";
+    case "github_models": return "https://models.inference.ai.azure.com/chat/completions";
+    case "huggingface":   return "https://api-inference.huggingface.co/v1/chat/completions";
+    case "together":      return "https://api.together.xyz/v1/chat/completions";
+    case "deepinfra":     return "https://api.deepinfra.com/v1/openai/chat/completions";
+    case "novita":        return "https://api.novita.ai/v3/openai/chat/completions";
+    case "hyperbolic":    return "https://api.hyperbolic.xyz/v1/chat/completions";
+    case "fireworks":     return "https://api.fireworks.ai/inference/v1/chat/completions";
+    case "cohere":        return "https://api.cohere.com/v2/chat";
+    case "perplexity":    return "https://api.perplexity.ai/chat/completions";
+    case "mistral":       return "https://api.mistral.ai/v1/chat/completions";
+    case "grok":          return "https://api.x.ai/v1/chat/completions";
+    case "openai":        return "https://api.openai.com/v1/chat/completions";
+    case "cloudflare":    return "https://api.cloudflare.com/client/v4/accounts/ai/v1/chat/completions";
+    case "ollama":        return `${ollamaUrl}/v1/chat/completions`;
+    case "lmstudio":      return "http://localhost:1234/v1/chat/completions";
+    case "custom":        return customEndpoint || "";
+    default:              return "";
   }
 }
 
 function getProviderHeaders(provider: AiConfig["provider"], apiKey: string): Record<string, string> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (provider === "ollama") return headers;
+  if (provider === "ollama" || provider === "lmstudio" || provider === "local_rules") return headers;
   if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+  if (provider === "openrouter") {
+    headers["HTTP-Referer"] = "https://flowtrack.pro";
+    headers["X-Title"] = "FlowTrack Pro";
+  }
   return headers;
 }
 
@@ -1054,7 +1095,7 @@ ${studyContext.recentActivity}`;
                 </div>
 
                 {/* API Key (if needed) */}
-                {provider !== "local_rules" && provider !== "ollama" && (
+                {provider !== "local_rules" && provider !== "ollama" && provider !== "lmstudio" && (
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-bold text-slate-300">API Key</label>
@@ -1071,6 +1112,25 @@ ${studyContext.recentActivity}`;
                       placeholder={`Paste your ${provider} API Key here...`}
                       className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400"
                     />
+                    {(() => {
+                      const provObj = PROVIDERS.find(p => p.id === provider);
+                      if (provObj?.keyUrl) {
+                        return (
+                          <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
+                            <span>Need an API key?</span>
+                            <a
+                              href={provObj.keyUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-cyan-400 hover:text-cyan-300 underline font-medium"
+                            >
+                              Get {provObj.name.split(" ")[1] || provider} Key ↗
+                            </a>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                 )}
 

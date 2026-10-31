@@ -161,7 +161,31 @@ export interface Achievement {
 
 export type AchievementType = string;
 
-export type AIProvider = "gemini" | "ollama" | "custom" | "openai" | "groq" | "cerebras" | "mistral" | "grok" | "local_rules" | "none";
+export type AIProvider =
+  | "gemini"
+  | "ollama"
+  | "custom"
+  | "openai"
+  | "groq"
+  | "cerebras"
+  | "mistral"
+  | "grok"
+  | "local_rules"
+  | "openrouter"
+  | "sambanova"
+  | "deepseek"
+  | "github_models"
+  | "huggingface"
+  | "together"
+  | "deepinfra"
+  | "novita"
+  | "hyperbolic"
+  | "fireworks"
+  | "cohere"
+  | "perplexity"
+  | "lmstudio"
+  | "cloudflare"
+  | "none";
 
 export interface CustomAIProvider {
   id: string;

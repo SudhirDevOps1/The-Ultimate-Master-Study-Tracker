@@ -6,41 +6,126 @@ export interface FetchedModel {
 }
 
 export const FALLBACK_MODELS: Record<string, FetchedModel[]> = {
-  gemini: [
-    { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash (Fast & Balanced)" },
-    { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro (Complex Reasoning)" },
-    { id: "gemini-2.0-flash-exp", name: "Gemini 2.0 Flash (Experimental)" },
+  // ── 100% Free / Generous Free Tiers ──
+  local_rules: [
+    { id: "local-rules", name: "FlowTrack Offline Academic Engine (100% Free & Private)" },
   ],
   groq: [
-    { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B Versatile" },
-    { id: "llama-3.1-8b-instant", name: "Llama 3.1 8B Instant" },
-    { id: "mixtral-8x7b-32768", name: "Mixtral 8x7B (32k Context)" },
-    { id: "gemma2-9b-it", name: "Gemma 2 9B IT" },
+    { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B Versatile (100% Free Ultra-Fast)" },
+    { id: "llama-3.1-8b-instant", name: "Llama 3.1 8B Instant (Ultra-Fast Free)" },
+    { id: "mixtral-8x7b-32768", name: "Mixtral 8x7B (32k Context Free)" },
+    { id: "gemma2-9b-it", name: "Gemma 2 9B IT (Free)" },
+    { id: "qwen-2.5-32b", name: "Qwen 2.5 32B (Free)" },
   ],
-  mistral: [
-    { id: "mistral-small-latest", name: "Mistral Small (Fast)" },
-    { id: "mistral-large-latest", name: "Mistral Large (High Accuracy)" },
-    { id: "codestral-latest", name: "Codestral (Code & Architecture)" },
-    { id: "open-mistral-nemo", name: "Mistral Nemo 12B" },
+  openrouter: [
+    { id: "meta-llama/llama-3.3-70b-instruct:free", name: "Llama 3.3 70B (100% Free)" },
+    { id: "google/gemini-2.0-flash-exp:free", name: "Gemini 2.0 Flash Exp (100% Free)" },
+    { id: "deepseek/deepseek-r1:free", name: "DeepSeek R1 Reasoner (100% Free)" },
+    { id: "qwen/qwen-2.5-coder-32b-instruct:free", name: "Qwen 2.5 Coder 32B (100% Free)" },
+    { id: "mistralai/mistral-7b-instruct:free", name: "Mistral 7B Instruct (100% Free)" },
   ],
+  sambanova: [
+    { id: "Meta-Llama-3.1-70B-Instruct", name: "Llama 3.1 70B Instruct (100% Free Fast)" },
+    { id: "Meta-Llama-3.1-8B-Instruct", name: "Llama 3.1 8B Instruct (100% Free Ultra-Fast)" },
+    { id: "Qwen2.5-72B-Instruct", name: "Qwen 2.5 72B Instruct (100% Free)" },
+    { id: "Meta-Llama-3.3-70B-Instruct", name: "Llama 3.3 70B Instruct (100% Free)" },
+  ],
+  gemini: [
+    { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash (Free Tier 15 RPM)" },
+    { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro (Complex Reasoning)" },
+    { id: "gemini-2.0-flash-exp", name: "Gemini 2.0 Flash (Experimental Free)" },
+  ],
+  github_models: [
+    { id: "gpt-4o-mini", name: "GPT-4o Mini (GitHub Developer Free)" },
+    { id: "Phi-3.5-mini-instruct", name: "Phi-3.5 Mini Instruct (Free)" },
+    { id: "Meta-Llama-3.1-70B-Instruct", name: "Llama 3.1 70B (GitHub Free)" },
+    { id: "AI21-Jamba-1.5-Mini", name: "Jamba 1.5 Mini (GitHub Free)" },
+  ],
+  cerebras: [
+    { id: "llama3.1-8b", name: "Llama 3.1 8B (Free Ultra-Fast 1800 T/s)" },
+    { id: "llama3.1-70b", name: "Llama 3.1 70B (Free High-Speed)" },
+  ],
+  huggingface: [
+    { id: "mistralai/Mistral-7B-Instruct-v0.3", name: "Mistral 7B Instruct v0.3 (Free)" },
+    { id: "Qwen/Qwen2.5-72B-Instruct", name: "Qwen 2.5 72B Instruct (Free)" },
+    { id: "meta-llama/Meta-Llama-3-8B-Instruct", name: "Llama 3 8B Instruct (Free)" },
+  ],
+
+  // ── High Performance / Low Cost / Trial Credits ──
+  deepseek: [
+    { id: "deepseek-chat", name: "DeepSeek V3 (Chat & Coding)" },
+    { id: "deepseek-reasoner", name: "DeepSeek R1 (Deep Chain-of-Thought)" },
+  ],
+  together: [
+    { id: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", name: "Llama 3.1 8B Turbo (Fast)" },
+    { id: "mistralai/Mixtral-8x7B-Instruct-v0.1", name: "Mixtral 8x7B (High Quality)" },
+    { id: "Qwen/Qwen2.5-72B-Instruct-Turbo", name: "Qwen 2.5 72B Turbo" },
+  ],
+  deepinfra: [
+    { id: "meta-llama/Meta-Llama-3.1-8B-Instruct", name: "Llama 3.1 8B Instruct" },
+    { id: "deepseek-ai/DeepSeek-V3", name: "DeepSeek V3" },
+    { id: "Qwen/Qwen2.5-72B-Instruct", name: "Qwen 2.5 72B Instruct" },
+  ],
+  novita: [
+    { id: "meta-llama/llama-3.1-8b-instruct", name: "Llama 3.1 8B Instruct" },
+    { id: "deepseek/deepseek-r1", name: "DeepSeek R1" },
+    { id: "meta-llama/llama-3.3-70b-instruct", name: "Llama 3.3 70B Instruct" },
+  ],
+  hyperbolic: [
+    { id: "meta-llama/Meta-Llama-3.1-70B-Instruct", name: "Llama 3.1 70B Instruct" },
+    { id: "deepseek-ai/DeepSeek-V3", name: "DeepSeek V3" },
+    { id: "Qwen/Qwen2.5-72B-Instruct", name: "Qwen 2.5 72B Instruct" },
+  ],
+  fireworks: [
+    { id: "accounts/fireworks/models/llama-v3p1-70b-instruct", name: "Llama 3.1 70B Instruct" },
+    { id: "accounts/fireworks/models/qwen2p5-72b-instruct", name: "Qwen 2.5 72B Instruct" },
+  ],
+  cohere: [
+    { id: "command-r", name: "Command R (Conversational & RAG)" },
+    { id: "command-r-plus", name: "Command R+ (Enterprise Reasoning)" },
+  ],
+  perplexity: [
+    { id: "sonar", name: "Sonar (Live Search Augmented)" },
+    { id: "sonar-pro", name: "Sonar Pro (Deep Web Search)" },
+    { id: "sonar-reasoning", name: "Sonar Reasoning (Search + Chain-of-Thought)" },
+  ],
+
+  // ── Commercial Flagships ──
   openai: [
-    { id: "gpt-4o", name: "GPT-4o (Omni Multimodal)" },
     { id: "gpt-4o-mini", name: "GPT-4o Mini (Fast & Efficient)" },
+    { id: "gpt-4o", name: "GPT-4o (Omni Multimodal)" },
     { id: "gpt-4-turbo", name: "GPT-4 Turbo" },
     { id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo" },
   ],
-  cerebras: [
-    { id: "llama3.1-70b", name: "Llama 3.1 70B (Fast Inference)" },
-    { id: "llama3.1-8b", name: "Llama 3.1 8B (Ultra Fast)" },
+  mistral: [
+    { id: "mistral-small-latest", name: "Mistral Small (Fast)" },
+    { id: "codestral-latest", name: "Codestral (Code & Architecture)" },
+    { id: "mistral-large-latest", name: "Mistral Large (High Accuracy)" },
+    { id: "open-mistral-nemo", name: "Mistral Nemo 12B" },
   ],
+  grok: [
+    { id: "grok-beta", name: "Grok Beta (Fast Real-Time)" },
+    { id: "grok-2-vision-1212", name: "Grok 2 Vision" },
+  ],
+
+  // ── 100% Offline Local Inference ──
   ollama: [
-    { id: "llama3:latest", name: "Llama 3 (Local)" },
-    { id: "mistral:latest", name: "Mistral (Local)" },
-    { id: "deepseek-r1:latest", name: "DeepSeek R1 (Local)" },
-    { id: "phi3:latest", name: "Phi-3 Mini (Local)" },
+    { id: "llama3:latest", name: "Llama 3 (Local Offline)" },
+    { id: "deepseek-r1:latest", name: "DeepSeek R1 (Local Offline)" },
+    { id: "mistral:latest", name: "Mistral (Local Offline)" },
+    { id: "phi3:latest", name: "Phi-3 Mini (Local Offline)" },
   ],
-  local_rules: [
-    { id: "local-rules", name: "FlowTrack Offline Academic Engine" },
+  lmstudio: [
+    { id: "local-model", name: "LM Studio Active Model (Port 1234)" },
+  ],
+
+  // ── Cloudflare / Custom ──
+  cloudflare: [
+    { id: "@cf/meta/llama-3.1-8b-instruct", name: "Llama 3.1 8B Instruct (10k Neurons/Day Free)" },
+    { id: "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b", name: "DeepSeek R1 Distill 32B" },
+  ],
+  custom: [
+    { id: "custom-model", name: "Custom Configured Model" },
   ],
 };
 
@@ -191,6 +276,63 @@ export async function fetchLiveModels(
       const data = await res.json();
       const raw = Array.isArray(data?.models) ? data.models : [];
       const models = raw.map((m: any) => ({ id: m.name, name: `${m.name} (${Math.round((m.size || 0) / (1024 * 1024))}MB)` }));
+      return { success: true, models: models.length > 0 ? models : fallback };
+    }
+
+    // Universal OpenAI-compatible models discovery
+    const openAiModelsEndpoints: Partial<Record<AiConfig["provider"], string>> = {
+      openrouter: "https://openrouter.ai/api/v1/models",
+      sambanova: "https://api.sambanova.ai/v1/models",
+      deepseek: "https://api.deepseek.com/models",
+      together: "https://api.together.xyz/v1/models",
+      deepinfra: "https://api.deepinfra.com/v1/openai/models",
+      novita: "https://api.novita.ai/v3/openai/models",
+      hyperbolic: "https://api.hyperbolic.xyz/v1/models",
+      fireworks: "https://api.fireworks.ai/inference/v1/models",
+      perplexity: "https://api.perplexity.ai/models",
+      github_models: "https://models.inference.ai.azure.com/models",
+      lmstudio: "http://localhost:1234/v1/models",
+    };
+
+    const targetEndpoint = openAiModelsEndpoints[provider];
+    if (targetEndpoint) {
+      if (provider !== "lmstudio" && !apiKey.trim()) {
+        return { success: false, models: fallback, error: "API key is required" };
+      }
+      const headers: Record<string, string> = {};
+      if (apiKey.trim()) {
+        headers["Authorization"] = `Bearer ${apiKey.trim()}`;
+      }
+      if (provider === "openrouter") {
+        headers["HTTP-Referer"] = "https://flowtrack.pro";
+        headers["X-Title"] = "FlowTrack Pro";
+      }
+
+      const res = await fetch(targetEndpoint, { headers });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson?.error?.message || errJson?.message || `${provider} returned HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      const raw = Array.isArray(data?.data) ? data.data : [];
+      let models = raw
+        .filter((m: any) => m.active !== false)
+        .map((m: any) => ({
+          id: m.id,
+          name: provider === "openrouter" && m.id.endsWith(":free") ? `🌟 ${m.name || m.id}` : (m.name || m.id)
+        }));
+
+      if (provider === "openrouter") {
+        // Put free models first
+        models.sort((a: any, b: any) => {
+          const aFree = a.id.endsWith(":free");
+          const bFree = b.id.endsWith(":free");
+          if (aFree && !bFree) return -1;
+          if (!aFree && bFree) return 1;
+          return a.name.localeCompare(b.name);
+        });
+      }
+
       return { success: true, models: models.length > 0 ? models : fallback };
     }
 

@@ -109,32 +109,60 @@ export async function callUnifiedAI(
     }
   }
 
-  // 2. OpenAI-Compatible Providers (Groq, Cerebras, Mistral, Grok, OpenAI, Ollama, Custom)
+  // 2. Universal OpenAI-Compatible Providers (20+ Platforms)
   const endpointMap: Record<string, string> = {
     groq: "https://api.groq.com/openai/v1/chat/completions",
+    openrouter: "https://openrouter.ai/api/v1/chat/completions",
+    sambanova: "https://api.sambanova.ai/v1/chat/completions",
     cerebras: "https://api.cerebras.ai/v1/chat/completions",
+    deepseek: "https://api.deepseek.com/chat/completions",
+    github_models: "https://models.inference.ai.azure.com/chat/completions",
+    huggingface: "https://api-inference.huggingface.co/v1/chat/completions",
+    together: "https://api.together.xyz/v1/chat/completions",
+    deepinfra: "https://api.deepinfra.com/v1/openai/chat/completions",
+    novita: "https://api.novita.ai/v3/openai/chat/completions",
+    hyperbolic: "https://api.hyperbolic.xyz/v1/chat/completions",
+    fireworks: "https://api.fireworks.ai/inference/v1/chat/completions",
+    cohere: "https://api.cohere.com/v2/chat",
+    perplexity: "https://api.perplexity.ai/chat/completions",
     mistral: "https://api.mistral.ai/v1/chat/completions",
     grok: "https://api.x.ai/v1/chat/completions",
     openai: "https://api.openai.com/v1/chat/completions",
+    cloudflare: "https://api.cloudflare.com/client/v4/accounts/ai/v1/chat/completions",
     ollama: `${ollamaUrl}/v1/chat/completions`,
+    lmstudio: "http://localhost:1234/v1/chat/completions",
     custom: customEndpoint
   };
 
   const endpoint = endpointMap[provider];
 
   if (endpoint) {
-    if (provider !== "ollama" && !apiKey) {
+    if (provider !== "ollama" && provider !== "lmstudio" && !apiKey) {
       return getLocalRuleFallback(prompt, `${provider.toUpperCase()} API key is missing. Using offline academic tutor:`, intent);
     }
 
     try {
       const defaultModels: Record<string, string> = {
         groq: "llama-3.3-70b-versatile",
+        openrouter: "meta-llama/llama-3.3-70b-instruct:free",
+        sambanova: "Meta-Llama-3.1-70B-Instruct",
         cerebras: "llama3.1-8b",
+        deepseek: "deepseek-chat",
+        github_models: "gpt-4o-mini",
+        huggingface: "mistralai/Mistral-7B-Instruct-v0.3",
+        together: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+        deepinfra: "meta-llama/Meta-Llama-3.1-8B-Instruct",
+        novita: "meta-llama/llama-3.1-8b-instruct",
+        hyperbolic: "meta-llama/Meta-Llama-3.1-70B-Instruct",
+        fireworks: "accounts/fireworks/models/llama-v3p1-70b-instruct",
+        cohere: "command-r",
+        perplexity: "sonar",
         mistral: "mistral-small-latest",
         grok: "grok-beta",
         openai: "gpt-4o-mini",
-        ollama: "llama3",
+        cloudflare: "@cf/meta/llama-3.1-8b-instruct",
+        ollama: "llama3:latest",
+        lmstudio: "local-model",
         custom: "custom-model"
       };
 
@@ -143,8 +171,12 @@ export async function callUnifiedAI(
       const headers: Record<string, string> = {
         "Content-Type": "application/json"
       };
-      if (apiKey && provider !== "ollama") {
+      if (apiKey && provider !== "ollama" && provider !== "lmstudio") {
         headers["Authorization"] = `Bearer ${apiKey}`;
+      }
+      if (provider === "openrouter") {
+        headers["HTTP-Referer"] = "https://flowtrack.pro";
+        headers["X-Title"] = "FlowTrack Pro";
       }
 
       const res = await fetch(endpoint, {
