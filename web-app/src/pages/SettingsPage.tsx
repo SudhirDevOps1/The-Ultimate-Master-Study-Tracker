@@ -904,6 +904,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
             <button
               onClick={async () => {
                 const settingsList = await db.settings.toArray();
+                const tasksList = (db as any).tasks ? await (db as any).tasks.toArray() : [];
                 let backendActivities: any[] = [];
                 try {
                   if (backendUrl && isBackendConnected) {
@@ -946,7 +947,8 @@ api_url = http://127.0.0.1:7777/api/v1`}
                   settings: settingsList,
                   activities: backendActivities,
                   wellbeingData: localWellbeingData,
-                  localStorageData: allLocalStorageData
+                  localStorageData: allLocalStorageData,
+                  tasks: tasksList
                 } as any);
                 showMessage("Backup exported successfully.");
               }}
@@ -982,6 +984,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
                         console.error("Error importing wellbeing data", err);
                       }
                     }
+                    if (typeof window !== "undefined") window.dispatchEvent(new Event("flowtrack_data_imported"));
                     showMessage("Backup imported successfully.");
                     if (fileRef.current) fileRef.current.value = "";
                   });
@@ -1334,6 +1337,19 @@ api_url = http://127.0.0.1:7777/api/v1`}
                 await db.subjects.clear();
                 await db.sessions.clear();
                 await db.settings.clear();
+                if ((db as any).tasks) await (db as any).tasks.clear();
+                if ((db as any).timeboxes) await (db as any).timeboxes.clear();
+                if ((db as any).ocrEntries) await (db as any).ocrEntries.clear();
+                if ((db as any).mindMaps) await (db as any).mindMaps.clear();
+                if ((db as any).boards) await (db as any).boards.clear();
+                if ((db as any).notepadDocs) await (db as any).notepadDocs.clear();
+                localStorage.removeItem("flowtrack_tasks_view_mode");
+                localStorage.removeItem("flowtrack_eisenhower_quadrants");
+                localStorage.removeItem("flowtrack_study_scheduler_goals_v1");
+                localStorage.removeItem("flowtrack_exams_v1");
+                localStorage.removeItem("flowtrack_active_plan");
+                localStorage.removeItem("app_block_rules");
+                if (typeof window !== "undefined") window.dispatchEvent(new Event("flowtrack_data_imported"));
                 showMessage("All data cleared! Reloading...");
                 setTimeout(() => window.location.reload(), 1000);
               } catch (e) {

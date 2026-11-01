@@ -883,10 +883,8 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
     const rawDeltaMs = Math.max(0, nowMs - timer.startedAtMs);
 
     // System Clock Anti-Tamper Protection:
-    // If system clock was manually jumped forward, cap total session time to plannedMinutes * 60 + 600s max overshoot.
-    const maxAllowedSeconds = (activeSession.plannedMinutes && activeSession.plannedMinutes > 0)
-      ? (activeSession.plannedMinutes * 60) + 600
-      : 86400;
+    // Protect against unreasonable system clock jumps, while allowing honest overtime study without freezing.
+    const maxAllowedSeconds = 86400; // 24-hour single-session safeguard
 
     if (!strictFocusMode && !autoPauseOnHidden) {
       const computedSecs = timer.accumulatedSeconds + Math.floor(rawDeltaMs / 1000);

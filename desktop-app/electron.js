@@ -830,8 +830,11 @@ function startActivityTracker() {
 
     // Skip self-app and truly invalid readings
     if (shouldSkip(processName, windowTitle)) {
-      // Still update currentActivity so we don't log a stale entry next time
+      // If switching from a valid external process to self/skipped app, flush previous activity first!
       if (currentActivity.processName !== processName) {
+        if (currentActivity.processName && !shouldSkip(currentActivity.processName, currentActivity.windowTitle)) {
+          flushCurrentActivity(now);
+        }
         currentActivity = { processName, windowTitle, startMs: now };
       }
       return;
@@ -843,13 +846,15 @@ function startActivityTracker() {
     const isAfk = idleSec >= afkThreshold;
 
     const hasChanged = processName !== currentActivity.processName || windowTitle !== currentActivity.windowTitle;
+    const durationSinceStart = now - currentActivity.startMs;
+    const shouldPeriodicCheckpoint = durationSinceStart >= 60_000;
 
-    if (hasChanged) {
+    if (hasChanged || shouldPeriodicCheckpoint) {
       flushCurrentActivity(now);
       currentActivity = { processName, windowTitle, startMs: now };
 
       // Broadcast instant window change to renderer UI for immediate responsiveness
-      if (mainWindow && !mainWindow.isDestroyed()) {
+      if (hasChanged && mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send("active-window-changed", {
           process: processName,
           title: cleanWindowTitle(windowTitle),

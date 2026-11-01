@@ -127,6 +127,21 @@ export async function importBackup(file: File): Promise<BackupPayload> {
     });
   }
 
+  // Sanitize task data
+  if (parsed.tasks && Array.isArray(parsed.tasks)) {
+    parsed.tasks = parsed.tasks.filter((task: any) => {
+      if (!task || typeof task !== "object") return false;
+      if (!task.id) task.id = "task-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7);
+      if (!task.title) task.title = "Untitled Task";
+      if (typeof task.estimatedMinutes !== "number") task.estimatedMinutes = 25;
+      if (typeof task.actualMinutes !== "number") task.actualMinutes = 0;
+      if (!["todo", "in_progress", "completed"].includes(task.status)) task.status = "todo";
+      if (!["low", "medium", "high"].includes(task.priority)) task.priority = "medium";
+      if (!task.createdAt) task.createdAt = new Date().toISOString();
+      return true;
+    });
+  }
+
   // Import wellbeingData app_block_rules if present in backup file (Legacy support)
   if (parsed.wellbeingData && Array.isArray(parsed.wellbeingData.app_block_rules)) {
     const validRules = parsed.wellbeingData.app_block_rules.filter((rule: any) => {
