@@ -28,8 +28,8 @@ function classifyApp(appName: string): string {
   return "neutral";
 }
 
-const isElectron = typeof window !== "undefined" && !!(window as any).require;
-const getIpc = () => isElectron ? (window as any).require("electron").ipcRenderer : null;
+const isElectron = typeof window !== "undefined" && !!(window as any).electron?.ipcRenderer;
+const getIpc = () => isElectron ? (window as any).electron.ipcRenderer : null;
 
 export function BackendActivityPanel() {
   const isBackendConnected = useAppStore((state: AppState) => state.isBackendConnected);
@@ -38,20 +38,50 @@ export function BackendActivityPanel() {
   const fetchBackendData = useAppStore((state: AppState) => state.fetchBackendData);
   const activeWindow = useAppStore((state: AppState) => state.activeWindow);
 
+  const [desktopActivities, setDesktopActivities] = useState<any[]>([]);
+
   useEffect(() => {
     void fetchBackendData();
+    const ipc = getIpc();
+    const fetchDesktopActivities = async () => {
+      if (!ipc) return;
+      try {
+        const logs = await ipc.invoke("get-activity-log");
+        if (Array.isArray(logs)) {
+          setDesktopActivities(logs);
+        }
+      } catch (e) {}
+    };
+
+    if (ipc) void fetchDesktopActivities();
+
     const interval = setInterval(() => {
       void fetchBackendData();
-    }, 5000);
+      if (ipc) void fetchDesktopActivities();
+    }, 3000);
     return () => clearInterval(interval);
   }, [fetchBackendData]);
 
+  // Use desktop native activities if running in Electron and backend has no entries
+  const effectiveActivities = useMemo(() => {
+    if (backendActivities && backendActivities.length > 0) return backendActivities;
+    return desktopActivities;
+  }, [backendActivities, desktopActivities]);
+
+  const liveTitle = useMemo(() => {
+    if (desktopActivities.length > 0) {
+      const live = desktopActivities.find((e: any) => e.isLive);
+      if (live) return `${live.appName}${live.title ? ` — ${live.title}` : ""}`;
+    }
+    return activeWindow || "Desktop / Idle";
+  }, [desktopActivities, activeWindow]);
+
   // Aggregate top processes
   const processUsage = useMemo(() => {
-    if (!backendActivities || backendActivities.length === 0) return [];
+    if (!effectiveActivities || effectiveActivities.length === 0) return [];
     const map = new Map<string, { appName: string; durationSeconds: number; category: string }>();
-    for (const entry of backendActivities) {
-      const app = entry.process || entry.appName || entry.app_name;
+    for (const entry of effectiveActivities) {
+      const app = entry.process || entry.appName || entry.rawProcess || entry.app_name;
       if (!app) continue;
       const key = app.toLowerCase();
       const duration = Number(entry.duration || entry.durationSeconds || entry.duration_sec || 0);
@@ -66,18 +96,18 @@ export function BackendActivityPanel() {
       .slice(0, 5)
       .map((item) => ({
         process: item.appName,
-        minutes: Math.round(item.durationSeconds / 60),
+        minutes: Math.round(item.durationSeconds / 60) || (item.durationSeconds > 0 ? 1 : 0),
         category: item.category,
       }));
-  }, [backendActivities]);
+  }, [effectiveActivities]);
 
   // Aggregate top window titles
   const tabUsage = useMemo(() => {
-    if (!backendActivities || backendActivities.length === 0) return [];
+    if (!effectiveActivities || effectiveActivities.length === 0) return [];
     const map = new Map<string, { title: string; durationSeconds: number; process: string; category: string }>();
-    for (const entry of backendActivities) {
+    for (const entry of effectiveActivities) {
       const title = entry.title || entry.window_title;
-      const app = entry.process || entry.appName || entry.app_name || "App";
+      const app = entry.process || entry.appName || entry.rawProcess || entry.app_name || "App";
       if (!title || title === "Desktop / Idle") continue;
       const key = title.trim();
       const duration = Number(entry.duration || entry.durationSeconds || entry.duration_sec || 0);
@@ -93,17 +123,17 @@ export function BackendActivityPanel() {
       .map((item) => ({
         title: item.title,
         process: item.process,
-        minutes: Math.round(item.durationSeconds / 60),
+        minutes: Math.round(item.durationSeconds / 60) || (item.durationSeconds > 0 ? 1 : 0),
         category: item.category,
       }));
-  }, [backendActivities]);
+  }, [effectiveActivities]);
 
   // Category breakdown for chart
   const categoryData = useMemo(() => {
     let prod = 0, dist = 0, neut = 0;
-    if (backendActivities && backendActivities.length > 0) {
-      for (const entry of backendActivities) {
-        const app = entry.process || entry.appName || entry.app_name || "";
+    if (effectiveActivities && effectiveActivities.length > 0) {
+      for (const entry of effectiveActivities) {
+        const app = entry.process || entry.appName || entry.rawProcess || entry.app_name || "";
         const duration = Number(entry.duration || entry.durationSeconds || entry.duration_sec || 0);
         const cat = classifyApp(app);
         if (cat === "productive") prod += duration;
@@ -113,11 +143,11 @@ export function BackendActivityPanel() {
     }
 
     return [
-      { name: "Productive", value: Math.round(prod / 60), color: "#10b981" },
-      { name: "Distracting", value: Math.round(dist / 60), color: "#f43f5e" },
-      { name: "Neutral", value: Math.round(neut / 60), color: "#3b82f6" },
+      { name: "Productive", value: Math.round(prod / 60) || (prod > 0 ? 1 : 0), color: "#10b981" },
+      { name: "Distracting", value: Math.round(dist / 60) || (dist > 0 ? 1 : 0), color: "#f43f5e" },
+      { name: "Neutral", value: Math.round(neut / 60) || (neut > 0 ? 1 : 0), color: "#3b82f6" },
     ];
-  }, [backendActivities]);
+  }, [effectiveActivities]);
 
   const totalMinutes = useMemo(() => categoryData.reduce((acc, curr) => acc + curr.value, 0), [categoryData]);
 
@@ -132,14 +162,14 @@ export function BackendActivityPanel() {
           </div>
           <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-400/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Connected
+            {isBackendConnected ? "Connected (Backend)" : isElectron ? "Active (Native Win32)" : "Connected"}
           </span>
         </div>
 
         <div className="space-y-2">
           <p className="text-[10px] uppercase tracking-wider text-slate-400">Current Active Window</p>
           <div className="rounded-xl border border-white/10 bg-slate-950/60 p-3">
-            <p className="text-xs font-bold text-white truncate">{activeWindow || "Desktop / Idle"}</p>
+            <p className="text-xs font-bold text-white truncate">{liveTitle}</p>
           </div>
         </div>
 
@@ -178,10 +208,10 @@ export function BackendActivityPanel() {
         </div>
       </Panel>
 
-      {/* Top 5 Processes Table */}
+      {/* Top 5 Applications Table */}
       <Panel className="space-y-3">
         <div className="flex-1">
-          <h4 className="text-sm font-semibold text-slate-200">🖥️ Top Applications</h4>
+          <h4 className="text-sm font-semibold text-slate-200">💻 Top Applications</h4>
           <p className="text-[10px] text-slate-400 mt-0.5">Most used desktop apps today</p>
         </div>
         <div className="pretty-scrollbar max-h-48 overflow-y-auto space-y-2">
@@ -224,7 +254,7 @@ export function BackendActivityPanel() {
       {/* Top 5 Windows/Tabs Table */}
       <Panel className="space-y-3">
         <div className="flex-1">
-          <h4 className="text-sm font-semibold text-slate-200">🌐 Top Window Titles</h4>
+          <h4 className="text-sm font-semibold text-slate-200">🪟 Top Window Titles</h4>
           <p className="text-[10px] text-slate-400 mt-0.5">Most active window titles today</p>
         </div>
         <div className="pretty-scrollbar max-h-48 overflow-y-auto space-y-2">

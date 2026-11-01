@@ -188,12 +188,12 @@ function flushCurrentActivity(forcedEndMs) {
     lastPollMs: trackerLastPollMs || now,
     idleSec,
     afkThresholdSec: afkThreshold,
-    pollIntervalMs: 3500,
+    pollIntervalMs: 1500,
   });
 
   if (
     currentActivity.processName &&
-    split.totalSeconds >= 3 &&
+    split.totalSeconds >= 1 &&
     !shouldSkip(currentActivity.processName, currentActivity.windowTitle)
   ) {
     const startDt = new Date(currentActivity.startMs);
@@ -864,8 +864,8 @@ function startActivityTracker() {
       }
     }
     trackerLastPollMs = now;
-  // Polling every 2000ms for swift and responsive tracking across Linux, Windows & macOS
-  }, 3500);
+  // Polling every 1500ms for swift and responsive multitasking tracking
+  }, 1500);
 
   // Auto-save to disk every 30 seconds
   setInterval(saveLogToFile, 30_000);
