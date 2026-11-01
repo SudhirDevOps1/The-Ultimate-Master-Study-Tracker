@@ -1,3 +1,4 @@
+import { saveTextFileSafely } from "@/utils/dataExport";
 import type { StudySession, Subject } from "@/types/models";
 
 export interface BackupPayload {
@@ -15,7 +16,10 @@ export interface BackupPayload {
   localStorageData?: Record<string, string>;
 }
 
-export function exportData(payload: BackupPayload): void {
+export async function exportData(
+  payload: BackupPayload,
+  customFilename?: string
+): Promise<{ success: boolean; canceled?: boolean; filePath?: string; filename?: string; error?: string }> {
   const cleanedPayload = JSON.parse(JSON.stringify(payload)) as BackupPayload;
   if (cleanedPayload.settings) {
     cleanedPayload.settings = cleanedPayload.settings.map(setting => {
@@ -49,18 +53,21 @@ export function exportData(payload: BackupPayload): void {
     console.error("Failed to append app_block_rules to export:", e);
   }
 
-  const blob = new Blob([JSON.stringify(cleanedPayload, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
   const dateStr = `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}`;
-  
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${dateStr}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
+  const defaultFilename = customFilename || `flowtrack-backup-${dateStr}.json`;
+  const jsonContent = JSON.stringify(cleanedPayload, null, 2);
+
+  return await saveTextFileSafely(
+    jsonContent,
+    defaultFilename,
+    "application/json",
+    [
+      { name: "FlowTrack JSON Backup", extensions: ["json"] },
+      { name: "All Files", extensions: ["*"] }
+    ]
+  );
 }
 
 export async function importBackup(file: File): Promise<BackupPayload> {

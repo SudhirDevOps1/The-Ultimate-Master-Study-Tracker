@@ -11,7 +11,7 @@ import { usePomodoro } from "@/hooks/usePomodoro";
 import { exportData, importBackup } from "@/utils/exportImport";
 import { exportLocalDatabase, importLocalDatabase } from "@/utils/backupEngine";
 import { LicensesModal } from "@/components/LicensesModal";
-import { exportSessionsToCSV, exportSubjectStatsToCSV, exportAllDataToCSV } from "@/utils/dataExport";
+import { exportSessionsToCSV, exportSubjectStatsToCSV, exportAllDataToCSV, saveTextFileSafely } from "@/utils/dataExport";
 import { aggregateCodingStats, type HeartbeatItem } from "@/utils/editorInfo";
 import { db } from "@/lib/db";
 
@@ -1231,12 +1231,18 @@ api_url = http://127.0.0.1:7777/api/v1`}
                 setIsExportingDb(true);
                 try {
                   const { blob, filename } = await exportLocalDatabase(backupPassInput);
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = filename;
-                  a.click();
-                  URL.revokeObjectURL(url);
+                  const text = await blob.text();
+                  const res = await saveTextFileSafely(
+                    text,
+                    filename,
+                    "application/json",
+                    [
+                      { name: "FlowTrack Database Backup", extensions: ["json"] },
+                      { name: "All Files", extensions: ["*"] }
+                    ]
+                  );
+                  if (res.canceled) return;
+                  if (!res.success) throw new Error(res.error || "Save cancelled or failed");
                   showMessage(backupPassInput ? "Encrypted full backup exported successfully." : "Full database backup exported successfully.");
                 } catch (err: any) {
                   showMessage("Export failed: " + (err?.message || "Unknown error"));
@@ -1324,7 +1330,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
                   console.error("Error reading wellbeing data for backup", err);
                 }
 
-                exportData({
+                const exportRes = await exportData({
                   app: "FlowTrack",
                   exportedAt: new Date().toISOString(),
                   subjects,
@@ -1335,6 +1341,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
                   localStorageData: allLocalStorageData,
                   tasks: tasksList
                 } as any);
+                if (exportRes && (exportRes as any).canceled) return;
                 showMessage("Backup exported successfully.");
               }}
               className="rounded-2xl bg-gradient-to-r from-indigo-500 to-cyan-500 px-4 py-3 font-medium text-white shadow-lg transition-transform hover:scale-105"

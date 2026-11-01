@@ -261,24 +261,43 @@ export function DashboardPage() {
 
   const activeSubjectObj = useMemo(() => subjects.find(s => s.id === selectedSubjectId), [subjects, selectedSubjectId]);
 
+  const todayPlannedMinutes = useMemo(() => {
+    return today
+      .filter((s: StudySession) => selectedSubjectId === "all" || s.subjectId === selectedSubjectId)
+      .reduce((sum: number, s: StudySession) => sum + (s.plannedMinutes || 0), 0);
+  }, [today, selectedSubjectId]);
+
+  const thisWeekSessions = useMemo(() => {
+    const start = startOfWeek(new Date(), { weekStartsOn: 1 });
+    return sessions.filter((s: StudySession) => new Date(s.startTime) >= start);
+  }, [sessions]);
+
+  const thisWeekPlannedMinutes = useMemo(() => {
+    return thisWeekSessions
+      .filter((s: StudySession) => selectedSubjectId === "all" || s.subjectId === selectedSubjectId)
+      .reduce((sum: number, s: StudySession) => sum + (s.plannedMinutes || 0), 0);
+  }, [thisWeekSessions, selectedSubjectId]);
+
   const dailyGoalMinutes = useMemo(() => {
+    if (todayPlannedMinutes > 0) return todayPlannedMinutes;
     if (selectedSubjectId === "all") return dailyGoalHours * 60;
     if (activeSubjectObj?.weeklyGoalMinutes) return Math.round(activeSubjectObj.weeklyGoalMinutes / 7);
     return Math.round((dailyGoalHours * 60) / Math.max(1, subjects.length));
-  }, [selectedSubjectId, activeSubjectObj, dailyGoalHours, subjects.length]);
+  }, [todayPlannedMinutes, selectedSubjectId, activeSubjectObj, dailyGoalHours, subjects.length]);
 
   const weeklyGoalMinutes = useMemo(() => {
+    if (thisWeekPlannedMinutes > 0) return thisWeekPlannedMinutes;
     if (selectedSubjectId === "all") return weeklyTargetHours * 60;
     if (activeSubjectObj?.weeklyGoalMinutes) return activeSubjectObj.weeklyGoalMinutes;
     return Math.round((weeklyTargetHours * 60) / Math.max(1, subjects.length));
-  }, [selectedSubjectId, activeSubjectObj, weeklyTargetHours, subjects.length]);
+  }, [thisWeekPlannedMinutes, selectedSubjectId, activeSubjectObj, weeklyTargetHours, subjects.length]);
 
   const monthlyGoalHours = useMemo(() => {
-    const globalMonthly = Math.round(weeklyTargetHours * 4);
-    if (selectedSubjectId === "all") return globalMonthly;
-    if (activeSubjectObj?.weeklyGoalMinutes) return Math.round((activeSubjectObj.weeklyGoalMinutes * 4) / 60);
-    return Math.round(globalMonthly / Math.max(1, subjects.length));
-  }, [selectedSubjectId, activeSubjectObj, subjects.length, weeklyTargetHours]);
+    const globalMonthly = Math.round((weeklyGoalMinutes * 4.3) / 60);
+    if (selectedSubjectId === "all") return Math.max(1, globalMonthly);
+    if (activeSubjectObj?.weeklyGoalMinutes) return Math.max(1, Math.round((activeSubjectObj.weeklyGoalMinutes * 4.3) / 60));
+    return Math.max(1, Math.round(globalMonthly / Math.max(1, subjects.length)));
+  }, [weeklyGoalMinutes, selectedSubjectId, activeSubjectObj, subjects.length]);
 
   const currentMonthHours = useMemo(() => {
     const now = new Date();
@@ -292,11 +311,6 @@ export function DashboardPage() {
   const actualTodayMinutes = Math.round(today.filter(s => selectedSubjectId === "all" || s.subjectId === selectedSubjectId).reduce((sum, session) => sum + session.actualSeconds, 0) / 60);
   const dailyGoalProgress = Math.min(100, (actualTodayMinutes / Math.max(1, dailyGoalMinutes)) * 100);
 
-  // Weekly progress
-  const thisWeekSessions = useMemo(() => {
-    const start = startOfWeek(new Date(), { weekStartsOn: 1 });
-    return sessions.filter((s: StudySession) => new Date(s.startTime) >= start);
-  }, [sessions]);
   const weeklyActualMinutes = Math.round(thisWeekSessions.filter(s => selectedSubjectId === "all" || s.subjectId === selectedSubjectId).reduce((sum, s) => sum + s.actualSeconds, 0) / 60);
   const weeklyProgress = Math.min(100, (weeklyActualMinutes / Math.max(1, weeklyGoalMinutes)) * 100);
 
@@ -571,11 +585,12 @@ export function DashboardPage() {
               const distractionPenalty = Math.min(15, pauseCount * 3); // 3 pts penalty per pause, up to 15 pts
               const focusScore = Math.max(0, Math.round(studiedHoursWeight + completionWeight - distractionPenalty));
               
-              let scoreColor = "text-rose-400";
-              let scoreText = "Distracted 🥱";
+              let scoreColor = "text-slate-400";
+              let scoreText = "Ready to Begin 🎯";
               if (focusScore >= 80) { scoreColor = "text-cyan-400"; scoreText = "Flow State ⚡"; }
               else if (focusScore >= 60) { scoreColor = "text-emerald-400"; scoreText = "Focused 🧠"; }
               else if (focusScore >= 35) { scoreColor = "text-amber-400"; scoreText = "Standard 🕒"; }
+              else if (actualTodayMinutes > 0) { scoreColor = "text-cyan-400"; scoreText = "Building Momentum 🚀"; }
 
               return (
                 <motion.div 

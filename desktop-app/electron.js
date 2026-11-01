@@ -2267,6 +2267,28 @@ ipcMain.handle("export-activity-csv", async (_e, { date } = {}) => {
   }
 });
 
+ipcMain.handle("save-file-dialog", async (_e, { content, defaultFilename, filters }) => {
+  try {
+    const downloadsPath = app.getPath("downloads");
+    const defaultPath = defaultFilename ? path.join(downloadsPath, defaultFilename) : downloadsPath;
+    const { filePath, canceled } = await dialog.showSaveDialog(mainWindow, {
+      title: "Save Export File",
+      defaultPath,
+      filters: filters || [
+        { name: "JSON Files", extensions: ["json"] },
+        { name: "All Files", extensions: ["*"] }
+      ]
+    });
+    if (canceled || !filePath) {
+      return { success: false, reason: "canceled" };
+    }
+    fs.writeFileSync(filePath, content, "utf8");
+    return { success: true, filePath, filename: path.basename(filePath) };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
 ipcMain.handle("save-image-dialog", async (_e, { base64Data, defaultFilename }) => {
   try {
     const { filePath } = await dialog.showSaveDialog(mainWindow, {
