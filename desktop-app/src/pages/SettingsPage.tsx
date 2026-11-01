@@ -11,7 +11,7 @@ import { usePomodoro } from "@/hooks/usePomodoro";
 import { exportData, importBackup } from "@/utils/exportImport";
 import { exportLocalDatabase, importLocalDatabase } from "@/utils/backupEngine";
 import { LicensesModal } from "@/components/LicensesModal";
-import { exportSessionsToCSV, exportSubjectStatsToCSV, exportAllDataToCSV } from "@/utils/dataExport";
+import { exportSessionsToCSV, exportSubjectStatsToCSV, exportAllDataToCSV, saveTextFileSafely } from "@/utils/dataExport";
 import { aggregateCodingStats, type HeartbeatItem } from "@/utils/editorInfo";
 import { db } from "@/lib/db";
 
@@ -1231,12 +1231,18 @@ api_url = http://127.0.0.1:7777/api/v1`}
                 setIsExportingDb(true);
                 try {
                   const { blob, filename } = await exportLocalDatabase(backupPassInput);
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = filename;
-                  a.click();
-                  URL.revokeObjectURL(url);
+                  const text = await blob.text();
+                  const res = await saveTextFileSafely(
+                    text,
+                    filename,
+                    "application/json",
+                    [
+                      { name: "FlowTrack Database Backup", extensions: ["json"] },
+                      { name: "All Files", extensions: ["*"] }
+                    ]
+                  );
+                  if (res.canceled) return;
+                  if (!res.success) throw new Error(res.error || "Save cancelled or failed");
                   showMessage(backupPassInput ? "Encrypted full backup exported successfully." : "Full database backup exported successfully.");
                 } catch (err: any) {
                   showMessage("Export failed: " + (err?.message || "Unknown error"));
@@ -1291,6 +1297,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
             <button
               onClick={async () => {
                 const settingsList = await db.settings.toArray();
+                const tasksList = (db as any).tasks ? await (db as any).tasks.toArray() : [];
                 let backendActivities: any[] = [];
                 try {
                   if (backendUrl) {
@@ -1323,7 +1330,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
                   console.error("Error reading wellbeing data for backup", err);
                 }
 
-                exportData({
+                const exportRes = await exportData({
                   app: "FlowTrack",
                   exportedAt: new Date().toISOString(),
                   subjects,
@@ -1331,8 +1338,10 @@ api_url = http://127.0.0.1:7777/api/v1`}
                   settings: settingsList,
                   activities: backendActivities,
                   wellbeingData: localWellbeingData,
-                  localStorageData: allLocalStorageData
+                  localStorageData: allLocalStorageData,
+                  tasks: tasksList
                 } as any);
+                if (exportRes && (exportRes as any).canceled) return;
                 showMessage("Backup exported successfully.");
               }}
               className="rounded-2xl bg-gradient-to-r from-indigo-500 to-cyan-500 px-4 py-3 font-medium text-white shadow-lg transition-transform hover:scale-105"
@@ -1348,7 +1357,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
                 const file = event.target.files?.[0];
                 if (!file) return;
                 void importBackup(file).then((payload: any) => {
-                  void importAll(payload.subjects, payload.sessions, payload.settings, (payload as any).activities).then(() => {
+                  void importAll(payload.subjects, payload.sessions, payload.settings, (payload as any).activities, (payload as any).tasks).then(() => {
                     // Restore Local Wellbeing, App Activity logs and App Blocking Rules (Legacy support in case localStorageData is missing)
                     if (payload.wellbeingData && !payload.localStorageData) {
                       try {
@@ -1367,6 +1376,8 @@ api_url = http://127.0.0.1:7777/api/v1`}
                         console.error("Error importing wellbeing data", err);
                       }
                     }
+                    void loadDbStats();
+                    if (typeof window !== "undefined") window.dispatchEvent(new Event("flowtrack_data_imported"));
                     showMessage("Backup imported successfully.");
                     if (fileRef.current) fileRef.current.value = "";
                   });
@@ -1806,6 +1817,20 @@ api_url = http://127.0.0.1:7777/api/v1`}
                 await db.subjects.clear();
                 await db.sessions.clear();
                 await db.settings.clear();
+                if ((db as any).tasks) await (db as any).tasks.clear();
+                if ((db as any).timeboxes) await (db as any).timeboxes.clear();
+                if ((db as any).ocrEntries) await (db as any).ocrEntries.clear();
+                if ((db as any).mindMaps) await (db as any).mindMaps.clear();
+                if ((db as any).boards) await (db as any).boards.clear();
+                if ((db as any).notepadDocs) await (db as any).notepadDocs.clear();
+                localStorage.removeItem("flowtrack_tasks_view_mode");
+                localStorage.removeItem("flowtrack_eisenhower_quadrants");
+                localStorage.removeItem("flowtrack_study_scheduler_goals_v1");
+                localStorage.removeItem("flowtrack_exams_v1");
+                localStorage.removeItem("flowtrack_active_plan");
+                localStorage.removeItem("app_block_rules");
+                if (typeof window !== "undefined") window.dispatchEvent(new Event("flowtrack_data_imported"));
+                void loadDbStats();
                 showMessage("All data cleared! Reloading...");
                 setTimeout(() => window.location.reload(), 1000);
               } catch (e) {

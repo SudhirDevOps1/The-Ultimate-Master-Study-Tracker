@@ -188,12 +188,12 @@ function flushCurrentActivity(forcedEndMs) {
     lastPollMs: trackerLastPollMs || now,
     idleSec,
     afkThresholdSec: afkThreshold,
-    pollIntervalMs: 3500,
+    pollIntervalMs: 1500,
   });
 
   if (
     currentActivity.processName &&
-    split.totalSeconds >= 3 &&
+    split.totalSeconds >= 1 &&
     !shouldSkip(currentActivity.processName, currentActivity.windowTitle)
   ) {
     const startDt = new Date(currentActivity.startMs);
@@ -830,8 +830,11 @@ function startActivityTracker() {
 
     // Skip self-app and truly invalid readings
     if (shouldSkip(processName, windowTitle)) {
-      // Still update currentActivity so we don't log a stale entry next time
+      // If switching from a valid external process to self/skipped app, flush previous activity first!
       if (currentActivity.processName !== processName) {
+        if (currentActivity.processName && !shouldSkip(currentActivity.processName, currentActivity.windowTitle)) {
+          flushCurrentActivity(now);
+        }
         currentActivity = { processName, windowTitle, startMs: now };
       }
       return;
@@ -843,13 +846,15 @@ function startActivityTracker() {
     const isAfk = idleSec >= afkThreshold;
 
     const hasChanged = processName !== currentActivity.processName || windowTitle !== currentActivity.windowTitle;
+    const durationSinceStart = now - currentActivity.startMs;
+    const shouldPeriodicCheckpoint = durationSinceStart >= 60_000;
 
-    if (hasChanged) {
+    if (hasChanged || shouldPeriodicCheckpoint) {
       flushCurrentActivity(now);
       currentActivity = { processName, windowTitle, startMs: now };
 
       // Broadcast instant window change to renderer UI for immediate responsiveness
-      if (mainWindow && !mainWindow.isDestroyed()) {
+      if (hasChanged && mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send("active-window-changed", {
           process: processName,
           title: cleanWindowTitle(windowTitle),
@@ -859,8 +864,8 @@ function startActivityTracker() {
       }
     }
     trackerLastPollMs = now;
-  // Polling every 2000ms for swift and responsive tracking across Linux, Windows & macOS
-  }, 3500);
+  // Polling every 1500ms for swift and responsive multitasking tracking
+  }, 1500);
 
   // Auto-save to disk every 30 seconds
   setInterval(saveLogToFile, 30_000);
@@ -2257,6 +2262,28 @@ ipcMain.handle("export-activity-csv", async (_e, { date } = {}) => {
     });
     if (filePath) { fs.writeFileSync(filePath, csv, "utf8"); return { success: true, path: filePath }; }
     return { success: false, reason: "cancelled" };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle("save-file-dialog", async (_e, { content, defaultFilename, filters }) => {
+  try {
+    const downloadsPath = app.getPath("downloads");
+    const defaultPath = defaultFilename ? path.join(downloadsPath, defaultFilename) : downloadsPath;
+    const { filePath, canceled } = await dialog.showSaveDialog(mainWindow, {
+      title: "Save Export File",
+      defaultPath,
+      filters: filters || [
+        { name: "JSON Files", extensions: ["json"] },
+        { name: "All Files", extensions: ["*"] }
+      ]
+    });
+    if (canceled || !filePath) {
+      return { success: false, reason: "canceled" };
+    }
+    fs.writeFileSync(filePath, content, "utf8");
+    return { success: true, filePath, filename: path.basename(filePath) };
   } catch (err) {
     return { success: false, error: err.message };
   }

@@ -70,7 +70,7 @@ export interface AppState {
   createSession: (input: CreateSessionInput) => Promise<void>;
   updateSession: (session: StudySession) => Promise<void>;
   deleteSession: (id: string) => Promise<void>;
-  importAll: (subjects: Subject[], sessions: StudySession[], settings?: AppSettings[], activities?: any[]) => Promise<void>;
+  importAll: (subjects: Subject[], sessions: StudySession[], settings?: AppSettings[], activities?: any[], tasks?: any[]) => Promise<void>;
   addManualEntry: (input: {
     subjectId: string;
     date: string;
@@ -655,11 +655,19 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
     scheduleSync(get);
   },
 
-  importAll: async (subjects: Subject[], sessions: StudySession[], settings?: { key: string; value: string }[], activities?: any[]) => {
-    await (db as any).transaction("rw", [db.subjects, db.sessions, db.settings], async () => {
-      // Safe merge (Upsert): Do not clear existing data
-      await db.subjects.bulkPut(subjects);
-      await db.sessions.bulkPut(sessions);
+  importAll: async (subjects: Subject[], sessions: StudySession[], settings?: { key: string; value: string }[], activities?: any[], tasks?: any[]) => {
+    const tables: any[] = [db.subjects, db.sessions, db.settings];
+    if ((db as any).tasks) tables.push((db as any).tasks);
+    await (db as any).transaction("rw", tables, async () => {
+      // Clean import: clear old subjects, sessions and tasks to prevent ghost duplicates and schedule overlap
+      await db.subjects.clear();
+      await db.sessions.clear();
+      await db.subjects.bulkAdd(subjects);
+      await db.sessions.bulkAdd(sessions);
+      if (tasks && Array.isArray(tasks) && tasks.length > 0 && (db as any).tasks) {
+        await (db as any).tasks.clear();
+        await (db as any).tasks.bulkAdd(tasks);
+      }
       if (settings && settings.length > 0) {
         for (const setting of settings) {
           if (setting.key === "ai_config") {
@@ -905,10 +913,8 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
     const rawDeltaMs = Math.max(0, nowMs - timer.startedAtMs);
 
     // System Clock Anti-Tamper Protection:
-    // If system clock was manually jumped forward, cap total session time to plannedMinutes * 60 + 600s max overshoot.
-    const maxAllowedSeconds = (activeSession.plannedMinutes && activeSession.plannedMinutes > 0)
-      ? (activeSession.plannedMinutes * 60) + 600
-      : 86400;
+    // Protect against unreasonable system clock jumps, while allowing honest overtime study without freezing.
+    const maxAllowedSeconds = 86400; // 24-hour single-session safeguard
 
     if (!strictFocusMode && !autoPauseOnHidden) {
       const computedSecs = timer.accumulatedSeconds + Math.floor(rawDeltaMs / 1000);

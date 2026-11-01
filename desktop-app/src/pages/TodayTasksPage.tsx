@@ -70,6 +70,11 @@ export function TodayTasksPage() {
 
   useEffect(() => {
     loadTasks();
+    const handleDataImported = () => {
+      void loadTasks();
+    };
+    window.addEventListener("flowtrack_data_imported", handleDataImported);
+    return () => window.removeEventListener("flowtrack_data_imported", handleDataImported);
   }, []);
 
   // Keyboard shortcut: '/' focuses search input

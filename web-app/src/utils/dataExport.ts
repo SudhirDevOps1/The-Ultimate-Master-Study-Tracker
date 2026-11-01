@@ -97,16 +97,58 @@ export function exportAllDataToCSV(sessions: StudySession[], subjects: Subject[]
   }, 500);
 }
 
+/**
+ * Universal Native & Browser Text / Data File Saver.
+ * In Electron: triggers native Windows/OS save dialog and saves directly to disk.
+ * In Web Browser: triggers automatic anchor download with DOM attachment.
+ */
+export async function saveTextFileSafely(
+  content: string,
+  defaultFilename: string,
+  mimeType = "text/plain;charset=utf-8",
+  filters?: { name: string; extensions: string[] }[]
+): Promise<{ success: boolean; filePath?: string; filename?: string; canceled?: boolean; error?: string }> {
+  const ipc = (window as any).electron?.ipcRenderer;
+  if (ipc) {
+    try {
+      const res = await ipc.invoke("save-file-dialog", { content, defaultFilename, filters });
+      if (res?.success) {
+        return { success: true, filePath: res.filePath, filename: res.filename };
+      }
+      if (res?.reason === "canceled" || res?.reason === "cancelled") {
+        return { success: false, canceled: true };
+      }
+      if (res?.error) {
+        console.warn("Native file save error, falling back to browser download:", res.error);
+      }
+    } catch (err: any) {
+      console.warn("Native file save invoke failed, falling back to browser download:", err);
+    }
+  }
+
+  // Web Browser / DOM Fallback with Blob ObjectURL
+  try {
+    const file = new Blob([content], { type: mimeType });
+    const objectUrl = URL.createObjectURL(file);
+    const element = document.createElement("a");
+    element.href = objectUrl;
+    element.download = defaultFilename;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+    return { success: true, filename: defaultFilename };
+  } catch (err: any) {
+    console.error("DOM file download failed:", err);
+    return { success: false, error: err?.message || "Download failed" };
+  }
+}
+
 function downloadCSV(content: string, filename: string): void {
-  const element = document.createElement("a");
-  const file = new Blob([content], { type: "text/csv;charset=utf-8" });
-  const objectUrl = URL.createObjectURL(file);
-  element.href = objectUrl;
-  element.download = filename;
-  document.body.appendChild(element);
-  element.click();
-  document.body.removeChild(element);
-  setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+  void saveTextFileSafely(content, filename, "text/csv;charset=utf-8", [
+    { name: "CSV Files", extensions: ["csv"] },
+    { name: "All Files", extensions: ["*"] }
+  ]);
 }
 
 /**

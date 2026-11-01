@@ -135,7 +135,7 @@ function SubjectHeatmapCard({ subject, sessions, days }: {
           </div>
           <div>
             <h3 className="font-bold text-white text-sm">{subject.name}</h3>
-            <p className="text-[11px] text-slate-400">{toDurationLabel(totalSeconds)} total · {totalDays} days active</p>
+            <p className="text-[11px] text-slate-400">{toDurationLabel(Math.round(totalSeconds / 60))} total · {totalDays} days active</p>
           </div>
         </div>
         <div className="text-right">
@@ -208,7 +208,7 @@ function SubjectHeatmapCard({ subject, sessions, days }: {
         >
           <p className="font-semibold text-white">{format(tooltip.date, "EEE, d MMM yyyy")}</p>
           <p className="text-slate-400 mt-0.5">
-            {tooltip.seconds > 0 ? toDurationLabel(tooltip.seconds) + " studied" : "No study"}
+            {tooltip.seconds > 0 ? toDurationLabel(Math.round(tooltip.seconds / 60)) + " studied" : "No study"}
           </p>
         </div>
       )}
@@ -238,7 +238,7 @@ function AllSubjectsHeatmap({ sessions, days }: { sessions: StudySession[]; days
           <h3 className="font-bold text-white text-base flex items-center gap-2">
             📊 Overall Study Activity
           </h3>
-          <p className="text-slate-400 text-xs mt-0.5">{toDurationLabel(totalSeconds)} total · {activeDays} active days</p>
+          <p className="text-slate-400 text-xs mt-0.5">{toDurationLabel(Math.round(totalSeconds / 60))} total · {activeDays} active days</p>
         </div>
         <div className="text-right">
           <p className="text-2xl font-black text-amber-400">🔥 {streak}</p>
@@ -262,7 +262,7 @@ function AllSubjectsHeatmap({ sessions, days }: { sessions: StudySession[]; days
         >
           <p className="font-semibold text-white">{format(tooltip.date, "EEE, d MMM yyyy")}</p>
           <p className="text-slate-400 mt-0.5">
-            {tooltip.seconds > 0 ? toDurationLabel(tooltip.seconds) + " studied" : "No study"}
+            {tooltip.seconds > 0 ? toDurationLabel(Math.round(tooltip.seconds / 60)) + " studied" : "No study"}
           </p>
         </div>
       )}
