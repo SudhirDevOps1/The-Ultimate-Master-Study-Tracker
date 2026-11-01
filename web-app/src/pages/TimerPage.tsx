@@ -70,7 +70,25 @@ export function TimerPage() {
     [activeSession?.subjectId, subjects]
   );
 
-  const currentGoalTitle = activeTaskGoal || activeSession?.notes || undefined;
+  // Split notes into a clean headline and detailed notes
+  const { goalHeadline, goalNotes } = useMemo(() => {
+    if (activeTaskGoal) {
+      return {
+        goalHeadline: activeTaskGoal,
+        goalNotes: activeSession?.notes || undefined
+      };
+    }
+    if (!activeSession?.notes) {
+      return { goalHeadline: undefined, goalNotes: undefined };
+    }
+    const lines = activeSession.notes.split('\n').map(l => l.trim()).filter(Boolean);
+    const firstLine = lines[0] || '';
+    const cleanFirstLine = firstLine.replace(/^[\p{Extended_Pictographic}\s|•\-–—]+/u, '').trim();
+    return {
+      goalHeadline: cleanFirstLine || 'Active Study Block',
+      goalNotes: activeSession.notes
+    };
+  }, [activeTaskGoal, activeSession?.notes]);
 
   // Global Keyboard Shortcuts (Space for Play/Pause, F for Zen Mode, Esc to exit)
   useEffect(() => {
@@ -283,7 +301,9 @@ export function TimerPage() {
                 progress={progress}
                 strictMode={strictFocusMode}
                 subjectColor={activeSubject?.color || "#06b6d4"}
-                activeGoalTitle={currentGoalTitle}
+                activeGoalTitle={goalHeadline}
+                activeGoalNotes={goalNotes}
+                hideTitleHeader={false}
                 onQuickExtend={handleQuickExtend}
               />
 
@@ -412,7 +432,9 @@ export function TimerPage() {
                     progress={progress}
                     strictMode={strictFocusMode}
                     subjectColor={activeSubject?.color || "#06b6d4"}
-                    activeGoalTitle={currentGoalTitle}
+                    activeGoalTitle={goalHeadline}
+                    activeGoalNotes={goalNotes}
+                    hideTitleHeader={true}
                     onQuickExtend={handleQuickExtend}
                   />
                 </div>
