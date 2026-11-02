@@ -24,6 +24,21 @@ All notable changes, version updates, feature additions, architectural improveme
 
 ---
 
+## [0.5.0](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v0.4.0...v0.5.0) (2026-11-02)
+
+
+### ✨ Features & Enhancements
+
+* **backup:** support seamless task import and export across desktop and web ([1636c03](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/1636c0373a5d3282a2b6ec7f0c4cf3f3d481c6d3))
+
+
+### 🐛 Bug Fixes & Patches
+
+* **analytics,export,dashboard:** fix heatmap duration calculation, native file export, and dynamic schedule targets ([de3190a](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/de3190a37b51ffc2caff71735d35653659634cf1))
+* **timer:** eliminate duplicate subject title, format target notes cleanly, and optimize dial layout ([59a5f4b](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/59a5f4bfc915ca9ab03df76109d199161c446b96))
+* **tracking-sync:** resolve activity tracking switch leak, uncap overtime study, and repair task import export pipeline ([599b512](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/599b512aa97fbffaaa609795a637c31744d32642))
+* **tracking:** upgrade multitasking poller to 1.5s, uncap 1s switches, and wire native activity log to dashboard ([3430aad](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/commit/3430aad55a758bc64cb710c1b08cbd47b6bb3b5a))
+
 ## [0.4.0](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v0.3.0...v0.4.0) (2026-10-31)
 
 
