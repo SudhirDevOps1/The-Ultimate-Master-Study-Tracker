@@ -61,7 +61,7 @@ jobs:
           sed -i 's#SF:src#SF:web-app/src#' web-app/coverage/lcov.info || true
 
       - name: Upload Desktop Coverage to Codecov
-        uses: codecov/codecov-action@0565863a31f2c772f9f0395002a31e3f06189574 # v5.4.0
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           files: desktop-app/coverage/coverage-final.json,desktop-app/coverage/lcov.info
           flags: desktop
@@ -69,7 +69,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload Web Coverage to Codecov
-        uses: codecov/codecov-action@0565863a31f2c772f9f0395002a31e3f06189574 # v5.4.0
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           files: web-app/coverage/coverage-final.json,web-app/coverage/lcov.info
           flags: web
