@@ -101,7 +101,7 @@ FlowTrack Pro features an enterprise-grade automated update pipeline engineered 
 
 ```
 ┌────────────────────────────────────────────────────────┐
-│               GitHub Release Published (v0.2.4)        │
+│               GitHub Release Published (v0.5.0)        │
 └──────────────────────────┬─────────────────────────────┘
                            │
                            ▼
@@ -113,7 +113,7 @@ FlowTrack Pro features an enterprise-grade automated update pipeline engineered 
                            ▼
 ┌────────────────────────────────────────────────────────┐
 │     In-App Floating Pill & Interactive Modal           │
-│   • Version delta (Current v0.2.3 ➔ Target v0.2.4)     │
+│   • Version delta (Current v0.4.0 ➔ Target v0.5.0)     │
 │   • Live Changelog, Features & Bug Fixes View          │
 │   • 1-Click "Restart & Install Update" or Snooze       │
 └──────────────────────────┬─────────────────────────────┘
@@ -141,9 +141,9 @@ When viewing [FlowTrack Pro GitHub Releases](https://github.com/SudhirDevOps1/Th
 
 | Release Asset | Target Platform / Purpose | Who Should Download? |
 |:---|:---|:---|
-| **`FlowTrackPro.Setup.0.2.4.exe`** | **Windows 10 / 11** | End-users (standard 1-click Windows installer). |
-| **`FlowTrackPro-0.2.4.AppImage`** | **Linux (Universal)** | Linux users wanting a zero-install executable. |
-| **`FlowTrackPro-0.2.4.deb`** | **Ubuntu / Debian / Mint** | Linux users installing via APT or Software Center. |
+| **`FlowTrackPro.Setup.0.5.0.exe`** | **Windows 10 / 11** | End-users (standard 1-click Windows installer). |
+| **`FlowTrackPro-0.5.0.AppImage`** | **Linux (Universal)** | Linux users wanting a zero-install executable. |
+| **`FlowTrackPro-0.5.0.deb`** | **Ubuntu / Debian / Mint** | Linux users installing via APT or Software Center. |
 | **`latest.yml` & `latest-linux.yml`** | **Electron Auto-Update Manifests** | **Required for In-App Updates**. Not intended for manual download. |
 
 > [!NOTE]
@@ -265,13 +265,26 @@ Most productivity apps are bloated, require cloud subscriptions, or leak your ac
 
 ---
 
-## 📸 Interface Showcase
+## 📸 Interface Showcase & Architecture Tour
 
 <div align="center">
-  <img src="public/images/flowtrack-screenshot.png" alt="FlowTrack Pro Interface" width="100%" />
+  <img src="public/images/flowtrack-screenshot.png" alt="FlowTrack Pro Interface" width="100%" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
   <br />
-  <sub><i>FlowTrack Pro Workspace — Unified Study Dashboard with Pitch-Black OLED Theme</i></sub>
+  <sub><i>FlowTrack Pro Workspace — Unified Study Dashboard with Pitch-Black OLED Theme, Radial Focus Dial, Passive Tracking & SM-2 Engine</i></sub>
 </div>
+
+<br />
+
+### 🌟 Interactive Workspace Gallery
+
+| Workspace Module | Primary Functionality | Tech & Subsystems |
+|:---|:---|:---|
+| ⏱️ **Focus & Ergonomic Synthesizer** | 50m Focus, 20-20-20 Eye Care, 90m Ultradian rhythm, Harmonic chime synthesizer | Web Audio API, Delta Clock Verification |
+| 🛡️ **Win32 Passive App Tracker** | Automated local-first active application & website categorization with zero cloud leaks | `win-tracker.exe`, C# Win32 APIs, SQLite WAL |
+| 🧠 **Spaced Repetition Flashcards** | SM-2 algorithmic scheduling with Ease Factors ($EF \ge 1.3$), learning steps & dynamic fuzzing | SuperMemo SM-2, Dexie IndexedDB |
+| 🎨 **Infinite Whiteboard & MindMap** | Multi-slide vector whiteboard deck, sticky notes, anti-collision layout, mini-map radar navigator | Fabric.js v6, React Portal Engine, KaTeX / Mermaid |
+| 📡 **IDE Heartbeat Transmitter** | Real-time IDE integration receiving passive heartbeats from VS Code, Cursor, Antigravity | Loopback `127.0.0.1:7777`, DNS-Rebind Guard |
+| 🤖 **Multi-Provider AI Study Coach** | Dynamic model discovery across Groq, Gemini, OpenRouter, Ollama, and custom endpoints | Prism.js 20+ Languages, Streaming IPC |
 
 ---
 
@@ -320,7 +333,7 @@ The-Ultimate-Master-Study-Tracker/
 │       ├── release.yml          # Semantic releases & automated .exe installer publisher
 │       ├── ci.yml               # Fast Quality Gate (Typecheck, Lint & Unit Tests)
 │       └── zap-nightly.yml      # OWASP security vulnerability scanner
-└── AGENT.md                     # Single source of truth for AI agents & contributors
+└── AGENTS.md                    # Single source of truth for AI agents & contributors
 ```
 
 ---
