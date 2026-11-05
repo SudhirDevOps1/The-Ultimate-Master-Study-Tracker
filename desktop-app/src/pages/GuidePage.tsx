@@ -120,7 +120,7 @@ export function GuidePage() {
     name: "FlowTrack Pro – Smart Study & Productivity Tracker",
     version: `v${APP_VERSION} (Production Release)`,
     developer: "Sudhir DevOps (FlowTrack Engineering Team)",
-    repo: "SudhirDevOps1/The-Ultimate-Master-Study-Tracker",
+    repo: "SudhirDevOps1/FlowTrack-Pro",
     techStack: [
       "React 19", "TypeScript 5.9", "Vite 7", "Electron 43", "TailwindCSS 4",
       "Fabric.js 7.4 (Whiteboard Engine)", "Dexie.js 4 (IndexedDB)", "Zustand 5",
@@ -1213,7 +1213,7 @@ export function GuidePage() {
                 <span>Crafted with devotion for students & developers worldwide by <strong>Sudhir DevOps</strong></span>
               </div>
               <a
-                href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker"
+                href="https://github.com/SudhirDevOps1/FlowTrack-Pro"
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-white font-bold transition-all shrink-0"

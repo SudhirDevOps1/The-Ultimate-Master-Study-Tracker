@@ -498,7 +498,7 @@ export function DashboardPage() {
         </div>
 
         <a
-          href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest"
+          href="https://github.com/SudhirDevOps1/FlowTrack-Pro/releases/latest"
           target="_blank"
           rel="noopener noreferrer"
           className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white text-xs font-bold shadow-lg shadow-purple-500/25 active:scale-95 transition-all text-center shrink-0"

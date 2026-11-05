@@ -6,19 +6,19 @@
 ### 💎 The Ultimate Master Study & Productivity Ecosystem — 2026 Enterprise Edition
 
 <!-- Dynamic Animated Typing Header -->
-<a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker">
+<a href="https://github.com/SudhirDevOps1/FlowTrack-Pro">
   <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=20&pause=1200&color=10B981&center=true&vCenter=true&multiline=true&width=750&height=70&lines=Smart+Study+Timer+%7C+Active+Window+Tracker+%7C+OLED+Dark+Mode;Fabric+Canvas+%7C+OCR+Scanner+%7C+Discord+RPC+%7C+Supabase+Sync;Arc-Style+Browser+%7C+Distraction+Blocker+%7C+Adaptive+Eco-Loop" alt="FlowTrack Pro Features" />
 </a>
 
 <p align="center">
-  <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest">
-    <img src="https://img.shields.io/github/v/release/SudhirDevOps1/The-Ultimate-Master-Study-Tracker?style=for-the-badge&logo=github&color=10B981&label=Latest%20Release" alt="Latest Release" />
+  <a href="https://github.com/SudhirDevOps1/FlowTrack-Pro/releases/latest">
+    <img src="https://img.shields.io/github/v/release/SudhirDevOps1/FlowTrack-Pro?style=for-the-badge&logo=github&color=10B981&label=Latest%20Release" alt="Latest Release" />
   </a>
   <a href="https://the-ultimate-master-study-tracker.vercel.app/">
     <img src="https://img.shields.io/badge/Vercel-Live_Demo-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Live Demo" />
   </a>
-  <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/actions/workflows/release.yml">
-    <img src="https://img.shields.io/github/actions/workflow/status/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/release.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&label=CI%2FCD%20Build" alt="CI/CD Build" />
+  <a href="https://github.com/SudhirDevOps1/FlowTrack-Pro/actions/workflows/release.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/SudhirDevOps1/FlowTrack-Pro/release.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&label=CI%2FCD%20Build" alt="CI/CD Build" />
   </a>
   <a href="LICENSE">
     <img src="https://img.shields.io/badge/License-MIT-3178C6?style=for-the-badge&logo=opensourceinitiative&logoColor=white" alt="MIT License" />
@@ -27,20 +27,20 @@
 
 <!-- DevSecOps & Quality Badges -->
 <p align="center">
-  <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/actions/workflows/ci.yml">
-    <img src="https://img.shields.io/github/actions/workflow/status/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/ci.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=CI%20Gate" alt="CI Gate" />
+  <a href="https://github.com/SudhirDevOps1/FlowTrack-Pro/actions/workflows/ci.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/SudhirDevOps1/FlowTrack-Pro/ci.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=CI%20Gate" alt="CI Gate" />
   </a>
-  <a href="https://codecov.io/gh/SudhirDevOps1/The-Ultimate-Master-Study-Tracker">
-    <img src="https://codecov.io/gh/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/branch/main/graph/badge.svg" alt="Codecov Coverage" />
+  <a href="https://codecov.io/gh/SudhirDevOps1/FlowTrack-Pro">
+    <img src="https://codecov.io/gh/SudhirDevOps1/FlowTrack-Pro/branch/main/graph/badge.svg" alt="Codecov Coverage" />
   </a>
-  <a href="https://securityscorecards.dev/viewer/?uri=github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker">
-    <img src="https://api.securityscorecards.dev/projects/github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/badge" alt="OpenSSF Scorecard" />
+  <a href="https://securityscorecards.dev/viewer/?uri=github.com/SudhirDevOps1/FlowTrack-Pro">
+    <img src="https://api.securityscorecards.dev/projects/github.com/SudhirDevOps1/FlowTrack-Pro/badge" alt="OpenSSF Scorecard" />
   </a>
-  <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/actions/workflows/codeql.yml">
-    <img src="https://img.shields.io/github/actions/workflow/status/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/codeql.yml?branch=main&style=flat-square&logo=github&label=CodeQL%20Security" alt="CodeQL" />
+  <a href="https://github.com/SudhirDevOps1/FlowTrack-Pro/actions/workflows/codeql.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/SudhirDevOps1/FlowTrack-Pro/codeql.yml?branch=main&style=flat-square&logo=github&label=CodeQL%20Security" alt="CodeQL" />
   </a>
-  <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/actions/workflows/gitleaks.yml">
-    <img src="https://img.shields.io/github/actions/workflow/status/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/gitleaks.yml?branch=main&style=flat-square&logo=git&label=Gitleaks%20Scan" alt="Gitleaks" />
+  <a href="https://github.com/SudhirDevOps1/FlowTrack-Pro/actions/workflows/gitleaks.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/SudhirDevOps1/FlowTrack-Pro/gitleaks.yml?branch=main&style=flat-square&logo=git&label=Gitleaks%20Scan" alt="Gitleaks" />
   </a>
   <a href="https://coderabbit.ai">
     <img src="https://img.shields.io/badge/AI%20Code%20Review-CodeRabbit-ff5c00?style=flat-square&logo=coderabbit&logoColor=white" alt="CodeRabbit AI" />
@@ -48,17 +48,17 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/stargazers">
-    <img src="https://img.shields.io/github/stars/SudhirDevOps1/The-Ultimate-Master-Study-Tracker?style=flat-square&logo=starship&color=f1c40f" alt="GitHub Stars" />
+  <a href="https://github.com/SudhirDevOps1/FlowTrack-Pro/stargazers">
+    <img src="https://img.shields.io/github/stars/SudhirDevOps1/FlowTrack-Pro?style=flat-square&logo=starship&color=f1c40f" alt="GitHub Stars" />
   </a>
-  <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/network/members">
-    <img src="https://img.shields.io/github/forks/SudhirDevOps1/The-Ultimate-Master-Study-Tracker?style=flat-square&logo=git&color=e67e22" alt="GitHub Forks" />
+  <a href="https://github.com/SudhirDevOps1/FlowTrack-Pro/network/members">
+    <img src="https://img.shields.io/github/forks/SudhirDevOps1/FlowTrack-Pro?style=flat-square&logo=git&color=e67e22" alt="GitHub Forks" />
   </a>
-  <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/issues">
-    <img src="https://img.shields.io/github/issues/SudhirDevOps1/The-Ultimate-Master-Study-Tracker?style=flat-square&logo=githubissues&color=e74c3c" alt="GitHub Issues" />
+  <a href="https://github.com/SudhirDevOps1/FlowTrack-Pro/issues">
+    <img src="https://img.shields.io/github/issues/SudhirDevOps1/FlowTrack-Pro?style=flat-square&logo=githubissues&color=e74c3c" alt="GitHub Issues" />
   </a>
-  <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases">
-    <img src="https://img.shields.io/github/downloads/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/total?style=flat-square&logo=github&color=8e44ad" alt="Total Downloads" />
+  <a href="https://github.com/SudhirDevOps1/FlowTrack-Pro/releases">
+    <img src="https://img.shields.io/github/downloads/SudhirDevOps1/FlowTrack-Pro/total?style=flat-square&logo=github&color=8e44ad" alt="Total Downloads" />
   </a>
 </p>
 
@@ -81,15 +81,15 @@
 > Featuring real-time Win32 active application tracking, Arc-style in-app browser with real Google OAuth, zero-cloud Discord Rich Presence, offline-first Supabase sync, adaptive eco-loop CPU optimizer, and cross-platform desktop installers.
 
 <p align="center">
-  <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest">
+  <a href="https://github.com/SudhirDevOps1/FlowTrack-Pro/releases/latest">
     <img src="https://img.shields.io/badge/Windows-Download_.exe-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Download for Windows" />
   </a>
   &nbsp;
-  <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest">
+  <a href="https://github.com/SudhirDevOps1/FlowTrack-Pro/releases/latest">
     <img src="https://img.shields.io/badge/Linux-AppImage-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Download for Linux" />
   </a>
   &nbsp;
-  <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest">
+  <a href="https://github.com/SudhirDevOps1/FlowTrack-Pro/releases/latest">
     <img src="https://img.shields.io/badge/Ubuntu%2FDebian-.deb-E95420?style=for-the-badge&logo=ubuntu&logoColor=white" alt="Download .deb" />
   </a>
   &nbsp;
@@ -98,7 +98,7 @@
   </a>
 </p>
 
-### 🌐 [Live Web App](https://the-ultimate-master-study-tracker.vercel.app/) &nbsp;•&nbsp; 📦 [Download Releases (.exe / .AppImage / .deb)](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest) &nbsp;•&nbsp; 📖 [Developer Instructions (AGENTS.md)](AGENTS.md)
+### 🌐 [Live Web App](https://the-ultimate-master-study-tracker.vercel.app/) &nbsp;•&nbsp; 📦 [Download Releases (.exe / .AppImage / .deb)](https://github.com/SudhirDevOps1/FlowTrack-Pro/releases/latest) &nbsp;•&nbsp; 📖 [Developer Instructions (AGENTS.md)](AGENTS.md)
 
 </div>
 
@@ -110,15 +110,15 @@ Choose your platform to download FlowTrack Pro directly:
 
 | Platform | File / Format | Direct Download Link | Install Instructions |
 |:---|:---:|:---:|:---|
-| 🪟 **Windows 10 / 11** | `.exe` (NSIS) | [**⬇️ Download FlowTrackPro Setup 0.5.0.exe**](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest) | Double-click the installer. Creates desktop shortcut & auto-updates silently in background. |
-| 🐧 **Linux (Universal)** | `.AppImage` | [**⬇️ Download FlowTrackPro-0.5.0.AppImage**](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest) | `chmod +x FlowTrackPro-*.AppImage && ./FlowTrackPro-*.AppImage` |
-| 📦 **Ubuntu / Debian / Mint** | `.deb` | [**⬇️ Download FlowTrackPro-0.5.0.deb**](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest) | `sudo dpkg -i FlowTrackPro-*.deb` |
+| 🪟 **Windows 10 / 11** | `.exe` (NSIS) | [**⬇️ Download FlowTrackPro Setup 0.5.0.exe**](https://github.com/SudhirDevOps1/FlowTrack-Pro/releases/latest) | Double-click the installer. Creates desktop shortcut & auto-updates silently in background. |
+| 🐧 **Linux (Universal)** | `.AppImage` | [**⬇️ Download FlowTrackPro-0.5.0.AppImage**](https://github.com/SudhirDevOps1/FlowTrack-Pro/releases/latest) | `chmod +x FlowTrackPro-*.AppImage && ./FlowTrackPro-*.AppImage` |
+| 📦 **Ubuntu / Debian / Mint** | `.deb` | [**⬇️ Download FlowTrackPro-0.5.0.deb**](https://github.com/SudhirDevOps1/FlowTrack-Pro/releases/latest) | `sudo dpkg -i FlowTrackPro-*.deb` |
 | 🌐 **Serverless Web App** | PWA | [**🚀 Open Web App in Browser**](https://the-ultimate-master-study-tracker.vercel.app/) | Zero download required. 100% offline IndexedDB storage across phones, tablets & laptops. |
 
 > [!TIP]
 > **Windows PowerShell 1-Click Direct Download & Launch**:
 > ```powershell
-> Start-Process "https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest"
+> Start-Process "https://github.com/SudhirDevOps1/FlowTrack-Pro/releases/latest"
 > ```
 
 ---
@@ -219,13 +219,13 @@ FlowTrack Pro features an enterprise-grade automated update pipeline engineered 
 
 ### 📦 GitHub Release Artifacts Guide: Why is `latest.yml` present?
 
-When viewing [FlowTrack Pro GitHub Releases](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases), you will see several files:
+When viewing [FlowTrack Pro GitHub Releases](https://github.com/SudhirDevOps1/FlowTrack-Pro/releases), you will see several files:
 
 | Release Asset | Target Platform / Purpose | Who Should Download? |
 |:---|:---|:---|
-| [**🪟 FlowTrackPro Setup 0.5.0.exe**](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest) | **Windows 10 / 11 (64-bit)** | End-users (standard 1-click Windows installer with auto-updates). |
-| [**🐧 FlowTrackPro-0.5.0.AppImage**](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest) | **Linux (Universal)** | Linux users wanting a portable zero-install executable. |
-| [**📦 FlowTrackPro-0.5.0.deb**](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest) | **Ubuntu / Debian / Mint** | Linux users installing via APT or Software Center. |
+| [**🪟 FlowTrackPro Setup 0.5.0.exe**](https://github.com/SudhirDevOps1/FlowTrack-Pro/releases/latest) | **Windows 10 / 11 (64-bit)** | End-users (standard 1-click Windows installer with auto-updates). |
+| [**🐧 FlowTrackPro-0.5.0.AppImage**](https://github.com/SudhirDevOps1/FlowTrack-Pro/releases/latest) | **Linux (Universal)** | Linux users wanting a portable zero-install executable. |
+| [**📦 FlowTrackPro-0.5.0.deb**](https://github.com/SudhirDevOps1/FlowTrack-Pro/releases/latest) | **Ubuntu / Debian / Mint** | Linux users installing via APT or Software Center. |
 | [**🌐 Launch Serverless Web App**](https://the-ultimate-master-study-tracker.vercel.app/) | **Web Browser (PWA)** | Instant access on any device with offline IndexedDB storage. |
 | **`latest.yml` & `latest-linux.yml`** | **Electron Auto-Update Manifests** | **Required for In-App Updates**. Not intended for manual download. |
 
@@ -384,8 +384,8 @@ Most productivity apps are bloated, require cloud subscriptions, or leak your ac
 ### 1. 🌐 Web App (Development)
 ```bash
 # Clone the repository
-git clone https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git
-cd The-Ultimate-Master-Study-Tracker/web-app
+git clone https://github.com/SudhirDevOps1/FlowTrack-Pro.git
+cd FlowTrack-Pro/web-app
 
 # Install dependencies and start Vite dev server
 npm install --legacy-peer-deps
@@ -411,7 +411,7 @@ npm run electron:build
 ## 🏛️ Project Architecture
 
 ```
-The-Ultimate-Master-Study-Tracker/
+FlowTrack-Pro/
 ├── web-app/                     # Standalone Web Application (React 19 + Vite + Tailwind v4)
 │   ├── src/                     # React UI components, Zustand stores, and Dexie v3 DB
 │   └── backend.py               # Optional local Python tracking helper (port 5001)
@@ -438,8 +438,8 @@ The-Ultimate-Master-Study-Tracker/
 Special thanks to all the amazing developers and contributors who help build and improve FlowTrack Pro!
 
 <p align="center">
-  <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/graphs/contributors">
-    <img src="https://contrib.rocks/image?repo=SudhirDevOps1/The-Ultimate-Master-Study-Tracker" alt="FlowTrack Pro Contributors Avatar Wall" />
+  <a href="https://github.com/SudhirDevOps1/FlowTrack-Pro/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=SudhirDevOps1/FlowTrack-Pro" alt="FlowTrack Pro Contributors Avatar Wall" />
   </a>
 </p>
 
@@ -462,7 +462,7 @@ Want to contribute? Read our [Contributing Guidelines](CONTRIBUTING.md) and [Cod
     <img src="https://img.shields.io/badge/LinkedIn-Sudhir_DevOps-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white" alt="LinkedIn" />
   </a>
   &nbsp;
-  <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/discussions" target="_blank">
+  <a href="https://github.com/SudhirDevOps1/FlowTrack-Pro/discussions" target="_blank">
     <img src="https://img.shields.io/badge/GitHub-Discussions-10B981?style=for-the-badge&logo=github&logoColor=white" alt="Discussions" />
   </a>
 </p>

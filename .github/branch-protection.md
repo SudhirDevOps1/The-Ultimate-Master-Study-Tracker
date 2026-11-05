@@ -1,6 +1,6 @@
 # 🛡️ Enterprise Branch Protection Configuration (`main`)
 
-This guide provides the exact **GitHub CLI (`gh api`)** command to enforce enterprise-grade branch protection rules on the `main` branch of [The-Ultimate-Master-Study-Tracker](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker).
+This guide provides the exact **GitHub CLI (`gh api`)** command to enforce enterprise-grade branch protection rules on the `main` branch of [FlowTrack-Pro](https://github.com/SudhirDevOps1/FlowTrack-Pro).
 
 ---
 
@@ -25,7 +25,7 @@ gh api \
   --method PUT \
   -H "Accept: application/vnd.github+json" \
   -H "X-GitHub-Api-Version: 2022-11-28" \
-  /repos/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/branches/main/protection \
+  /repos/SudhirDevOps1/FlowTrack-Pro/branches/main/protection \
   --input - << 'EOF'
 {
   "required_status_checks": {
@@ -85,7 +85,7 @@ $body = @{
   required_conversation_resolution = $true
 } | ConvertTo-Json -Depth 5
 
-$body | gh api --method PUT /repos/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/branches/main/protection --input -
+$body | gh api --method PUT /repos/SudhirDevOps1/FlowTrack-Pro/branches/main/protection --input -
 ```
 
 ---
@@ -95,5 +95,5 @@ $body | gh api --method PUT /repos/SudhirDevOps1/The-Ultimate-Master-Study-Track
 To verify that the branch protection is active and returning the required checks:
 
 ```bash
-gh api /repos/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/branches/main/protection --jq '{protected: true, required_checks: .required_status_checks.contexts}'
+gh api /repos/SudhirDevOps1/FlowTrack-Pro/branches/main/protection --jq '{protected: true, required_checks: .required_status_checks.contexts}'
 ```

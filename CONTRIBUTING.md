@@ -23,8 +23,8 @@ This project is governed by our [Code of Conduct](CODE_OF_CONDUCT.md). By partic
 
 ### 1. Fork & Clone
 ```bash
-git clone https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git
-cd The-Ultimate-Master-Study-Tracker
+git clone https://github.com/SudhirDevOps1/FlowTrack-Pro.git
+cd FlowTrack-Pro
 ```
 
 ### 2. Install Dependencies

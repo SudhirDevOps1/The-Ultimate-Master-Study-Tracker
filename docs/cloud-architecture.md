@@ -44,7 +44,7 @@ graph TD
 
 ## 2. Cloud Mode A: Supabase Offline-First Replication
 
-Implemented in [`src/lib/supabaseSync.ts`](file:///d:/The-Ultimate-Master-Study-Tracker/desktop-app/src/lib/supabaseSync.ts).
+Implemented in [`src/lib/supabaseSync.ts`](file:///d:/FlowTrack-Pro/desktop-app/src/lib/supabaseSync.ts).
 
 ### Environment Configuration
 
@@ -77,7 +77,7 @@ WITH CHECK (auth.uid() = user_id);
 
 ## 3. Cloud Mode B: Neon Serverless PostgreSQL (Desktop Only)
 
-Implemented in [`desktop-app/src/lib/neonSync.ts`](file:///d:/The-Ultimate-Master-Study-Tracker/desktop-app/src/lib/neonSync.ts).
+Implemented in [`desktop-app/src/lib/neonSync.ts`](file:///d:/FlowTrack-Pro/desktop-app/src/lib/neonSync.ts).
 
 - **Use Case**: Enterprise backup, external analytics dashboards, and direct SQL queries for power users.
 - **Direct Connection Pooling**: Utilizes `@neondatabase/serverless` with WebSocket connection pooling to run zero-latency queries directly from Electron's main process.

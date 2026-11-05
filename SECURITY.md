@@ -20,7 +20,7 @@ We take the security of FlowTrack Pro seriously. The following versions are curr
 
 If you discover a potential security vulnerability in FlowTrack Pro, please report it privately via GitHub:
 
-- Navigate to the [Security Advisories tab](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/security/advisories) of this repository and click **"Report a vulnerability"**.
+- Navigate to the [Security Advisories tab](https://github.com/SudhirDevOps1/FlowTrack-Pro/security/advisories) of this repository and click **"Report a vulnerability"**.
 - This opens a confidential disclosure advisory accessible only to core repository maintainers.
 
 ### What to Include in Your Report
