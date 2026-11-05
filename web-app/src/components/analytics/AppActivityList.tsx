@@ -54,7 +54,10 @@ export function AppActivityList() {
     };
 
     void fetchLogs();
-    const id = setInterval(() => void fetchLogs(), 5000);
+    const id = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      void fetchLogs();
+    }, 10000);
     return () => {
       isMounted = false;
       clearInterval(id);

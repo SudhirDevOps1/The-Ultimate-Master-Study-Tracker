@@ -56,9 +56,10 @@ export function BackendActivityPanel() {
     if (ipc) void fetchDesktopActivities();
 
     const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
       void fetchBackendData();
       if (ipc) void fetchDesktopActivities();
-    }, 3000);
+    }, 6000);
     return () => clearInterval(interval);
   }, [fetchBackendData]);
 

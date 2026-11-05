@@ -655,12 +655,16 @@ function getSystemIdleMs() {
   });
 }
 
-// ── Background Activity Tracker Loop (Every 1.5 seconds) ──────────────────────
+// ── Background Activity Tracker Loop (Adaptive Eco Loop) ──────────────────────
 function startActivityTracker() {
   const blockCooldowns = {};
-  
-  setInterval(async () => {
-    let rawInfo = await getForegroundWindow();
+  let isTrackingTick = false;
+
+  const tick = async () => {
+    if (isTrackingTick) return;
+    isTrackingTick = true;
+    try {
+      let rawInfo = await getForegroundWindow();
     if (!rawInfo || !rawInfo.process) return;
 
     let processName = rawInfo.process;
@@ -871,8 +875,24 @@ function startActivityTracker() {
       }
     }
     trackerLastPollMs = now;
-  // Polling every 1500ms for swift and responsive multitasking tracking
-  }, 1500);
+    } catch (err) {
+      console.warn("[Tracker Tick Error]", err);
+    } finally {
+      isTrackingTick = false;
+      let nextDelay = 3000;
+      try {
+        const idleSec = powerMonitor.getSystemIdleTime();
+        if (idleSec > 60) {
+          nextDelay = 6000;
+        } else if (idleSec > 20) {
+          nextDelay = 4500;
+        }
+      } catch {}
+      setTimeout(tick, nextDelay);
+    }
+  };
+
+  setTimeout(tick, 1000);
 
   // Auto-save to disk every 30 seconds
   setInterval(saveLogToFile, 30_000);
