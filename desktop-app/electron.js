@@ -1270,6 +1270,48 @@ app.whenReady().then(() => {
     });
   });
 
+  // Handle child auth browser windows (Google OAuth, LeetCode, Apna College)
+  app.on("browser-window-created", (_event, win) => {
+    if (win === mainWindow) return;
+
+    // Apply standard Chrome Desktop user agent to child auth windows
+    try {
+      win.webContents.setUserAgent(CHROME_DESKTOP_UA);
+    } catch (e) {}
+
+    // Auto-close handler when OAuth redirects back to origin
+    const handleAuthRedirect = (navUrl) => {
+      if (!navUrl) return;
+      try {
+        const isCallbackSuccess =
+          navUrl.includes("callback") ||
+          navUrl.includes("code=") ||
+          navUrl.includes("state=") ||
+          navUrl.includes("access_token=") ||
+          navUrl.includes("oauth_token=");
+
+        const isHostLanding =
+          !/accounts\.google\.com|appleid\.apple\.com|login\.live\.com|login\.microsoftonline\.com|oauth|signin|login/i.test(navUrl);
+
+        if (isHostLanding && !isCallbackSuccess) {
+          setTimeout(() => {
+            if (!win.isDestroyed()) {
+              win.close();
+            }
+          }, 800);
+        }
+      } catch (err) {}
+    };
+
+    win.webContents.on("will-redirect", (_event, newUrl) => {
+      handleAuthRedirect(newUrl);
+    });
+
+    win.webContents.on("did-navigate", (_event, newUrl) => {
+      handleAuthRedirect(newUrl);
+    });
+  });
+
   dataDir = path.join(app.getPath("userData"), "activity-log");
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 

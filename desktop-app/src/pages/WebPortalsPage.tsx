@@ -279,6 +279,24 @@ export function WebPortalsPage() {
   const getWebview = () => (activeTabId ? webviewRefs.current[activeTabId] : null);
   const activeUrlRef = useRef<string | null>(null);
   activeUrlRef.current = activeUrl;
+  const activeTabIdRef = useRef<string | null>(null);
+  activeTabIdRef.current = activeTabId;
+
+  const [lruOrder, setLruOrder] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!activeTabId) return;
+    setLruOrder(prev => [activeTabId, ...prev.filter(id => id !== activeTabId)]);
+  }, [activeTabId]);
+
+  const lruPool = useMemo(() => {
+    const validIds = new Set(tabs.map(t => t.id));
+    const ordered = lruOrder.filter(id => validIds.has(id));
+    const activeFirst = activeTabId && validIds.has(activeTabId)
+      ? [activeTabId, ...ordered.filter(id => id !== activeTabId)]
+      : ordered;
+    return activeFirst.slice(0, 3);
+  }, [tabs, activeTabId, lruOrder]);
 
   useEffect(() => {
     setCustomSites(loadCustomSites());
@@ -554,14 +572,28 @@ export function WebPortalsPage() {
       return;
     }
     reportToMain(navUrl);
-    setInputUrl(navUrl);
-    setTabs(prev => prev.map(t => (t.id === tabId ? { ...t, displayUrl: navUrl, url: navUrl } : t)));
+    if (tabId === activeTabIdRef.current) {
+      setInputUrl(navUrl);
+    }
+    setTabs(prev => {
+      const target = prev.find(t => t.id === tabId);
+      if (target && target.displayUrl === navUrl && target.url === navUrl) {
+        return prev;
+      }
+      return prev.map(t => (t.id === tabId ? { ...t, displayUrl: navUrl, url: navUrl } : t));
+    });
   }, [reportToMain]);
 
   const handleTitleUpdate = useCallback((tabId: string, title: string, url: string) => {
     reportToMain(url, title);
     if (title) {
-      setTabs(prev => prev.map(t => (t.id === tabId ? { ...t, title } : t)));
+      setTabs(prev => {
+        const target = prev.find(t => t.id === tabId);
+        if (target && target.title === title) {
+          return prev;
+        }
+        return prev.map(t => (t.id === tabId ? { ...t, title } : t));
+      });
     }
   }, [reportToMain]);
 
@@ -1496,20 +1528,32 @@ export function WebPortalsPage() {
           <div className="w-full h-full relative bg-slate-950">
             {isElectron ? (
               <div className="w-full h-full relative">
-                {activeTab && (
-                  <WebviewViewport
-                    key={activeTab.id}
-                    tabId={activeTab.id}
-                    initialUrl={activeTab.srcUrl}
-                    allowInsecure={localStorage.getItem("flowtrack_webview_allow_insecure") !== "false"}
-                    onMount={handleWebviewMount}
-                    onUnmount={handleWebviewUnmount}
-                    onNavigate={handleNavigate}
-                    onTitleUpdate={handleTitleUpdate}
-                    onNewWindow={handleNewWindow}
-                    onDomReady={handleDomReady}
-                  />
-                )}
+                {tabs
+                  .filter(tab => lruPool.includes(tab.id))
+                  .map(tab => {
+                    const isActive = tab.id === activeTabId;
+                    return (
+                      <div
+                        key={tab.id}
+                        className={`w-full h-full absolute inset-0 ${
+                          isActive ? "z-10 block pointer-events-auto" : "z-0 pointer-events-none invisible"
+                        }`}
+                        style={{ display: isActive ? "block" : "none" }}
+                      >
+                        <WebviewViewport
+                          tabId={tab.id}
+                          initialUrl={tab.srcUrl}
+                          allowInsecure={localStorage.getItem("flowtrack_webview_allow_insecure") !== "false"}
+                          onMount={handleWebviewMount}
+                          onUnmount={handleWebviewUnmount}
+                          onNavigate={handleNavigate}
+                          onTitleUpdate={handleTitleUpdate}
+                          onNewWindow={handleNewWindow}
+                          onDomReady={handleDomReady}
+                        />
+                      </div>
+                    );
+                  })}
               </div>
             ) : (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-8 text-center bg-slate-950">
