@@ -9,7 +9,7 @@ Thank you for your interest in contributing to **FlowTrack Pro**! We welcome con
 
 ## 🧭 Code of Conduct
 
-This project is governed by our [Code of Conduct](file:///d:/The-Ultimate-Master-Study-Tracker/CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to project maintainers via GitHub private report.
+This project is governed by our [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to project maintainers via GitHub private report.
 
 ---
 
@@ -18,7 +18,8 @@ This project is governed by our [Code of Conduct](file:///d:/The-Ultimate-Master
 ### Prerequisites
 - **Node.js**: `v20.x` or `v22.x` (LTS recommended)
 - **Git**: `v2.40+`
-- **Package Manager**: `npm` (v10+) or `pnpm` (v9+)
+- **Package Manager**: `npm` (v10+)
+- **Python**: `3.10+` (optional, for backend activity tracker)
 
 ### 1. Fork & Clone
 ```bash
@@ -28,21 +29,28 @@ cd The-Ultimate-Master-Study-Tracker
 
 ### 2. Install Dependencies
 ```bash
+# For Desktop App:
 cd desktop-app
+npm install --legacy-peer-deps
+
+# For Web App:
+cd ../web-app
 npm install --legacy-peer-deps
 ```
 
 ### 3. Start Development Server
 ```bash
+# Desktop App (Vite + Electron):
+cd desktop-app
+npm run electron:dev
+
+# Web App (Browser only):
+cd web-app
 npm run dev
 ```
 
-### 4. Launch Desktop App (Electron)
-In a separate terminal:
-```bash
-cd desktop-app
-npm run electron
-```
+> [!WARNING]
+> **The Duplication Trap**: `desktop-app/src` and `web-app/src` share 85 files. Before editing anything under `src/`, check whether the change affects both apps (e.g. `models.ts`, `db.ts`, `supabaseSync.ts`, `BackendActivityPanel.tsx`, `AppActivityList.tsx`) and copy it to both directories to preserve **100% byte parity**. Verify with `git diff --no-index desktop-app/src web-app/src`.
 
 ---
 
@@ -52,16 +60,20 @@ Before submitting a Pull Request, ensure that all automated checks pass locally:
 
 ```bash
 # 1. Typecheck with TypeScript
-npm run typecheck
+npm --prefix desktop-app run typecheck
 
 # 2. Lint code style
-npm run lint
+npm --prefix desktop-app run lint
 
-# 3. Execute unit tests
-npm run test
+# 3. Execute unit test suite (27 test suites, 179 unit tests)
+npm --prefix desktop-app run test
 
-# 4. Verify production bundle build
-npm run build
+# 4. Run targeted tests (e.g. Discord RPC or Supabase Sync)
+npx --prefix desktop-app vitest run src/utils/__tests__/discordRpc.test.ts
+npx --prefix desktop-app vitest run src/utils/__tests__/supabaseSync.test.ts
+
+# 5. Verify production bundle build
+npm --prefix desktop-app run build
 ```
 
 > [!TIP]
@@ -71,10 +83,11 @@ npm run build
 
 ## 🔒 Security & Code Standards
 
-- **DOM XSS Sanitization**: Never assign unsanitized user input or URLs directly to DOM sinks (`iframe.src`, `webview.src`, `video.src`, `audio.src`, `a.href`). Always use [`sanitizeSafeUrl()`](file:///d:/The-Ultimate-Master-Study-Tracker/desktop-app/src/utils/security.ts) from `@/utils/security`.
+- **DOM XSS Sanitization**: Never assign unsanitized user input or URLs directly to DOM sinks (`iframe.src`, `webview.src`, `video.src`, `audio.src`, `a.href`). Always use `sanitizeSafeUrl()` from `@/utils/security`.
 - **Electron Security**: Never disable `webSecurity` (`webSecurity: true` is strictly enforced). Maintain `contextIsolation: true` and `nodeIntegration: false`.
 - **Zero Secret Leaks**: Automated scans by **Gitleaks** and **CodeQL** run on every PR. Never commit API keys, tokens, or credentials.
-- **Privacy First**: User study logs, schedules, and analytics remain strictly in the local IndexedDB database and must never be telemetried or sent over the network.
+- **Privacy First**: User study logs, schedules, and analytics remain strictly in local IndexedDB / SQLite databases. Discord RPC uses local named pipes (`\\.\pipe\discord-ipc-0`), and Supabase sync is strictly opt-in.
+- **Automated Changelog Rule**: Never manually edit any `CHANGELOG.md` file. It is maintained automatically by Release Please.
 
 ---
 
@@ -84,12 +97,12 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org/) speci
 
 | Prefix | Description | Example |
 |---|---|---|
-| `feat:` | A new feature | `feat(timer): add ambient binaural beats procedural synthesizer` |
-| `fix:` | A bug or security fix | `fix(security): sanitize external web portal URLs to prevent DOM XSS` |
-| `perf:` | A performance optimization | `perf(webviews): mount only active webview to reduce RAM by 120MB` |
+| `feat:` | A new feature | `feat(rpc): add discord presence binary named pipe client` |
+| `fix:` | A bug or security fix | `fix(auth): intercept child popups for Google OAuth in webview` |
+| `perf:` | A performance optimization | `perf(tracker): implement adaptive eco-loop reducing idle CPU` |
 | `docs:` | Documentation changes | `docs(readme): update quickstart and architecture diagrams` |
-| `refactor:` | Code restructuring | `refactor(types): unify note and board types in shared module` |
-| `test:` | Adding or improving tests | `test(store): add unit tests for pomodoro cycle state` |
+| `refactor:` | Code restructuring | `refactor(sync): upgrade dexie schema to v3 with tombstones` |
+| `test:` | Adding or improving tests | `test(sync): add unit tests for supabase offline replication` |
 | `ci:` | CI/CD pipeline changes | `ci(workflows): enforce 2-day schedule and concurrency gates` |
 
 ---

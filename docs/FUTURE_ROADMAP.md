@@ -55,11 +55,16 @@ This document outlines the planned future features, upcoming modules, and featur
 
 ## 🖥️ 3. Category 3: Standalone Desktop App (Electron Windows `.exe`)
 
-### ✅ Recently Shipped Enterprise Milestones:
-- 🛡️ **Enterprise Auto-Updater & Zero Data Loss Guarantee**: Silent GitHub release polling, changelog & fixes review modal, and pre-update disk sync hook.
-- 💤 **ActivityWatch AFK Idle Guard**: True OS hardware idle detection auto-pausing focus timer after 5 minutes.
-- ⚡ **Dayflow / Wakapi Engine**: Passive IDE window title parser detecting languages (TypeScript, Python, Java, etc.) and active coding projects.
-- 👀 **Super Productivity 20-20-20 Eye Care Synthesizer**: Automated 20-minute ergonomic rest prompt preventing digital eye fatigue.
+### ✅ Shipped Milestones (v0.5.0 Production Release):
+- 🌐 **Arc-Style In-App Browser**: 3-slot LRU WebContentsView pool, dynamic zoom & tabs, child popup Google/LeetCode/GitHub OAuth interceptor.
+- 🎮 **Discord Rich Presence**: Zero-cloud local OS named pipe IPC (\\.\pipe\discord-ipc-0), live focus subject broadcast, elapsed Pomodoro timer.
+- ☁️ **Supabase Offline-First Replication**: Dexie v3 tombstone architecture, offline mutation queues, Last-Write-Wins (LWW) multi-device synchronization.
+- ⚡ **Adaptive Eco-Loop Engine**: Dynamic polling backoff (3s typing ➔ 4.5s reading ➔ 6s AFK) and document.hidden guards dropping idle CPU to < 0.5%.
+- 🤖 **Universal AI Study Coach**: Dynamic model discovery for Groq, Gemini 2.0 Flash, OpenRouter, Mistral, and local Ollama with PrismJS syntax highlighting.
+- 🛡️ **Enterprise Auto-Updater & Zero Data Loss Guarantee**: Silent GitHub release polling, SHA-512 latest.yml validation, and pre-update disk sync hook.
+- 💤 **ActivityWatch AFK Idle Guard**: True OS hardware idle detection auto-pausing focus timer after inactivity.
+- ⚡ **Dayflow / Wakapi Engine**: Passive IDE window title parser detecting languages and active coding projects with 1-click uto-configure-wakatime-cfg.
+- 👀 **Super Productivity 20-20-20 Eye Care Synthesizer**: Automated 20-minute ergonomic rest prompts preventing digital eye fatigue.
 
 ### 🚀 Upcoming Planned Features:
 1. 🪟 **Native Windows Mini-Widget (Always-On-Top Floating Timer)**:

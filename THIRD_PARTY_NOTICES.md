@@ -6,9 +6,10 @@ FlowTrack Pro is built using open-source software. Below is a comprehensive list
 | :--- | :--- | :--- | :--- |
 | `react` | 19.2.3 | MIT | https://react.dev |
 | `react-dom` | 19.2.3 | MIT | https://react.dev |
-| `electron` | 43.0.0 | MIT | https://www.electronjs.org |
+| `electron` | 43.1.0 | MIT | https://www.electronjs.org |
 | `dexie` | 4.3.0 | Apache-2.0 | https://dexie.org |
 | `dexie-export-import` | 4.1.4 | Apache-2.0 | https://github.com/dexie/Dexie.js |
+| `zustand` | 5.0.3 | MIT | https://github.com/pmndrs/zustand |
 | `lucide-react` | 0.474.0 | ISC | https://lucide.dev |
 | `framer-motion` | 12.35.0 | MIT | https://www.framer.com/motion |
 | `date-fns` | 4.1.0 | MIT | https://date-fns.org |
@@ -22,6 +23,9 @@ FlowTrack Pro is built using open-source software. Below is a comprehensive list
 | `cmdk` | 1.0.4 | MIT | https://cmdk.paco.me |
 | `fabric` | 7.4.0 | MIT | http://fabricjs.com |
 | `pdfjs-dist` | 6.1.200 | Apache-2.0 | https://mozilla.github.io/pdf.js |
+| `prismjs` | 1.30.0 | MIT | https://prismjs.com |
+| `mermaid` | 12.2.0 | MIT | https://mermaid.js.org |
+| `katex` | 0.16.21 | MIT | https://katex.org |
 | `vitest` | 3.2.7 | MIT | https://vitest.dev |
 | `eslint` | 9.39.5 | MIT | https://eslint.org |
 

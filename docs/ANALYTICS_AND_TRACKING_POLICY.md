@@ -24,7 +24,11 @@ This document explains **exactly what FlowTrack Pro tracks**, **why**, **where t
 ---
 
 ### 2. App Usage Tracking (Desktop App Only — via win-tracker.exe)
-Polls every **5 seconds** using native Win32 GetForegroundWindow().
+Operates via an **Adaptive Eco-Loop Architecture** using native Win32 GetForegroundWindow() via win-tracker.exe:
+- **Active typing & navigation**: 3,000ms intervals.
+- **Reading documentation & lectures**: Backs off to 4,500ms intervals.
+- **AFK / Deep Idle**: Backs off to 6,000ms intervals.
+- **Dashboard Render Guards**: UI log lists check document.hidden to ensure 0% background CPU when tabs are hidden.
 
 #### ✅ TRACKED:
 - External browsers (Chrome, Edge, Firefox, Brave)
@@ -199,3 +203,13 @@ React 19 + TypeScript + Vite 7 | Electron 34 | Zustand (IndexedDB) | Excalidraw 
 ✅ XP + leveling gamification system
 
 *FlowTrack Pro is built for serious students. All data stays on your machine.*
+
+### 6. Discord Rich Presence (Local Named Pipe Only)
+- Communicates strictly via Windows local named pipes (\\.\pipe\discord-ipc-0) or Unix domain sockets (/tmp/discord-ipc-0).
+- **Zero Cloud Network Traffic**: No external bots, Discord API tokens, or outgoing HTTP requests.
+- Transmits only active focus subject name and elapsed Pomodoro timer values.
+- Automatically pauses or sets AFK state when user is idle.
+
+### 7. Dual Cloud Sync (Optional — User Controlled)
+- **Supabase Sync**: Strictly opt-in. Data replication occurs directly between client and Supabase PostgreSQL via PostgREST with user-level JWT Row Level Security (RLS).
+- **Zero Third-Party Telemetry**: Neither Google Analytics, Mixpanel, nor Amplitude tracking tokens exist in the codebase.

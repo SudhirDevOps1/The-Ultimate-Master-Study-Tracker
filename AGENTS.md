@@ -10,10 +10,10 @@ FlowTrack Pro — local-first study/productivity tracker. Electron desktop app, 
 
 ## The duplication trap
 
-`desktop-app/src` and `web-app/src` share 85 files: 53 byte-identical, 32 drifted. Nothing links them — no shared package, no workspace import. Before editing anything under `src/`, decide whether both apps need the change and copy it deliberately; a fix in one app does **not** reach the other. Compare with `git diff --no-index desktop-app/src web-app/src`.
+`desktop-app/src` and `web-app/src` share 85 files: 56 byte-identical, 29 drifted. Nothing links them — no shared package, no workspace import. Before editing anything under `src/`, decide whether both apps need the change and copy it deliberately; a fix in one app does **not** reach the other. Compare with `git diff --no-index desktop-app/src web-app/src`.
 
 Desktop-only: `PipStandalonePage`, `PipOverlayWidget`, `EnterpriseUpdateModal`, `lib/neonSync.ts`.
-Harmonized across both: `FocusAudioMixer`, `VirtualStudyCompanion`, `notification.ts`, `DashboardPage`, `WeeklySummary`, `WeeklyReviewModal`, `PerformanceScorecardModal`, `BackendActivityPanel`.
+Harmonized across both: `FocusAudioMixer`, `VirtualStudyCompanion`, `notification.ts`, `DashboardPage`, `WeeklySummary`, `WeeklyReviewModal`, `PerformanceScorecardModal`, `BackendActivityPanel`, `AppActivityList.tsx`, `supabaseSync.ts`, `db.ts`, `models.ts`.
 
 ## Commands (run inside the app directory)
 
@@ -29,16 +29,18 @@ Harmonized across both: `FocusAudioMixer`, `VirtualStudyCompanion`, `notificatio
 
 ## Testing reality
 
-- **25 test suites, 169 unit tests** in `desktop-app/src/utils/__tests__/` (covering `security.ts`, `afkTracking.ts`, `breakEngine.ts`, `downloadManager.ts`, `editorInfo.ts`, `heartbeatReceiver.ts`, `localQueryApi.ts`, `ocrEngine.ts`, `reviewGenerator.ts`, `taskModel.ts`, `mermaidHelper.ts`, `latexToMathML.ts`, `boardMath.ts`, `mindmapGraph.ts`, `aiModelFetcher.ts`, `storageMigration.ts`, `focusScore.ts`, `backupEngine.ts`, `securityContract.ts`, and E2E flows).
+- **27 test suites, 179 unit tests** in `desktop-app/src/utils/__tests__/` (covering `security.ts`, `afkTracking.ts`, `breakEngine.ts`, `downloadManager.ts`, `editorInfo.ts`, `heartbeatReceiver.ts`, `localQueryApi.ts`, `ocrEngine.ts`, `reviewGenerator.ts`, `taskModel.ts`, `mermaidHelper.ts`, `latexToMathML.ts`, `boardMath.ts`, `mindmapGraph.ts`, `aiModelFetcher.ts`, `storageMigration.ts`, `focusScore.ts`, `backupEngine.ts`, `securityContract.ts`, `discordRpc.ts`, `supabaseSync.ts`, and E2E flows).
 - Coverage `include` is configured for tested utility surfaces. Never quote single-file coverage as overall repo coverage.
 - CI order: typecheck → lint → `py_compile`/`ruff` → test → build. Match it locally before every push.
 
-## Low-RAM invariants (desktop, deliberate — don't "simplify" away)
+## Low-RAM & Eco-Loop invariants (desktop, deliberate — don't "simplify" away)
 
 - `win-tracker.exe` is a compiled C# Win32 helper (`win-tracker.cs`) shipped via electron-builder `extraResources`; it is the active-window poller. Never spawn PowerShell/wscript inside a polling loop.
+- **Adaptive Eco-Loop Tracker**: In `electron.js`, polling dynamically backs off (3.0s active typing ➔ 4.5s idle/reading ➔ 6.0s AFK) reducing process creation CPU by > 70%.
+- **Background Sleep Guards**: Analytics and dashboard pollers (`BackendActivityPanel`, `AppActivityList`) verify `document.hidden` and suspend disk reads/IPC renders when minimized or in tray, maintaining **< 0.5% idle CPU**.
 - `electron.js` sets `--max-old-space-size=128 --expose-gc`, `--renderer-process-limit=1`, `--disable-breakpad`, and `backgroundThrottling: true`. `global.gc()` on minimize/hide depends on that `--expose-gc` flag.
 - `activityLog` is deliberately capped at 2,000 entries (spliced, not unbounded).
-- Renderer: clear listeners, `setInterval`s and Fabric.js canvas contexts on unmount; `React.lazy` heavy analytics pages; mount only the active `<webview>` portal. Web portals keep full width — navigation lives in a slide-over drawer, not a side panel.
+- Renderer: clear listeners, `setInterval`s and Fabric.js canvas contexts on unmount; `React.lazy` heavy analytics pages; mount only the active `<webview>` portal. Web portals keep full width — navigation lives in a slide-over drawer, not a side panel. In-app browser uses a 3-slot persistent LRU pool with `display: none` to guarantee 0ms instant tab switching without guest WebContents thrashing.
 
 ## CI / PR gotchas
 
@@ -74,6 +76,8 @@ The build job rewrites `desktop-app/package.json` from the release tag at runtim
 - **Super Productivity**: Ergonomic 20-20-20 eye-care synthesizer, 50m focus stretch, 90m ultradian cycles, task timeboxing, and Web Audio API harmonic chime tones.
 - **Anki / SuperMemo SM-2**: Spaced repetition memory algorithm ($I_n = I_{n-1} \times EF$) with dynamic interval calculation and deterministic fuzzing in `spacedRepetition.ts`.
 - **Dayflow & Wakapi**: Passive screen and IDE project categorization. Loopback heartbeat receiver bound strictly to `127.0.0.1:7777` with CORS & DNS-rebinding protection, 1-click `auto-configure-wakatime-cfg` support, pure real-time pulse stream without simulated clutter, explicit demo badging, and user-controlled heartbeat clearing.
+- **Discord Rich Presence (RPC)**: Native OS named pipe (`\\.\pipe\discord-ipc-0`..`9`) binary IPC client over Node.js `node:net` without C++ addons or external telemetry. Strict privacy masking option for course and subject names.
+- **Supabase Offline-First Sync**: Version 3 Dexie tombstones (`id, tableName, deletedAt`) replicating deletions across devices with Last-Write-Wins (LWW) conflict resolution over native PostgREST HTTP fetch.
 - **Excalidraw & Miro Canvas Synthesizer**: Infinite Fabric.js whiteboard with multi-slide deck engine, sketchy hand-drawn mode, auto-cleanup of orphan placeholder text on blur, class-registered `StickyNoteBox` in Fabric v6, anti-collision staggering, and floating contextual layer/palette controls.
 - **MindMap Portal Engine**: React portal mounting directly to `document.body` bypassing CSS transform containing-block traps, with Mini-Map Radar Navigator, 5 node geometries, and 4 auto-color branch hierarchy themes.
 

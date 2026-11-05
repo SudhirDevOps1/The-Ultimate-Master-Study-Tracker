@@ -26,6 +26,8 @@ Welcome to the official technical manual for **FlowTrack Pro**. This document sp
 6. [Win32 & Webview Tracking Specification](#6-win32--webview-tracking-specification)
 7. [Full Application Navigation & Page Breakdown](#7-full-application-navigation--page-breakdown)
 8. [Developer Protocols & Local Services](#8-developer-protocols--local-services)
+9. [2026 UI/UX & Core Productivity Studios](#9-2026-production-grade-uiux--architecture-overhaul)
+10. [Workstation Operating System Engine (In-App Browser, Discord RPC & Offline Supabase Sync)](#10-workstation-operating-system-engine)
 
 ---
 
@@ -283,3 +285,30 @@ graph TD
 4. **Cloudflare Workers AI**: Dedicated inputs for Cloudflare Account ID and API Token, routing dynamically to `https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1/chat/completions`.
 5. **Custom OpenAI-Compatible Server**: Connects to self-hosted LLMs, vLLM, FastChat, or local proxies with custom names, custom endpoint URLs, and custom model identifiers.
 6. **Mermaid 12.2.0 Syntax Normalizer**: Automatically corrects syntax anomalies in AI-generated class diagrams (e.g. notes syntax normalisation) and suppresses unstyled bomb error SVGs.
+
+---
+
+## 10. Workstation Operating System Engine
+
+FlowTrack Pro v0.5.0 introduces deep workstation OS integration designed for maximum academic and developer immersion:
+
+### 🌐 Arc-Style In-App Browser (WebContentsView Pool)
+FlowTrack Pro features an embedded multi-tab browser engine engineered directly atop Electron's modern WebContentsView API (replacing deprecated <webview> tags):
+- **3-Slot LRU Memory Management**: Keeps at most 3 active tabs loaded in RAM (--max-old-space-size=128), cleanly destroying and restoring background web contents on demand.
+- **Child Window OAuth Interceptor**: Handles complex popups (Google OAuth, LeetCode SSO, GitHub Auth). Popups open in managed overlay viewports and automatically close upon redirect, injecting authentication cookies into the main session.
+- **Ghostery Declarative Ad Shield**: Blocks tracker networks, intrusive pre-roll video ads, and popups with zero performance overhead.
+
+### 🎮 Discord Rich Presence Engine (Named Pipe Boundary)
+Broadcasts live academic telemetry directly to Discord profiles via local OS IPC named pipes (\\.\pipe\discord-ipc-0 on Windows, /tmp/discord-ipc-0 on Unix/macOS):
+- **Zero Cloud Network Traffic**: Connects strictly to the local Discord client daemon; no cloud bots, external tokens, or third-party webhooks.
+- **Context-Aware Dynamic States**:
+  - Studying DSA & Algorithms | Binary Trees - LeetCode #226
+  - Pomodoro Focus Session | Remaining: 23m 15s
+  - Idle / Eye-Care Stretch | 20-20-20 Rule Active
+- **Elapsed Timestamp Timers**: Real-time elapsed counters synced with Pomodoro and Stopwatch engines.
+
+### ☁️ Supabase Offline-First Replication Engine
+A robust two-way synchronization layer bridging local Dexie.js (IndexedDB) and Cloud Supabase PostgREST:
+- **Tombstone Deletion Architecture**: Record deletions append a soft { is_deleted: true, deleted_at: timestamp } tombstone in Dexie version 3 to ensure deletions replicate accurately across devices without resurrecting data.
+- **Sync Queue & Retry Mechanism**: Offline mutations are queued locally and automatically drained upon network reconnection with exponential backoff.
+- **Last-Write-Wins (LWW) Conflict Resolution**: Synchronizes study records, flashcards, and preferences across laptops and desktops without manual conflict prompts.

@@ -38,7 +38,7 @@ pip install psutil pywin32
 python -m pywin32_postinstall -install
 
 # Install frontend
-npm install
+npm install --legacy-peer-deps
 
 # Start backend (Terminal 1)
 python activity_tracker.py
@@ -83,7 +83,7 @@ source venv/bin/activate
 pip install psutil pyobjc
 
 # Install frontend
-npm install
+npm install --legacy-peer-deps
 
 # Start backend
 python activity_tracker.py
@@ -106,7 +106,7 @@ source venv/bin/activate
 pip install psutil
 
 # Install frontend
-npm install
+npm install --legacy-peer-deps
 
 # Start backend
 python activity_tracker.py

@@ -7,8 +7,9 @@ We take the security of FlowTrack Pro seriously. The following versions are curr
 | Version | Supported | Status |
 |---|---|---|
 | `main` (Latest) | :white_check_mark: | Active support |
-| `0.2.x` | :white_check_mark: | Active support |
-| `< 0.2.0` | :x: | End of life |
+| `0.5.x` | :white_check_mark: | Active production release |
+| `0.4.x` | :white_check_mark: | Maintenance security updates |
+| `< 0.4.0` | :x: | End of life |
 
 ---
 
@@ -37,10 +38,13 @@ If you discover a potential security vulnerability in FlowTrack Pro, please repo
 
 ## Security Architecture Principles
 
-- **Electron Hardening**: `webSecurity: true`, `contextIsolation: true`, `nodeIntegration: false`. No insecure node bindings exposed in renderer processes.
-- **Strict DOM Sanitization**: All embedded media, webviews, and iframes are guarded by the [`sanitizeSafeUrl()`](file:///d:/The-Ultimate-Master-Study-Tracker/desktop-app/src/utils/security.ts) validation barrier (rejecting `javascript:`, `vbscript:`, and unsafe data protocols).
+- **Electron Hardening**: `webSecurity: true`, `contextIsolation: true`, `nodeIntegration: false`. No insecure Node.js bindings exposed in renderer processes. Preload bridge explicitly whitelists permitted invoke channels.
+- **Strict DOM Sanitization**: All embedded media, webviews, and iframes are guarded by the `sanitizeSafeUrl()` validation barrier (rejecting `javascript:`, `vbscript:`, and unsafe data protocols).
+- **Discord RPC Local Boundary**: Connects strictly to local OS named pipes (`\\.\pipe\discord-ipc-0`..`9` on Windows). Zero external telemetry connections or third-party relay servers.
+- **Loopback Receiver Isolation**: The WakaTime heartbeat receiver binds strictly to `127.0.0.1:7777` with CORS origin verification and Host header validation to prevent DNS-rebinding attacks.
+- **Encrypted Local Vault**: All local backup exports utilize AES-256-GCM authenticated encryption derived via PBKDF2 with 100,000 SHA-256 iterations and random salt.
 - **Automated DevSecOps**:
-  - **CodeQL**: Deep AST semantic security analysis.
-  - **Gitleaks**: Pre-commit & CI secret detection.
+  - **CodeQL**: Deep AST semantic security analysis across all JavaScript and TypeScript surfaces.
+  - **Gitleaks**: Pre-commit and CI secret scanning blocking hardcoded credentials.
   - **Dependabot**: Automated weekly vulnerable dependency patching.
-  - **OpenSSF Scorecard**: Supply chain security compliance.
+  - **OpenSSF Scorecard**: Supply chain security attestation and release provenance verification.

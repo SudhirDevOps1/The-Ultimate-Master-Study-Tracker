@@ -18,7 +18,8 @@ Welcome to the **Web Application** module of FlowTrack Pro. This app operates 10
 ## 📌 Web App Features
 
 - ⚡ **Vercel CDN Ready**: Instantly deployed on Vercel or any static web host.
-- 💾 **100% In-Browser IndexedDB (Zero Data Loss)**: Sessions, flashcards, mind maps, PDF reader state, and settings stay completely persistent in browser storage. App updates and cache refreshes never wipe your study history.
+- 💾 **100% In-Browser IndexedDB (Zero Data Loss)**: Sessions, flashcards, mind maps, PDF reader state, and settings stay completely persistent in browser storage via Dexie.js v3. App updates and cache refreshes never wipe your study history.
+- ☁️ **Supabase Offline-First Sync**: Two-way replication bridging local IndexedDB to cloud PostgreSQL with Dexie v3 tombstones and Last-Write-Wins (LWW) conflict resolution.
 - ⌨️ **Unified Command Palette (`Ctrl+K`)**: Instant offline keyboard search across tasks, flashcards, subjects, and settings using MiniSearch.
 - 🔐 **Encrypted Database Backup & Privacy Vault**: Export and restore AES-256-GCM encrypted snapshots with PBKDF2 100k iteration derivation.
 - ⏱️ **Flowtime Mode & Transparent Focus Score**: Unconstrained flowtime focus sessions with an auditable, honest 0–100 focus score breakdown.
