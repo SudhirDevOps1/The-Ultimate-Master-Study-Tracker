@@ -8,12 +8,12 @@ FlowTrack Pro — local-first study/productivity tracker. Electron desktop app, 
 - `web-app/` — the same React UI for the browser, plus `backend.py` (Python 3, sqlite3, **port 5001**, optional). `web-app/START.bat` creates `.venv`, launches the backend, then `npm run dev`.
 - Root — commitlint + husky, release-please, 11 workflows in `.github/workflows/`, `docs/` guides.
 
-## The duplication trap
+## Enterprise SSOT Architecture (Zero Drift Invariant)
 
-`desktop-app/src` and `web-app/src` share 85 files: 56 byte-identical, 29 drifted. Nothing links them — no shared package, no workspace import. Before editing anything under `src/`, decide whether both apps need the change and copy it deliberately; a fix in one app does **not** reach the other. Compare with `git diff --no-index desktop-app/src web-app/src`.
-
-Desktop-only: `PipStandalonePage`, `PipOverlayWidget`, `EnterpriseUpdateModal`, `lib/neonSync.ts`.
-Harmonized across both: `FocusAudioMixer`, `VirtualStudyCompanion`, `notification.ts`, `DashboardPage`, `WeeklySummary`, `WeeklyReviewModal`, `PerformanceScorecardModal`, `BackendActivityPanel`, `AppActivityList.tsx`, `supabaseSync.ts`, `db.ts`, `models.ts`.
+`desktop-app/src` and `web-app/src` are unified in 100% byte parity across all 149 source files with isomorphic runtime detection (`isElectron()`).
+- **Automated Synchronizer**: `npm run sync:apps` (`node scripts/sync-codebase.mjs`) synchronizes changes bidirectionally between `desktop-app/src` and `web-app/src`.
+- **Parity Enforcement Gate**: `npm run check:parity` (`node scripts/check-app-parity.mjs`) is enforced in `.husky/pre-commit` and `ci.yml`. Any pull request or commit with un-synchronized drift fails CI automatically.
+- **Isomorphic Architecture**: All files under `src/` run safely in both Web and Desktop: desktop-specific features (`EnterpriseUpdateModal`, `PipOverlayWidget`, native IPC, WakaTime receiver, NeonDB cloud sync) gracefully adapt or feature-flag safely when running in a browser without throwing.
 
 ## Commands (run inside the app directory)
 

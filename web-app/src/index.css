@@ -206,16 +206,28 @@ button {
   border-color: rgba(255, 255, 255, 0.12);
 }
 
+::-webkit-scrollbar,
 .pretty-scrollbar::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
+::-webkit-scrollbar-thumb,
 .pretty-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(148, 163, 184, 0.28);
   border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
+::-webkit-scrollbar-thumb:hover,
+.pretty-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.45);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-track,
 .pretty-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }

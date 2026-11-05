@@ -1,7 +1,7 @@
 export function registerServiceWorker() {
-  if (!("serviceWorker" in navigator)) return;
-  // Service workers only work over http/https, not file://
-  if (window.location.protocol === "file:") return;
+  if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+  // Service workers only work over http/https, not file:// and should not run in Electron
+  if (window.location.protocol === "file:" || Boolean((window as any).electron)) return;
 
   window.addEventListener("load", () => {
     void navigator.serviceWorker.register("./sw.js").then(async (registration) => {

@@ -9,15 +9,21 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings=0",
-    "test": "vitest run --coverage"
+    "test": "vitest run --coverage",
+    "sync:apps": "node ../scripts/sync-codebase.mjs",
+    "check:parity": "node ../scripts/check-app-parity.mjs"
   },
   "dependencies": {
+    "@mozilla/readability": "^0.6.0",
+    "@neondatabase/serverless": "^1.2.0",
+    "@types/dompurify": "^3.0.5",
     "@types/prismjs": "^1.26.6",
     "clsx": "2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^4.4.0",
     "dexie": "^4.4.7",
     "dexie-export-import": "^4.4.2",
+    "dompurify": "^3.4.17",
     "fabric": "^7.4.0",
     "firebase": "^13.1.0",
     "framer-motion": "^14.8.0",

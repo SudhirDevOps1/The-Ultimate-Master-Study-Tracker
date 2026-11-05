@@ -2,10 +2,14 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import { App } from "./App";
+import { registerServiceWorker } from "./sw-register";
 import { applyTheme, getThemeColors } from "@/utils/themes";
 
 // Apply default theme immediately on script load
 applyTheme(getThemeColors("oled"));
+
+// Register Service Worker in production web environments (safely no-ops in Electron)
+registerServiceWorker();
 
 // App initialization
 const rootElement = document.getElementById("root");

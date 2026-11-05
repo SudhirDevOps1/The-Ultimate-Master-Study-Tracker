@@ -1,5 +1,9 @@
 #!/bin/sh
 . "$(dirname "$0")/_/husky.sh" 2>/dev/null || true
 
+echo "Running SSOT codebase sync & parity check..."
+node scripts/sync-codebase.mjs || true
+node scripts/check-app-parity.mjs || true
+
 echo "Running pre-commit quality checks..."
 cd desktop-app && npm run typecheck || true

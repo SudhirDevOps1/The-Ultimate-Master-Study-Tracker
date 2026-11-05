@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sanitizeOcrText } from "../ocrEngine";
+import { sanitizeOcrText, cleanExtractedText } from "../ocrEngine";
 
 describe("Local OCR Engine & Privacy Guard (Rule S4 - Commit F1)", () => {
   it("sanitizes API keys and bearer tokens from extracted text before indexing", () => {
@@ -15,5 +15,13 @@ describe("Local OCR Engine & Privacy Guard (Rule S4 - Commit F1)", () => {
     const normal = "function binarySearch(arr, target) { let left = 0; let right = arr.length - 1; }";
     const sanitized = sanitizeOcrText(normal);
     expect(sanitized).toBe(normal);
+  });
+
+  it("cleans hyphenated line wraps and normalizes excessive whitespace", () => {
+    const raw = "The micro-\nprocessor executes in-\r\nstructions rapidly.\n\n\n\nNext section.";
+    const cleaned = cleanExtractedText(raw);
+    expect(cleaned).toContain("The microprocessor executes instructions rapidly.");
+    expect(cleaned).toContain("\n\nNext section.");
+    expect(cleaned).not.toContain("\n\n\n");
   });
 });

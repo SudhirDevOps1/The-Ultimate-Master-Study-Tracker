@@ -1,6 +1,6 @@
 {
   "name": "flowtrack-pro-desktop",
-  "description": "FlowTrack Pro – Smart Study & Productivity Tracker Desktop App",
+  "description": "FlowTrack Pro \u2013 Smart Study & Productivity Tracker Desktop App",
   "author": "FlowTrack Community <https://github.com/SudhirDevOps1>",
   "homepage": "https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker",
   "repository": {
@@ -20,7 +20,9 @@
     "test": "vitest run --coverage",
     "test:e2e": "vitest run src/__tests__/e2e/",
     "electron:dev": "concurrently \"npm run dev\" \"wait-on tcp:5173 && electron .\"",
-    "electron:build": "vite build && electron-builder"
+    "electron:build": "vite build && electron-builder",
+    "sync:apps": "node ../scripts/sync-codebase.mjs",
+    "check:parity": "node ../scripts/check-app-parity.mjs"
   },
   "build": {
     "appId": "com.flowtrack.studytracker",

@@ -53,14 +53,15 @@ export interface AppState {
   setAutoCarryForward: (enabled: boolean) => void;
   activeWindow: string;
   setActiveWindow: (title: string) => void;
-  // Python backend (localhost:5001) — optional auto-connect.
-  // Works when user runs START_BACKEND.bat on their local PC.
-  // Web app on Vercel auto-detects and connects if backend is running.
   backendStats: any | null;
   backendActivities: any[];
   isBackendConnected: boolean;
   backendUrl: string;
   setBackendUrl: (url: string) => Promise<void>;
+  dbConnectionString: string;
+  setDbConnectionString: (url: string) => Promise<void>;
+  syncToCloud: () => Promise<void>;
+  recoverFromCloud: () => Promise<void>;
   fetchBackendData: () => Promise<void>;
   updateDailyGoalStreak: (newSessions: StudySession[]) => Promise<void>;
   initApp: () => Promise<void>;
@@ -122,8 +123,39 @@ let sessionOperationInProgress = false;
 function notifyFocusSessionActive(isActive: boolean): void {
   if (typeof window !== "undefined") {
     const win = window as any;
-    if (win.electron?.invoke) {
-      win.electron.invoke("set-focus-session-active", isActive).catch(() => {});
+    const invoke = win.electron?.ipcRenderer?.invoke || win.electron?.invoke;
+    if (invoke) {
+      invoke("set-focus-session-active", isActive).catch(() => {});
+    }
+  }
+}
+
+function updateDiscordPresence(details: {
+  subjectName?: string;
+  isPaused?: boolean;
+  startTimestamp?: number;
+  endTimestamp?: number;
+}): void {
+  if (typeof window !== "undefined") {
+    const win = window as any;
+    const invoke = win.electron?.ipcRenderer?.invoke || win.electron?.invoke;
+    if (invoke) {
+      if (details.isPaused) {
+        invoke("discord-clear-activity").catch(() => {});
+      } else if (details.subjectName) {
+        invoke("discord-set-activity", {
+          details: `Focusing on ${details.subjectName}`,
+          state: "Deep Work Session",
+          startTimestamp: details.startTimestamp,
+          endTimestamp: details.endTimestamp,
+          largeImageKey: "flowtrack_logo",
+          largeImageText: "FlowTrack Pro",
+          smallImageKey: "focus",
+          smallImageText: "Deep Focus Mode",
+        }).catch(() => {});
+      } else {
+        invoke("discord-clear-activity").catch(() => {});
+      }
     }
   }
 }
@@ -153,6 +185,15 @@ const INTERACTION_WRITE_THROTTLE_MS = 10_000;
 
 async function saveTimer(timer: TimerSnapshot): Promise<void> {
   await db.settings.put({ key: "timer", value: JSON.stringify(timer) });
+}
+
+// Debounced Sync Helper
+let syncTimeout: NodeJS.Timeout | null = null;
+function scheduleSync(get: any) {
+  if (syncTimeout) clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(() => {
+    get().syncToCloud().catch(console.error);
+  }, 5000); // 5 seconds debounce
 }
 
 export function normalizeSession(s: any): StudySession {
@@ -264,14 +305,10 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
   aiConfig: { provider: "local_rules", apiKey: "", model: "", ollamaUrl: "http://localhost:11434" },
   autoCarryForward: true,
   activeWindow: "Desktop / Idle",
-
-  // Python backend — optional, auto-detected at startup.
-  // User runs START_BACKEND.bat on local PC; web app auto-connects.
   backendStats: null,
   backendActivities: [],
   isBackendConnected: false,
   backendUrl: "http://localhost:5001",
-
   setBackendUrl: async (url: string) => {
     let cleanUrl = url.trim().replace(/\/$/, "");
     if (cleanUrl && !/^https?:\/\//i.test(cleanUrl)) {
@@ -281,46 +318,61 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
     set({ backendUrl: cleanUrl });
     void get().fetchBackendData();
   },
-
+  dbConnectionString: "",
+  setDbConnectionString: async (url: string) => {
+    await db.settings.put({ key: "dbConnectionString", value: url });
+    set({ dbConnectionString: url });
+  },
+  syncToCloud: async () => {
+    const url = get().dbConnectionString;
+    if (url) {
+      const { syncToNeonDB } = await import('@/lib/neonSync');
+      await syncToNeonDB(url);
+    }
+  },
+  recoverFromCloud: async () => {
+    const url = get().dbConnectionString;
+    if (url) {
+      const { recoverFromNeonDB } = await import('@/lib/neonSync');
+      await recoverFromNeonDB(url);
+      
+      // Refresh subjects and sessions from Dexie to UI
+      const subjects = await db.subjects.toArray();
+      const sessions = await db.sessions.toArray();
+      set({ subjects: subjects || [], sessions: sortSessions(sessions) });
+    }
+  },
   fetchBackendData: async () => {
-    let url = get().backendUrl || "http://localhost:5001";
-    
-    // Try primary URL first, then 127.0.0.1 fallback
-    const urlsToTry = [url];
-    if (url.includes("localhost")) {
-      urlsToTry.push(url.replace("localhost", "127.0.0.1"));
-    } else if (url.includes("127.0.0.1")) {
-      urlsToTry.push(url.replace("127.0.0.1", "localhost"));
+    const url = get().backendUrl;
+    if (!url) {
+      set({ isBackendConnected: false });
+      return;
     }
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      const statsRes = await fetch(`${url}/stats?range=all`, { signal: controller.signal });
+      if (!statsRes.ok) throw new Error("Failed to fetch stats");
+      const statsData = await statsRes.json();
+      
+      const activitiesRes = await fetch(`${url}/export?type=activities&format=json`, { signal: controller.signal });
+      if (!activitiesRes.ok) throw new Error("Failed to fetch activities");
+      const activitiesData = await activitiesRes.json();
+      clearTimeout(timeoutId);
 
-    for (const targetUrl of urlsToTry) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2500);
-        const statsRes = await fetch(`${targetUrl}/stats?range=all`, { signal: controller.signal });
-        if (!statsRes.ok) throw new Error("stats failed");
-        const statsData = await statsRes.json();
-        const activitiesRes = await fetch(`${targetUrl}/export?type=activities&format=json`, { signal: controller.signal });
-        if (!activitiesRes.ok) throw new Error("activities failed");
-        const activitiesData = await activitiesRes.json();
-        clearTimeout(timeoutId);
-        set({
-          backendUrl: targetUrl,
-          backendStats: statsData,
-          backendActivities: activitiesData.activities || [],
-          isBackendConnected: true,
-        });
-        return;
-      } catch {
-        // try next URL
-      }
+      set({
+        backendStats: statsData,
+        backendActivities: activitiesData.activities || [],
+        isBackendConnected: true
+      });
+    } catch (e) {
+      set({ isBackendConnected: false });
     }
-    set({ isBackendConnected: false });
   },
 
   initApp: async () => {
     try {
-      const [subjects, sessions, timerSetting, pomodoroSetting, goalSetting, strictFocusSetting, weeklyTargetSetting, focusMusicSetting, notificationsSetting, keyboardShortcutsSetting, themeSetting, achievementsSetting, dailyGoalHitStreakSetting, autoPauseOnHiddenSetting, profileSetting, aiConfigSetting, autoCarryForwardSetting, backendUrlSetting] = await Promise.all([
+      const [subjects, sessions, timerSetting, pomodoroSetting, goalSetting, strictFocusSetting, weeklyTargetSetting, focusMusicSetting, notificationsSetting, keyboardShortcutsSetting, themeSetting, achievementsSetting, dailyGoalHitStreakSetting, autoPauseOnHiddenSetting, profileSetting, aiConfigSetting, autoCarryForwardSetting, backendUrlSetting, dbConnectionStringSetting] = await Promise.all([
         db.subjects.toArray(),
         db.sessions.toArray(),
         db.settings.get("timer"),
@@ -339,6 +391,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
         db.settings.get("ai_config"),
         db.settings.get("autoCarryForward"),
         db.settings.get("backendUrl"),
+        db.settings.get("dbConnectionString"),
       ]);
 
       let finalSessions = [...sessions];
@@ -423,6 +476,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
           aiConfig: aiConfigSetting ? JSON.parse(aiConfigSetting.value) : { provider: "local_rules", apiKey: "", model: "", ollamaUrl: "http://localhost:11434" },
           autoCarryForward: autoCarryEnabled,
           backendUrl: backendUrlSetting?.value ?? "http://localhost:5001",
+          dbConnectionString: dbConnectionStringSetting?.value ?? "",
         });
         return;
       }
@@ -493,18 +547,10 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
         aiConfig: aiConfigSetting ? JSON.parse(aiConfigSetting.value) : { provider: "local_rules", apiKey: "", model: "", ollamaUrl: "http://localhost:11434" },
         autoCarryForward: autoCarryEnabled,
         backendUrl: backendUrlSetting?.value ?? "http://localhost:5001",
+        dbConnectionString: dbConnectionStringSetting?.value ?? "",
         loading: false,
       });
-      // Auto-connect to local Python backend if it's running (e.g. user ran START_BACKEND.bat)
       void get().fetchBackendData();
-
-      // Periodically check backend status every 10 seconds
-      if (typeof window !== "undefined" && !(window as any)._backendIntervalStarted) {
-        (window as any)._backendIntervalStarted = true;
-        setInterval(() => {
-          void get().fetchBackendData();
-        }, 10000);
-      }
     } catch (error) {
       console.error("[initApp] Initialization failed:", error);
       set({ loading: false });
@@ -523,6 +569,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
     };
     await db.subjects.add(newSubject);
     set((state: AppState) => ({ subjects: [...state.subjects, newSubject] }));
+    scheduleSync(get);
   },
 
   updateSubject: async (id: string, name: string, color: string, emoji?: string, weeklyGoalMinutes?: number, url?: string) => {
@@ -531,6 +578,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
       subjects: state.subjects.map((s) => (s.id === id ? { ...s, name, color, emoji, weeklyGoalMinutes, url } : s)),
       sessions: state.sessions.map((session) => (session.subjectId === id ? { ...session, colorTag: color } : session)),
     }));
+    scheduleSync(get);
   },
 
   deleteSubject: async (id: string) => {
@@ -542,6 +590,8 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
       const activeSession = get().sessions.find((session: StudySession) => session.id === timer.activeSessionId);
       if (activeSession?.subjectId === id) {
         await saveTimer(defaultTimer);
+      notifyFocusSessionActive(false);
+      updateDiscordPresence({ isPaused: true });
         set({ timer: defaultTimer });
       }
     }
@@ -553,6 +603,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
           ...calculateGamificationStats(newSessions)
         };
       });
+      scheduleSync(get);
   },
 
   createSession: async (input: CreateSessionInput) => {
@@ -580,6 +631,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
         ...calculateGamificationStats(newSessions)
       };
     });
+    scheduleSync(get);
   },
 
   updateSession: async (session: StudySession) => {
@@ -610,6 +662,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
       sessions: sortSessions(newSessionsList),
       ...calculateGamificationStats(newSessionsList)
     });
+    scheduleSync(get);
   },
 
   deleteSession: async (id: string) => {
@@ -618,6 +671,8 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
     const timer = get().timer;
     if (timer.activeSessionId === id) {
       await saveTimer(defaultTimer);
+      notifyFocusSessionActive(false);
+      updateDiscordPresence({ isPaused: true });
       set((state: AppState) => {
         const newSessions = state.sessions.filter((item: StudySession) => item.id !== id);
         return {
@@ -635,12 +690,14 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
         ...calculateGamificationStats(newSessions)
       };
     });
+    scheduleSync(get);
   },
 
   importAll: async (subjects: Subject[], sessions: StudySession[], settings?: { key: string; value: string }[], activities?: any[], tasks?: any[]) => {
     const tables: any[] = [db.subjects, db.sessions, db.settings];
     if ((db as any).tasks) tables.push((db as any).tasks);
     await (db as any).transaction("rw", tables, async () => {
+      // Clean import: clear old subjects, sessions and tasks to prevent ghost duplicates and schedule overlap
       await db.subjects.clear();
       await db.sessions.clear();
       await db.subjects.bulkAdd(subjects);
@@ -674,23 +731,29 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
       }
     });
 
-    // Sync to local Python backend if running (optional — graceful fallback if offline)
+    // Pushing data to local Python backend SQLite Database
     try {
       const parsedSettings: Record<string, string> = {};
-      if (settings) settings.forEach(s => { parsedSettings[s.key] = s.value; });
+      if (settings) {
+        settings.forEach(s => {
+          parsedSettings[s.key] = s.value;
+        });
+      }
       const url = get().backendUrl;
       if (url) {
-        const ctrl = new AbortController();
-        setTimeout(() => ctrl.abort(), 2000);
         await fetch(`${url}/sync`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ subjects, sessions, settings: parsedSettings, activities: activities || [] }),
-          signal: ctrl.signal,
+          body: JSON.stringify({
+            subjects,
+            sessions,
+            settings: parsedSettings,
+            activities: activities || []
+          })
         });
       }
-    } catch {
-      // Backend offline — silently skip, local data already saved
+    } catch (e) {
+      console.warn("Python backend offline. Could not restore sqlite activities tracking records.", e);
     }
 
     await get().initApp();
@@ -722,6 +785,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
       sessions: sortSessions(newSessions),
       ...calculateGamificationStats(newSessions)
     });
+    scheduleSync(get);
   },
 
   startSession: async (sessionId: string) => {
@@ -746,6 +810,10 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
       };
       await saveTimer(timer);
       await db.sessions.update(session.id, { status: "in_progress", updatedAt: new Date().toISOString() });
+      notifyFocusSessionActive(true);
+      const startSub = get().subjects.find((s: Subject) => s.id === session.subjectId);
+      const endTimestamp = session.plannedMinutes ? now + session.plannedMinutes * 60 * 1000 : undefined;
+      updateDiscordPresence({ subjectName: startSub?.name || "Deep Study", startTimestamp: now, endTimestamp });
       set((state: AppState) => {
         const newSessions: StudySession[] = state.sessions.map((item: StudySession) => (item.id === session.id ? { ...item, status: "in_progress" as SessionStatus, updatedAt: new Date().toISOString() } : item));
         return {
@@ -778,6 +846,8 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
         actualSeconds: nextAccumulated,
         updatedAt: new Date().toISOString(),
       });
+      notifyFocusSessionActive(false);
+      updateDiscordPresence({ isPaused: true });
       set((state: AppState) => {
         const newSessions: StudySession[] = state.sessions.map((session: StudySession) =>
           session.id === timer.activeSessionId
@@ -808,6 +878,10 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
       };
       await saveTimer(nextTimer);
       await db.sessions.update(timer.activeSessionId, { status: "in_progress", updatedAt: new Date().toISOString() });
+      notifyFocusSessionActive(true);
+      const resSession = get().sessions.find((session: StudySession) => session.id === timer.activeSessionId);
+      const resSub = resSession ? get().subjects.find((s: Subject) => s.id === resSession.subjectId) : undefined;
+      updateDiscordPresence({ subjectName: resSub?.name || "Deep Study", startTimestamp: now });
       set((state: AppState) => {
         const newSessions: StudySession[] = state.sessions.map((session: StudySession) =>
           session.id === timer.activeSessionId ? { ...session, status: "in_progress" as SessionStatus, updatedAt: new Date().toISOString() } : session
@@ -837,6 +911,8 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
         updatedAt: new Date().toISOString(),
       });
       await saveTimer(defaultTimer);
+      notifyFocusSessionActive(false);
+      updateDiscordPresence({ isPaused: true });
       
       const newSessions: StudySession[] = get().sessions.map((session: StudySession) =>
         session.id === timer.activeSessionId
@@ -851,6 +927,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
         sessions: sortSessions(newSessions),
         ...calculateGamificationStats(newSessions)
       });
+      scheduleSync(get);
     });
   },
 
@@ -1309,6 +1386,8 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
 
     await db.settings.put({ key: "dailyGoalHitStreak", value: String(streak) });
     set({ dailyGoalHitStreak: streak });
+
+    scheduleSync(get);
     get().recalculateAchievements();
   },
 }));

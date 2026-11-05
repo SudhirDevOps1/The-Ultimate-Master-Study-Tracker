@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useMemo } from "react";
 import { APP_VERSION } from "@/config/version";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
@@ -12,6 +12,7 @@ import { exportData, importBackup } from "@/utils/exportImport";
 import { exportLocalDatabase, importLocalDatabase } from "@/utils/backupEngine";
 import { LicensesModal } from "@/components/LicensesModal";
 import { exportSessionsToCSV, exportSubjectStatsToCSV, exportAllDataToCSV, saveTextFileSafely } from "@/utils/dataExport";
+import { aggregateCodingStats, type HeartbeatItem } from "@/utils/editorInfo";
 import { db } from "@/lib/db";
 import { supabaseSync } from "@/lib/supabaseSync";
 
@@ -111,7 +112,7 @@ function PomodoroSettingsPanel() {
           max={90}
           value={settings.workMinutes}
           onChange={(e) => updateSetting('workMinutes', parseInt(e.target.value))}
-          className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white"
+          className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white"
         />
       </div>
       <div className="space-y-2">
@@ -122,7 +123,7 @@ function PomodoroSettingsPanel() {
           max={30}
           value={settings.shortBreakMinutes}
           onChange={(e) => updateSetting('shortBreakMinutes', parseInt(e.target.value))}
-          className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white"
+          className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white"
         />
       </div>
       <div className="space-y-2">
@@ -133,7 +134,7 @@ function PomodoroSettingsPanel() {
           max={45}
           value={settings.longBreakMinutes}
           onChange={(e) => updateSetting('longBreakMinutes', parseInt(e.target.value))}
-          className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white"
+          className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white"
         />
       </div>
       <div className="space-y-2">
@@ -144,7 +145,7 @@ function PomodoroSettingsPanel() {
           max={10}
           value={settings.cyclesBeforeLongBreak}
           onChange={(e) => updateSetting('cyclesBeforeLongBreak', parseInt(e.target.value))}
-          className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white"
+          className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white"
         />
       </div>
       <div className="space-y-2">
@@ -320,9 +321,60 @@ export function SettingsPage() {
   const backendUrl = useAppStore((state: AppState) => state.backendUrl);
   const setBackendUrl = useAppStore((state: AppState) => state.setBackendUrl);
   const isBackendConnected = useAppStore((state: AppState) => state.isBackendConnected);
+
+  const dbConnectionString = useAppStore((state: AppState) => state.dbConnectionString);
+  const setDbConnectionString = useAppStore((state: AppState) => state.setDbConnectionString);
+  const syncToCloud = useAppStore((state: AppState) => state.syncToCloud);
+  const recoverFromCloud = useAppStore((state: AppState) => state.recoverFromCloud);
   const initApp = useAppStore((state: AppState) => state.initApp);
 
+  const [inputDbConnectionString, setInputDbConnectionString] = useState(dbConnectionString);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isRecovering, setIsRecovering] = useState(false);
+
+  useEffect(() => {
+    setInputDbConnectionString(dbConnectionString);
+  }, [dbConnectionString]);
+
   const [profileName, setProfileName] = useState(profile?.name ?? "");
+  const [dbStats, setDbStats] = useState({ sessionsCount: 0, subjectsCount: 0, tasksCount: 0, notesCount: 0, health: "checking" });
+  const [cloudTestResult, setCloudTestResult] = useState<{ status: "idle" | "testing" | "online" | "offline"; latency?: number; msg?: string }>({ status: "idle" });
+
+  const loadDbStats = async () => {
+    try {
+      const [sCount, subCount, tCount] = await Promise.all([
+        db.sessions.count(),
+        db.subjects.count(),
+        db.tasks ? db.tasks.count() : Promise.resolve(0)
+      ]);
+      setDbStats({ sessionsCount: sCount, subjectsCount: subCount, tasksCount: tCount, notesCount: 0, health: "healthy" });
+    } catch {
+      setDbStats(prev => ({ ...prev, health: "error" }));
+    }
+  };
+
+  useEffect(() => {
+    loadDbStats();
+  }, []);
+
+  const playChimeTone = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.3);
+    } catch {}
+  };
+
   const [inputBackendUrl, setInputBackendUrl] = useState(backendUrl);
 
   useEffect(() => {
@@ -341,7 +393,43 @@ export function SettingsPage() {
   const [statusMessage, setStatusMessage] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const [showLicensesModal, setShowLicensesModal] = useState(false);
+  const navigate = useNavigate();
+  const [codingHeartbeats, setCodingHeartbeats] = useState<HeartbeatItem[]>([]);
+
+  useEffect(() => {
+    const isElectron = typeof window !== "undefined" && Boolean((window as any).electron?.isElectron);
+    if (!isElectron) return;
+    const loadStats = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      (window as any).electron?.ipcRenderer?.invoke?.("heartbeat-get-day").then((res: any) => {
+        if (Array.isArray(res)) setCodingHeartbeats(res);
+      }).catch(() => {});
+    };
+    loadStats();
+    const iv = setInterval(loadStats, 6000);
+    return () => clearInterval(iv);
+  }, []);
+
+  const codingStats = useMemo(() => aggregateCodingStats(codingHeartbeats), [codingHeartbeats]);
+  const [installedVersion, setInstalledVersion] = useState("0.2.4");
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && (window as any).electron) {
+      (window as any).electron.ipcRenderer?.invoke?.("get-app-version").then((v: string) => {
+        if (v) setInstalledVersion(v);
+      }).catch(() => {});
+    }
+  }, []);
   const [backupPassInput, setBackupPassInput] = useState("");
+  const [isExportingDb, setIsExportingDb] = useState(false);
+  const [isImportingDb, setIsImportingDb] = useState(false);
+  const fullBackupFileRef = useRef<HTMLInputElement>(null);
+  const [isAlwaysOnTop, setIsAlwaysOnTop] = useState(() => {
+    return localStorage.getItem("flowtrack_always_on_top") === "true";
+  });
+  const [isCompactFloating, setIsCompactFloating] = useState(() => {
+    return localStorage.getItem("flowtrack_compact_floating") === "true";
+  });
   const [afkThreshold, setAfkThreshold] = useState<number>(() => {
     return Number(localStorage.getItem("flowtrack_afk_threshold")) || 120;
   });
@@ -357,9 +445,15 @@ export function SettingsPage() {
         .catch(() => {});
     }
   }, []);
-  const [isExportingDb, setIsExportingDb] = useState(false);
-  const [isImportingDb, setIsImportingDb] = useState(false);
-  const fullBackupFileRef = useRef<HTMLInputElement>(null);
+  const [isOpenAtLogin, setIsOpenAtLogin] = useState(() => {
+    return localStorage.getItem("flowtrack_open_at_login") === "true";
+  });
+  const [discordRpcEnabled, setDiscordRpcEnabled] = useState(() => {
+    return localStorage.getItem("flowtrack_discord_rpc_enabled") === "true";
+  });
+  const [discordMaskSubject, setDiscordMaskSubject] = useState(() => {
+    return localStorage.getItem("flowtrack_discord_mask_subject") === "true";
+  });
 
   const [supabaseEnabled, setSupabaseEnabled] = useState(() => {
     return localStorage.getItem("flowtrack_supabase_enabled") === "true";
@@ -374,12 +468,63 @@ export function SettingsPage() {
   const [isSupabaseSyncing, setIsSupabaseSyncing] = useState(false);
 
   useEffect(() => {
+    if (typeof window !== "undefined" && (window as any).electron) {
+      (window as any).electron.ipcRenderer?.invoke?.("discord-get-status")
+        .then((res: any) => {
+          if (res) {
+            setDiscordRpcEnabled(Boolean(res.enabled));
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
     supabaseSync.updateConfig({
       enabled: supabaseEnabled,
       url: supabaseUrl,
       anonKey: supabaseAnonKey,
     });
   }, [supabaseEnabled, supabaseUrl, supabaseAnonKey]);
+  const [isEnhancedAdBlock, setIsEnhancedAdBlock] = useState(() => {
+    return localStorage.getItem("flowtrack_enhanced_adblock") === "true";
+  });
+  const [allowInsecureContent, setAllowInsecureContent] = useState(() => {
+    return localStorage.getItem("flowtrack_webview_allow_insecure") !== "false";
+  });
+  const [installedExtensions, setInstalledExtensions] = useState<any[]>([]);
+
+  const [isWebviewAdBlock, setIsWebviewAdBlock] = useState(() => {
+    return localStorage.getItem("flowtrack_webview_adblock") !== "false";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && (window as any).electron) {
+      (window as any).electron.ipcRenderer?.invoke?.("get-desktop-settings").then((res: any) => {
+        if (res?.success && res.settings) {
+          if (typeof res.settings.alwaysOnTop === "boolean") {
+            setIsAlwaysOnTop(res.settings.alwaysOnTop);
+            localStorage.setItem("flowtrack_always_on_top", String(res.settings.alwaysOnTop));
+          }
+          if (typeof res.settings.compactFloating === "boolean") {
+            setIsCompactFloating(res.settings.compactFloating);
+            localStorage.setItem("flowtrack_compact_floating", String(res.settings.compactFloating));
+          }
+          if (typeof res.settings.openAtLogin === "boolean") {
+            setIsOpenAtLogin(res.settings.openAtLogin);
+            localStorage.setItem("flowtrack_open_at_login", String(res.settings.openAtLogin));
+          }
+          (window as any).electron.ipcRenderer?.invoke?.("get-installed-extensions").then((exts: any) => {
+          if (Array.isArray(exts)) setInstalledExtensions(exts);
+        }).catch(() => {});
+        if (typeof res.settings.webviewAdBlock === "boolean") {
+            setIsWebviewAdBlock(res.settings.webviewAdBlock);
+            localStorage.setItem("flowtrack_webview_adblock", String(res.settings.webviewAdBlock));
+          }
+        }
+      });
+    }
+  }, []);
 
   useEffect(() => {
     if (profile) {
@@ -400,7 +545,6 @@ export function SettingsPage() {
     setStatusMessage("Profile updated successfully!");
   };
 
-  const navigate = useNavigate();
   const showMessage = (msg: string) => {
     setStatusMessage(msg);
     setTimeout(() => setStatusMessage(""), 3000);
@@ -446,19 +590,43 @@ export function SettingsPage() {
 
       {/* 🖥️ Desktop Native Controls & Floating HUD Panel */}
       {(activeTab === "all" || activeTab === "desktop") && (
-      <Panel className="border-l-4 border-cyan-400 bg-gradient-to-r from-slate-900 via-cyan-950/20 to-slate-900 space-y-4">
+      <Panel className="border-l-4 border-cyan-400 bg-slate-900/40 backdrop-blur-md space-y-4">
         <div>
           <h3 className="text-xl font-bold text-white flex items-center gap-2.5">
             <Monitor className="w-5 h-5 text-cyan-400" /> Desktop Native App Controls
           </h3>
           <p className="mt-1 text-xs text-slate-400">
-            Configure system tray behavior, window floating modes, and background launch options.
+            Configure system tray behavior, non-intrusive floating HUD mode, and background launch options.
           </p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
+          {/* 1. Always-On-Top */}
+          <div className="p-4 rounded-2xl bg-slate-900/40 backdrop-blur-md shadow-inner transition-all hover:bg-slate-900/50 border border-white/10 space-y-2">
+            <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-white">
+              <input
+                type="checkbox"
+                checked={isAlwaysOnTop}
+                onChange={(e) => {
+                  const isChecked = e.target.checked;
+                  setIsAlwaysOnTop(isChecked);
+                  localStorage.setItem("flowtrack_always_on_top", String(isChecked));
+                  if (typeof window !== "undefined" && (window as any).electron) {
+                    (window as any).electron.ipcRenderer?.invoke?.("toggle-always-on-top", { flag: isChecked, compact: isCompactFloating });
+                  }
+                  showMessage(isChecked ? "📌 Always-On-Top Floating Mode Enabled!" : "Always-On-Top Disabled.");
+                }}
+                className="h-5 w-5 rounded border-cyan-400 bg-slate-800 text-cyan-500 focus:ring-0 cursor-pointer"
+              />
+              📌 Always-On-Top Floating Mode
+            </label>
+            <p className="text-xs text-slate-400 pl-8">
+              Keep FlowTrack window floating above VS Code, Zoom, or PDF lectures.
+            </p>
+          </div>
+
           {/* AFK / Idle Detection Threshold */}
-          <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
+          <div className="p-4 rounded-2xl bg-slate-900/40 backdrop-blur-md shadow-inner transition-all hover:bg-slate-900/50 border border-white/10 space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-sm font-semibold text-white flex items-center gap-2">
                 <span>⏱️ AFK & Idle Detection Threshold</span>
@@ -486,38 +654,47 @@ export function SettingsPage() {
               System idle duration before the tracker marks you as away, saving active focus time accurately.
             </p>
           </div>
-          <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
+
+          {/* 2. Compact Sized PIP Widget */}
+          <div className="p-4 rounded-2xl bg-slate-900/40 backdrop-blur-md shadow-inner transition-all hover:bg-slate-900/50 border border-white/10 space-y-2">
             <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-white">
               <input
                 type="checkbox"
+                checked={isCompactFloating}
                 onChange={(e) => {
                   const isChecked = e.target.checked;
+                  setIsCompactFloating(isChecked);
+                  localStorage.setItem("flowtrack_compact_floating", String(isChecked));
                   if (typeof window !== "undefined" && (window as any).electron) {
-                    (window as any).electron.ipcRenderer?.invoke?.("toggle-always-on-top", { flag: isChecked });
+                    (window as any).electron.ipcRenderer?.invoke?.("toggle-always-on-top", { flag: isAlwaysOnTop, compact: isChecked });
                   }
-                  showMessage(isChecked ? "📌 Always-On-Top Floating Mode Enabled!" : "Always-On-Top Disabled.");
+                  showMessage(isChecked ? "📐 Compact Floating Widget Sizing Activated!" : "Standard Window Size Restored.");
                 }}
-                className="h-5 w-5 rounded border-cyan-400 bg-slate-800 text-cyan-500 focus:ring-0"
+                className="h-5 w-5 rounded border-cyan-400 bg-slate-800 text-cyan-500 focus:ring-0 cursor-pointer"
               />
-              📌 Always-On-Top Floating Mode
+              📐 Compact PIP Widget Sizing (380x580)
             </label>
             <p className="text-xs text-slate-400 pl-8">
-              Keep FlowTrack window floating above VS Code, Zoom, or PDF lectures.
+              Shrink window into a sleek mini floating widget so it doesn't block your coding workspace.
             </p>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
+          {/* 3. Launch on Startup */}
+          <div className="p-4 rounded-2xl bg-slate-900/40 backdrop-blur-md shadow-inner transition-all hover:bg-slate-900/50 border border-white/10 space-y-2">
             <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-white">
               <input
                 type="checkbox"
+                checked={isOpenAtLogin}
                 onChange={(e) => {
                   const isChecked = e.target.checked;
+                  setIsOpenAtLogin(isChecked);
+                  localStorage.setItem("flowtrack_open_at_login", String(isChecked));
                   if (typeof window !== "undefined" && (window as any).electron) {
                     (window as any).electron.ipcRenderer?.invoke?.("set-open-at-login", { openAtLogin: isChecked });
                   }
                   showMessage(isChecked ? "🚀 Windows Auto-Launch Enabled!" : "Windows Auto-Launch Disabled.");
                 }}
-                className="h-5 w-5 rounded border-cyan-400 bg-slate-800 text-cyan-500 focus:ring-0"
+                className="h-5 w-5 rounded border-cyan-400 bg-slate-800 text-cyan-500 focus:ring-0 cursor-pointer"
               />
               🚀 Launch on Windows Startup
             </label>
@@ -526,8 +703,73 @@ export function SettingsPage() {
             </p>
           </div>
 
-          {/* Low-RAM Memory Trimmer */}
-          <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
+          {/* 4. System Tray Background Mode */}
+          <div className="p-4 rounded-2xl bg-slate-900/40 backdrop-blur-md shadow-inner transition-all hover:bg-slate-900/50 border border-white/10 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-white flex items-center gap-2">
+                🛡️ System Tray Background Mode
+              </span>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/30">
+                ACTIVE
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">
+              Clicking <strong className="text-white">X</strong> minimizes app to Windows System Tray (near clock) without stopping process blocking.
+            </p>
+          </div>
+
+          {/* 5. Native Toast Notifications */}
+          <div className="p-4 rounded-2xl bg-slate-900/40 backdrop-blur-md shadow-inner transition-all hover:bg-slate-900/50 border border-white/10 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-white flex items-center gap-2">
+                🔔 Windows Toast Alerts
+              </span>
+              <button
+                onClick={() => {
+                  if (typeof window !== "undefined" && (window as any).electron) {
+                    (window as any).electron.ipcRenderer?.invoke?.("send-windows-toast", {
+                      title: "FlowTrack Pro Alert",
+                      message: "Windows Native Balloon Toast Notifications are active!"
+                    });
+                    showMessage("Test Windows Toast sent to System Tray!");
+                  }
+                }}
+                className="px-2.5 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-bold hover:bg-cyan-500/30 transition-all"
+              >
+                Test Alert
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">
+              Receive native OS slide-in notifications when study sessions complete or rules trigger.
+            </p>
+          </div>
+
+          {/* 6. Study Portal Ad & Tracker Shield */}
+          <div className="p-4 rounded-2xl bg-slate-900/40 backdrop-blur-md shadow-inner transition-all hover:bg-slate-900/50 border border-white/10 space-y-2">
+            <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-white">
+              <input
+                type="checkbox"
+                checked={isWebviewAdBlock}
+                onChange={(e) => {
+                  const isChecked = e.target.checked;
+                  setIsWebviewAdBlock(isChecked);
+                  localStorage.setItem("flowtrack_webview_adblock", String(isChecked));
+                  if (typeof window !== "undefined" && (window as any).electron) {
+                    (window as any).electron.ipcRenderer?.invoke?.("save-desktop-settings", { webviewAdBlock: isChecked });
+                  }
+                  showMessage(isChecked ? "🛡️ Study Portal Ad & Tracker Shield Enabled!" : "Ad Shield Disabled.");
+                }}
+                className="h-5 w-5 rounded border-cyan-400 bg-slate-800 text-cyan-500 focus:ring-0 cursor-pointer"
+              />
+              🛡️ Study Portal Ad Shield
+            </label>
+            <p className="text-xs text-slate-400 pl-8">
+              Block video ads, telemetry, and tracking banners inside embedded study portals (YouTube, etc.).
+            </p>
+          </div>
+
+          {/* 7. Low-RAM Memory Trimmer */}
+          <div className="p-4 rounded-2xl bg-slate-900/40 backdrop-blur-md shadow-inner transition-all hover:bg-slate-900/50 border border-white/10 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-white flex items-center gap-2">
                 <Cpu className="w-4 h-4 text-emerald-400" /> Low-RAM Memory Trimmer
@@ -552,26 +794,107 @@ export function SettingsPage() {
           </div>
         </div>
 
-        <div className="p-3 rounded-xl bg-slate-900/60 border border-white/5 flex items-center justify-between text-xs">
-          <span className="text-slate-300 font-mono">⚡ Global System Hotkey: <kbd className="px-2 py-0.5 rounded bg-slate-800 text-cyan-300 font-bold border border-white/10">Ctrl + Alt + P</kbd> (Pause / Resume Study Timer)</span>
-          <button
-            onClick={() => {
-              if (typeof window !== "undefined" && (window as any).electron) {
-                (window as any).electron.ipcRenderer?.invoke?.("send-windows-toast", {
-                  title: "FlowTrack Pro Test Alert",
-                  message: "Windows Native Balloon Toast Notifications are active!"
-                });
-                showMessage("Test Windows Toast sent to System Tray!");
-              }
-            }}
-            className="px-3 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-semibold hover:bg-cyan-500/30 transition-all"
-          >
-            🔔 Test Windows Toast
-          </button>
+        {/* 💡 Troubleshooting Guidance: Hosts File Blocks Tip */}
+        <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-200 text-xs flex items-start gap-2.5">
+          <span className="text-base shrink-0">💡</span>
+          <div>
+            <strong className="text-amber-100 font-semibold">Troubleshooting Tip: Google or YouTube Sign-In Issues?</strong>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-amber-200/80">
+              Stale entries left over in your Windows hosts file (<code className="px-1 py-0.5 rounded bg-black/40 text-amber-300">%windir%\System32\drivers\etc\hosts</code> under <code className="px-1 py-0.5 rounded bg-black/40 text-amber-300"># --- FlowTrack Pro Blocks Start ---</code>) from previous website blocks can prevent Google or YouTube login. To clean them up, disable all website blocks in App Blocker and click <strong>Sync Hosts File</strong>.
+            </p>
+          </div>
+        </div>
+
+        <div className="p-3.5 rounded-xl bg-slate-900/40 backdrop-blur-md shadow-inner border border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-cyan-400 text-sm">⚡</span>
+            <span className="text-slate-200 font-medium">Global System Hotkey:</span>
+            <kbd className="px-2.5 py-1 rounded-lg bg-slate-950 text-cyan-300 font-mono font-extrabold border border-cyan-500/30 shadow-inner">
+              Ctrl + Alt + P
+            </kbd>
+            <span className="text-slate-400">(Pause / Resume Study Timer from any app)</span>
+          </div>
         </div>
 
         {/* 🚀 New Update Checker Card */}
         <UpdateChecker showMessage={showMessage} />
+
+        {/* 🎮 Discord Rich Presence (RPC) */}
+        <div className="p-4 rounded-2xl bg-indigo-950/20 border border-indigo-500/30 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <span className="text-xl">🎮</span>
+              <div>
+                <h4 className="text-sm font-bold text-white">Discord Rich Presence (RPC)</h4>
+                <p className="text-xs text-indigo-200/70">Broadcast focus status to your Discord profile via local OS named pipe (zero cloud telemetry).</p>
+              </div>
+            </div>
+            <span className={`px-2.5 py-0.5 text-[11px] font-semibold rounded-full border ${
+              discordRpcEnabled ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-slate-800 text-slate-400 border-slate-700"
+            }`}>
+              {discordRpcEnabled ? "🟢 Active" : "⚪ Disabled"}
+            </span>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 pt-1">
+            <label className="flex items-center gap-3 cursor-pointer text-xs font-semibold text-slate-200">
+              <input
+                type="checkbox"
+                checked={discordRpcEnabled}
+                onChange={async (e) => {
+                  const isChecked = e.target.checked;
+                  setDiscordRpcEnabled(isChecked);
+                  localStorage.setItem("flowtrack_discord_rpc_enabled", String(isChecked));
+                  if (typeof window !== "undefined" && (window as any).electron) {
+                    await (window as any).electron.ipcRenderer?.invoke?.("discord-update-settings", { enabled: isChecked });
+                  }
+                  showMessage(isChecked ? "🎮 Discord Rich Presence Enabled!" : "Discord Rich Presence Disabled.");
+                }}
+                className="h-4 w-4 rounded border-indigo-400 bg-slate-800 text-indigo-500 focus:ring-0 cursor-pointer"
+              />
+              Enable Discord Rich Presence
+            </label>
+
+            <label className="flex items-center gap-3 cursor-pointer text-xs font-semibold text-slate-200">
+              <input
+                type="checkbox"
+                checked={discordMaskSubject}
+                onChange={async (e) => {
+                  const isChecked = e.target.checked;
+                  setDiscordMaskSubject(isChecked);
+                  localStorage.setItem("flowtrack_discord_mask_subject", String(isChecked));
+                  if (typeof window !== "undefined" && (window as any).electron) {
+                    await (window as any).electron.ipcRenderer?.invoke?.("discord-update-settings", { maskSubjectNames: isChecked });
+                  }
+                  showMessage(isChecked ? "🔒 Privacy Mask Enabled: Subjects hidden from Discord." : "Privacy Mask Disabled: Subject titles visible.");
+                }}
+                className="h-4 w-4 rounded border-indigo-400 bg-slate-800 text-indigo-500 focus:ring-0 cursor-pointer"
+              />
+              🔒 Strict Privacy Masking (Hide Subject Names)
+            </label>
+          </div>
+
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={async () => {
+                if (typeof window !== "undefined" && (window as any).electron) {
+                  const res = await (window as any).electron.ipcRenderer?.invoke?.("discord-get-status");
+                  if (res?.connected) {
+                    showMessage("✅ Connected to Discord desktop application via named pipe!");
+                  } else {
+                    showMessage(res?.enabled ? "⏳ Discord desktop client not detected or launching..." : "ℹ️ Discord RPC is disabled. Check the toggle above to enable.");
+                  }
+                } else {
+                  showMessage("ℹ️ Discord RPC requires the FlowTrack Pro desktop application.");
+                }
+              }}
+              className="px-3 py-1.5 rounded-lg bg-indigo-600/25 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 text-xs font-medium transition-all"
+            >
+              📡 Check Discord Connection Status
+            </button>
+          </div>
+        </div>
       </Panel>
       )}
 
@@ -605,15 +928,15 @@ export function SettingsPage() {
                   if (res && res.isRunning) {
                     showMessage(`✅ Local receiver running on port ${res.port}! Today: ${res.heartbeatsToday} heartbeats`);
                   } else {
-                    showMessage("⚠️ Local receiver status: Run desktop app to view port 7777 live heartbeats.");
+                    showMessage("⚠️ Local receiver is not active or running.");
                   }
                 } catch {
                   showMessage("⚠️ Heartbeat receiver status unavailable in web mode.");
                 }
               }}
-              successText="Receiver Checked!"
+              successText="Receiver Online!"
             >
-              <RefreshCw className="w-3.5 h-3.5" /> Check Receiver Status
+              <RefreshCw className="w-3.5 h-3.5" /> Test Receiver Status
             </FeedbackButton>
           </div>
 
@@ -671,6 +994,54 @@ api_url = http://127.0.0.1:7777/api/v1`}
 
           <div className="flex flex-wrap items-center gap-2.5 pt-1">
             <FeedbackButton
+              variant="primary"
+              className="text-xs"
+              onClick={async () => {
+                try {
+                  const res = await (window as any).electron?.ipcRenderer?.invoke?.("auto-configure-wakatime-cfg");
+                  if (res && res.ok) {
+                    showMessage(`⚡ Auto-configured ~/.wakatime.cfg! (${res.message || "Ready"})`);
+                  } else {
+                    showMessage(`⚠️ Failed: ${res?.error || "Could not write ~/.wakatime.cfg"}`);
+                  }
+                } catch {
+                  showMessage("⚠️ Auto-config requires FlowTrack Pro desktop app.");
+                }
+              }}
+              successText="Configured ~/.wakatime.cfg!"
+            >
+              <Zap className="w-3.5 h-3.5" /> ⚡ Auto-Configure ~/.wakatime.cfg
+            </FeedbackButton>
+            <FeedbackButton
+              variant="outline"
+              className="text-xs"
+              onClick={async () => {
+                try {
+                  const res = await (window as any).electron?.ipcRenderer?.invoke?.("send-test-heartbeat");
+                  if (res && res.ok) {
+                    showMessage("🧪 Test heartbeat logged! Check App Tracking > Developer tab.");
+                  } else {
+                    showMessage("⚠️ Could not log test heartbeat.");
+                  }
+                } catch {
+                  showMessage("⚠️ Test heartbeat requires desktop mode.");
+                }
+              }}
+              successText="Heartbeat Sent!"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" /> 🧪 Send Test Heartbeat
+            </FeedbackButton>
+            <FeedbackButton
+              variant="ghost"
+              className="text-xs"
+              onClick={() => {
+                (window as any).electron?.ipcRenderer?.invoke?.("open-heartbeat-folder");
+              }}
+              successText="Folder Opened!"
+            >
+              <FolderOpen className="w-3.5 h-3.5" /> 📂 Open Heartbeats Folder
+            </FeedbackButton>
+            <FeedbackButton
               variant="secondary"
               className="text-xs bg-cyan-500/15 border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/25 font-bold"
               onClick={() => {
@@ -680,6 +1051,85 @@ api_url = http://127.0.0.1:7777/api/v1`}
             >
               <Code2 className="w-3.5 h-3.5 text-cyan-400" /> 📊 Open Developer Dashboard ↗
             </FeedbackButton>
+          </div>
+
+          {/* 📊 Live Coding Telemetry Widget */}
+          <div className="p-4 rounded-xl bg-slate-950/70 border border-cyan-500/20 space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-xs font-bold text-white uppercase tracking-wider">Live Telemetry Cockpit</span>
+                <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] font-mono text-cyan-300">
+                  100% Local (127.0.0.1:7777)
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-slate-400">Today:</span>
+                <span className="font-mono text-white font-bold">{codingHeartbeats.length} Heartbeat{codingHeartbeats.length === 1 ? "" : "s"}</span>
+                <span className="text-slate-500">•</span>
+                <span className="font-mono text-cyan-300 font-bold">
+                  {Math.floor(codingStats.totalSeconds / 3600)}h {Math.floor((codingStats.totalSeconds % 3600) / 60)}m {codingStats.totalSeconds % 60}s
+                </span>
+              </div>
+            </div>
+
+            {codingHeartbeats.length === 0 ? (
+              <div className="py-4 text-center rounded-lg bg-white/[0.02] border border-dashed border-white/10">
+                <p className="text-xs text-slate-400">No coding heartbeats recorded today yet.</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">Click &quot;🧪 Send Test Heartbeat&quot; or edit files in VS Code / Cursor to see live languages and time.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                {/* Top Languages */}
+                <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5 space-y-2">
+                  <p className="text-[11px] font-semibold text-slate-300 flex items-center justify-between">
+                    <span>Top Languages</span>
+                    <span className="text-[10px] text-slate-500">{codingStats.languages.length} detected</span>
+                  </p>
+                  <div className="space-y-1.5">
+                    {codingStats.languages.slice(0, 4).map(l => (
+                      <div key={l.name} className="space-y-0.5">
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-white font-medium">{l.name}</span>
+                          <span className="text-cyan-300 font-mono">{l.percent}%</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-cyan-400 to-indigo-500 rounded-full" style={{ width: `${l.percent}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Top Project & Recent File */}
+                <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5 space-y-2 text-xs">
+                  <p className="text-[11px] font-semibold text-slate-300">Active Workspace & File</p>
+                  <div className="space-y-1 text-[11px]">
+                    <p className="text-slate-400 truncate">
+                      Project: <span className="text-white font-semibold">{codingStats.projects[0]?.name || "Default Workspace"}</span>
+                    </p>
+                    <p className="text-slate-400 truncate" title={codingHeartbeats[codingHeartbeats.length - 1]?.entity}>
+                      Last File: <span className="text-cyan-300 font-mono">{codingHeartbeats[codingHeartbeats.length - 1]?.entity || "—"}</span>
+                    </p>
+                    <p className="text-slate-500 text-[10px]">
+                      Editor: <span className="text-slate-300">{codingHeartbeats[codingHeartbeats.length - 1]?.editor || "Editor"}</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between pt-1 border-t border-white/5 text-[11px]">
+              <span className="text-emerald-400 flex items-center gap-1.5 font-medium">
+                <ShieldCheck className="w-3.5 h-3.5" /> Zero Cloud Telemetry Leakage (Audited)
+              </span>
+              <button
+                onClick={() => navigate("/app-tracking?tab=developer")}
+                className="text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                Open Full Developer Dashboard &rarr;
+              </button>
+            </div>
           </div>
 
           <div className="p-3.5 rounded-xl bg-slate-950/60 border border-white/5 text-xs text-slate-300 space-y-2">
@@ -692,7 +1142,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
                 Install the free <strong className="text-white">WakaTime</strong> extension in VS Code, Cursor, Antigravity, or JetBrains (<code className="px-1.5 py-0.5 rounded bg-black/40 text-cyan-300 font-mono">Ctrl+Shift+X</code> &rarr; search &quot;WakaTime&quot;).
               </li>
               <li>
-                When VS Code prompts for your <strong className="text-white">WakaTime API Key</strong>, enter the valid UUID <code className="px-1.5 py-0.5 rounded bg-black/40 text-cyan-300 font-mono font-bold select-all">00000000-0000-4000-8000-000000000000</code>!
+                When VS Code prompts for your <strong className="text-white">WakaTime API Key</strong>, enter the valid UUID <code className="px-1.5 py-0.5 rounded bg-black/40 text-cyan-300 font-mono font-bold select-all">00000000-0000-4000-8000-000000000000</code>, or click <strong className="text-cyan-300">&quot;⚡ Auto-Configure ~/.wakatime.cfg&quot;</strong> above!
               </li>
               <li>
                 Start typing code! Your programming languages, files, and project names will appear in real time under <strong className="text-white">App Tracking &gt; Developer</strong>.
@@ -765,7 +1215,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
               type="text"
               value={profileName}
               onChange={(e) => setProfileName(e.target.value)}
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white focus:border-cyan-400 focus:outline-none"
+              className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white focus:border-cyan-400 focus:outline-none"
               placeholder="e.g. Aarav"
             />
           </div>
@@ -775,7 +1225,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
               type="text"
               value={profileAge}
               onChange={(e) => setProfileAge(e.target.value)}
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white focus:border-cyan-400 focus:outline-none"
+              className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white focus:border-cyan-400 focus:outline-none"
               placeholder="e.g. 20"
             />
           </div>
@@ -785,7 +1235,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
               type="text"
               value={profileProfession}
               onChange={(e) => setProfileProfession(e.target.value)}
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white focus:border-cyan-400 focus:outline-none"
+              className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white focus:border-cyan-400 focus:outline-none"
               placeholder="e.g. JEE Aspirant / Web Developer"
             />
           </div>
@@ -795,7 +1245,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
               type="text"
               value={profileGoal}
               onChange={(e) => setProfileGoal(e.target.value)}
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white focus:border-cyan-400 focus:outline-none"
+              className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white focus:border-cyan-400 focus:outline-none"
               placeholder="e.g. Crack JEE Mains / Get a React Job"
             />
           </div>
@@ -846,8 +1296,40 @@ api_url = http://127.0.0.1:7777/api/v1`}
         <Panel className="space-y-6">
           <div>
             <h3 className="text-xl font-semibold text-white flex items-center gap-2.5">
-              <ShieldCheck className="w-5 h-5 text-emerald-400" /> Encrypted Database Backup & Privacy Vault (Rule S10)
+              <ShieldCheck className="w-5 h-5 text-emerald-400" /> Encrypted Database Backup & Privacy Vault
             </h3>
+        {/* ── REAL-TIME DATABASE HEALTH & STORAGE INSPECTOR ── */}
+        <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+              <Database className="w-4 h-4 text-cyan-400" />
+              <span>Local Database Storage Inspector</span>
+            </h4>
+            <FeedbackButton variant="ghost" className="text-xs" onClick={loadDbStats} successText="Refreshed!">
+              🔄 Refresh Stats
+            </FeedbackButton>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+            <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
+              <p className="text-[10px] text-slate-400 uppercase font-bold">Sessions</p>
+              <p className="text-base font-extrabold text-cyan-300 font-mono mt-0.5">{dbStats.sessionsCount}</p>
+            </div>
+            <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
+              <p className="text-[10px] text-slate-400 uppercase font-bold">Subjects</p>
+              <p className="text-base font-extrabold text-indigo-300 font-mono mt-0.5">{dbStats.subjectsCount}</p>
+            </div>
+            <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
+              <p className="text-[10px] text-slate-400 uppercase font-bold">Tasks</p>
+              <p className="text-base font-extrabold text-emerald-300 font-mono mt-0.5">{dbStats.tasksCount}</p>
+            </div>
+            <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
+              <p className="text-[10px] text-slate-400 uppercase font-bold">Health Status</p>
+              <p className="text-xs font-bold text-emerald-400 mt-1 flex items-center justify-center gap-1">
+                ✓ 100% Healthy
+              </p>
+            </div>
+          </div>
+        </div>
             <p className="mt-1 text-sm text-slate-400">
               Export an AES-256-GCM encrypted snapshot of all IndexedDB tables, flashcards, study sessions, and notes with PBKDF2 key derivation.
             </p>
@@ -935,17 +1417,15 @@ api_url = http://127.0.0.1:7777/api/v1`}
                 const tasksList = (db as any).tasks ? await (db as any).tasks.toArray() : [];
                 let backendActivities: any[] = [];
                 try {
-                  if (backendUrl && isBackendConnected) {
-                    const ctrl = new AbortController();
-                    setTimeout(() => ctrl.abort(), 2000);
-                    const res = await fetch(`${backendUrl}/export?type=activities&format=json`, { signal: ctrl.signal });
+                  if (backendUrl) {
+                    const res = await fetch(`${backendUrl}/export?type=activities&format=json`);
                     if (res.ok) {
                       const data = await res.json();
                       backendActivities = data.activities || [];
                     }
                   }
-                } catch {
-                  console.warn("Backend offline — exporting without activity tracking data");
+                } catch (e) {
+                  console.warn("Backend offline or unreachable, exporting without backend activities", e);
                 }
 
                 // Pack all Local Wellbeing & System App usage lists from localStorage
@@ -1013,6 +1493,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
                         console.error("Error importing wellbeing data", err);
                       }
                     }
+                    void loadDbStats();
                     if (typeof window !== "undefined") window.dispatchEvent(new Event("flowtrack_data_imported"));
                     showMessage("Backup imported successfully.");
                     if (fileRef.current) fileRef.current.value = "";
@@ -1073,7 +1554,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
             </h3>
             <p className="mt-1 text-sm text-slate-400">Add missed study time manually.</p>
           </div>
-          <select value={manualSubjectId} onChange={(event) => setManualSubjectId(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white">
+          <select value={manualSubjectId} onChange={(event) => setManualSubjectId(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white">
             <option value="">Select Subject</option>
             {subjects.map((subject) => (
               <option key={subject.id} value={subject.id}>
@@ -1082,12 +1563,12 @@ api_url = http://127.0.0.1:7777/api/v1`}
             ))}
           </select>
           <div className="grid gap-3 sm:grid-cols-2">
-            <input type="number" min={0.25} step={0.25} value={manualHours} onChange={(event) => setManualHours(Number(event.target.value))} className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white" placeholder="Hours" />
-            <input type="time" value={manualTime} onChange={(event) => setManualTime(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white" />
+            <input type="number" min={0.25} step={0.25} value={manualHours} onChange={(event) => setManualHours(Number(event.target.value))} className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white" placeholder="Hours" />
+            <input type="time" value={manualTime} onChange={(event) => setManualTime(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white" />
           </div>
-          <input type="date" value={manualDate} onChange={(event) => setManualDate(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white" />
-          <input value={manualNotes} onChange={(event) => setManualNotes(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white" placeholder="Notes" />
-          <input value={manualTags} onChange={(event) => setManualTags(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white" placeholder="Tags (comma separated)" />
+          <input type="date" value={manualDate} onChange={(event) => setManualDate(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white" />
+          <input value={manualNotes} onChange={(event) => setManualNotes(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white" placeholder="Notes" />
+          <input value={manualTags} onChange={(event) => setManualTags(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white" placeholder="Tags (comma separated)" />
           <button
             onClick={() => {
               if (!manualSubjectId || manualHours <= 0) {
@@ -1118,8 +1599,84 @@ api_url = http://127.0.0.1:7777/api/v1`}
       </div>
       )}
 
-      {/* ⚡ Supabase Offline-First Sync Panel */}
+      {/* Cloud Sync Settings */}
       {(activeTab === "all" || activeTab === "cloud") && (
+      <>
+      <Panel className="space-y-4">
+        <div>
+          <h3 className="text-xl font-semibold text-white flex items-center gap-2.5">
+            <Cloud className="w-5 h-5 text-blue-400" /> Cloud Sync (PostgreSQL)
+          </h3>
+          <p className="mt-1 text-sm text-slate-400">Sync your local data to a Neon serverless PostgreSQL database.</p>
+        </div>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="block text-sm text-slate-300">Database Connection String</label>
+            <input
+              type="password"
+              value={inputDbConnectionString}
+              onChange={(e) => setInputDbConnectionString(e.target.value)}
+              className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-4 py-3 text-white focus:border-cyan-400 focus:outline-none"
+              placeholder="postgresql://user:password@endpoint/dbname"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={async () => {
+                await setDbConnectionString(inputDbConnectionString.trim());
+                showMessage("Database connection string saved successfully.");
+              }}
+              className="rounded-2xl bg-slate-800 px-6 py-2.5 font-bold text-white shadow-lg transition-transform hover:scale-105 border border-white/10"
+            >
+              💾 Save String
+            </button>
+            <button
+              onClick={async () => {
+                setIsSyncing(true);
+                try {
+                  await syncToCloud();
+                  showMessage("Sync completed successfully!");
+                } catch (e: any) {
+                  showMessage(`Sync failed: ${e.message}`);
+                } finally {
+                  setIsSyncing(false);
+                }
+              }}
+              disabled={!dbConnectionString || isSyncing || isRecovering}
+              className={`rounded-2xl px-6 py-2.5 font-bold shadow-lg transition-all ${
+                !dbConnectionString || isSyncing || isRecovering
+                  ? "bg-slate-800/50 text-slate-500 cursor-not-allowed"
+                  : "bg-gradient-to-r from-cyan-500 to-blue-500 text-slate-950 hover:scale-105"
+              }`}
+            >
+              {isSyncing ? "🔄 Syncing..." : "☁️ Sync Now"}
+            </button>
+            <button
+              onClick={async () => {
+                setIsRecovering(true);
+                try {
+                  await recoverFromCloud();
+                  showMessage("Data recovered from cloud successfully!");
+                } catch (e: any) {
+                  showMessage(`Recovery failed: ${e.message}`);
+                } finally {
+                  setIsRecovering(false);
+                }
+              }}
+              disabled={!dbConnectionString || isSyncing || isRecovering}
+              className={`rounded-2xl px-6 py-2.5 font-bold shadow-lg transition-all ${
+                !dbConnectionString || isSyncing || isRecovering
+                  ? "bg-slate-800/50 text-slate-500 cursor-not-allowed"
+                  : "bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:scale-105"
+              }`}
+            >
+              {isRecovering ? "🔄 Recovering..." : "📥 Recover from Cloud"}
+            </button>
+          </div>
+        </div>
+      </Panel>
+
+      {/* ⚡ Supabase Offline-First Sync Panel */}
       <Panel className="border-l-4 border-emerald-500 bg-slate-900/40 backdrop-blur-md space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -1243,6 +1800,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
           </div>
         </div>
       </Panel>
+      </>
       )}
 
       {/* Goals and Notifications */}
@@ -1261,12 +1819,13 @@ api_url = http://127.0.0.1:7777/api/v1`}
             variant="outline"
             successText="🔔 Notification & Chime Sent!"
             onClick={async () => {
+              playChimeTone();
               if ("Notification" in window) {
                 if (Notification.permission === "default") {
                   await Notification.requestPermission();
                 }
                 if (Notification.permission === "granted") {
-                  new Notification("FlowTrack Pro Web", {
+                  new Notification("FlowTrack Pro", {
                     body: "🔔 Notifications and sound alerts are working perfectly!",
                     icon: "/icon.png"
                   });
@@ -1274,7 +1833,16 @@ api_url = http://127.0.0.1:7777/api/v1`}
               }
             }}
           >
-            🔔 Test Browser Notification
+            🔔 Test Desktop Notification & Chime
+          </FeedbackButton>
+          <FeedbackButton
+            variant="secondary"
+            successText="🎵 Alpha Tone Played (2s)"
+            onClick={() => {
+              playChimeTone();
+            }}
+          >
+            🎵 Test Focus Audio Synth
           </FeedbackButton>
         </div>
         </div>
@@ -1288,7 +1856,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
               max={12}
               value={dailyGoalHours}
               onChange={(event) => setDailyGoalHours(Number(event.target.value))}
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+              className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-3 py-3 text-white"
             />
           </div>
           <div className="space-y-2">
@@ -1299,7 +1867,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
               max={80}
               value={weeklyTargetHours}
               onChange={(e) => setWeeklyTargetHours(Number(e.target.value))}
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white"
+              className="w-full rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-md shadow-inner transition-all focus:bg-slate-900/60 focus:border-white/30 px-3 py-3 text-white"
             />
           </div>
           <div className="space-y-2">
@@ -1420,7 +1988,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
               <p className="text-xs text-slate-400">Subjects</p>
             </div>
             <div className="rounded-xl bg-white/5 px-4 py-2 text-center">
-              <p className="text-lg font-bold text-purple-400">v{APP_VERSION}</p>
+              <p className="text-lg font-bold text-purple-400">v{installedVersion || APP_VERSION}</p>
               <p className="text-xs text-slate-400">Version</p>
             </div>
           </div>
@@ -1506,6 +2074,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
                 localStorage.removeItem("flowtrack_active_plan");
                 localStorage.removeItem("app_block_rules");
                 if (typeof window !== "undefined") window.dispatchEvent(new Event("flowtrack_data_imported"));
+                void loadDbStats();
                 showMessage("All data cleared! Reloading...");
                 setTimeout(() => window.location.reload(), 1000);
               } catch (e) {

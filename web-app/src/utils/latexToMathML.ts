@@ -94,6 +94,7 @@ const FUNCTION_NAMES = new Set([
 
 function extractBracedGroup(str: string, startIndex: number): { content: string; endIndex: number } | null {
   if (str[startIndex] !== "{") {
+    // If not a brace, single token or character
     let i = startIndex;
     if (str[i] === "\\") {
       i++;
@@ -116,6 +117,7 @@ function extractBracedGroup(str: string, startIndex: number): { content: string;
     }
   }
 
+  // Unclosed brace
   return { content: str.slice(startIndex + 1), endIndex: str.length };
 }
 
@@ -143,6 +145,9 @@ function escapeXml(unsafe: string): string {
     .replace(/'/g, "&apos;");
 }
 
+/**
+ * Converts inner LaTeX tokens to MathML content.
+ */
 export function parseLatexToMathMLNodes(latex: string): string {
   let result = "";
   let i = 0;
@@ -151,11 +156,13 @@ export function parseLatexToMathMLNodes(latex: string): string {
   while (i < len) {
     const ch = latex[i];
 
+    // Whitespace
     if (/\s/.test(ch)) {
       i++;
       continue;
     }
 
+    // Command
     if (ch === "\\") {
       i++;
       let cmdName = "";
@@ -164,6 +171,7 @@ export function parseLatexToMathMLNodes(latex: string): string {
         i++;
       }
 
+      // If escaped symbol like \{ or \} or \,
       if (cmdName === "" && i < len) {
         const symbol = latex[i];
         i++;
@@ -176,6 +184,7 @@ export function parseLatexToMathMLNodes(latex: string): string {
         }
       }
 
+      // \frac{num}{den}
       if (cmdName === "frac") {
         while (i < len && /\s/.test(latex[i])) i++;
         const num = extractBracedGroup(latex, i);
@@ -191,6 +200,7 @@ export function parseLatexToMathMLNodes(latex: string): string {
         }
       }
 
+      // \sqrt[n]{x} or \sqrt{x}
       if (cmdName === "sqrt") {
         while (i < len && /\s/.test(latex[i])) i++;
         if (latex[i] === "[") {
@@ -214,6 +224,7 @@ export function parseLatexToMathMLNodes(latex: string): string {
         }
       }
 
+      // \left ... \right delimiters
       if (cmdName === "left" || cmdName === "right") {
         while (i < len && /\s/.test(latex[i])) i++;
         let delim = latex[i] || "";
@@ -226,21 +237,25 @@ export function parseLatexToMathMLNodes(latex: string): string {
         continue;
       }
 
+      // Greek letters
       if (GREEK_MAP[cmdName]) {
         result += `<mi>${GREEK_MAP[cmdName]}</mi>`;
         continue;
       }
 
+      // Math Symbols
       if (SYMBOL_MAP[cmdName]) {
         result += `<mo>${SYMBOL_MAP[cmdName]}</mo>`;
         continue;
       }
 
+      // Functions (sin, cos, log, etc.)
       if (FUNCTION_NAMES.has(cmdName)) {
         result += `<mi mathvariant="normal">${cmdName}</mi>`;
         continue;
       }
 
+      // Formatting text like \text{abc}
       if (cmdName === "text" || cmdName === "mathrm" || cmdName === "mathbf") {
         while (i < len && /\s/.test(latex[i])) i++;
         const textGroup = extractBracedGroup(latex, i);
@@ -251,10 +266,12 @@ export function parseLatexToMathMLNodes(latex: string): string {
         }
       }
 
+      // Unsupported command fallback chip
       result += `<span class="unsupported-math font-mono text-[11px] px-1 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">\\${escapeXml(cmdName)}</span>`;
       continue;
     }
 
+    // Subscript & Superscript binding
     if (ch === "_" || ch === "^") {
       const isSub = ch === "_";
       i++;
@@ -264,6 +281,7 @@ export function parseLatexToMathMLNodes(latex: string): string {
         i = firstGroup.endIndex;
         while (i < len && /\s/.test(latex[i])) i++;
 
+        // Check if immediately followed by complementary ^ or _ (e.g. x_i^2)
         if (i < len && ((isSub && latex[i] === "^") || (!isSub && latex[i] === "_"))) {
           i++;
           while (i < len && /\s/.test(latex[i])) i++;
@@ -286,6 +304,7 @@ export function parseLatexToMathMLNodes(latex: string): string {
       }
     }
 
+    // Numbers
     if (/[0-9]/.test(ch)) {
       let num = "";
       while (i < len && /[0-9.]/.test(latex[i])) {
@@ -296,18 +315,21 @@ export function parseLatexToMathMLNodes(latex: string): string {
       continue;
     }
 
+    // Letters / Variables
     if (/[a-zA-Z]/.test(ch)) {
       result += `<mi>${ch}</mi>`;
       i++;
       continue;
     }
 
+    // Operators and delimiters
     if ("+-*/=<>!?:()[]|,".includes(ch)) {
       result += `<mo>${escapeXml(ch)}</mo>`;
       i++;
       continue;
     }
 
+    // Fallback single character
     result += `<mo>${escapeXml(ch)}</mo>`;
     i++;
   }
@@ -345,6 +367,10 @@ function wrapLastTokenWithSubSup(html: string, sub: string, sup: string): string
   return `<msubsup><mi></mi><mrow>${sub}</mrow><mrow>${sup}</mrow></msubsup>`;
 }
 
+/**
+ * Main entrance to convert LaTeX string into complete MathML string.
+ * Supports inline mode and display (block) mode. Never throws.
+ */
 export function latexToMathML(latex: string, displayMode = false): string {
   try {
     if (!latex || !latex.trim()) return "";

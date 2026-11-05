@@ -41,6 +41,9 @@ jobs:
     - name: Verify release version consistency
       run: node scripts/check-release-versions.mjs
 
+    - name: Verify desktop and web app source parity
+      run: node scripts/check-app-parity.mjs
+
     - name: Install Desktop App Dependencies
       run: |
         cd desktop-app
