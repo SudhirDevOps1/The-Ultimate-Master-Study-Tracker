@@ -80,9 +80,46 @@
 > **The ultra-lightweight, local-first, privacy-respecting productivity & workstation ecosystem built for relentless learners.**
 > Featuring real-time Win32 active application tracking, Arc-style in-app browser with real Google OAuth, zero-cloud Discord Rich Presence, offline-first Supabase sync, adaptive eco-loop CPU optimizer, and cross-platform desktop installers.
 
-### 🌐 [Live Web App](https://the-ultimate-master-study-tracker.vercel.app/) &nbsp;•&nbsp; 📦 [Download Desktop Installer (.exe)](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest) &nbsp;•&nbsp; 📖 [Developer Instructions (AGENTS.md)](AGENTS.md)
+<p align="center">
+  <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest">
+    <img src="https://img.shields.io/badge/Windows-Download_.exe-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Download for Windows" />
+  </a>
+  &nbsp;
+  <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest">
+    <img src="https://img.shields.io/badge/Linux-AppImage-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Download for Linux" />
+  </a>
+  &nbsp;
+  <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest">
+    <img src="https://img.shields.io/badge/Ubuntu%2FDebian-.deb-E95420?style=for-the-badge&logo=ubuntu&logoColor=white" alt="Download .deb" />
+  </a>
+  &nbsp;
+  <a href="https://the-ultimate-master-study-tracker.vercel.app/">
+    <img src="https://img.shields.io/badge/Web_App-Launch_Live-10B981?style=for-the-badge&logo=vercel&logoColor=white" alt="Launch Web App" />
+  </a>
+</p>
+
+### 🌐 [Live Web App](https://the-ultimate-master-study-tracker.vercel.app/) &nbsp;•&nbsp; 📦 [Download Releases (.exe / .AppImage / .deb)](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest) &nbsp;•&nbsp; 📖 [Developer Instructions (AGENTS.md)](AGENTS.md)
 
 </div>
+
+---
+
+## 📥 Direct 1-Click Downloads (v0.5.0 Production Release)
+
+Choose your platform to download FlowTrack Pro directly:
+
+| Platform | File / Format | Direct Download Link | Install Instructions |
+|:---|:---:|:---:|:---|
+| 🪟 **Windows 10 / 11** | `.exe` (NSIS) | [**⬇️ Download FlowTrackPro Setup 0.5.0.exe**](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest) | Double-click the installer. Creates desktop shortcut & auto-updates silently in background. |
+| 🐧 **Linux (Universal)** | `.AppImage` | [**⬇️ Download FlowTrackPro-0.5.0.AppImage**](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest) | `chmod +x FlowTrackPro-*.AppImage && ./FlowTrackPro-*.AppImage` |
+| 📦 **Ubuntu / Debian / Mint** | `.deb` | [**⬇️ Download FlowTrackPro-0.5.0.deb**](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest) | `sudo dpkg -i FlowTrackPro-*.deb` |
+| 🌐 **Serverless Web App** | PWA | [**🚀 Open Web App in Browser**](https://the-ultimate-master-study-tracker.vercel.app/) | Zero download required. 100% offline IndexedDB storage across phones, tablets & laptops. |
+
+> [!TIP]
+> **Windows PowerShell 1-Click Direct Download & Launch**:
+> ```powershell
+> Start-Process "https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest"
+> ```
 
 ---
 
@@ -186,9 +223,10 @@ When viewing [FlowTrack Pro GitHub Releases](https://github.com/SudhirDevOps1/Th
 
 | Release Asset | Target Platform / Purpose | Who Should Download? |
 |:---|:---|:---|
-| **`FlowTrackPro.Setup.0.5.0.exe`** | **Windows 10 / 11** | End-users (standard 1-click Windows installer). |
-| **`FlowTrackPro-0.5.0.AppImage`** | **Linux (Universal)** | Linux users wanting a zero-install executable. |
-| **`FlowTrackPro-0.5.0.deb`** | **Ubuntu / Debian / Mint** | Linux users installing via APT or Software Center. |
+| [**🪟 FlowTrackPro Setup 0.5.0.exe**](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest) | **Windows 10 / 11 (64-bit)** | End-users (standard 1-click Windows installer with auto-updates). |
+| [**🐧 FlowTrackPro-0.5.0.AppImage**](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest) | **Linux (Universal)** | Linux users wanting a portable zero-install executable. |
+| [**📦 FlowTrackPro-0.5.0.deb**](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest) | **Ubuntu / Debian / Mint** | Linux users installing via APT or Software Center. |
+| [**🌐 Launch Serverless Web App**](https://the-ultimate-master-study-tracker.vercel.app/) | **Web Browser (PWA)** | Instant access on any device with offline IndexedDB storage. |
 | **`latest.yml` & `latest-linux.yml`** | **Electron Auto-Update Manifests** | **Required for In-App Updates**. Not intended for manual download. |
 
 > [!NOTE]
