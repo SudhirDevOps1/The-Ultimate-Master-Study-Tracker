@@ -912,8 +912,9 @@ function resolveIconPath(rel) {
 }
 
 function getAppIcon() {
-  const p = resolveIconPath(path.join("public", "images", "flowtrack-logo.png")) ||
+  const p = resolveIconPath(path.join("public", "icon.ico")) ||
             resolveIconPath(path.join("public", "icon.png")) ||
+            resolveIconPath(path.join("public", "images", "flowtrack-logo.png")) ||
             resolveIconPath(path.join("public", "favicon.png"));
   return p ? nativeImage.createFromPath(p) : nativeImage.createEmpty();
 }
@@ -922,9 +923,10 @@ function getAppIcon() {
 function createTray() {
   let icon;
   try {
-    const iconPath = resolveIconPath(path.join("public", "images", "flowtrack-logo.png")) ||
+    const iconPath = resolveIconPath(path.join("public", "tray-icon.png")) ||
+                     resolveIconPath(path.join("public", "icon.ico")) ||
                      resolveIconPath(path.join("public", "icon.png")) ||
-                     resolveIconPath(path.join("public", "favicon.png"));
+                     resolveIconPath(path.join("public", "images", "flowtrack-logo.png"));
     if (iconPath) {
       icon = nativeImage.createFromPath(iconPath).resize({ width: 24, height: 24 });
     } else {

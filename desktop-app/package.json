@@ -45,7 +45,7 @@
           ]
         }
       ],
-      "icon": "public/icon.png"
+      "icon": "public/icon.ico"
     },
     "mac": {
       "target": [
@@ -91,7 +91,9 @@
       "electron-main/**/*",
       "package.json",
       "!**/*.map",
-      "!**/*.ts"
+      "!**/*.ts",
+      "public/icon.ico",
+      "public/tray-icon.png"
     ],
     "extraResources": [
       {
