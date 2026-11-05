@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.6.0](https://github.com/SudhirDevOps1/FlowTrack-Pro/compare/v0.5.0...v0.6.0) (2026-11-05)
+
+
+### ✨ Features & Enhancements
+
+* implement discord rich presence and offline-first supabase sync ([d22a7e6](https://github.com/SudhirDevOps1/FlowTrack-Pro/commit/d22a7e6755eec9035ab4fa4af4c99f007d963199))
+* implement enterprise SSOT architecture, auto-sync tooling, and 100% web-desktop parity ([6a44cb6](https://github.com/SudhirDevOps1/FlowTrack-Pro/commit/6a44cb642bafc2de3f64322bd4c08c9b5ed9f2f9))
+* modernize application icon, tray badge, and visual branding across desktop and web ([2e7503d](https://github.com/SudhirDevOps1/FlowTrack-Pro/commit/2e7503d5ab0ba09d05904e551d9597ee9558927b))
+
+
+### 🐛 Bug Fixes & Patches
+
+* make electron-main test suites isomorphic with skipIf for web-app vitest ([69b5c9c](https://github.com/SudhirDevOps1/FlowTrack-Pro/commit/69b5c9ceb2d78aa449769ca3b2004a6a61488a09))
+* **portals:** decouple webview lifecycle with LRU pool and enable native child window OAuth ([e508ba9](https://github.com/SudhirDevOps1/FlowTrack-Pro/commit/e508ba9b2c3366d4486c6f9c3758ee996525c2a6))
+* resolve Prism ReferenceError and mobile web app deprecation in web-app ([d50fd1c](https://github.com/SudhirDevOps1/FlowTrack-Pro/commit/d50fd1ce17923ee1db9c589407b41393c9798133))
+
+
+### ⚡ Performance Improvements
+
+* optimize background activity tracker and eliminate polling thrash ([ea56fb1](https://github.com/SudhirDevOps1/FlowTrack-Pro/commit/ea56fb1448d061e90472daab95a92db32fd3bc03))
+
+
+### 📚 Documentation Updates
+
+* add direct 1-click download buttons and platform matrix in README ([16e0e8f](https://github.com/SudhirDevOps1/FlowTrack-Pro/commit/16e0e8f2d837090ba3530941db552301b3406cd0))
+* enhance readme with next-gen workstation architecture and benchmarks ([e91f094](https://github.com/SudhirDevOps1/FlowTrack-Pro/commit/e91f0948d849734e8cee75305c8bc863c6be257c))
+* harmonize repo documentation and system architecture guides ([f25a757](https://github.com/SudhirDevOps1/FlowTrack-Pro/commit/f25a757f1e4ee515dbd684bc1e5e7c03aad7a02c))
+* replace broken banner and screenshot with high-res brand visual assets ([d31ec6f](https://github.com/SudhirDevOps1/FlowTrack-Pro/commit/d31ec6fde5dc89b72d8551da3d99a1f6028eba62))
+
+
+### 👷 CI/CD & DevOps
+
+* **dependabot:** block all breaking major updates and limit PR grouping to 1 ([e26d0ee](https://github.com/SudhirDevOps1/FlowTrack-Pro/commit/e26d0ee62541ad9bf0fb2747a6a12b51b0159003))
+* update repository name conditions to FlowTrack-Pro across all 12 workflows ([0369747](https://github.com/SudhirDevOps1/FlowTrack-Pro/commit/0369747247d00a34c809dda6f253ad38c731cb91))
+
 ## [0.5.0](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/compare/v0.4.0...v0.5.0) (2026-11-02)
 
 

@@ -1,6 +1,6 @@
 {
   "name": "flowtrack-pro-desktop",
-  "description": "FlowTrack Pro \u2013 Smart Study & Productivity Tracker Desktop App",
+  "description": "FlowTrack Pro – Smart Study & Productivity Tracker Desktop App",
   "author": "FlowTrack Community <https://github.com/SudhirDevOps1>",
   "homepage": "https://github.com/SudhirDevOps1/FlowTrack-Pro",
   "repository": {
@@ -8,7 +8,7 @@
     "url": "https://github.com/SudhirDevOps1/FlowTrack-Pro.git"
   },
   "private": true,
-  "version": "0.5.0",
+  "version": "0.6.0",
   "main": "electron.js",
   "type": "commonjs",
   "scripts": {

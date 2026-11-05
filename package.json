@@ -1,7 +1,7 @@
 {
   "name": "flowtrack-workspace",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.6.0",
   "scripts": {
     "sync:apps": "node scripts/sync-codebase.mjs",
     "check:parity": "node scripts/check-app-parity.mjs",
