@@ -2,6 +2,12 @@ import Dexie, { type Table } from "dexie";
 import type { AppSettings, StudySession, Subject, Task, Timebox, OcrEntry, MindMapDoc, StickyBoardDoc } from "@/types/models";
 import type { NotepadDoc } from "@/types/notes";
 
+export interface SyncTombstone {
+  id: string;
+  tableName: string;
+  deletedAt: string;
+}
+
 export class FlowTrackDB extends Dexie {
   subjects!: Table<Subject, string>;
   sessions!: Table<StudySession, string>;
@@ -12,6 +18,7 @@ export class FlowTrackDB extends Dexie {
   mindMaps!: Table<MindMapDoc, string>;
   boards!: Table<StickyBoardDoc, string>;
   notepadDocs!: Table<NotepadDoc, string>;
+  tombstones!: Table<SyncTombstone, string>;
 
   constructor() {
     super("FlowTrackDB");
@@ -34,6 +41,20 @@ export class FlowTrackDB extends Dexie {
       mindMaps: "id, title, updatedAt",
       boards: "id, title, updatedAt",
       notepadDocs: "id, category, updatedAt"
+    });
+
+    // Version 3: Added sync tombstones for offline-first replication
+    this.version(3).stores({
+      subjects: "id, name, createdAt",
+      sessions: "id, subjectId, startTime, endTime, status, updatedAt",
+      settings: "key",
+      tasks: "id, subjectId, status, dueDate, createdAt",
+      timeboxes: "id, taskId, startTime, endTime, date",
+      ocrEntries: "id, subjectId, timestamp",
+      mindMaps: "id, title, updatedAt",
+      boards: "id, title, updatedAt",
+      notepadDocs: "id, category, updatedAt",
+      tombstones: "id, tableName, deletedAt"
     });
   }
 }

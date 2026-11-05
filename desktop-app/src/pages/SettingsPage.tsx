@@ -14,6 +14,7 @@ import { LicensesModal } from "@/components/LicensesModal";
 import { exportSessionsToCSV, exportSubjectStatsToCSV, exportAllDataToCSV, saveTextFileSafely } from "@/utils/dataExport";
 import { aggregateCodingStats, type HeartbeatItem } from "@/utils/editorInfo";
 import { db } from "@/lib/db";
+import { supabaseSync } from "@/lib/supabaseSync";
 
 import type { ThemeName } from "@/types/models";
 import {
@@ -325,6 +326,7 @@ export function SettingsPage() {
   const setDbConnectionString = useAppStore((state: AppState) => state.setDbConnectionString);
   const syncToCloud = useAppStore((state: AppState) => state.syncToCloud);
   const recoverFromCloud = useAppStore((state: AppState) => state.recoverFromCloud);
+  const initApp = useAppStore((state: AppState) => state.initApp);
 
   const [inputDbConnectionString, setInputDbConnectionString] = useState(dbConnectionString);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -446,6 +448,44 @@ export function SettingsPage() {
   const [isOpenAtLogin, setIsOpenAtLogin] = useState(() => {
     return localStorage.getItem("flowtrack_open_at_login") === "true";
   });
+  const [discordRpcEnabled, setDiscordRpcEnabled] = useState(() => {
+    return localStorage.getItem("flowtrack_discord_rpc_enabled") === "true";
+  });
+  const [discordMaskSubject, setDiscordMaskSubject] = useState(() => {
+    return localStorage.getItem("flowtrack_discord_mask_subject") === "true";
+  });
+
+  const [supabaseEnabled, setSupabaseEnabled] = useState(() => {
+    return localStorage.getItem("flowtrack_supabase_enabled") === "true";
+  });
+  const [supabaseUrl, setSupabaseUrl] = useState(() => {
+    return localStorage.getItem("flowtrack_supabase_url") || "";
+  });
+  const [supabaseAnonKey, setSupabaseAnonKey] = useState(() => {
+    return localStorage.getItem("flowtrack_supabase_anon_key") || "";
+  });
+  const [isSupabaseTesting, setIsSupabaseTesting] = useState(false);
+  const [isSupabaseSyncing, setIsSupabaseSyncing] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && (window as any).electron) {
+      (window as any).electron.ipcRenderer?.invoke?.("discord-get-status")
+        .then((res: any) => {
+          if (res) {
+            setDiscordRpcEnabled(Boolean(res.enabled));
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    supabaseSync.updateConfig({
+      enabled: supabaseEnabled,
+      url: supabaseUrl,
+      anonKey: supabaseAnonKey,
+    });
+  }, [supabaseEnabled, supabaseUrl, supabaseAnonKey]);
   const [isEnhancedAdBlock, setIsEnhancedAdBlock] = useState(() => {
     return localStorage.getItem("flowtrack_enhanced_adblock") === "true";
   });
@@ -778,6 +818,83 @@ export function SettingsPage() {
 
         {/* 🚀 New Update Checker Card */}
         <UpdateChecker showMessage={showMessage} />
+
+        {/* 🎮 Discord Rich Presence (RPC) */}
+        <div className="p-4 rounded-2xl bg-indigo-950/20 border border-indigo-500/30 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <span className="text-xl">🎮</span>
+              <div>
+                <h4 className="text-sm font-bold text-white">Discord Rich Presence (RPC)</h4>
+                <p className="text-xs text-indigo-200/70">Broadcast focus status to your Discord profile via local OS named pipe (zero cloud telemetry).</p>
+              </div>
+            </div>
+            <span className={`px-2.5 py-0.5 text-[11px] font-semibold rounded-full border ${
+              discordRpcEnabled ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-slate-800 text-slate-400 border-slate-700"
+            }`}>
+              {discordRpcEnabled ? "🟢 Active" : "⚪ Disabled"}
+            </span>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 pt-1">
+            <label className="flex items-center gap-3 cursor-pointer text-xs font-semibold text-slate-200">
+              <input
+                type="checkbox"
+                checked={discordRpcEnabled}
+                onChange={async (e) => {
+                  const isChecked = e.target.checked;
+                  setDiscordRpcEnabled(isChecked);
+                  localStorage.setItem("flowtrack_discord_rpc_enabled", String(isChecked));
+                  if (typeof window !== "undefined" && (window as any).electron) {
+                    await (window as any).electron.ipcRenderer?.invoke?.("discord-update-settings", { enabled: isChecked });
+                  }
+                  showMessage(isChecked ? "🎮 Discord Rich Presence Enabled!" : "Discord Rich Presence Disabled.");
+                }}
+                className="h-4 w-4 rounded border-indigo-400 bg-slate-800 text-indigo-500 focus:ring-0 cursor-pointer"
+              />
+              Enable Discord Rich Presence
+            </label>
+
+            <label className="flex items-center gap-3 cursor-pointer text-xs font-semibold text-slate-200">
+              <input
+                type="checkbox"
+                checked={discordMaskSubject}
+                onChange={async (e) => {
+                  const isChecked = e.target.checked;
+                  setDiscordMaskSubject(isChecked);
+                  localStorage.setItem("flowtrack_discord_mask_subject", String(isChecked));
+                  if (typeof window !== "undefined" && (window as any).electron) {
+                    await (window as any).electron.ipcRenderer?.invoke?.("discord-update-settings", { maskSubjectNames: isChecked });
+                  }
+                  showMessage(isChecked ? "🔒 Privacy Mask Enabled: Subjects hidden from Discord." : "Privacy Mask Disabled: Subject titles visible.");
+                }}
+                className="h-4 w-4 rounded border-indigo-400 bg-slate-800 text-indigo-500 focus:ring-0 cursor-pointer"
+              />
+              🔒 Strict Privacy Masking (Hide Subject Names)
+            </label>
+          </div>
+
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={async () => {
+                if (typeof window !== "undefined" && (window as any).electron) {
+                  const res = await (window as any).electron.ipcRenderer?.invoke?.("discord-get-status");
+                  if (res?.connected) {
+                    showMessage("✅ Connected to Discord desktop application via named pipe!");
+                  } else {
+                    showMessage(res?.enabled ? "⏳ Discord desktop client not detected or launching..." : "ℹ️ Discord RPC is disabled. Check the toggle above to enable.");
+                  }
+                } else {
+                  showMessage("ℹ️ Discord RPC requires the FlowTrack Pro desktop application.");
+                }
+              }}
+              className="px-3 py-1.5 rounded-lg bg-indigo-600/25 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 text-xs font-medium transition-all"
+            >
+              📡 Check Discord Connection Status
+            </button>
+          </div>
+        </div>
       </Panel>
       )}
 
@@ -1484,6 +1601,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
 
       {/* Cloud Sync Settings */}
       {(activeTab === "all" || activeTab === "cloud") && (
+      <>
       <Panel className="space-y-4">
         <div>
           <h3 className="text-xl font-semibold text-white flex items-center gap-2.5">
@@ -1557,6 +1675,132 @@ api_url = http://127.0.0.1:7777/api/v1`}
           </div>
         </div>
       </Panel>
+
+      {/* ⚡ Supabase Offline-First Sync Panel */}
+      <Panel className="border-l-4 border-emerald-500 bg-slate-900/40 backdrop-blur-md space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-xl font-bold text-white flex items-center gap-2.5">
+              <span className="text-xl">⚡</span> Supabase Offline-First Sync
+            </h3>
+            <p className="mt-1 text-xs text-slate-400">
+              Seamless multi-device sync for subjects, study sessions, and deletions (tombstones) over native PostgREST.
+            </p>
+          </div>
+          <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${
+            supabaseEnabled ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-slate-800 text-slate-400 border-slate-700"
+          }`}>
+            {supabaseEnabled ? "🟢 Sync Ready" : "⚪ Disabled"}
+          </span>
+        </div>
+
+        <div className="space-y-4">
+          <div className="p-3.5 rounded-2xl bg-slate-900/40 backdrop-blur-md border border-white/10 space-y-1">
+            <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-white">
+              <input
+                type="checkbox"
+                checked={supabaseEnabled}
+                onChange={(e) => {
+                  const isChecked = e.target.checked;
+                  setSupabaseEnabled(isChecked);
+                  supabaseSync.updateConfig({ enabled: isChecked });
+                  localStorage.setItem("flowtrack_supabase_enabled", String(isChecked));
+                  showMessage(isChecked ? "⚡ Supabase Sync Enabled!" : "Supabase Sync Disabled.");
+                }}
+                className="h-5 w-5 rounded border-emerald-400 bg-slate-800 text-emerald-500 focus:ring-0 cursor-pointer"
+              />
+              ⚡ Enable Supabase Data Synchronization
+            </label>
+            <p className="text-xs text-slate-400 pl-8">
+              Local SQLite & Dexie remain primary. Syncs opportunistically in the background with zero lag.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-slate-300">Supabase Project URL</label>
+              <input
+                type="url"
+                value={supabaseUrl}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSupabaseUrl(val);
+                  supabaseSync.updateConfig({ url: val });
+                  localStorage.setItem("flowtrack_supabase_url", val);
+                }}
+                placeholder="https://xyzcompany.supabase.co"
+                className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:border-emerald-400 focus:outline-none"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-slate-300">Supabase Anon Key</label>
+              <input
+                type="password"
+                value={supabaseAnonKey}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSupabaseAnonKey(val);
+                  supabaseSync.updateConfig({ anonKey: val });
+                  localStorage.setItem("flowtrack_supabase_anon_key", val);
+                }}
+                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:border-emerald-400 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <button
+              type="button"
+              disabled={isSupabaseTesting}
+              onClick={async () => {
+                setIsSupabaseTesting(true);
+                try {
+                  const res = await supabaseSync.testConnection();
+                  if (res.ok) {
+                    showMessage(`✅ Supabase connected successfully! (${res.latencyMs}ms)`);
+                  } else {
+                    showMessage(`❌ Connection failed: ${res.error}`);
+                  }
+                } catch (e: any) {
+                  showMessage(`❌ Error: ${e.message}`);
+                } finally {
+                  setIsSupabaseTesting(false);
+                }
+              }}
+              className="px-4 py-2 rounded-xl bg-slate-800 text-slate-200 hover:bg-slate-700 border border-white/10 text-xs font-semibold transition-all"
+            >
+              {isSupabaseTesting ? "⏳ Testing..." : "🔌 Test Supabase Connection"}
+            </button>
+
+            <button
+              type="button"
+              disabled={isSupabaseSyncing || !supabaseEnabled}
+              onClick={async () => {
+                setIsSupabaseSyncing(true);
+                try {
+                  const res = await supabaseSync.sync();
+                  if (res.success) {
+                    showMessage(`☁️ Synced! Pushed ${res.pushed.subjects} subjects, ${res.pushed.sessions} sessions. Pulled ${res.pulled.subjects} subs, ${res.pulled.sessions} sessions.`);
+                    await initApp();
+                  } else {
+                    showMessage(`⚠️ Sync notice: ${res.error}`);
+                  }
+                } catch (e: any) {
+                  showMessage(`❌ Sync failed: ${e.message}`);
+                } finally {
+                  setIsSupabaseSyncing(false);
+                }
+              }}
+              className="px-4 py-2 rounded-xl bg-emerald-600/30 text-emerald-300 hover:bg-emerald-600/40 border border-emerald-500/40 text-xs font-semibold transition-all"
+            >
+              {isSupabaseSyncing ? "🔄 Syncing with Supabase..." : "⚡ Sync with Supabase Now"}
+            </button>
+          </div>
+        </div>
+      </Panel>
+      </>
       )}
 
       {/* Goals and Notifications */}

@@ -1,3 +1,4 @@
+import { supabaseSync } from "@/lib/supabaseSync";
 import { create } from "zustand";
 import { db } from "@/lib/db";
 import { calcPlannedMinutes } from "@/utils/time";
@@ -122,8 +123,39 @@ let sessionOperationInProgress = false;
 function notifyFocusSessionActive(isActive: boolean): void {
   if (typeof window !== "undefined") {
     const win = window as any;
-    if (win.electron?.invoke) {
-      win.electron.invoke("set-focus-session-active", isActive).catch(() => {});
+    const invoke = win.electron?.ipcRenderer?.invoke || win.electron?.invoke;
+    if (invoke) {
+      invoke("set-focus-session-active", isActive).catch(() => {});
+    }
+  }
+}
+
+function updateDiscordPresence(details: {
+  subjectName?: string;
+  isPaused?: boolean;
+  startTimestamp?: number;
+  endTimestamp?: number;
+}): void {
+  if (typeof window !== "undefined") {
+    const win = window as any;
+    const invoke = win.electron?.ipcRenderer?.invoke || win.electron?.invoke;
+    if (invoke) {
+      if (details.isPaused) {
+        invoke("discord-clear-activity").catch(() => {});
+      } else if (details.subjectName) {
+        invoke("discord-set-activity", {
+          details: `Focusing on ${details.subjectName}`,
+          state: "Deep Work Session",
+          startTimestamp: details.startTimestamp,
+          endTimestamp: details.endTimestamp,
+          largeImageKey: "flowtrack_logo",
+          largeImageText: "FlowTrack Pro",
+          smallImageKey: "focus",
+          smallImageText: "Deep Focus Mode",
+        }).catch(() => {});
+      } else {
+        invoke("discord-clear-activity").catch(() => {});
+      }
     }
   }
 }
@@ -551,12 +583,15 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
 
   deleteSubject: async (id: string) => {
     await db.subjects.delete(id);
+    await db.tombstones.put({ id, tableName: "subjects", deletedAt: new Date().toISOString() });
     await db.sessions.where("subjectId").equals(id).delete();
     const timer = get().timer;
     if (timer.activeSessionId) {
       const activeSession = get().sessions.find((session: StudySession) => session.id === timer.activeSessionId);
       if (activeSession?.subjectId === id) {
         await saveTimer(defaultTimer);
+      notifyFocusSessionActive(false);
+      updateDiscordPresence({ isPaused: true });
         set({ timer: defaultTimer });
       }
     }
@@ -632,9 +667,12 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
 
   deleteSession: async (id: string) => {
     await db.sessions.delete(id);
+    await db.tombstones.put({ id, tableName: "sessions", deletedAt: new Date().toISOString() });
     const timer = get().timer;
     if (timer.activeSessionId === id) {
       await saveTimer(defaultTimer);
+      notifyFocusSessionActive(false);
+      updateDiscordPresence({ isPaused: true });
       set((state: AppState) => {
         const newSessions = state.sessions.filter((item: StudySession) => item.id !== id);
         return {
@@ -772,6 +810,10 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
       };
       await saveTimer(timer);
       await db.sessions.update(session.id, { status: "in_progress", updatedAt: new Date().toISOString() });
+      notifyFocusSessionActive(true);
+      const startSub = get().subjects.find((s: Subject) => s.id === session.subjectId);
+      const endTimestamp = session.plannedMinutes ? now + session.plannedMinutes * 60 * 1000 : undefined;
+      updateDiscordPresence({ subjectName: startSub?.name || "Deep Study", startTimestamp: now, endTimestamp });
       set((state: AppState) => {
         const newSessions: StudySession[] = state.sessions.map((item: StudySession) => (item.id === session.id ? { ...item, status: "in_progress" as SessionStatus, updatedAt: new Date().toISOString() } : item));
         return {
@@ -804,6 +846,8 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
         actualSeconds: nextAccumulated,
         updatedAt: new Date().toISOString(),
       });
+      notifyFocusSessionActive(false);
+      updateDiscordPresence({ isPaused: true });
       set((state: AppState) => {
         const newSessions: StudySession[] = state.sessions.map((session: StudySession) =>
           session.id === timer.activeSessionId
@@ -834,6 +878,10 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
       };
       await saveTimer(nextTimer);
       await db.sessions.update(timer.activeSessionId, { status: "in_progress", updatedAt: new Date().toISOString() });
+      notifyFocusSessionActive(true);
+      const resSession = get().sessions.find((session: StudySession) => session.id === timer.activeSessionId);
+      const resSub = resSession ? get().subjects.find((s: Subject) => s.id === resSession.subjectId) : undefined;
+      updateDiscordPresence({ subjectName: resSub?.name || "Deep Study", startTimestamp: now });
       set((state: AppState) => {
         const newSessions: StudySession[] = state.sessions.map((session: StudySession) =>
           session.id === timer.activeSessionId ? { ...session, status: "in_progress" as SessionStatus, updatedAt: new Date().toISOString() } : session
@@ -863,6 +911,8 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
         updatedAt: new Date().toISOString(),
       });
       await saveTimer(defaultTimer);
+      notifyFocusSessionActive(false);
+      updateDiscordPresence({ isPaused: true });
       
       const newSessions: StudySession[] = get().sessions.map((session: StudySession) =>
         session.id === timer.activeSessionId

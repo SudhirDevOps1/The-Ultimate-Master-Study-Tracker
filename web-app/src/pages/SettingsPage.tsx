@@ -13,6 +13,7 @@ import { exportLocalDatabase, importLocalDatabase } from "@/utils/backupEngine";
 import { LicensesModal } from "@/components/LicensesModal";
 import { exportSessionsToCSV, exportSubjectStatsToCSV, exportAllDataToCSV, saveTextFileSafely } from "@/utils/dataExport";
 import { db } from "@/lib/db";
+import { supabaseSync } from "@/lib/supabaseSync";
 
 import type { ThemeName } from "@/types/models";
 import {
@@ -319,6 +320,7 @@ export function SettingsPage() {
   const backendUrl = useAppStore((state: AppState) => state.backendUrl);
   const setBackendUrl = useAppStore((state: AppState) => state.setBackendUrl);
   const isBackendConnected = useAppStore((state: AppState) => state.isBackendConnected);
+  const initApp = useAppStore((state: AppState) => state.initApp);
 
   const [profileName, setProfileName] = useState(profile?.name ?? "");
   const [inputBackendUrl, setInputBackendUrl] = useState(backendUrl);
@@ -358,6 +360,26 @@ export function SettingsPage() {
   const [isExportingDb, setIsExportingDb] = useState(false);
   const [isImportingDb, setIsImportingDb] = useState(false);
   const fullBackupFileRef = useRef<HTMLInputElement>(null);
+
+  const [supabaseEnabled, setSupabaseEnabled] = useState(() => {
+    return localStorage.getItem("flowtrack_supabase_enabled") === "true";
+  });
+  const [supabaseUrl, setSupabaseUrl] = useState(() => {
+    return localStorage.getItem("flowtrack_supabase_url") || "";
+  });
+  const [supabaseAnonKey, setSupabaseAnonKey] = useState(() => {
+    return localStorage.getItem("flowtrack_supabase_anon_key") || "";
+  });
+  const [isSupabaseTesting, setIsSupabaseTesting] = useState(false);
+  const [isSupabaseSyncing, setIsSupabaseSyncing] = useState(false);
+
+  useEffect(() => {
+    supabaseSync.updateConfig({
+      enabled: supabaseEnabled,
+      url: supabaseUrl,
+      anonKey: supabaseAnonKey,
+    });
+  }, [supabaseEnabled, supabaseUrl, supabaseAnonKey]);
 
   useEffect(() => {
     if (profile) {
@@ -1094,6 +1116,133 @@ api_url = http://127.0.0.1:7777/api/v1`}
           </button>
         </Panel>
       </div>
+      )}
+
+      {/* ⚡ Supabase Offline-First Sync Panel */}
+      {(activeTab === "all" || activeTab === "cloud") && (
+      <Panel className="border-l-4 border-emerald-500 bg-slate-900/40 backdrop-blur-md space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-xl font-bold text-white flex items-center gap-2.5">
+              <span className="text-xl">⚡</span> Supabase Offline-First Sync
+            </h3>
+            <p className="mt-1 text-xs text-slate-400">
+              Seamless multi-device sync for subjects, study sessions, and deletions (tombstones) over native PostgREST.
+            </p>
+          </div>
+          <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${
+            supabaseEnabled ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-slate-800 text-slate-400 border-slate-700"
+          }`}>
+            {supabaseEnabled ? "🟢 Sync Ready" : "⚪ Disabled"}
+          </span>
+        </div>
+
+        <div className="space-y-4">
+          <div className="p-3.5 rounded-2xl bg-slate-900/40 backdrop-blur-md border border-white/10 space-y-1">
+            <label className="flex items-center gap-3 cursor-pointer text-sm font-semibold text-white">
+              <input
+                type="checkbox"
+                checked={supabaseEnabled}
+                onChange={(e) => {
+                  const isChecked = e.target.checked;
+                  setSupabaseEnabled(isChecked);
+                  supabaseSync.updateConfig({ enabled: isChecked });
+                  localStorage.setItem("flowtrack_supabase_enabled", String(isChecked));
+                  showMessage(isChecked ? "⚡ Supabase Sync Enabled!" : "Supabase Sync Disabled.");
+                }}
+                className="h-5 w-5 rounded border-emerald-400 bg-slate-800 text-emerald-500 focus:ring-0 cursor-pointer"
+              />
+              ⚡ Enable Supabase Data Synchronization
+            </label>
+            <p className="text-xs text-slate-400 pl-8">
+              Local SQLite & Dexie remain primary. Syncs opportunistically in the background with zero lag.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-slate-300">Supabase Project URL</label>
+              <input
+                type="url"
+                value={supabaseUrl}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSupabaseUrl(val);
+                  supabaseSync.updateConfig({ url: val });
+                  localStorage.setItem("flowtrack_supabase_url", val);
+                }}
+                placeholder="https://xyzcompany.supabase.co"
+                className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:border-emerald-400 focus:outline-none"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-slate-300">Supabase Anon Key</label>
+              <input
+                type="password"
+                value={supabaseAnonKey}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSupabaseAnonKey(val);
+                  supabaseSync.updateConfig({ anonKey: val });
+                  localStorage.setItem("flowtrack_supabase_anon_key", val);
+                }}
+                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:border-emerald-400 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <button
+              type="button"
+              disabled={isSupabaseTesting}
+              onClick={async () => {
+                setIsSupabaseTesting(true);
+                try {
+                  const res = await supabaseSync.testConnection();
+                  if (res.ok) {
+                    showMessage(`✅ Supabase connected successfully! (${res.latencyMs}ms)`);
+                  } else {
+                    showMessage(`❌ Connection failed: ${res.error}`);
+                  }
+                } catch (e: any) {
+                  showMessage(`❌ Error: ${e.message}`);
+                } finally {
+                  setIsSupabaseTesting(false);
+                }
+              }}
+              className="px-4 py-2 rounded-xl bg-slate-800 text-slate-200 hover:bg-slate-700 border border-white/10 text-xs font-semibold transition-all"
+            >
+              {isSupabaseTesting ? "⏳ Testing..." : "🔌 Test Supabase Connection"}
+            </button>
+
+            <button
+              type="button"
+              disabled={isSupabaseSyncing || !supabaseEnabled}
+              onClick={async () => {
+                setIsSupabaseSyncing(true);
+                try {
+                  const res = await supabaseSync.sync();
+                  if (res.success) {
+                    showMessage(`☁️ Synced! Pushed ${res.pushed.subjects} subjects, ${res.pushed.sessions} sessions. Pulled ${res.pulled.subjects} subs, ${res.pulled.sessions} sessions.`);
+                    await initApp();
+                  } else {
+                    showMessage(`⚠️ Sync notice: ${res.error}`);
+                  }
+                } catch (e: any) {
+                  showMessage(`❌ Sync failed: ${e.message}`);
+                } finally {
+                  setIsSupabaseSyncing(false);
+                }
+              }}
+              className="px-4 py-2 rounded-xl bg-emerald-600/30 text-emerald-300 hover:bg-emerald-600/40 border border-emerald-500/40 text-xs font-semibold transition-all"
+            >
+              {isSupabaseSyncing ? "🔄 Syncing with Supabase..." : "⚡ Sync with Supabase Now"}
+            </button>
+          </div>
+        </div>
+      </Panel>
       )}
 
       {/* Goals and Notifications */}

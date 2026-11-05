@@ -74,6 +74,11 @@ const ALLOWED_INVOKE_CHANNELS = [
   "show-item-in-folder",
   // Low-RAM Memory Trimmer
   "purge-memory",
+  // Discord Rich Presence IPCs
+  "discord-set-activity",
+  "discord-clear-activity",
+  "discord-get-status",
+  "discord-update-settings",
 ];
 
 const ALLOWED_LISTEN_CHANNELS = [

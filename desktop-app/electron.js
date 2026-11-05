@@ -53,6 +53,13 @@ try {
   console.warn("[electron] wakatime-receiver module load error:", e && e.message);
 }
 
+let discordRpc = null;
+try {
+  discordRpc = require("./electron-main/discord-rpc.js").discordRpc;
+} catch (e) {
+  console.warn("[electron] discord-rpc module load error:", e && e.message);
+}
+
 const CHROME_DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36";
 app.userAgentFallback = CHROME_DESKTOP_UA;
 
@@ -1347,6 +1354,7 @@ app.whenReady().then(() => {
     console.log("[PowerMonitor] System suspend detected — flushing segment.");
     flushCurrentActivity(Date.now());
     saveLogToFile();
+    if (discordRpc) discordRpc.clearActivity().catch(() => {});
   });
 
   powerMonitor.on("resume", () => {
@@ -1359,6 +1367,7 @@ app.whenReady().then(() => {
     console.log("[PowerMonitor] System lock-screen detected — flushing segment.");
     flushCurrentActivity(Date.now());
     saveLogToFile();
+    if (discordRpc) discordRpc.clearActivity().catch(() => {});
   });
 
   powerMonitor.on("unlock-screen", () => {
@@ -1412,6 +1421,9 @@ app.on("before-quit", (e) => {
   isQuitting = true;
   flushCurrentActivity(Date.now());
   saveLogToFile();
+  if (discordRpc) {
+    try { discordRpc.disconnect(); } catch { /* ignore */ }
+  }
   if (mainWindow) {
     mainWindow.webContents.send("save-session-state-sync");
   }
@@ -1425,6 +1437,32 @@ app.on("will-quit", () => {
 app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });
 
 // ─── IPC Handlers ─────────────────────────────────────────────────────────────
+// ─── Discord Rich Presence IPC Handlers ─────────────────────────────────────
+ipcMain.handle("discord-set-activity", async (_event, activity) => {
+  if (!discordRpc) return { success: false, error: "Discord RPC module unavailable" };
+  return discordRpc.setActivity(activity);
+});
+
+ipcMain.handle("discord-clear-activity", async () => {
+  if (!discordRpc) return { success: false, error: "Discord RPC module unavailable" };
+  return discordRpc.clearActivity();
+});
+
+ipcMain.handle("discord-get-status", async () => {
+  if (!discordRpc) return { connected: false, enabled: false, error: "Discord RPC module unavailable" };
+  return discordRpc.getStatus();
+});
+
+ipcMain.handle("discord-update-settings", async (_event, settings) => {
+  if (!discordRpc) return { success: false, error: "Discord RPC module unavailable" };
+  const res = discordRpc.updateSettings(settings);
+  if (settings && typeof settings === "object") {
+    desktopSettings.discordRpc = { ...(desktopSettings.discordRpc || {}), ...settings };
+    saveDesktopSettings();
+  }
+  return res;
+});
+
 // ─── WakaTime Heartbeat Integration IPC Handlers ────────────────────────────
 // ─── Browser Shield & Extension IPC Handlers ──────────────────────────────
 ipcMain.handle("get-installed-extensions", async () => {
@@ -1966,7 +2004,14 @@ ipcMain.handle("set-taskbar-progress", async (_e, { progress }) => {
 });
 
 let normalWindowBounds = null;
-let desktopSettings = { alwaysOnTop: false, compactFloating: false, openAtLogin: false, webviewAdBlock: true, webviewEnhancedAdBlock: false };
+let desktopSettings = {
+  alwaysOnTop: false,
+  compactFloating: false,
+  openAtLogin: false,
+  webviewAdBlock: true,
+  webviewEnhancedAdBlock: false,
+  discordRpc: { enabled: false, clientId: "1346000000000000000", maskSubjectNames: false }
+};
 
 function getDesktopSettingsFile() {
   return path.join(app.getPath("userData"), "desktop-settings.json");
@@ -1977,6 +2022,9 @@ function loadDesktopSettings() {
     const file = getDesktopSettingsFile();
     if (fs.existsSync(file)) {
       desktopSettings = { ...desktopSettings, ...JSON.parse(fs.readFileSync(file, "utf8")) };
+    }
+    if (discordRpc && desktopSettings.discordRpc) {
+      discordRpc.updateSettings(desktopSettings.discordRpc);
     }
   } catch (e) {
     console.error("[DesktopSettings] Load error:", e);
@@ -2001,6 +2049,9 @@ ipcMain.handle("get-desktop-settings", async () => {
 ipcMain.handle("save-desktop-settings", async (_e, partial) => {
   desktopSettings = { ...desktopSettings, ...partial };
   saveDesktopSettings();
+  if (discordRpc && partial && partial.discordRpc) {
+    discordRpc.updateSettings(desktopSettings.discordRpc);
+  }
   return { success: true, settings: desktopSettings };
 });
 

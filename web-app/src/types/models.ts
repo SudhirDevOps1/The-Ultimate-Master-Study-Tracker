@@ -223,6 +223,12 @@ export interface AppSettings {
   notificationsEnabled?: boolean;
   soundEnabled?: boolean;
   strictFocusMode?: boolean;
+  discordRpcEnabled?: boolean;
+  discordClientId?: string;
+  discordMaskSubject?: boolean;
+  supabaseSyncEnabled?: boolean;
+  supabaseUrl?: string;
+  supabaseAnonKey?: string;
 }
 
 export type AnalyticsRange = "day" | "week" | "month" | "year" | "all" | "last7days" | "last30days" | "last90days" | "last6months" | "last12months" | "alltime" | "daily" | "weekly" | "monthly" | "yearly";

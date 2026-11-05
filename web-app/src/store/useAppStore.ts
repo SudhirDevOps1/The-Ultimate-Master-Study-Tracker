@@ -1,3 +1,4 @@
+import { supabaseSync } from "@/lib/supabaseSync";
 import { create } from "zustand";
 import { db } from "@/lib/db";
 import { calcPlannedMinutes } from "@/utils/time";
@@ -534,6 +535,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
 
   deleteSubject: async (id: string) => {
     await db.subjects.delete(id);
+    await db.tombstones.put({ id, tableName: "subjects", deletedAt: new Date().toISOString() });
     await db.sessions.where("subjectId").equals(id).delete();
     const timer = get().timer;
     if (timer.activeSessionId) {
@@ -612,6 +614,7 @@ export const useAppStore = create<AppState>()((set: any, get: any) => ({
 
   deleteSession: async (id: string) => {
     await db.sessions.delete(id);
+    await db.tombstones.put({ id, tableName: "sessions", deletedAt: new Date().toISOString() });
     const timer = get().timer;
     if (timer.activeSessionId === id) {
       await saveTimer(defaultTimer);
