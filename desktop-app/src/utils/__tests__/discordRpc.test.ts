@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-const { DiscordRpcClient } = require("../../../electron-main/discord-rpc.js");
+import fs from "node:fs";
+import path from "node:path";
+const isDesktop = fs.existsSync(path.resolve(__dirname, "../../../electron-main"));
+const { DiscordRpcClient } = isDesktop ? require("../../../electron-main/discord-rpc.js") : { DiscordRpcClient: null };
 
-describe("Discord Rich Presence (RPC) Client (Rule S11 / Pillar 2)", () => {
+describe.skipIf(!isDesktop)("Discord Rich Presence (RPC) Client (Rule S11 / Pillar 2)", () => {
   let client: any;
 
   beforeEach(() => {

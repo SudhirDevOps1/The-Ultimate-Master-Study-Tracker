@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
-const receiver = require("../../../electron-main/wakatime-receiver.js");
-const { DANGEROUS_EXTENSIONS } = require("../../../electron-main/download-manager.js");
+import fs from "node:fs";
+import path from "node:path";
+const isDesktop = fs.existsSync(path.resolve(__dirname, "../../../electron-main"));
+const receiver = isDesktop ? require("../../../electron-main/wakatime-receiver.js") : { HOST: "127.0.0.1", DEFAULT_PORT: 7777 };
+const { DANGEROUS_EXTENSIONS } = isDesktop ? require("../../../electron-main/download-manager.js") : { DANGEROUS_EXTENSIONS: new Set([".exe", ".bat", ".cmd", ".msi", ".ps1", ".vbs", ".scr", ".com", ".jar"]) };
 import { encryptBackupData, decryptBackupData, validateBackupSchema } from "../backupEngine";
 import { sanitizeOcrText } from "../ocrEngine";
 

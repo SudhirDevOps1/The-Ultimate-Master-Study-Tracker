@@ -1,8 +1,11 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
-const receiver = require("../../../electron-main/wakatime-receiver.js");
+import fs from "node:fs";
+import path from "node:path";
+const isDesktop = fs.existsSync(path.resolve(__dirname, "../../../electron-main"));
+const receiver = isDesktop ? require("../../../electron-main/wakatime-receiver.js") : {};
 
-describe("Local Read-Only Query API (Part H / F6 - Real WakaTime Integration)", () => {
+describe.skipIf(!isDesktop)("Local Read-Only Query API (Part H / F6 - Real WakaTime Integration)", () => {
   it("exports receiver instance and query functions cleanly", () => {
     expect(receiver).toBeDefined();
     expect(typeof receiver.startReceiver).toBe("function");

@@ -5,7 +5,8 @@ import path from "path";
 import fs from "fs";
 import os from "os";
 
-const receiver = require("../../../electron-main/wakatime-receiver.js");
+const isDesktop = fs.existsSync(path.resolve(__dirname, "../../../electron-main"));
+const receiver = isDesktop ? require("../../../electron-main/wakatime-receiver.js") : {};
 
 function postHeartbeat(port: number, payload: any, headers: Record<string, string> = {}): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
@@ -35,7 +36,7 @@ function postHeartbeat(port: number, payload: any, headers: Record<string, strin
   });
 }
 
-describe("WakaTime Receiver Correctness (Part F / F4)", () => {
+describe.skipIf(!isDesktop)("WakaTime Receiver Correctness (Part F / F4)", () => {
   let tempDir: string;
   let serverPort: number;
 

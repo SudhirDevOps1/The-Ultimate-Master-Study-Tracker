@@ -1,8 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { toLocalDateKey, fromLocalDateKey, localHourMinute } from "../localDate";
-const cjsLocalDate = require("../../../electron-main/local-date.js");
+import fs from "node:fs";
+import path from "node:path";
+const isDesktop = fs.existsSync(path.resolve(__dirname, "../../../electron-main"));
+const cjsLocalDate = isDesktop ? require("../../../electron-main/local-date.js") : {};
 
-describe("localDate Single Source of Truth (Part E / F3)", () => {
+describe.skipIf(!isDesktop)("localDate Single Source of Truth (Part E / F3)", () => {
   it("ensures TypeScript and CommonJS implementations produce 100% identical output", () => {
     const testTimestamps = [
       "2026-10-30T00:10:00.000Z",
