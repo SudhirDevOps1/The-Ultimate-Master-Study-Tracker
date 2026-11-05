@@ -21,7 +21,7 @@ permissions: read-all
 jobs:
   fast-quality-gate:
     name: Fast Quality Gate (Typecheck, Lint & Unit Test)
-    if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
+    if: (github.repository == 'SudhirDevOps1/FlowTrack-Pro' || github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker')
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -83,7 +83,7 @@ jobs:
   build-desktop-releases:
     name: Build Desktop Apps (${{ matrix.os }})
     needs: fast-quality-gate
-    if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker' && github.event_name == 'workflow_dispatch'
+    if: (github.repository == 'SudhirDevOps1/FlowTrack-Pro' || github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker') && github.event_name == 'workflow_dispatch'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     strategy:

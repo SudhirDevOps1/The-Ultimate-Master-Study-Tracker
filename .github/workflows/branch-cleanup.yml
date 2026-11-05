@@ -18,7 +18,7 @@ jobs:
     name: Auto-Delete Merged PR Branch
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
+    if: (github.repository == 'SudhirDevOps1/FlowTrack-Pro' || github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker')
     permissions:
       contents: write
       pull-requests: read

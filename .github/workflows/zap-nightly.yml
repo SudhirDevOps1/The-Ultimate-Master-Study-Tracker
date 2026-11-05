@@ -15,7 +15,7 @@ permissions:
 jobs:
   zap-nightly-scan:
     name: OWASP ZAP Full Scan
-    if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
+    if: (github.repository == 'SudhirDevOps1/FlowTrack-Pro' || github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

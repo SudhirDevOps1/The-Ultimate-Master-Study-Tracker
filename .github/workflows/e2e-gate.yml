@@ -21,7 +21,7 @@ permissions: read-all
 jobs:
   pr-security-and-build:
     name: E2E Integration Test Suite & DAST Scan
-    if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
+    if: (github.repository == 'SudhirDevOps1/FlowTrack-Pro' || github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:

@@ -21,7 +21,7 @@ permissions:
 jobs:
   audit:
     name: NPM Audit Monorepo Scan
-    if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
+    if: (github.repository == 'SudhirDevOps1/FlowTrack-Pro' || github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

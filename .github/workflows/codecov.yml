@@ -16,7 +16,7 @@ permissions: read-all
 jobs:
   test_and_coverage:
     name: Test Coverage & Codecov Audit
-    if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
+    if: (github.repository == 'SudhirDevOps1/FlowTrack-Pro' || github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

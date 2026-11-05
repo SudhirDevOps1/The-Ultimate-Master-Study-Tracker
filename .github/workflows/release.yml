@@ -15,7 +15,7 @@ permissions: read-all
 jobs:
   quality_gate:
     name: 🛡️ Pre-Release Quality Gate
-    if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
+    if: (github.repository == 'SudhirDevOps1/FlowTrack-Pro' || github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -59,7 +59,7 @@ jobs:
   release_please:
     name: 🚀 Google Release Please
     needs: quality_gate
-    if: github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker'
+    if: (github.repository == 'SudhirDevOps1/FlowTrack-Pro' || github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
