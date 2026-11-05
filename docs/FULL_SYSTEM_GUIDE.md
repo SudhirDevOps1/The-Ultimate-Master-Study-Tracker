@@ -66,8 +66,8 @@ Category 1 is the **zero-install, instant-access web version** hosted on Vercel 
 
 ### How to Run Locally (Category 1)
 ```bash
-git clone https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git
-cd The-Ultimate-Master-Study-Tracker/web-app
+git clone https://github.com/SudhirDevOps1/FlowTrack-Pro.git
+cd FlowTrack-Pro/web-app
 npm install --legacy-peer-deps
 npm run dev
 # App opens at http://localhost:5173

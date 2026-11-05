@@ -15,7 +15,7 @@ permissions: read-all
 jobs:
   quality_gate:
     name: 🛡️ Pre-Release Quality Gate
-    if: (github.repository == 'SudhirDevOps1/FlowTrack-Pro' || github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker')
+    if: (github.repository == 'SudhirDevOps1/FlowTrack-Pro' || github.repository == 'SudhirDevOps1/FlowTrack-Pro')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -59,7 +59,7 @@ jobs:
   release_please:
     name: 🚀 Google Release Please
     needs: quality_gate
-    if: (github.repository == 'SudhirDevOps1/FlowTrack-Pro' || github.repository == 'SudhirDevOps1/The-Ultimate-Master-Study-Tracker')
+    if: (github.repository == 'SudhirDevOps1/FlowTrack-Pro' || github.repository == 'SudhirDevOps1/FlowTrack-Pro')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -195,8 +195,8 @@ jobs:
               '| <img src="https://avatars.githubusercontent.com/u/234449571?v=4" width="44" height="44" style="border-radius:50%" alt="SudhirDevOps1" /> | **[@SudhirDevOps1](https://github.com/SudhirDevOps1)** | Lead Architect & Maintainer |' \
               '' \
               '<p align="left">' \
-              '  <a href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/graphs/contributors">' \
-              '    <img src="https://contrib.rocks/image?repo=SudhirDevOps1/The-Ultimate-Master-Study-Tracker" alt="Contributors Avatar Wall" />' \
+              '  <a href="https://github.com/SudhirDevOps1/FlowTrack-Pro/graphs/contributors">' \
+              '    <img src="https://contrib.rocks/image?repo=SudhirDevOps1/FlowTrack-Pro" alt="Contributors Avatar Wall" />' \
               '  </a>' \
               '</p>' > /tmp/wall.txt
             printf '%s\n' "$CURRENT_NOTES" > /tmp/notes.md

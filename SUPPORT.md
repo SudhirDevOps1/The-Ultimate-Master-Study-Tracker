@@ -8,23 +8,23 @@ Welcome to the FlowTrack Pro community! Here is how you can find help, discuss f
 
 ### 1. Documentation
 Start by reading our project documentation:
-- [System Architecture & Roadmap](file:///d:/The-Ultimate-Master-Study-Tracker/README.md)
-- [Developer Onboarding Guide](file:///d:/The-Ultimate-Master-Study-Tracker/CONTRIBUTING.md)
-- [Desktop App Guide](file:///d:/The-Ultimate-Master-Study-Tracker/desktop-app/README.md)
-- [Agentic Protocols](file:///d:/The-Ultimate-Master-Study-Tracker/AGENT.md)
+- [System Architecture & Roadmap](file:///d:/FlowTrack-Pro/README.md)
+- [Developer Onboarding Guide](file:///d:/FlowTrack-Pro/CONTRIBUTING.md)
+- [Desktop App Guide](file:///d:/FlowTrack-Pro/desktop-app/README.md)
+- [Agentic Protocols](file:///d:/FlowTrack-Pro/AGENT.md)
 
 ### 2. GitHub Discussions
 For general questions, study workflow advice, setup discussions, or ideas:
-- Visit [GitHub Discussions](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/discussions) to ask questions and share study configurations.
+- Visit [GitHub Discussions](https://github.com/SudhirDevOps1/FlowTrack-Pro/discussions) to ask questions and share study configurations.
 
 ### 3. Reporting Bugs
 If you encountered a bug or unexpected behavior:
-- Search existing [GitHub Issues](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/issues) to see if it has already been reported.
+- Search existing [GitHub Issues](https://github.com/SudhirDevOps1/FlowTrack-Pro/issues) to see if it has already been reported.
 - If not found, open a new issue using our **Bug Report** template.
 
 ### 4. Proposing Features
 Have an idea to make FlowTrack faster, reduce RAM, or add study tools?
-- Open a feature request via [GitHub Issues](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/issues/new) with the **Feature Request** template.
+- Open a feature request via [GitHub Issues](https://github.com/SudhirDevOps1/FlowTrack-Pro/issues/new) with the **Feature Request** template.
 
 ---
 
@@ -32,4 +32,4 @@ Have an idea to make FlowTrack faster, reduce RAM, or add study tools?
 
 For project inquiries, partnerships, or community questions:
 - Maintainer: **Sudhir Singh** ([@SudhirDevOps1](https://github.com/SudhirDevOps1))
-- Discussions: [GitHub Discussions](https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/discussions)
+- Discussions: [GitHub Discussions](https://github.com/SudhirDevOps1/FlowTrack-Pro/discussions)

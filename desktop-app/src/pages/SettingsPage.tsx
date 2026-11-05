@@ -2004,7 +2004,7 @@ api_url = http://127.0.0.1:7777/api/v1`}
             </div>
             <div className="flex gap-2">
               <a
-                href="https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker.git"
+                href="https://github.com/SudhirDevOps1/FlowTrack-Pro.git"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 rounded-xl bg-white/5 border border-white/10 px-3.5 py-2 text-xs font-semibold text-white hover:bg-white/10 hover:border-cyan-500/50 transition-all duration-200"
@@ -2099,14 +2099,14 @@ function UpdateChecker({ showMessage }: { showMessage: (msg: string) => void }) 
   const [updateStatus, setUpdateStatus]     = useState<string>("idle"); // idle | checking | available | downloading | downloaded | error | not-available
   const [newVersion, setNewVersion]         = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState<number>(0);
-  const [updateUrl, setUpdateUrl]           = useState("https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases");
+  const [updateUrl, setUpdateUrl]           = useState("https://github.com/SudhirDevOps1/FlowTrack-Pro/releases");
   const [directDownloadUrl, setDirectDownloadUrl] = useState<string | null>(null);
 
   const isElectron = typeof window !== "undefined" && !!(window as any).electron;
 
   const handleGitHubApiCheck = async () => {
     try {
-      const res = await fetch("https://api.github.com/repos/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest");
+      const res = await fetch("https://api.github.com/repos/SudhirDevOps1/FlowTrack-Pro/releases/latest");
       if (res.ok) {
         const data = await res.json();
         const tag = (data.tag_name || "").replace(/^v/, "");

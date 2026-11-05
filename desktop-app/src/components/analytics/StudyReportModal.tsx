@@ -242,7 +242,7 @@ export function StudyReportModal({ isOpen, onClose }: StudyReportModalProps) {
                 <span>Self-Hosted & Private</span>
               </div>
               <div className="font-mono text-slate-400">
-                https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker
+                https://github.com/SudhirDevOps1/FlowTrack-Pro
               </div>
             </div>
           </div>

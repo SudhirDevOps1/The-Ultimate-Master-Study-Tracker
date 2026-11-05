@@ -25,7 +25,7 @@ export function EnterpriseUpdateModal() {
   const [newVersion, setNewVersion] = useState<string | null>(null);
   const [releaseNotes, setReleaseNotes] = useState<string>("");
   const [releaseName, setReleaseName] = useState<string>("");
-  const [releaseUrl, setReleaseUrl] = useState<string>("https://github.com/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest");
+  const [releaseUrl, setReleaseUrl] = useState<string>("https://github.com/SudhirDevOps1/FlowTrack-Pro/releases/latest");
   const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "available" | "downloading" | "downloaded" | "error" | "not-available">("idle");
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -37,7 +37,7 @@ export function EnterpriseUpdateModal() {
   // Check GitHub API as standard or fallback for full changelog notes
   const fetchGitHubChangelog = useCallback(async (targetTag?: string) => {
     try {
-      const res = await fetch("https://api.github.com/repos/SudhirDevOps1/The-Ultimate-Master-Study-Tracker/releases/latest");
+      const res = await fetch("https://api.github.com/repos/SudhirDevOps1/FlowTrack-Pro/releases/latest");
       if (res.ok) {
         const data = await res.json();
         const tag = (data.tag_name || "").replace(/^v/, "");
